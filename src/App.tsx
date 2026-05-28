@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { ToastProvider } from '@/components/ui/toast'
 import { AppLayout } from '@/components/layout/AppLayout'
+import logoLight from '@/assets/logo.png'
+import logoDark from '@/assets/logo-dark.png'
 
 // Pages
 import { LoginPage } from '@/pages/auth/LoginPage'
@@ -34,11 +36,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
-            <span className="text-white font-bold text-base">SF</span>
-          </div>
-          <div className="h-1 w-32 bg-muted rounded-full overflow-hidden">
+        <div className="flex flex-col items-center gap-5">
+          <img src={logoDark} alt="Souza Imobi" className="h-12 w-auto dark:hidden" />
+          <img src={logoLight} alt="Souza Imobi" className="h-12 w-auto hidden dark:block" />
+          <div className="h-1 w-36 bg-muted rounded-full overflow-hidden">
             <div className="h-1 bg-primary rounded-full animate-[pulse_1.5s_ease-in-out_infinite] w-2/3" />
           </div>
         </div>

@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToastActions } from '@/components/ui/toast'
-import { Eye, EyeOff, Building2 } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
+import logoLight from '@/assets/logo.png'
+import logoDark from '@/assets/logo-dark.png'
 
 const schema = z.object({
   email: z.string().email('Email inválido'),
@@ -47,11 +49,9 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="h-14 w-14 rounded-2xl bg-primary flex items-center justify-center mb-4 shadow-lg">
-            <Building2 className="h-7 w-7 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">Souza Financeiro</h1>
-          <p className="text-sm text-muted-foreground mt-1">Gestão financeira da sua imobiliária</p>
+          <img src={logoDark} alt="Souza Imobi" className="h-16 w-auto mb-4 dark:hidden" />
+          <img src={logoLight} alt="Souza Imobi" className="h-16 w-auto mb-4 hidden dark:block" />
+          <p className="text-sm text-muted-foreground">Gestão financeira da sua imobiliária</p>
         </div>
 
         {/* Form */}

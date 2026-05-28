@@ -5,6 +5,8 @@ import {
   ChevronRight, DollarSign
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import logoLight from '@/assets/logo.png'
+import logoDark from '@/assets/logo-dark.png'
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/' },
@@ -35,14 +37,9 @@ export function Sidebar({ onClose }: SidebarProps) {
   return (
     <div className="flex flex-col h-full bg-card border-r border-border">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-border">
-        <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
-          <span className="text-white font-bold text-sm">SF</span>
-        </div>
-        <div>
-          <p className="font-semibold text-foreground text-sm leading-none">Souza Financeiro</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Imobiliária</p>
-        </div>
+      <div className="flex items-center px-5 py-4 border-b border-border">
+        <img src={logoDark} alt="Souza Imobi" className="h-8 w-auto dark:hidden" />
+        <img src={logoLight} alt="Souza Imobi" className="h-8 w-auto hidden dark:block" />
       </div>
 
       {/* Nav */}
