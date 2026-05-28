@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowUpCircle, CheckCircle2, Clock, AlertCircle, Plus, RefreshCw } from 'lucide-react'
+import { ArrowUpCircle, CheckCircle2, Clock, AlertCircle, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, EXPENSE_CATEGORIES, EXPENSE_SUBCATEGORIES } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,8 @@ import type { Expense, ExpenseCategory, Development } from '@/types'
 
 type FilterType = 'all' | 'pending' | 'paid' | 'overdue'
 
+const NONE_VALUE = '__none__'
+
 const schema = z.object({
   description: z.string().min(2, 'Descrição obrigatória'),
   category: z.string().min(1, 'Categoria obrigatória'),
@@ -30,10 +32,22 @@ const schema = z.object({
   amount: z.coerce.number().min(0.01, 'Valor obrigatório'),
   due_date: z.string().min(1, 'Vencimento obrigatório'),
   recurring: z.boolean().default(false),
-  recurring_day: z.coerce.number().optional(),
+  recurring_months: z.coerce.number().min(1).max(24).default(3),
   notes: z.string().optional(),
 })
 type FormData = z.infer<typeof schema>
+
+// Gera data no mesmo dia do mês, i meses à frente (corrige fim de mês)
+function addMonths(baseDateStr: string, months: number): string {
+  const base = new Date(baseDateStr + 'T00:00:00')
+  const baseDay = base.getDate()
+  const d = new Date(base)
+  d.setDate(1)
+  d.setMonth(d.getMonth() + months)
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  d.setDate(Math.min(baseDay, lastDay))
+  return d.toISOString().split('T')[0]
+}
 
 export function PayablesPage() {
   const toast = useToastActions()
@@ -47,10 +61,11 @@ export function PayablesPage() {
 
   const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
-    defaultValues: { recurring: false, due_date: today },
+    defaultValues: { recurring: false, recurring_months: 3, due_date: today },
   })
   const categoryVal = watch('category') as ExpenseCategory
   const recurringVal = watch('recurring')
+  const recurringMonths = watch('recurring_months') || 3
 
   useEffect(() => {
     load()
@@ -86,21 +101,45 @@ export function PayablesPage() {
 
   async function onSubmit(data: FormData) {
     setSaving(true)
-    const { error } = await supabase.from('expenses').insert({
-      description: data.description,
-      category: data.category,
-      subcategory: data.subcategory || null,
-      development_id: data.development_id || null,
-      amount: data.amount,
-      due_date: data.due_date,
-      paid: false,
-      recurring: data.recurring,
-      recurring_day: data.recurring ? data.recurring_day || null : null,
-      notes: data.notes || null,
-    })
-    setSaving(false)
-    if (error) { toast.error('Erro ao salvar'); return }
-    toast.success('Despesa lançada!')
+    const devId = data.development_id && data.development_id !== NONE_VALUE ? data.development_id : null
+
+    if (data.recurring) {
+      // Gera lançamento do mês atual + N meses futuros
+      const totalMonths = data.recurring_months ?? 3
+      const entries = Array.from({ length: totalMonths + 1 }, (_, i) => ({
+        description: data.description,
+        category: data.category,
+        subcategory: data.subcategory || null,
+        development_id: devId,
+        amount: data.amount,
+        due_date: addMonths(data.due_date, i),
+        paid: false,
+        recurring: true,
+        recurring_day: new Date(data.due_date + 'T00:00:00').getDate(),
+        notes: data.notes || null,
+      }))
+
+      const { error } = await supabase.from('expenses').insert(entries)
+      setSaving(false)
+      if (error) { toast.error('Erro ao salvar', error.message); return }
+      toast.success(`${entries.length} lançamentos criados!`, `Despesa fixa gerada para ${totalMonths} meses`)
+    } else {
+      const { error } = await supabase.from('expenses').insert({
+        description: data.description,
+        category: data.category,
+        subcategory: data.subcategory || null,
+        development_id: devId,
+        amount: data.amount,
+        due_date: data.due_date,
+        paid: false,
+        recurring: false,
+        notes: data.notes || null,
+      })
+      setSaving(false)
+      if (error) { toast.error('Erro ao salvar', error.message); return }
+      toast.success('Despesa lançada!')
+    }
+
     setDialogOpen(false)
     reset()
     load()
@@ -132,7 +171,7 @@ export function PayablesPage() {
         title="Contas a Pagar"
         description="Despesas e custos operacionais"
         action={
-          <Button size="sm" onClick={() => { reset({ recurring: false, due_date: today }); setDialogOpen(true) }}>
+          <Button size="sm" onClick={() => { reset({ recurring: false, recurring_months: 3, due_date: today }); setDialogOpen(true) }}>
             <Plus className="h-4 w-4" /> Nova despesa
           </Button>
         }
@@ -184,11 +223,15 @@ export function PayablesPage() {
                         {exp.paid && <CheckCircle2 className="h-4 w-4" />}
                       </button>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className={`text-sm font-medium ${exp.paid ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                             {exp.description}
                           </p>
-                          {exp.recurring && <RefreshCw className="h-3 w-3 text-muted-foreground" />}
+                          {exp.recurring && (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">
+                              <RefreshCw className="h-2.5 w-2.5" /> Fixa
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {EXPENSE_CATEGORIES[exp.category as ExpenseCategory] ?? exp.category}
@@ -199,7 +242,15 @@ export function PayablesPage() {
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <p className="text-sm font-semibold text-foreground">{formatCurrency(exp.amount)}</p>
-                        {getExpBadge(exp)}
+                        <div className="flex items-center gap-1">
+                          {getExpBadge(exp)}
+                          <button
+                            onClick={() => deleteExpense(exp.id)}
+                            className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -242,7 +293,7 @@ export function PayablesPage() {
                 <div className="space-y-1.5">
                   <Label>Subcategoria</Label>
                   <Controller name="subcategory" control={control} render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select value={field.value || undefined} onValueChange={field.onChange}>
                       <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
                       <SelectContent>
                         {subcategories.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -256,10 +307,13 @@ export function PayablesPage() {
             <div className="space-y-1.5">
               <Label>Empreendimento (opcional)</Label>
               <Controller name="development_id" control={control} render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value || NONE_VALUE}
+                  onValueChange={(v) => field.onChange(v === NONE_VALUE ? '' : v)}
+                >
                   <SelectTrigger><SelectValue placeholder="Vincular a um empreendimento..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value={NONE_VALUE}>— Nenhum —</SelectItem>
                     {developments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -273,19 +327,47 @@ export function PayablesPage() {
                 {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label>Vencimento *</Label>
+                <Label>Primeiro vencimento *</Label>
                 <Input type="date" {...register('due_date')} />
               </div>
             </div>
 
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
-              <Controller name="recurring" control={control} render={({ field }) => (
-                <Switch checked={field.value} onCheckedChange={field.onChange} />
-              )} />
-              <div>
-                <p className="text-sm font-medium text-foreground">Despesa recorrente</p>
-                <p className="text-xs text-muted-foreground">Repetir mensalmente</p>
+            {/* Despesa fixa */}
+            <div className="space-y-3 p-3 rounded-xl bg-muted/50 border border-border">
+              <div className="flex items-center gap-3">
+                <Controller name="recurring" control={control} render={({ field }) => (
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                )} />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Despesa fixa / recorrente</p>
+                  <p className="text-xs text-muted-foreground">Gera lançamentos automáticos para os próximos meses</p>
+                </div>
               </div>
+
+              {recurringVal && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 space-y-1">
+                      <Label className="text-xs">Gerar para quantos meses à frente?</Label>
+                      <Controller name="recurring_months" control={control} render={({ field }) => (
+                        <Select value={String(field.value)} onValueChange={(v) => field.onChange(Number(v))}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 4, 5, 6, 9, 12, 24].map(n => (
+                              <SelectItem key={n} value={String(n)}>{n} {n === 1 ? 'mês' : 'meses'}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )} />
+                    </div>
+                  </div>
+                  <p className="text-xs text-primary font-medium">
+                    Serão criados {recurringMonths + 1} lançamentos no total (mês atual + {recurringMonths} seguintes)
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -295,7 +377,9 @@ export function PayablesPage() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-              <Button type="submit" loading={saving}>Salvar</Button>
+              <Button type="submit" loading={saving}>
+                {recurringVal ? `Criar ${recurringMonths + 1} lançamentos` : 'Salvar'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

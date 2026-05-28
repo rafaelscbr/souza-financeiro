@@ -269,10 +269,10 @@ export function BudgetsPage() {
             <div className="space-y-1.5">
               <Label>Categoria (opcional — para comparar com despesas)</Label>
               <Controller name="category" control={control} render={({ field }) => (
-                <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                <Select value={field.value || '__all__'} onValueChange={(v) => field.onChange(v === '__all__' ? '' : v)}>
                   <SelectTrigger><SelectValue placeholder="Todas as categorias" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas</SelectItem>
+                    <SelectItem value="__all__">— Todas as categorias —</SelectItem>
                     {Object.entries(EXPENSE_CATEGORIES).map(([k, v]) => (
                       <SelectItem key={k} value={k}>{v}</SelectItem>
                     ))}
