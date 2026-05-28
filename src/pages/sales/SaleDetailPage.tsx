@@ -195,7 +195,7 @@ export function SaleDetailPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-primary">{formatCurrency(sb.commission_value)}</p>
-                    <p className="text-xs text-muted-foreground">{formatPercent(sb.commission_pct)}</p>
+                    <p className="text-xs text-muted-foreground">{sb.commission_pct}% da comissão</p>
                   </div>
                 </div>
               ))}

@@ -61,9 +61,9 @@ export function NewSalePage() {
     resolver: zodResolver(schema) as any,
     defaultValues: {
       sale_date: new Date().toISOString().split('T')[0],
-      commission_pct: 6,
+      commission_pct: 5,
       commission_rule: 'upfront',
-      brokers: [{ broker_id: '', role: 'vendedor', commission_pct: 6 }],
+      brokers: [{ broker_id: '', role: 'vendedor', commission_pct: 40 }],
     },
   })
 
@@ -76,6 +76,13 @@ export function NewSalePage() {
   const vgl = watch('vgl') || totalPrice
   const commissionPct = watch('commission_pct') || 0
   const commissionTotal = (vgl * commissionPct) / 100
+  const brokersWatch = watch('brokers')
+
+  // Total que vai para os corretores (soma de cada broker_pct% da commissionTotal)
+  const totalBrokers = (brokersWatch || []).reduce((sum, b) => {
+    return sum + (commissionTotal * (b.commission_pct || 0)) / 100
+  }, 0)
+  const netImob = commissionTotal - totalBrokers
 
   useEffect(() => {
     Promise.all([
@@ -87,16 +94,9 @@ export function NewSalePage() {
     })
   }, [])
 
-  // Auto-set broker commission % when total changes
-  const brokersWatch = watch('brokers')
-  useEffect(() => {
-    if (brokerFields.length === 1) {
-      setValue('brokers.0.commission_pct', commissionPct)
-    }
-  }, [commissionPct])
-
   async function onSubmit(data: FormData) {
     setSaving(true)
+    // Comissão total que a imobiliária recebe (% do VGL)
     const commissionValue = ((data.vgl ?? data.total_price) * data.commission_pct) / 100
 
     // 1. Insert sale
@@ -132,13 +132,14 @@ export function NewSalePage() {
     }
 
     // 2. Insert sale_brokers
+    // commission_pct do corretor = % da comissão total (ex: 40% de R$50k = R$20k)
     const saleId = saleData.id
     const saleBrokers = data.brokers.map(b => ({
       sale_id: saleId,
       broker_id: b.broker_id,
       role: b.role,
       commission_pct: b.commission_pct,
-      commission_value: ((data.vgl ?? data.total_price) * b.commission_pct) / 100,
+      commission_value: (commissionValue * b.commission_pct) / 100,
     }))
 
     await supabase.from('sale_brokers').insert(saleBrokers)
@@ -280,10 +281,24 @@ export function NewSalePage() {
             </div>
 
             {/* Commission preview */}
-            <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
-              <p className="text-xs text-muted-foreground mb-0.5">Comissão total prevista</p>
-              <p className="text-xl font-bold text-primary">{formatCurrency(commissionTotal)}</p>
-              <p className="text-xs text-muted-foreground">{commissionPct}% sobre VGL de {formatCurrency(vgl)}</p>
+            <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-2">
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Comissão da imobiliária</p>
+                <p className="text-xl font-bold text-primary">{formatCurrency(commissionTotal)}</p>
+                <p className="text-xs text-muted-foreground">{commissionPct}% sobre VGL de {formatCurrency(vgl)}</p>
+              </div>
+              {commissionTotal > 0 && (
+                <div className="pt-2 border-t border-primary/20 grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Corretores (previsto)</p>
+                    <p className="text-sm font-semibold text-amber-600">{formatCurrency(totalBrokers)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Líquido imobiliária</p>
+                    <p className="text-sm font-semibold text-green-600">{formatCurrency(netImob)}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -328,54 +343,69 @@ export function NewSalePage() {
                 </Button>
               </div>
 
-              {brokerFields.map((field, idx) => (
-                <div key={field.id} className="flex items-end gap-2 p-3 rounded-xl bg-muted/50">
-                  <div className="flex-1 space-y-1.5">
-                    <Label>Corretor</Label>
-                    <Controller
-                      name={`brokers.${idx}.broker_id`}
-                      control={control}
-                      render={({ field: f }) => (
-                        <Select value={f.value} onValueChange={f.onChange}>
-                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                          <SelectContent>
-                            {brokers.map(b => (
-                              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+              {brokerFields.map((field, idx) => {
+                const brokerPct = brokersWatch?.[idx]?.commission_pct || 0
+                const brokerValue = (commissionTotal * brokerPct) / 100
+                return (
+                  <div key={field.id} className="p-3 rounded-xl bg-muted/50 space-y-2">
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1 space-y-1.5">
+                        <Label>Corretor</Label>
+                        <Controller
+                          name={`brokers.${idx}.broker_id`}
+                          control={control}
+                          render={({ field: f }) => (
+                            <Select value={f.value} onValueChange={f.onChange}>
+                              <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                              <SelectContent>
+                                {brokers.map(b => (
+                                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </div>
+                      <div className="w-28 space-y-1.5">
+                        <Label>Papel</Label>
+                        <Controller
+                          name={`brokers.${idx}.role`}
+                          control={control}
+                          render={({ field: f }) => (
+                            <Select value={f.value} onValueChange={f.onChange}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="vendedor">Vendedor</SelectItem>
+                                <SelectItem value="captador">Captador</SelectItem>
+                                <SelectItem value="coordenador">Coord.</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </div>
+                      <div className="w-24 space-y-1.5">
+                        <Label className="text-xs">% da comissão</Label>
+                        <Input type="number" step="1" {...register(`brokers.${idx}.commission_pct`)} />
+                      </div>
+                      {brokerFields.length > 1 && (
+                        <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeBroker(idx)}
+                          className="text-destructive hover:text-destructive mb-0.5">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       )}
-                    />
+                    </div>
+                    {commissionTotal > 0 && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground pl-0.5">
+                        <Info className="h-3 w-3 shrink-0" />
+                        <span>
+                          {brokerPct}% de {formatCurrency(commissionTotal)} ={' '}
+                          <span className="font-semibold text-primary">{formatCurrency(brokerValue)}</span>
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="w-28 space-y-1.5">
-                    <Label>Papel</Label>
-                    <Controller
-                      name={`brokers.${idx}.role`}
-                      control={control}
-                      render={({ field: f }) => (
-                        <Select value={f.value} onValueChange={f.onChange}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="vendedor">Vendedor</SelectItem>
-                            <SelectItem value="captador">Captador</SelectItem>
-                            <SelectItem value="coordenador">Coord.</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                  </div>
-                  <div className="w-20 space-y-1.5">
-                    <Label>%</Label>
-                    <Input type="number" step="0.1" {...register(`brokers.${idx}.commission_pct`)} />
-                  </div>
-                  {brokerFields.length > 1 && (
-                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeBroker(idx)}
-                      className="text-destructive hover:text-destructive mb-0.5">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
+                )
+              })}
               {errors.brokers && <p className="text-xs text-destructive">{errors.brokers.message}</p>}
             </div>
           </CardContent>
