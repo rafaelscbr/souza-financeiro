@@ -1,207 +1,119 @@
-// ============================================================
-// DATABASE TYPES
-// ============================================================
+export type CompanySlug = 'imobiliaria' | 'escola' | 'assessoria'
+export type TransactionKind = 'income' | 'expense' | 'withdrawal'
+export type TransactionStatus = 'settled' | 'pending'
+export type GoalMetric = 'monthly_revenue' | 'monthly_profit'
+export type ContactType = 'broker' | 'supplier'
 
-export interface Development {
+/** Grupo no DRE (Demonstração de Resultado). */
+export type DreGroup =
+  | 'revenue'
+  | 'cost_of_sale'
+  | 'operating_expense'
+  | 'variable_expense'
+  | 'withdrawal'
+
+export interface Company {
   id: string
+  slug: CompanySlug
   name: string
-  developer_name: string | null
-  location: string | null
-  city: string | null
-  state: string | null
-  total_units: number | null
-  delivery_date: string | null
-  status: 'active' | 'delivered' | 'cancelled'
+  brand_color: string
+  accent_color: string
+  sort_order: number
   created_at: string
-  updated_at: string
 }
 
-export interface Broker {
+export interface Category {
   id: string
+  company_id: string | null
+  kind: TransactionKind
   name: string
-  creci: string | null
-  email: string | null
+  dre_group: DreGroup | null
+  is_recurring_default: boolean
+  sort_order: number
+  created_at: string
+}
+
+export interface Contact {
+  id: string
+  type: ContactType
+  name: string
+  document: string | null
   phone: string | null
-  pix_key: string | null
-  bank_name: string | null
-  bank_agency: string | null
-  bank_account: string | null
-  commission_default_pct: number
-  active: boolean
+  email: string | null
+  notes: string | null
+  is_active: boolean
   created_at: string
 }
 
-export interface Sale {
+export interface Transaction {
   id: string
-  development_id: string | null
-  unit_number: string | null
-  unit_type: string | null
-  floor_number: number | null
-  area_m2: number | null
-  buyer_name: string
-  buyer_cpf: string | null
-  buyer_phone: string | null
-  buyer_email: string | null
-  total_price: number
-  vgl: number | null
-  sale_date: string
-  contract_date: string | null
-  deed_date: string | null
-  status: 'contracted' | 'cancelled' | 'completed'
+  company_id: string
+  kind: TransactionKind
+  category: string
+  dre_group: DreGroup | null
+  description: string
+  amount: number
+  /** Mês de competência / faturamento (YYYY-MM-DD). */
+  competence_date: string
+  /** settled = recebido/pago · pending = a receber/a pagar. */
+  status: TransactionStatus
+  /** Data em que o dinheiro entrou/saiu de fato (quando settled). */
+  settled_date: string | null
+  /** Previsão de recebimento/pagamento (quando pending). */
+  due_date: string | null
+  is_recurring: boolean
+  /** Corretor (repasse) ou fornecedor (despesa). */
+  contact_id: string | null
+  /** Texto livre de contraparte (legado / quando não há contato). */
+  counterparty: string | null
+  /** Valor do imóvel vendido (comissões). */
+  property_value: number | null
+  /** % da comissão sobre a venda. */
   commission_pct: number | null
-  commission_total: number | null
-  commission_rule: 'upfront' | 'installments' | 'custom'
-  notes: string | null
+  /** % do corretor sobre a comissão. */
+  broker_pct: number | null
+  /** Agrupa parcelas + venda/repasse de uma mesma operação. */
+  group_id: string | null
+  installment_index: number | null
+  installment_count: number | null
   created_at: string
   updated_at: string
-  // relations
-  development?: Development
-  sale_brokers?: SaleBroker[]
-  receivables?: Receivable[]
-  commission_installments?: CommissionInstallment[]
 }
 
-export interface SaleBroker {
+export interface Goal {
   id: string
-  sale_id: string
-  broker_id: string
-  role: 'captador' | 'vendedor' | 'coordenador' | null
+  /** null = meta do grupo (consolidada). */
+  company_id: string | null
+  metric: GoalMetric
+  target_value: number
+  /** Primeiro dia do mês de referência (YYYY-MM-DD). */
+  month: string
+  created_at: string
+}
+
+/** Payload de criação/edição de lançamento (sem campos gerados pelo banco). */
+export interface TransactionInput {
+  company_id: string
+  kind: TransactionKind
+  category: string
+  dre_group: DreGroup | null
+  description: string
+  amount: number
+  competence_date: string
+  status: TransactionStatus
+  settled_date: string | null
+  due_date: string | null
+  is_recurring: boolean
+  contact_id: string | null
+  counterparty: string | null
+  property_value: number | null
   commission_pct: number | null
-  commission_value: number | null
-  created_at: string
-  // relations
-  broker?: Broker
+  broker_pct: number | null
+  group_id: string | null
+  installment_index: number | null
+  installment_count: number | null
 }
 
-export interface CommissionInstallment {
-  id: string
-  sale_id: string
-  broker_id: string
-  installment_number: number
-  due_date: string
-  amount: number
-  paid_date: string | null
-  paid: boolean
-  notes: string | null
-  created_at: string
-  // relations
-  broker?: Broker
-  sale?: Sale
-}
+export type ContactInput = Omit<Contact, 'id' | 'created_at'>
 
-export interface Receivable {
-  id: string
-  sale_id: string | null
-  description: string
-  due_date: string
-  amount: number
-  received_date: string | null
-  received: boolean
-  category: 'commission' | 'fee' | 'other'
-  notes: string | null
-  created_at: string
-  // relations
-  sale?: Sale
-}
-
-export interface Expense {
-  id: string
-  description: string
-  category: ExpenseCategory
-  subcategory: string | null
-  development_id: string | null
-  amount: number
-  due_date: string
-  paid_date: string | null
-  paid: boolean
-  recurring: boolean
-  recurring_day: number | null
-  notes: string | null
-  created_at: string
-  updated_at: string
-  // relations
-  development?: Development
-}
-
-export type ExpenseCategory =
-  | 'rent'
-  | 'marketing'
-  | 'salary'
-  | 'technology'
-  | 'legal'
-  | 'accounting'
-  | 'office'
-  | 'other'
-
-export interface Budget {
-  id: string
-  name: string
-  period_start: string
-  period_end: string
-  category: string | null
-  budgeted_amount: number
-  notes: string | null
-  created_at: string
-}
-
-export interface Simulation {
-  id: string
-  name: string
-  period_start: string | null
-  period_end: string | null
-  vgl_amount: number
-  commission_pct: number
-  gross_commission: number
-  net_commission: number
-  total_expenses: number
-  net_profit: number
-  items: SimulationItem[]
-  created_at: string
-}
-
-export interface SimulationItem {
-  label: string
-  amount: number
-  type: 'revenue' | 'expense'
-  category?: string
-}
-
-// ============================================================
-// UI / FORM TYPES
-// ============================================================
-
-export interface KpiCard {
-  label: string
-  value: number
-  format: 'currency' | 'percent' | 'number'
-  change?: number
-  changeLabel?: string
-  icon?: string
-  color?: 'blue' | 'green' | 'red' | 'yellow' | 'purple'
-}
-
-export interface ChartDataPoint {
-  label: string
-  value: number
-  value2?: number
-  value3?: number
-}
-
-export type Period = '7d' | '30d' | '90d' | '12m' | 'ytd' | 'custom'
-
-export const EXPENSE_CATEGORIES: Record<ExpenseCategory, string> = {
-  rent: 'Aluguel',
-  marketing: 'Marketing',
-  salary: 'Salários e Pró-labore',
-  technology: 'Tecnologia',
-  legal: 'Jurídico',
-  accounting: 'Contabilidade',
-  office: 'Escritório',
-  other: 'Outros',
-}
-
-export const EXPENSE_SUBCATEGORIES: Record<string, string[]> = {
-  marketing: ['Meta Ads', 'Google Ads', 'Instagram', 'Portal Imobiliário', 'Impresso', 'Outros'],
-  salary: ['Pró-labore', 'CLT', 'Freelancer', 'Outros'],
-  technology: ['CRM', 'Software', 'Internet', 'Outros'],
-}
+export type HealthStatus = 'healthy' | 'warning' | 'critical'
