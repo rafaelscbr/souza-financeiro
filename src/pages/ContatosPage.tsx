@@ -12,21 +12,29 @@ import { formatCurrency } from '@/lib/format'
 import type { Contact, ContactType } from '@/types'
 
 export function ContatosPage() {
-  const { contacts, transactions } = useAppData()
-  const [type, setType] = useState<ContactType>('broker')
+  const { contacts, transactions, activeCompany } = useAppData()
+  const [type, setType] = useState<ContactType>('supplier')
   const [editing, setEditing] = useState<Contact | null>(null)
   const [creating, setCreating] = useState(false)
 
+  // "Corretor" é conceito exclusivo da Imobiliária. Escola e Assessoria só têm fornecedores.
+  const brokersRelevant = activeCompany === null || activeCompany.slug === 'imobiliaria'
+  const availableTypes: ContactType[] = brokersRelevant ? ['broker', 'supplier'] : ['supplier']
+  const effectiveType = availableTypes.includes(type) ? type : availableTypes[0]
+
   const summaries = useMemo(() => sumByContact(transactions, contacts), [transactions, contacts])
   const summaryOf = (id: string) => summaries.find((s) => s.contact.id === id)
-  const list = contacts.filter((c) => c.type === type)
+  const list = contacts.filter((c) => c.type === effectiveType)
 
   return (
     <div className="animate-fade-in space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-content">Contatos</h1>
-          <p className="text-sm text-content-faint">Corretores e fornecedores</p>
+          <p className="text-sm text-content-faint">
+            {brokersRelevant ? 'Corretores e fornecedores' : 'Fornecedores'}
+            {activeCompany ? ` · ${activeCompany.name}` : ''}
+          </p>
         </div>
         <Button size="sm" onClick={() => setCreating(true)}>
           <Plus className="h-4 w-4" />
@@ -34,22 +42,24 @@ export function ContatosPage() {
         </Button>
       </div>
 
-      <Segmented
-        ariaLabel="Tipo de contato"
-        value={type}
-        onChange={setType}
-        options={[
-          { value: 'broker', label: 'Corretores' },
-          { value: 'supplier', label: 'Fornecedores' },
-        ]}
-      />
+      {availableTypes.length > 1 && (
+        <Segmented
+          ariaLabel="Tipo de contato"
+          value={effectiveType}
+          onChange={setType}
+          options={[
+            { value: 'broker', label: 'Corretores' },
+            { value: 'supplier', label: 'Fornecedores' },
+          ]}
+        />
+      )}
 
       {list.length === 0 ? (
         <EmptyState
-          icon={type === 'broker' ? <Users className="h-8 w-8" /> : <Building2 className="h-8 w-8" />}
-          title={type === 'broker' ? 'Nenhum corretor cadastrado' : 'Nenhum fornecedor cadastrado'}
+          icon={effectiveType === 'broker' ? <Users className="h-8 w-8" /> : <Building2 className="h-8 w-8" />}
+          title={effectiveType === 'broker' ? 'Nenhum corretor cadastrado' : 'Nenhum fornecedor cadastrado'}
           description={
-            type === 'broker'
+            effectiveType === 'broker'
               ? 'Cadastre corretores para acompanhar quanto repassou a cada um.'
               : 'Cadastre fornecedores (Meta Ads, internet, aluguel…) para acompanhar seus gastos.'
           }
@@ -72,7 +82,7 @@ export function ContatosPage() {
                     {formatCurrency(s?.total ?? 0)}
                   </p>
                   <p className="text-[11px] text-content-faint">
-                    {type === 'broker' ? 'repassado' : 'gasto'}
+                    {effectiveType === 'broker' ? 'repassado' : 'gasto'}
                     {s && s.pending > 0 ? ` · ${formatCurrency(s.pending)} pend.` : ''}
                   </p>
                 </div>
@@ -94,7 +104,7 @@ export function ContatosPage() {
 
       {(creating || editing) && (
         <ContactModal
-          type={type}
+          type={effectiveType}
           contact={editing}
           onClose={() => {
             setCreating(false)

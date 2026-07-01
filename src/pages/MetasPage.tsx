@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Check, Layers } from 'lucide-react'
 import { useAppData } from '@/context/AppDataContext'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Field'
+import { CurrencyInput } from '@/components/ui/MoneyInput'
 import { Progress } from '@/components/ui/Progress'
 import { companyDisplayColor } from '@/assets/companies'
 import {
@@ -11,7 +11,7 @@ import {
   findGoal,
   firstDayOfMonth,
 } from '@/lib/finance'
-import { formatCurrency, formatMonthYear, formatPercent, parseAmountInput } from '@/lib/format'
+import { formatCurrency, formatMonthYear, formatPercent } from '@/lib/format'
 import type { Kpis } from '@/lib/finance'
 
 export function MetasPage() {
@@ -62,11 +62,11 @@ function GoalCard({
   const existingRevenue = findGoal(goals, companyId, period, 'monthly_revenue')
   const existingProfit = findGoal(goals, companyId, period, 'monthly_profit')
 
-  const [revenueStr, setRevenueStr] = useState(
-    existingRevenue ? String(existingRevenue.target_value).replace('.', ',') : '',
+  const [revenueTarget, setRevenueTarget] = useState<number | null>(
+    existingRevenue ? existingRevenue.target_value : null,
   )
-  const [profitStr, setProfitStr] = useState(
-    existingProfit ? String(existingProfit.target_value).replace('.', ',') : '',
+  const [profitTarget, setProfitTarget] = useState<number | null>(
+    existingProfit ? existingProfit.target_value : null,
   )
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -77,12 +77,12 @@ function GoalCard({
     setSaving(true)
     setSaved(false)
     try {
-      const rev = parseAmountInput(revenueStr)
+      const rev = revenueTarget ?? 0
       if (rev > 0)
         await saveGoal({ company_id: companyId, metric: 'monthly_revenue', target_value: rev, month })
       else if (existingRevenue) await deleteGoal(existingRevenue.id)
 
-      const prof = parseAmountInput(profitStr)
+      const prof = profitTarget ?? 0
       if (prof > 0)
         await saveGoal({ company_id: companyId, metric: 'monthly_profit', target_value: prof, month })
       else if (existingProfit) await deleteGoal(existingProfit.id)
@@ -93,9 +93,6 @@ function GoalCard({
       setSaving(false)
     }
   }
-
-  const revTarget = parseAmountInput(revenueStr)
-  const profTarget = parseAmountInput(profitStr)
 
   return (
     <div className="rounded-2xl border border-line bg-surface p-5 shadow-card" style={{ borderTop: `3px solid ${color}` }}>
@@ -111,18 +108,16 @@ function GoalCard({
       <div className="space-y-4">
         <GoalInput
           label="Meta de receita"
-          value={revenueStr}
-          onChange={setRevenueStr}
+          value={revenueTarget}
+          onChange={setRevenueTarget}
           current={kpis.revenue}
-          target={revTarget}
           color={color}
         />
         <GoalInput
           label="Meta de lucro"
-          value={profitStr}
-          onChange={setProfitStr}
+          value={profitTarget}
+          onChange={setProfitTarget}
           current={kpis.netProfit}
-          target={profTarget}
           color={color}
         />
       </div>
@@ -152,16 +147,15 @@ function GoalInput({
   value,
   onChange,
   current,
-  target,
   color,
 }: {
   label: string
-  value: string
-  onChange: (v: string) => void
+  value: number | null
+  onChange: (v: number | null) => void
   current: number
-  target: number
   color: string
 }) {
+  const target = value ?? 0
   const pct = target > 0 ? current / target : 0
   return (
     <div>
@@ -173,18 +167,7 @@ function GoalInput({
           </span>
         )}
       </div>
-      <div className="relative">
-        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-content-faint">
-          R$
-        </span>
-        <Input
-          inputMode="decimal"
-          className="pl-9 tnum"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="0,00"
-        />
-      </div>
+      <CurrencyInput value={value} onChange={onChange} />
       {target > 0 && (
         <div className="mt-2">
           <Progress value={pct} color={color} />
