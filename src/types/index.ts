@@ -14,11 +14,20 @@ export type DreGroup =
 
 export interface Company {
   id: string
-  slug: CompanySlug
+  slug: string
   name: string
   brand_color: string
   accent_color: string
   sort_order: number
+  /** true = ledger pessoal do dono (isolado do consolidado das empresas). */
+  is_personal: boolean
+  created_at: string
+}
+
+export interface PersonalBudget {
+  id: string
+  category: string
+  monthly_limit: number
   created_at: string
 }
 

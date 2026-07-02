@@ -14,6 +14,7 @@ import type {
   Contact,
   ContactInput,
   Goal,
+  PersonalBudget,
   Transaction,
   TransactionInput,
 } from '@/types'
@@ -21,10 +22,18 @@ import type {
 interface AppDataValue {
   // Dados
   companies: Company[]
+  /** Empresas de negócio (exclui a Pessoal). */
+  businessCompanies: Company[]
+  personalCompany: Company | null
   categories: Category[]
   contacts: Contact[]
   transactions: Transaction[]
+  /** Transações das empresas de negócio (exclui a Pessoal). */
+  businessTransactions: Transaction[]
+  /** Transações do ledger Pessoal. */
+  personalTransactions: Transaction[]
   goals: Goal[]
+  personalBudgets: PersonalBudget[]
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
@@ -56,6 +65,10 @@ interface AppDataValue {
   createContact: (input: ContactInput) => Promise<Contact>
   updateContact: (id: string, input: Partial<ContactInput>) => Promise<void>
   deleteContact: (id: string) => Promise<void>
+
+  // Mutações — orçamento pessoal
+  savePersonalBudget: (category: string, monthlyLimit: number) => Promise<void>
+  deletePersonalBudget: (category: string) => Promise<void>
 }
 
 const AppDataContext = createContext<AppDataValue | null>(null)
@@ -80,6 +93,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
+  const [personalBudgets, setPersonalBudgets] = useState<PersonalBudget[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -88,16 +102,22 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     setError(null)
-    const [companiesRes, categoriesRes, contactsRes, txRes, goalsRes] = await Promise.all([
+    const [companiesRes, categoriesRes, contactsRes, txRes, goalsRes, budgetsRes] = await Promise.all([
       supabase.from('companies').select('*').order('sort_order'),
       supabase.from('categories').select('*').order('sort_order'),
       supabase.from('contacts').select('*').order('name'),
       supabase.from('transactions').select('*').order('competence_date', { ascending: false }),
       supabase.from('goals').select('*'),
+      supabase.from('personal_budgets').select('*'),
     ])
 
     const firstError =
-      companiesRes.error || categoriesRes.error || contactsRes.error || txRes.error || goalsRes.error
+      companiesRes.error ||
+      categoriesRes.error ||
+      contactsRes.error ||
+      txRes.error ||
+      goalsRes.error ||
+      budgetsRes.error
     if (firstError) {
       setError('Não foi possível carregar os dados. Verifique sua conexão.')
       return
@@ -109,6 +129,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setTransactions(((txRes.data as Transaction[]) ?? []).map(coerceTransaction))
     setGoals(
       ((goalsRes.data as Goal[]) ?? []).map((g) => ({ ...g, target_value: Number(g.target_value) })),
+    )
+    setPersonalBudgets(
+      ((budgetsRes.data as PersonalBudget[]) ?? []).map((b) => ({
+        ...b,
+        monthly_limit: Number(b.monthly_limit),
+      })),
     )
   }, [])
 
@@ -230,13 +256,53 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [companies, scopeCompanyId],
   )
 
+  // Isolamento pessoal × negócio
+  const personalCompany = useMemo(() => companies.find((c) => c.is_personal) ?? null, [companies])
+  const businessCompanies = useMemo(() => companies.filter((c) => !c.is_personal), [companies])
+  const businessTransactions = useMemo(
+    () => (personalCompany ? transactions.filter((t) => t.company_id !== personalCompany.id) : transactions),
+    [transactions, personalCompany],
+  )
+  const personalTransactions = useMemo(
+    () => (personalCompany ? transactions.filter((t) => t.company_id === personalCompany.id) : []),
+    [transactions, personalCompany],
+  )
+
+  const savePersonalBudget = useCallback(
+    async (category: string, monthlyLimit: number) => {
+      await supabase.from('personal_budgets').delete().eq('category', category)
+      if (monthlyLimit > 0) {
+        const { error } = await supabase
+          .from('personal_budgets')
+          .insert({ category, monthly_limit: monthlyLimit })
+        if (error) throw new Error(error.message)
+      }
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const deletePersonalBudget = useCallback(
+    async (category: string) => {
+      const { error } = await supabase.from('personal_budgets').delete().eq('category', category)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
   const value = useMemo<AppDataValue>(
     () => ({
       companies,
+      businessCompanies,
+      personalCompany,
       categories,
       contacts,
       transactions,
+      businessTransactions,
+      personalTransactions,
       goals,
+      personalBudgets,
       loading,
       error,
       refresh,
@@ -258,13 +324,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       createContact,
       updateContact,
       deleteContact,
+      savePersonalBudget,
+      deletePersonalBudget,
     }),
     [
       companies,
+      businessCompanies,
+      personalCompany,
       categories,
       contacts,
       transactions,
+      businessTransactions,
+      personalTransactions,
       goals,
+      personalBudgets,
       loading,
       error,
       refresh,
@@ -285,6 +358,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       createContact,
       updateContact,
       deleteContact,
+      savePersonalBudget,
+      deletePersonalBudget,
     ],
   )
 

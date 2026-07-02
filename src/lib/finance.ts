@@ -277,6 +277,61 @@ export function realizedCash(txs: Transaction[], uptoDate?: string): number {
 }
 
 // ---------------------------------------------------------------------------
+// Finanças pessoais
+// ---------------------------------------------------------------------------
+
+export interface PersonalSummary {
+  /** Retiradas das empresas (pró-labore + distribuição) no mês → entrada pessoal. */
+  inflowFromBusiness: number
+  /** Receitas pessoais lançadas manualmente. */
+  inflowManual: number
+  inflow: number
+  outflow: number
+  surplus: number
+  invested: number
+  byCategory: { name: string; value: number }[]
+}
+
+const INVEST_CATEGORY = 'Investimentos/Poupança'
+
+/**
+ * Resumo pessoal do mês. `personalTx` = lançamentos do ledger Pessoal;
+ * `businessTx` = transações das empresas (usadas só para captar as retiradas).
+ */
+export function personalSummary(
+  personalTx: Transaction[],
+  businessTx: Transaction[],
+  date: Date,
+): PersonalSummary {
+  let inflowManual = 0
+  let outflow = 0
+  let invested = 0
+  const catMap = new Map<string, number>()
+
+  for (const t of personalTx) {
+    if (!inMonth(t, date)) continue
+    if (t.kind === 'income') {
+      inflowManual += t.amount
+    } else if (t.kind === 'expense') {
+      outflow += t.amount
+      catMap.set(t.category, (catMap.get(t.category) ?? 0) + t.amount)
+      if (t.category === INVEST_CATEGORY) invested += t.amount
+    }
+  }
+
+  const inflowFromBusiness = businessTx
+    .filter((t) => dreGroupOf(t) === 'withdrawal' && inMonth(t, date))
+    .reduce((s, t) => s + t.amount, 0)
+
+  const inflow = inflowFromBusiness + inflowManual
+  const byCategory = [...catMap.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+
+  return { inflowFromBusiness, inflowManual, inflow, outflow, surplus: inflow - outflow, invested, byCategory }
+}
+
+// ---------------------------------------------------------------------------
 // Relatórios por contato (corretor / fornecedor)
 // ---------------------------------------------------------------------------
 

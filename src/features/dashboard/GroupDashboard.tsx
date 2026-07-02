@@ -15,7 +15,7 @@ import { buildAlerts, findGoal, lastNMonths, monthlySeries } from '@/lib/finance
 import { formatCurrency, formatMonthShort, formatPercent } from '@/lib/format'
 
 export function GroupDashboard() {
-  const { transactions, goals, period, setScope } = useAppData()
+  const { businessTransactions, goals, period, setScope } = useAppData()
   const { openNew } = useComposer()
   const groupKpis = useGroupKpis(period)
   const perCompany = useCompanyFinancials(period)
@@ -33,11 +33,11 @@ export function GroupDashboard() {
 
   const trendData = useMemo(
     () =>
-      monthlySeries(transactions, null, lastNMonths(period, 6)).map((p) => ({
+      monthlySeries(businessTransactions, null, lastNMonths(period, 6)).map((p) => ({
         label: formatMonthShort(p.date),
         lucro: p.profit,
       })),
-    [transactions, period],
+    [businessTransactions, period],
   )
 
   const alerts = useMemo(
@@ -55,7 +55,7 @@ export function GroupDashboard() {
   )
 
   const groupRevenueGoal = findGoal(goals, null, period, 'monthly_revenue')?.target_value
-  const hasAnyData = transactions.length > 0
+  const hasAnyData = businessTransactions.length > 0
   const monthHasData = groupKpis.count > 0
 
   if (!hasAnyData) {

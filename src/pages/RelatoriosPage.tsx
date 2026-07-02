@@ -23,7 +23,14 @@ type RangeKey = 'mes' | '3m' | '6m' | '12m'
 const RANGE_MONTHS: Record<RangeKey, number> = { mes: 1, '3m': 3, '6m': 6, '12m': 12 }
 
 export function RelatoriosPage() {
-  const { companies, transactions, contacts, scopeCompanyId, activeCompany, period } = useAppData()
+  const {
+    businessCompanies: companies,
+    businessTransactions: transactions,
+    contacts,
+    scopeCompanyId,
+    activeCompany,
+    period,
+  } = useAppData()
   const [range, setRange] = useState<RangeKey>('mes')
 
   const monthKeys = useMemo(

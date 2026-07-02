@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 
 /** Pílulas de escopo: Grupo + cada empresa. Dirige toda a tela. */
 export function ScopeSwitcher() {
-  const { companies, scopeCompanyId, setScope } = useAppData()
+  const { businessCompanies, scopeCompanyId, setScope } = useAppData()
 
   return (
     <div
@@ -22,7 +22,7 @@ export function ScopeSwitcher() {
         Grupo
       </Pill>
 
-      {companies.map((c) => {
+      {businessCompanies.map((c) => {
         const color = companyDisplayColor(c.slug, c.brand_color, c.accent_color)
         return (
           <Pill

@@ -15,7 +15,8 @@ type TypeFilter = 'all' | 'revenue' | 'cost_of_sale' | 'expense' | 'withdrawal'
 type RangeFilter = 'mes' | '3m' | '12m' | 'tudo'
 
 export function LancamentosPage() {
-  const { transactions, companies, contacts, period } = useAppData()
+  // Lançamentos de negócio (o ledger Pessoal tem sua própria tela)
+  const { businessTransactions: transactions, businessCompanies: companies, contacts, period } = useAppData()
   const { openNew } = useComposer()
 
   const [search, setSearch] = useState('')

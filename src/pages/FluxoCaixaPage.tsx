@@ -21,7 +21,14 @@ import { formatCurrency, formatDate, formatMonthYear, toDateOnly } from '@/lib/f
 import { cn } from '@/lib/utils'
 
 export function FluxoCaixaPage() {
-  const { transactions, contacts, companies, scopeCompanyId, activeCompany, period } = useAppData()
+  const {
+    businessTransactions: transactions,
+    contacts,
+    businessCompanies: companies,
+    scopeCompanyId,
+    activeCompany,
+    period,
+  } = useAppData()
   const today = toDateOnly(new Date())
 
   const scoped = useMemo(

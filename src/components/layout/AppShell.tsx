@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   Receipt,
@@ -6,6 +6,7 @@ import {
   PieChart,
   Target,
   Users,
+  Wallet,
   Plus,
   LogOut,
 } from 'lucide-react'
@@ -26,6 +27,8 @@ const NAV = [
   { to: '/contatos', label: 'Contatos', icon: Users, end: false },
   { to: '/metas', label: 'Metas', icon: Target, end: false },
 ]
+// Área pessoal (separada do bloco de negócios)
+const PERSONAL_NAV = { to: '/pessoal', label: 'Pessoal', icon: Wallet, end: false }
 // Itens que também aparecem na barra inferior do mobile
 const MOBILE_NAV = NAV.filter((n) => n.to !== '/contatos')
 
@@ -40,6 +43,7 @@ export function AppShell() {
 function ShellLayout() {
   const { signOut } = useAuth()
   const { openNew } = useComposer()
+  const isPersonal = useLocation().pathname === '/pessoal'
 
   return (
     <div className="min-h-screen bg-base lg:flex">
@@ -59,6 +63,8 @@ function ShellLayout() {
           {NAV.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
+          <div className="my-2 border-t border-line" />
+          <NavItem {...PERSONAL_NAV} />
         </nav>
 
         <button
@@ -82,6 +88,18 @@ function ShellLayout() {
             </div>
             <div className="flex items-center gap-1">
               <NavLink
+                to="/pessoal"
+                className={({ isActive }) =>
+                  cn(
+                    'rounded-lg p-2 transition-colors',
+                    isActive ? 'text-emerald' : 'text-content-muted hover:bg-surface-2',
+                  )
+                }
+                aria-label="Pessoal"
+              >
+                <Wallet className="h-5 w-5" />
+              </NavLink>
+              <NavLink
                 to="/contatos"
                 className={({ isActive }) =>
                   cn(
@@ -104,13 +122,22 @@ function ShellLayout() {
           </div>
 
           <div className="flex flex-col gap-2 px-4 pb-3 lg:flex-row lg:items-center lg:justify-between lg:py-3">
-            <ScopeSwitcher />
+            {isPersonal ? (
+              <div className="flex items-center gap-2 text-sm font-semibold text-content">
+                <Wallet className="h-4 w-4 text-content-muted" />
+                Finanças pessoais
+              </div>
+            ) : (
+              <ScopeSwitcher />
+            )}
             <div className="flex items-center justify-between gap-2">
               <PeriodNav />
-              <Button size="sm" className="hidden lg:inline-flex" onClick={() => openNew()}>
-                <Plus className="h-4 w-4" />
-                Novo
-              </Button>
+              {!isPersonal && (
+                <Button size="sm" className="hidden lg:inline-flex" onClick={() => openNew()}>
+                  <Plus className="h-4 w-4" />
+                  Novo
+                </Button>
+              )}
             </div>
           </div>
         </header>
@@ -132,14 +159,16 @@ function ShellLayout() {
         ))}
       </nav>
 
-      {/* FAB mobile */}
-      <button
-        onClick={() => openNew()}
-        className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-emerald text-white shadow-pop transition-transform active:scale-95 lg:hidden"
-        aria-label="Novo lançamento"
-      >
-        <Plus className="h-6 w-6" strokeWidth={2.5} />
-      </button>
+      {/* FAB mobile (só no lado empresarial; Pessoal tem seu próprio botão) */}
+      {!isPersonal && (
+        <button
+          onClick={() => openNew()}
+          className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-emerald text-white shadow-pop transition-transform active:scale-95 lg:hidden"
+          aria-label="Novo lançamento"
+        >
+          <Plus className="h-6 w-6" strokeWidth={2.5} />
+        </button>
+      )}
     </div>
   )
 }

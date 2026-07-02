@@ -20,11 +20,11 @@ export interface CompanyFinancials {
 
 /** KPIs + saúde + metas de cada empresa para o mês informado. */
 export function useCompanyFinancials(date: Date): CompanyFinancials[] {
-  const { companies, transactions, goals } = useAppData()
+  const { businessCompanies, businessTransactions, goals } = useAppData()
   return useMemo(
     () =>
-      companies.map((company) => {
-        const kpis = computeKpis(filterTransactions(transactions, company.id, date))
+      businessCompanies.map((company) => {
+        const kpis = computeKpis(filterTransactions(businessTransactions, company.id, date))
         const revenueGoal = findGoal(goals, company.id, date, 'monthly_revenue')?.target_value
         const profitGoal = findGoal(goals, company.id, date, 'monthly_profit')?.target_value
         const goalMet = revenueGoal == null || kpis.revenue >= revenueGoal
@@ -37,12 +37,15 @@ export function useCompanyFinancials(date: Date): CompanyFinancials[] {
           goalMet,
         }
       }),
-    [companies, transactions, goals, date],
+    [businessCompanies, businessTransactions, goals, date],
   )
 }
 
-/** KPIs consolidados do grupo (todas as empresas) para o mês informado. */
+/** KPIs consolidados do grupo (só empresas de negócio) para o mês informado. */
 export function useGroupKpis(date: Date): Kpis {
-  const { transactions } = useAppData()
-  return useMemo(() => computeKpis(filterTransactions(transactions, null, date)), [transactions, date])
+  const { businessTransactions } = useAppData()
+  return useMemo(
+    () => computeKpis(filterTransactions(businessTransactions, null, date)),
+    [businessTransactions, date],
+  )
 }
