@@ -8,6 +8,7 @@ import {
   Flag,
   Calculator,
   Landmark,
+  Handshake,
   BookOpen,
   Users,
   Wallet,
@@ -29,6 +30,7 @@ import { cn } from '@/lib/utils'
 const NAV = [
   { to: '/', label: 'Painel', icon: LayoutDashboard, end: true },
   { to: '/lancamentos', label: 'Lançamentos', icon: Receipt, end: false },
+  { to: '/vendas', label: 'Vendas', icon: Handshake, end: false },
   { to: '/contas', label: 'Contas', icon: Landmark, end: false },
   { to: '/fluxo', label: 'A receber e a pagar', icon: ArrowRightLeft, end: false },
   { to: '/relatorios', label: 'Relatórios', icon: PieChart, end: false },
@@ -42,7 +44,7 @@ const PERSONAL_NAV = { to: '/pessoal', label: 'Pessoal', icon: Wallet, end: fals
 const HELP_NAV = { to: '/ajuda', label: 'Ajuda', icon: BookOpen, end: false }
 // Barra inferior do mobile: só os cinco de uso diário — mais que isso
 // vira alvo pequeno demais para o polegar.
-const MOBILE_PATHS = ['/', '/lancamentos', '/contas', '/fluxo', '/relatorios']
+const MOBILE_PATHS = ['/', '/lancamentos', '/vendas', '/contas', '/relatorios']
 const MOBILE_NAV = MOBILE_PATHS.map((p) => NAV.find((n) => n.to === p)!).filter(Boolean)
 
 export function AppShell() {

@@ -24,6 +24,9 @@ const ContatosPage = lazy(() =>
 )
 const MetasPage = lazy(() => import('@/pages/MetasPage').then((m) => ({ default: m.MetasPage })))
 const PessoalPage = lazy(() => import('@/pages/PessoalPage').then((m) => ({ default: m.PessoalPage })))
+const VendasPage = lazy(() =>
+  import('@/pages/VendasPage').then((m) => ({ default: m.VendasPage })),
+)
 const SimuladorPage = lazy(() =>
   import('@/pages/SimuladorPage').then((m) => ({ default: m.SimuladorPage })),
 )
@@ -54,6 +57,7 @@ function AuthGate() {
           <Route element={<AppShell />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/lancamentos" element={<LancamentosPage />} />
+            <Route path="/vendas" element={<VendasPage />} />
             <Route path="/contas" element={<ContasPage />} />
             <Route path="/fluxo" element={<FluxoCaixaPage />} />
             <Route path="/relatorios" element={<RelatoriosPage />} />
