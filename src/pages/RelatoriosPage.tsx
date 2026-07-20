@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/Button'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TaxSettings } from '@/features/settings/TaxSettings'
+import { CycleIndicators } from '@/features/reports/CycleIndicators'
+import { DreComparative } from '@/features/reports/DreComparative'
 import { companyDisplayColor, COMPANY_SHORT_NAME } from '@/assets/companies'
 import {
   computeKpis,
@@ -106,6 +108,10 @@ export function RelatoriosPage() {
       <Section title={`DRE — ${scopeName}`} subtitle="Demonstração de Resultado do período">
         <DreTable kpis={dre} />
       </Section>
+
+      <CycleIndicators scopedTx={scopedTx} />
+
+      <DreComparative />
 
       {/* Comparativo entre empresas */}
       <Section
