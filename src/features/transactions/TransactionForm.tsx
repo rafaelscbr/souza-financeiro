@@ -28,7 +28,8 @@ interface Props {
 }
 
 export function TransactionForm({ editing, prefill, submitting, error, onSubmit, onCancel }: Props) {
-  const { companies, categories, scopeCompanyId, accounts, treasuryReady } = useAppData()
+  const { companies, categories, scopeCompanyId, accounts, treasuryReady, costCenters, costCentersReady } =
+    useAppData()
   const base = editing ?? prefill
 
   const [kind, setKind] = useState<TransactionKind>(base?.kind ?? 'income')
@@ -56,6 +57,12 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
   const [accountId, setAccountId] = useState<string>(editing?.account_id ?? '')
   // Apropriação: despesa anual paga de uma vez, mas que "pertence" a N meses.
   const [spreadMonths, setSpreadMonths] = useState(1)
+  const [costCenterId, setCostCenterId] = useState<string>(editing?.cost_center_id ?? '')
+
+  const availableCostCenters = useMemo(
+    () => costCenters.filter((c) => c.is_active && c.company_id === companyId),
+    [costCenters, companyId],
+  )
 
   const availableAccounts = useMemo(
     () => accounts.filter((a) => a.is_active && a.company_id === companyId),
@@ -170,6 +177,7 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
           installment_index: i + 1,
           installment_count: spreadMonths,
           account_id: accountId || null,
+          cost_center_id: costCenterId || null,
         })
       }
 
@@ -210,6 +218,7 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
         installment_count: count > 1 ? count : null,
         // Conta só faz sentido no que já se moveu; pendente recebe na baixa.
         account_id: settled || kind === 'withdrawal' ? accountId || null : null,
+        cost_center_id: costCenterId || null,
       })
 
       // repasse ao corretor segue cada parcela (custo direto)
@@ -218,9 +227,9 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
         rows.push({
           company_id: companyId,
           kind: 'expense',
-          category: 'Repasse a Corretores',
+          category: 'Comissões de Corretores',
           dre_group: 'cost_of_sale',
-          description: description ? `Repasse — ${description}` : 'Repasse de comissão',
+          description: description ? `Comissão do corretor — ${description}` : 'Comissão do corretor',
           amount: repasse,
           competence_date: competenceDate,
           status: 'pending',
@@ -236,6 +245,7 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
           installment_index: count > 1 ? i + 1 : null,
           installment_count: count > 1 ? count : null,
           account_id: null,
+          cost_center_id: costCenterId || null,
         })
       }
     })
@@ -305,7 +315,7 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
               <PercentInput id="tx-broker-pct" value={brokerPct} onChange={setBrokerPct} />
             </FormField>
             <div className="flex flex-col justify-end">
-              <span className="mb-1.5 text-sm font-medium text-content-muted">Repasse</span>
+              <span className="mb-1.5 text-sm font-medium text-content-muted">Custo do corretor</span>
               <div className="flex h-11 items-center rounded-xl bg-white px-3.5">
                 <span className="tnum font-bold text-expense">− {formatCurrency(repasseTotal)}</span>
               </div>
@@ -393,6 +403,28 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
             <Input id="tx-first" type="date" value={firstDate} onChange={(e) => setFirstDate(e.target.value)} />
           </FormField>
         </div>
+      )}
+
+      {/* Empreendimento (centro de custo) */}
+      {costCentersReady && availableCostCenters.length > 0 && (
+        <FormField
+          label="Empreendimento"
+          htmlFor="tx-cost-center"
+          hint="Marque para saber depois qual produto realmente dá lucro"
+        >
+          <Select
+            id="tx-cost-center"
+            value={costCenterId}
+            onChange={(e) => setCostCenterId(e.target.value)}
+          >
+            <option value="">Nenhum</option>
+            {availableCostCenters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </FormField>
       )}
 
       {/* Apropriação de despesa que cobre vários meses */}

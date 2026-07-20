@@ -664,7 +664,7 @@ export function buildAlerts(entries: CompanyKpiEntry[]): Alert[] {
       alerts.push({
         id: `${e.companyId}-repasse`,
         level: 'warning',
-        title: `Repasses altos em ${e.companyName}`,
+        title: `Comissões altas em ${e.companyName}`,
         description: `Corretores consomem ${((e.kpis.costOfSale / e.kpis.revenue) * 100).toFixed(0)}% da comissão (acima de 60%).`,
         companyId: e.companyId,
       })

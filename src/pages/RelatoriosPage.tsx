@@ -9,6 +9,8 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { TaxSettings } from '@/features/settings/TaxSettings'
 import { CycleIndicators } from '@/features/reports/CycleIndicators'
 import { DreComparative } from '@/features/reports/DreComparative'
+import { CostCenterReport } from '@/features/reports/CostCenterReport'
+import { PeriodClosingPanel } from '@/features/reports/PeriodClosing'
 import { companyDisplayColor, COMPANY_SHORT_NAME } from '@/assets/companies'
 import {
   computeKpis,
@@ -113,6 +115,8 @@ export function RelatoriosPage() {
 
       <DreComparative />
 
+      <CostCenterReport scopedTx={scopedTx} />
+
       {/* Comparativo entre empresas */}
       <Section
         title="Comparativo entre empresas"
@@ -166,7 +170,7 @@ export function RelatoriosPage() {
 
       {/* Por contato */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Section title="Repasses por corretor" subtitle="Quanto foi/será pago a cada corretor">
+        <Section title="Comissões por corretor" subtitle="Quanto foi/será pago a cada corretor">
           {brokerRep.length === 0 ? (
             <EmptyState icon={<Users className="h-7 w-7" />} title="Sem repasses no período" />
           ) : (
@@ -181,6 +185,8 @@ export function RelatoriosPage() {
           )}
         </Section>
       </div>
+
+      <PeriodClosingPanel />
 
       <TaxSettings />
     </div>

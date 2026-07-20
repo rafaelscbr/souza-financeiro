@@ -79,8 +79,10 @@ export function FluxoCaixaPage() {
   return (
     <div className="animate-fade-in space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-content">Fluxo de Caixa</h1>
-        <p className="text-sm text-content-faint">{scopeName} · caixa realizado e futuro</p>
+        <h1 className="text-xl font-bold text-content">A receber e a pagar</h1>
+        <p className="text-sm text-content-faint">
+          {scopeName} · compromissos em aberto e projeção de caixa
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

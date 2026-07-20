@@ -205,7 +205,7 @@ export function LancamentosPage() {
           <Select value={type} onChange={(e) => setType(e.target.value as TypeFilter)} aria-label="Tipo">
             <option value="all">Todos os tipos</option>
             <option value="revenue">Receitas</option>
-            <option value="cost_of_sale">Repasses (custo)</option>
+            <option value="cost_of_sale">Comissões de corretores</option>
             <option value="expense">Despesas</option>
             <option value="withdrawal">Retiradas</option>
           </Select>

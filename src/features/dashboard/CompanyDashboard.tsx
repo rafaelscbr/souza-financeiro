@@ -173,7 +173,7 @@ export function CompanyDashboard({ company }: { company: Company }) {
               value={formatCurrency(kpis.totalExpense)}
               tone="negative"
               icon={<TrendingDown className="h-4 w-4" />}
-              hint={kpis.costOfSale > 0 ? `Repasses: ${formatCurrency(kpis.costOfSale)}` : undefined}
+              hint={kpis.costOfSale > 0 ? `Comissões: ${formatCurrency(kpis.costOfSale)}` : undefined}
             />
             <KpiCard
               label={regime === 'cash' ? 'Sobrou no mês' : 'Lucro líquido'}

@@ -13,7 +13,9 @@ import {
   Wallet,
   Plus,
   LogOut,
+  Lock,
 } from 'lucide-react'
+import { formatMonthYear } from '@/lib/format'
 import { useAuth } from '@/context/AuthContext'
 import { useAppData } from '@/context/AppDataContext'
 import { TransactionComposerProvider, useComposer } from '@/features/transactions/TransactionComposer'
@@ -28,11 +30,11 @@ const NAV = [
   { to: '/', label: 'Painel', icon: LayoutDashboard, end: true },
   { to: '/lancamentos', label: 'Lançamentos', icon: Receipt, end: false },
   { to: '/contas', label: 'Contas', icon: Landmark, end: false },
-  { to: '/fluxo', label: 'Fluxo de Caixa', icon: ArrowRightLeft, end: false },
+  { to: '/fluxo', label: 'A receber e a pagar', icon: ArrowRightLeft, end: false },
   { to: '/relatorios', label: 'Relatórios', icon: PieChart, end: false },
   { to: '/simulador', label: 'Simulador', icon: Calculator, end: false },
   { to: '/objetivos', label: 'Objetivos', icon: Target, end: false },
-  { to: '/metas', label: 'Metas do mês', icon: Flag, end: false },
+  { to: '/metas', label: 'Orçamento', icon: Flag, end: false },
   { to: '/contatos', label: 'Contatos', icon: Users, end: false },
 ]
 // Área pessoal e ajuda (separadas do bloco de negócios)
@@ -169,6 +171,7 @@ function ShellLayout() {
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 pb-28 lg:pb-8">
           <DataBoundary>
+            <ClosedPeriodBanner />
             <Outlet />
           </DataBoundary>
         </main>
@@ -194,6 +197,23 @@ function ShellLayout() {
           <Plus className="h-6 w-6" strokeWidth={2.5} />
         </button>
       )}
+    </div>
+  )
+}
+
+/** Aviso de mês fechado — editar um período conferido merece atenção. */
+function ClosedPeriodBanner() {
+  const { isPeriodClosed, period } = useAppData()
+  if (!isPeriodClosed) return null
+
+  return (
+    <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-line bg-surface-2 px-4 py-3">
+      <Lock className="mt-0.5 h-4 w-4 shrink-0 text-content-faint" />
+      <p className="text-sm text-content-muted">
+        <strong className="text-content">{formatMonthYear(period)} está fechado.</strong> Os números
+        deste mês já foram conferidos. Alterar agora muda relatórios que você pode ter enviado —
+        reabra em Relatórios se realmente precisar.
+      </p>
     </div>
   )
 }

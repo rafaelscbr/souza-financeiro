@@ -103,6 +103,8 @@ export interface Transaction {
   installment_count: number | null
   /** Conta onde o dinheiro entrou/saiu. `null` = ainda não classificado. */
   account_id: string | null
+  /** Empreendimento a que o lançamento pertence. */
+  cost_center_id: string | null
   created_at: string
   updated_at: string
 }
@@ -140,6 +142,32 @@ export interface TransactionInput {
   installment_index: number | null
   installment_count: number | null
   account_id: string | null
+  cost_center_id?: string | null
+}
+
+/** Empreendimento ou projeto — permite apurar resultado por produto. */
+export interface CostCenter {
+  id: string
+  company_id: string
+  name: string
+  /** Construtora, incorporadora ou parceiro. */
+  developer: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export type CostCenterInput = Omit<CostCenter, 'id' | 'created_at'>
+
+/** Mês travado para edição, com rastro de quando foi fechado. */
+export interface PeriodClosing {
+  id: string
+  /** `null` = fechamento do grupo inteiro. */
+  company_id: string | null
+  /** Primeiro dia do mês fechado (YYYY-MM-01). */
+  month: string
+  closed_at: string
+  closed_by: string | null
+  notes: string | null
 }
 
 export type AccountType = 'checking' | 'savings' | 'cash' | 'investment' | 'credit_card'

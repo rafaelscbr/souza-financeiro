@@ -15,6 +15,9 @@ import type {
   Company,
   Contact,
   ContactInput,
+  CostCenter,
+  CostCenterInput,
+  PeriodClosing,
   Goal,
   Objective,
   ObjectiveInput,
@@ -45,10 +48,16 @@ interface AppDataValue {
   objectives: Objective[]
   accounts: Account[]
   transfers: Transfer[]
+  costCenters: CostCenter[]
+  periodClosings: PeriodClosing[]
+  /** `true` quando o mês em foco já foi fechado para o escopo atual. */
+  isPeriodClosed: boolean
   /** `false` enquanto a migração 001 não foi aplicada no Supabase. */
   migrationApplied: boolean
   /** `false` enquanto a migração 002 (tesouraria) não foi aplicada. */
   treasuryReady: boolean
+  /** `false` enquanto a migração 003 (centro de custo e fechamento) não foi aplicada. */
+  costCentersReady: boolean
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
@@ -95,6 +104,13 @@ interface AppDataValue {
   deleteAccount: (id: string) => Promise<void>
   createTransfer: (input: TransferInput) => Promise<void>
   deleteTransfer: (id: string) => Promise<void>
+
+  // Mutações — centro de custo e fechamento
+  createCostCenter: (input: CostCenterInput) => Promise<void>
+  updateCostCenter: (id: string, input: Partial<CostCenterInput>) => Promise<void>
+  deleteCostCenter: (id: string) => Promise<void>
+  closePeriod: (companyId: string | null, month: string, notes?: string) => Promise<void>
+  reopenPeriod: (id: string) => Promise<void>
   /** Baixa em um clique: marca como liquidado na data e conta informadas. */
   settleTransaction: (id: string, accountId: string | null, date: string) => Promise<void>
   /** Desfaz a baixa, devolvendo o lançamento para pendente. */
@@ -146,8 +162,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [objectives, setObjectives] = useState<Objective[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [transfers, setTransfers] = useState<Transfer[]>([])
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([])
+  const [periodClosings, setPeriodClosings] = useState<PeriodClosing[]>([])
   const [migrationApplied, setMigrationApplied] = useState(true)
   const [treasuryReady, setTreasuryReady] = useState(true)
+  const [costCentersReady, setCostCentersReady] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -167,6 +186,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       objectivesRes,
       accountsRes,
       transfersRes,
+      costCentersRes,
+      closingsRes,
     ] = await Promise.all([
       supabase.from('companies').select('*').order('sort_order'),
       supabase.from('categories').select('*').order('sort_order'),
@@ -177,6 +198,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       supabase.from('objectives').select('*').order('created_at', { ascending: false }),
       supabase.from('accounts').select('*').order('sort_order'),
       supabase.from('transfers').select('*').order('date', { ascending: false }),
+      supabase.from('cost_centers').select('*').order('name'),
+      supabase.from('period_closings').select('*').order('month', { ascending: false }),
     ])
 
     const firstError =
@@ -213,6 +236,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setTransfers(
       ((transfersRes.data as Transfer[]) ?? []).map((t) => ({ ...t, amount: Number(t.amount) })),
     )
+
+    // Idem para centro de custo e fechamento (migração 003).
+    setCostCentersReady(!costCentersRes.error && !closingsRes.error)
+    setCostCenters((costCentersRes.data as CostCenter[]) ?? [])
+    setPeriodClosings((closingsRes.data as PeriodClosing[]) ?? [])
 
     setCompanies(
       ((companiesRes.data as Company[]) ?? []).map((c) => ({
@@ -361,6 +389,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [companies, scopeCompanyId],
   )
 
+  // Um mês está fechado se houver fechamento da empresa em foco OU do grupo.
+  const isPeriodClosed = useMemo(() => {
+    const mk = `${period.getFullYear()}-${String(period.getMonth() + 1).padStart(2, '0')}-01`
+    return periodClosings.some(
+      (c) => c.month === mk && (c.company_id === null || c.company_id === scopeCompanyId),
+    )
+  }, [periodClosings, period, scopeCompanyId])
+
   // Isolamento pessoal × negócio
   const personalCompany = useMemo(() => companies.find((c) => c.is_personal) ?? null, [companies])
   const businessCompanies = useMemo(() => companies.filter((c) => !c.is_personal), [companies])
@@ -465,6 +501,53 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [refresh],
   )
 
+  const createCostCenter = useCallback(
+    async (input: CostCenterInput) => {
+      const { error } = await supabase.from('cost_centers').insert(input)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const updateCostCenter = useCallback(
+    async (id: string, input: Partial<CostCenterInput>) => {
+      const { error } = await supabase.from('cost_centers').update(input).eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const deleteCostCenter = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.from('cost_centers').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const closePeriod = useCallback(
+    async (companyId: string | null, month: string, notes?: string) => {
+      const { error } = await supabase
+        .from('period_closings')
+        .insert({ company_id: companyId, month, notes: notes ?? null })
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const reopenPeriod = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.from('period_closings').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
   const createObjective = useCallback(
     async (input: ObjectiveInput) => {
       const { error } = await supabase.from('objectives').insert(input)
@@ -519,8 +602,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       objectives,
       accounts,
       transfers,
+      costCenters,
+      periodClosings,
+      isPeriodClosed,
       migrationApplied,
       treasuryReady,
+      costCentersReady,
       loading,
       error,
       refresh,
@@ -551,6 +638,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       deleteAccount,
       createTransfer,
       deleteTransfer,
+      createCostCenter,
+      updateCostCenter,
+      deleteCostCenter,
+      closePeriod,
+      reopenPeriod,
       settleTransaction,
       unsettleTransaction,
       createObjective,
@@ -572,8 +664,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       objectives,
       accounts,
       transfers,
+      costCenters,
+      periodClosings,
+      isPeriodClosed,
       migrationApplied,
       treasuryReady,
+      costCentersReady,
       loading,
       error,
       refresh,
@@ -603,6 +699,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       deleteAccount,
       createTransfer,
       deleteTransfer,
+      createCostCenter,
+      updateCostCenter,
+      deleteCostCenter,
+      closePeriod,
+      reopenPeriod,
       settleTransaction,
       unsettleTransaction,
       createObjective,

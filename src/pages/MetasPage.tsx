@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Check, Layers } from 'lucide-react'
 import { useAppData } from '@/context/AppDataContext'
 import { Button } from '@/components/ui/Button'
+import { Tip } from '@/components/ui/Tip'
 import { CurrencyInput } from '@/components/ui/MoneyInput'
 import { Progress } from '@/components/ui/Progress'
 import { companyDisplayColor } from '@/assets/companies'
@@ -26,7 +27,17 @@ export function MetasPage() {
   return (
     <div className="animate-fade-in space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-content">Metas</h1>
+        <h1 className="flex items-center gap-2 text-xl font-bold text-content">
+          Orçamento
+          <Tip label="Diferença entre orçamento e objetivo" align="start">
+            <strong className="text-content">Orçamento</strong> é a meta de receita e lucro deste
+            mês — o que você planeja alcançar na operação normal.
+            <span className="mt-1.5 block">
+              <strong className="text-content">Objetivo</strong> é uma conquista com custo, como
+              alugar uma sala. Fica na tela de Objetivos.
+            </span>
+          </Tip>
+        </h1>
         <p className="text-sm text-content-faint">
           {activeCompany ? activeCompany.name : 'Grupo e empresas'} · {formatMonthYear(period)}
         </p>
