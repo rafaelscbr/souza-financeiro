@@ -27,7 +27,7 @@ import type { Transaction } from '@/types'
 const PERSONAL_COLOR = '#6366F1'
 
 export function PessoalPage() {
-  const { personalTransactions, businessTransactions, personalBudgets, companies, period, deleteTransaction } =
+  const { personalTransactions, businessTransactions, personalBudgets, companies, period, regime, deleteTransaction } =
     useAppData()
 
   const [composing, setComposing] = useState(false)
@@ -35,21 +35,21 @@ export function PessoalPage() {
   const [budgetOpen, setBudgetOpen] = useState(false)
 
   const summary = useMemo(
-    () => personalSummary(personalTransactions, businessTransactions, period),
-    [personalTransactions, businessTransactions, period],
+    () => personalSummary(personalTransactions, businessTransactions, period, regime),
+    [personalTransactions, businessTransactions, period, regime],
   )
 
   const monthPersonal = useMemo(
     () =>
       personalTransactions
-        .filter((t) => inMonth(t, period))
+        .filter((t) => inMonth(t, period, regime))
         .sort((a, b) => (a.settled_date ?? a.competence_date) < (b.settled_date ?? b.competence_date) ? 1 : -1),
-    [personalTransactions, period],
+    [personalTransactions, period, regime],
   )
 
   const withdrawals = useMemo(
-    () => businessTransactions.filter((t) => dreGroupOf(t) === 'withdrawal' && inMonth(t, period)),
-    [businessTransactions, period],
+    () => businessTransactions.filter((t) => dreGroupOf(t) === 'withdrawal' && inMonth(t, period, regime)),
+    [businessTransactions, period, regime],
   )
 
   const budgetRows = useMemo(() => {

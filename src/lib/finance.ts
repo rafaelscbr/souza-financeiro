@@ -1,4 +1,4 @@
-import type { Contact, DreGroup, Goal, HealthStatus, Transaction } from '@/types'
+import type { Contact, DreGroup, Goal, HealthStatus, Regime, Transaction } from '@/types'
 
 /** Categorias de despesa consideradas FIXAS (fallback de classificação). */
 export const FIXED_EXPENSE_CATEGORIES = new Set([
@@ -61,16 +61,41 @@ export function inScope(t: Transaction, companyId: string | null): boolean {
   return companyId === null || t.company_id === companyId
 }
 
-export function inMonth(t: Transaction, date: Date): boolean {
-  return monthKeyOf(t.competence_date) === monthKey(date)
+/**
+ * Data que coloca o lançamento dentro de um mês, conforme o regime:
+ * - `accrual` (competência): mês da venda/faturamento, mesmo que o dinheiro caia depois.
+ * - `cash` (caixa): mês em que o dinheiro entrou/saiu de fato. Pendente não entra
+ *   em mês nenhum — por isso devolve `null`.
+ */
+export function regimeDate(t: Transaction, regime: Regime): string | null {
+  if (regime === 'accrual') return t.competence_date
+  if (t.status !== 'settled') return null
+  return t.settled_date ?? t.competence_date
+}
+
+/**
+ * Data usada para POSICIONAR o lançamento numa lista/extrato — diferente de
+ * `regimeDate`, que serve para somar KPIs. Aqui um pendente não some: ele
+ * aparece na data em que o dinheiro é esperado. É o que faz a comissão de
+ * setembro sair de julho quando você está no regime de caixa.
+ */
+export function listingDate(t: Transaction, regime: Regime): string {
+  if (regime === 'accrual') return t.competence_date
+  return t.settled_date ?? t.due_date ?? t.competence_date
+}
+
+export function inMonth(t: Transaction, date: Date, regime: Regime = 'accrual'): boolean {
+  const d = regimeDate(t, regime)
+  return d !== null && monthKeyOf(d) === monthKey(date)
 }
 
 export function filterTransactions(
   transactions: Transaction[],
   companyId: string | null,
   date: Date,
+  regime: Regime = 'accrual',
 ): Transaction[] {
-  return transactions.filter((t) => inScope(t, companyId) && inMonth(t, date))
+  return transactions.filter((t) => inScope(t, companyId) && inMonth(t, date, regime))
 }
 
 // ---------------------------------------------------------------------------
@@ -189,9 +214,10 @@ export function monthlySeries(
   transactions: Transaction[],
   companyId: string | null,
   months: Date[],
+  regime: Regime = 'accrual',
 ): MonthlyPoint[] {
   return months.map((date) => {
-    const kpis = computeKpis(filterTransactions(transactions, companyId, date))
+    const kpis = computeKpis(filterTransactions(transactions, companyId, date, regime))
     return {
       date,
       monthKey: monthKey(date),
@@ -264,6 +290,77 @@ export function pendingPayables(txs: Transaction[]): CashItem[] {
     .sort((a, b) => (a.date < b.date ? -1 : 1))
 }
 
+/**
+ * Pendências em aberto — o que ainda vai entrar ou sair. Independe do regime:
+ * são compromissos, não competência. É o que mantém o painel útil num mês
+ * sem nenhum lançamento novo.
+ */
+export interface Pipeline {
+  /** Tudo que ainda há de receber, em qualquer data. */
+  receivable: number
+  payable: number
+  /** Vencidos: previsão já passou e ninguém deu baixa. */
+  overdueReceivable: number
+  overduePayable: number
+  overdueCount: number
+  /** Vence dentro do mês em foco. */
+  dueThisMonthIn: number
+  dueThisMonthOut: number
+  /** Próximos 30 dias a partir de hoje. */
+  next30In: number
+  next30Out: number
+}
+
+export function pipelineSummary(txs: Transaction[], date: Date, today = new Date()): Pipeline {
+  const todayStr = isoDate(today)
+  const in30 = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30)
+  const in30Str = isoDate(in30)
+  const focusMonth = monthKey(date)
+
+  const p: Pipeline = {
+    receivable: 0,
+    payable: 0,
+    overdueReceivable: 0,
+    overduePayable: 0,
+    overdueCount: 0,
+    dueThisMonthIn: 0,
+    dueThisMonthOut: 0,
+    next30In: 0,
+    next30Out: 0,
+  }
+
+  for (const t of txs) {
+    if (t.status !== 'pending') continue
+    const due = t.due_date ?? t.competence_date
+    const isIn = dreGroupOf(t) === 'revenue'
+
+    if (isIn) p.receivable += t.amount
+    else p.payable += t.amount
+
+    if (due < todayStr) {
+      if (isIn) p.overdueReceivable += t.amount
+      else p.overduePayable += t.amount
+      p.overdueCount += 1
+    }
+
+    if (monthKeyOf(due) === focusMonth) {
+      if (isIn) p.dueThisMonthIn += t.amount
+      else p.dueThisMonthOut += t.amount
+    }
+
+    if (due >= todayStr && due <= in30Str) {
+      if (isIn) p.next30In += t.amount
+      else p.next30Out += t.amount
+    }
+  }
+
+  return p
+}
+
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /** Saldo de caixa REALIZADO (entradas liquidadas − saídas liquidadas) até uma data. */
 export function realizedCash(txs: Transaction[], uptoDate?: string): number {
   let balance = 0
@@ -302,6 +399,7 @@ export function personalSummary(
   personalTx: Transaction[],
   businessTx: Transaction[],
   date: Date,
+  regime: Regime = 'accrual',
 ): PersonalSummary {
   let inflowManual = 0
   let outflow = 0
@@ -309,7 +407,7 @@ export function personalSummary(
   const catMap = new Map<string, number>()
 
   for (const t of personalTx) {
-    if (!inMonth(t, date)) continue
+    if (!inMonth(t, date, regime)) continue
     if (t.kind === 'income') {
       inflowManual += t.amount
     } else if (t.kind === 'expense') {
@@ -320,7 +418,7 @@ export function personalSummary(
   }
 
   const inflowFromBusiness = businessTx
-    .filter((t) => dreGroupOf(t) === 'withdrawal' && inMonth(t, date))
+    .filter((t) => dreGroupOf(t) === 'withdrawal' && inMonth(t, date, regime))
     .reduce((s, t) => s + t.amount, 0)
 
   const inflow = inflowFromBusiness + inflowManual

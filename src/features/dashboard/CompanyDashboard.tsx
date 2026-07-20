@@ -1,14 +1,25 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Wallet, TrendingDown, TrendingUp, Percent, Target, PlusCircle } from 'lucide-react'
+import {
+  Wallet,
+  TrendingDown,
+  TrendingUp,
+  Percent,
+  Target,
+  PlusCircle,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  AlertTriangle,
+  CalendarClock,
+} from 'lucide-react'
 import { useAppData } from '@/context/AppDataContext'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { Section } from '@/components/ui/Section'
 import { Progress } from '@/components/ui/Progress'
 import { HealthBadge } from '@/components/ui/HealthBadge'
-import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
-import { CategoryBarChart, type CategoryDatum } from './Charts'
+import { Tip } from '@/components/ui/Tip'
+import { CategoryBarChart, ProfitTrendChart, type CategoryDatum } from './Charts'
 import { TransactionList } from '@/features/transactions/TransactionList'
 import { useComposer } from '@/features/transactions/TransactionComposer'
 import { companyDisplayColor } from '@/assets/companies'
@@ -17,19 +28,41 @@ import {
   filterTransactions,
   findGoal,
   healthFromKpis,
+  inScope,
+  lastNMonths,
+  monthlySeries,
+  pipelineSummary,
 } from '@/lib/finance'
-import { formatCurrency, formatPercent } from '@/lib/format'
+import { formatCurrency, formatMonthShort, formatMonthYear, formatPercent } from '@/lib/format'
 import type { Company, Transaction, TransactionKind } from '@/types'
 
 export function CompanyDashboard({ company }: { company: Company }) {
-  const { transactions, goals, period } = useAppData()
+  const { businessTransactions, goals, period, regime } = useAppData()
   const { openNew } = useComposer()
 
+  const companyTx = useMemo(
+    () => businessTransactions.filter((t) => inScope(t, company.id)),
+    [businessTransactions, company.id],
+  )
+
   const monthTx = useMemo(
-    () => filterTransactions(transactions, company.id, period),
-    [transactions, company.id, period],
+    () => filterTransactions(companyTx, null, period, regime),
+    [companyTx, period, regime],
   )
   const kpis = useMemo(() => computeKpis(monthTx), [monthTx])
+
+  // Pendências e histórico não dependem do mês em foco — é o que mantém
+  // o painel útil mesmo num mês sem nenhum lançamento novo.
+  const pipeline = useMemo(() => pipelineSummary(companyTx, period), [companyTx, period])
+
+  const trend = useMemo(
+    () =>
+      monthlySeries(companyTx, null, lastNMonths(period, 6), regime).map((p) => ({
+        label: formatMonthShort(p.date),
+        lucro: p.profit,
+      })),
+    [companyTx, period, regime],
+  )
 
   const revenueGoal = findGoal(goals, company.id, period, 'monthly_revenue')?.target_value
   const profitGoal = findGoal(goals, company.id, period, 'monthly_profit')?.target_value
@@ -40,6 +73,10 @@ export function CompanyDashboard({ company }: { company: Company }) {
   const incomeByCat = useMemo(() => breakdown(monthTx, 'income', '#34D399'), [monthTx])
   const expenseByCat = useMemo(() => breakdown(monthTx, 'expense', '#F87171'), [monthTx])
 
+  const hasHistory = companyTx.length > 0
+  const monthIsEmpty = kpis.count === 0
+  const regimeWord = regime === 'cash' ? 'entrou e saiu do caixa' : 'foi faturado'
+
   return (
     <div className="animate-fade-in space-y-5">
       {/* Cabeçalho da empresa */}
@@ -48,53 +85,75 @@ export function CompanyDashboard({ company }: { company: Company }) {
         style={{ borderLeft: `4px solid ${color}` }}
       >
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl text-lg font-bold text-white" style={{ backgroundColor: color }}>
+          <span
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-lg font-bold text-white"
+            style={{ backgroundColor: color }}
+          >
             {company.name.charAt(0)}
           </span>
           <div>
             <h1 className="text-lg font-bold text-content">{company.name}</h1>
-            <p className="text-xs text-content-faint">Visão individual</p>
+            <p className="text-xs text-content-faint">
+              {formatMonthYear(period)} · {regime === 'cash' ? 'regime de caixa' : 'regime de competência'}
+            </p>
           </div>
         </div>
         <HealthBadge status={health} />
       </div>
 
-      {kpis.count === 0 ? (
-        <EmptyState
-          icon={<Wallet className="h-8 w-8" />}
-          title="Sem lançamentos neste mês"
-          description={`Registre receitas e despesas de ${company.name} para ver os indicadores deste mês.`}
-          action={
-            <Button onClick={() => openNew({ company_id: company.id })}>
-              <PlusCircle className="h-4 w-4" />
-              Novo lançamento
-            </Button>
-          }
-        />
+      {/* Primeiro acesso: a empresa nunca teve lançamento nenhum */}
+      {!hasHistory ? (
+        <div className="rounded-2xl border border-line bg-surface p-8 text-center shadow-card">
+          <Wallet className="mx-auto mb-3 h-8 w-8 text-content-faint" />
+          <h2 className="text-base font-semibold text-content">
+            {company.name} ainda não tem lançamentos
+          </h2>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-content-muted">
+            Registre a primeira receita ou despesa e este painel se monta sozinho — indicadores,
+            metas e evolução dos últimos meses.
+          </p>
+          <Button className="mt-4" onClick={() => openNew({ company_id: company.id })}>
+            <PlusCircle className="h-4 w-4" />
+            Primeiro lançamento
+          </Button>
+        </div>
       ) : (
         <>
-          {/* KPIs */}
+          {/* Aviso discreto — não substitui a tela, só contextualiza */}
+          {monthIsEmpty && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-line bg-surface-2 px-4 py-3">
+              <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-content-faint" />
+              <p className="text-sm text-content-muted">
+                Nada {regimeWord} em <strong className="text-content">{formatMonthYear(period)}</strong>{' '}
+                ainda. Os compromissos em aberto e o histórico continuam abaixo.
+              </p>
+            </div>
+          )}
+
+          {/* Resultado do mês */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <KpiCard
-              label="Receita"
+              label={regime === 'cash' ? 'Recebido' : 'Receita'}
               value={formatCurrency(kpis.revenue)}
               tone="positive"
               icon={<Wallet className="h-4 w-4" />}
               hint={
-                kpis.toReceive > 0 ? (
-                  <span className="text-pending">A receber: {formatCurrency(kpis.toReceive)}</span>
-                ) : undefined
+                regime === 'cash'
+                  ? 'Dinheiro que caiu na conta'
+                  : kpis.toReceive > 0
+                    ? `A receber: ${formatCurrency(kpis.toReceive)}`
+                    : 'Faturado no mês'
               }
             />
             <KpiCard
-              label="Despesas"
+              label={regime === 'cash' ? 'Pago' : 'Despesas'}
               value={formatCurrency(kpis.totalExpense)}
               tone="negative"
               icon={<TrendingDown className="h-4 w-4" />}
               hint={kpis.costOfSale > 0 ? `Repasses: ${formatCurrency(kpis.costOfSale)}` : undefined}
             />
             <KpiCard
-              label="Lucro líquido"
+              label={regime === 'cash' ? 'Sobrou no mês' : 'Lucro líquido'}
               value={formatCurrency(kpis.netProfit)}
               tone={kpis.netProfit >= 0 ? 'positive' : 'negative'}
               icon={<TrendingUp className="h-4 w-4" />}
@@ -102,11 +161,57 @@ export function CompanyDashboard({ company }: { company: Company }) {
             />
             <KpiCard
               label="Margem líquida"
-              value={formatPercent(kpis.netMargin)}
+              value={kpis.revenue > 0 ? formatPercent(kpis.netMargin) : '—'}
               tone="accent"
               icon={<Percent className="h-4 w-4" />}
             />
           </div>
+
+          {/* Compromissos em aberto */}
+          <Section
+            title="Em aberto"
+            subtitle="Não depende do mês em foco — é tudo que ainda vai entrar ou sair"
+            action={
+              <Tip label="O que conta como em aberto" align="end">
+                Lançamentos marcados como <strong className="text-content">a receber</strong> ou{' '}
+                <strong className="text-content">a pagar</strong>, que ainda não tiveram baixa.
+                Ficam aqui independente do mês que você está olhando.
+              </Tip>
+            }
+          >
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <OpenStat
+                label="A receber"
+                value={pipeline.receivable}
+                tone="text-income"
+                icon={<ArrowDownCircle className="h-4 w-4" />}
+              />
+              <OpenStat
+                label="A pagar"
+                value={pipeline.payable}
+                tone="text-expense"
+                icon={<ArrowUpCircle className="h-4 w-4" />}
+              />
+              <OpenStat
+                label="Vence este mês"
+                value={pipeline.dueThisMonthIn - pipeline.dueThisMonthOut}
+                tone="text-content"
+                icon={<CalendarClock className="h-4 w-4" />}
+                hint={`+${formatCurrency(pipeline.dueThisMonthIn)} · −${formatCurrency(pipeline.dueThisMonthOut)}`}
+              />
+              <OpenStat
+                label="Vencido"
+                value={pipeline.overdueReceivable + pipeline.overduePayable}
+                tone={pipeline.overdueCount > 0 ? 'text-critical' : 'text-content-faint'}
+                icon={<AlertTriangle className="h-4 w-4" />}
+                hint={
+                  pipeline.overdueCount > 0
+                    ? `${pipeline.overdueCount} conta(s) atrasada(s)`
+                    : 'Nada atrasado'
+                }
+              />
+            </div>
+          </Section>
 
           {/* Meta */}
           <Section
@@ -139,24 +244,35 @@ export function CompanyDashboard({ company }: { company: Company }) {
             )}
           </Section>
 
-          {/* Categorias */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {incomeByCat.length > 0 && (
-              <Section title="Receitas por categoria">
-                <CategoryBarChart data={incomeByCat} />
-              </Section>
-            )}
-            {expenseByCat.length > 0 && (
-              <Section title="Despesas por categoria">
-                <CategoryBarChart data={expenseByCat} />
-              </Section>
-            )}
-          </div>
+          {/* Evolução — sempre presente, mesmo com o mês zerado */}
+          <Section title="Evolução do lucro" subtitle={`${company.name} — últimos 6 meses`}>
+            <ProfitTrendChart data={trend} />
+          </Section>
 
-          {/* Lançamentos */}
+          {/* Categorias do mês */}
+          {(incomeByCat.length > 0 || expenseByCat.length > 0) && (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {incomeByCat.length > 0 && (
+                <Section title="Receitas por categoria">
+                  <CategoryBarChart data={incomeByCat} />
+                </Section>
+              )}
+              {expenseByCat.length > 0 && (
+                <Section title="Despesas por categoria">
+                  <CategoryBarChart data={expenseByCat} />
+                </Section>
+              )}
+            </div>
+          )}
+
+          {/* Lançamentos do mês */}
           <Section
             title="Lançamentos do mês"
-            subtitle={`${kpis.count} ${kpis.count === 1 ? 'registro' : 'registros'}`}
+            subtitle={
+              monthIsEmpty
+                ? 'Nenhum neste mês'
+                : `${kpis.count} ${kpis.count === 1 ? 'registro' : 'registros'}`
+            }
             action={
               <Button size="sm" variant="secondary" onClick={() => openNew({ company_id: company.id })}>
                 <PlusCircle className="h-4 w-4" />
@@ -165,10 +281,42 @@ export function CompanyDashboard({ company }: { company: Company }) {
             }
             bodyClassName="pt-1"
           >
-            <TransactionList transactions={monthTx} />
+            {monthIsEmpty ? (
+              <p className="py-2 text-sm text-content-muted">
+                Use o botão <strong className="text-content">Novo</strong> para registrar o primeiro
+                lançamento de {formatMonthYear(period)}.
+              </p>
+            ) : (
+              <TransactionList transactions={monthTx} />
+            )}
           </Section>
         </>
       )}
+    </div>
+  )
+}
+
+function OpenStat({
+  label,
+  value,
+  tone,
+  icon,
+  hint,
+}: {
+  label: string
+  value: number
+  tone: string
+  icon: React.ReactNode
+  hint?: string
+}) {
+  return (
+    <div className="rounded-xl border border-line bg-surface-2/50 p-3">
+      <div className="flex items-center gap-1.5 text-content-faint">
+        {icon}
+        <span className="text-[11px] font-medium uppercase tracking-wide">{label}</span>
+      </div>
+      <p className={`tnum mt-1 text-lg font-bold ${tone}`}>{formatCurrency(value)}</p>
+      {hint && <p className="mt-0.5 truncate text-[11px] text-content-faint">{hint}</p>}
     </div>
   )
 }

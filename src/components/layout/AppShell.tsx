@@ -15,6 +15,7 @@ import { useAppData } from '@/context/AppDataContext'
 import { TransactionComposerProvider, useComposer } from '@/features/transactions/TransactionComposer'
 import { ScopeSwitcher } from './ScopeSwitcher'
 import { PeriodNav } from './PeriodNav'
+import { RegimeSwitch } from './RegimeSwitch'
 import { Button } from '@/components/ui/Button'
 import { FullPageLoader } from '@/components/ui/Spinner'
 import { cn } from '@/lib/utils'
@@ -131,6 +132,7 @@ function ShellLayout() {
               <ScopeSwitcher />
             )}
             <div className="flex items-center justify-between gap-2">
+              <RegimeSwitch />
               <PeriodNav />
               {!isPersonal && (
                 <Button size="sm" className="hidden lg:inline-flex" onClick={() => openNew()}>

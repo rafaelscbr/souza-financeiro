@@ -4,6 +4,12 @@ export type TransactionStatus = 'settled' | 'pending'
 export type GoalMetric = 'monthly_revenue' | 'monthly_profit'
 export type ContactType = 'broker' | 'supplier'
 
+/**
+ * Regime de apuração — define em qual mês cada lançamento é contado.
+ * `accrual` = competência (mês da venda) · `cash` = caixa (mês em que o dinheiro se move).
+ */
+export type Regime = 'cash' | 'accrual'
+
 /** Grupo no DRE (Demonstração de Resultado). */
 export type DreGroup =
   | 'revenue'

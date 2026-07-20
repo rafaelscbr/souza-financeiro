@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Pencil, Trash2, RefreshCw } from 'lucide-react'
 import { useAppData } from '@/context/AppDataContext'
 import { useComposer } from './TransactionComposer'
-import { formatCurrency, formatDateShort } from '@/lib/format'
+import { listingDate } from '@/lib/finance'
+import { formatCurrency, formatDateShort, toDateOnly } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { Transaction } from '@/types'
 
@@ -13,9 +14,13 @@ export function TransactionList({
   transactions: Transaction[]
   showCompany?: boolean
 }) {
+  const { regime } = useAppData()
+
+  // Ordena pela data que importa no regime atual, para a lista bater com os KPIs.
   const sorted = [...transactions].sort((a, b) => {
-    if (a.competence_date !== b.competence_date)
-      return a.competence_date < b.competence_date ? 1 : -1
+    const da = listingDate(a, regime)
+    const db = listingDate(b, regime)
+    if (da !== db) return da < db ? 1 : -1
     return a.created_at < b.created_at ? 1 : -1
   })
 
@@ -29,10 +34,14 @@ export function TransactionList({
 }
 
 function TransactionRow({ tx, showCompany }: { tx: Transaction; showCompany: boolean }) {
-  const { deleteTransaction, companies, contacts } = useAppData()
+  const { deleteTransaction, companies, contacts, regime } = useAppData()
   const { openEdit } = useComposer()
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  const rowDate = listingDate(tx, regime)
+  const dueDate = tx.due_date ?? tx.competence_date
+  const isOverdue = tx.status === 'pending' && dueDate < toDateOnly(new Date())
 
   const company = companies.find((c) => c.id === tx.company_id)
   const contact = contacts.find((c) => c.id === tx.contact_id)
@@ -57,7 +66,7 @@ function TransactionRow({ tx, showCompany }: { tx: Transaction; showCompany: boo
     <li className="group flex items-center gap-3 py-3">
       <div className="w-10 shrink-0 text-center">
         <span className="tnum block text-xs font-medium text-content-muted">
-          {formatDateShort(tx.competence_date)}
+          {formatDateShort(rowDate)}
         </span>
       </div>
 
@@ -73,12 +82,23 @@ function TransactionRow({ tx, showCompany }: { tx: Transaction; showCompany: boo
             </span>
           )}
           {tx.status === 'pending' && (
-            <span className="shrink-0 rounded-full bg-pending/15 px-1.5 py-0.5 text-[10px] font-medium text-pending">
-              {tx.kind === 'expense' ? 'A pagar' : 'A receber'}
+            <span
+              className={cn(
+                'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+                isOverdue ? 'bg-critical/15 text-critical' : 'bg-pending/15 text-pending',
+              )}
+            >
+              {isOverdue ? 'Vencido' : tx.kind === 'expense' ? 'A pagar' : 'A receber'}
             </span>
           )}
         </div>
         {subtitle && <p className="truncate text-xs text-content-faint">{subtitle}</p>}
+        {/* No regime de competência, deixa explícito quando o dinheiro se move. */}
+        {regime === 'accrual' && tx.status === 'pending' && (
+          <p className={cn('text-[11px]', isOverdue ? 'text-critical' : 'text-content-faint')}>
+            {tx.kind === 'expense' ? 'Paga' : 'Cai'} em {formatDateShort(dueDate)}
+          </p>
+        )}
       </div>
 
       <span className={cn('tnum shrink-0 text-sm font-semibold', amountColor)}>

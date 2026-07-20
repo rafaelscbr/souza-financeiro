@@ -15,22 +15,37 @@ import { formatCurrency, formatMonthYear, formatPercent } from '@/lib/format'
 import type { Kpis } from '@/lib/finance'
 
 export function MetasPage() {
-  const { companies, period } = useAppData()
+  const { businessCompanies, period, scopeCompanyId, activeCompany } = useAppData()
+  const monthKey = firstDayOfMonth(period)
+
+  // Segue o escopo do topo: com uma empresa selecionada, só a meta dela.
+  const shown = activeCompany
+    ? businessCompanies.filter((c) => c.id === scopeCompanyId)
+    : businessCompanies
 
   return (
     <div className="animate-fade-in space-y-5">
       <div>
         <h1 className="text-xl font-bold text-content">Metas</h1>
         <p className="text-sm text-content-faint">
-          Metas de {formatMonthYear(period)} · receita e lucro mensais
+          {activeCompany ? activeCompany.name : 'Grupo e empresas'} · {formatMonthYear(period)}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <GoalCard companyId={null} name="Grupo (consolidado)" color="#10B981" isGroup />
-        {companies.map((c) => (
+        {/* A meta do grupo só faz sentido na visão consolidada. */}
+        {!activeCompany && (
           <GoalCard
-            key={c.id}
+            key={`group-${monthKey}`}
+            companyId={null}
+            name="Grupo (consolidado)"
+            color="#10B981"
+            isGroup
+          />
+        )}
+        {shown.map((c) => (
+          <GoalCard
+            key={`${c.id}-${monthKey}`}
             companyId={c.id}
             name={c.name}
             color={companyDisplayColor(c.slug, c.brand_color, c.accent_color)}
@@ -52,11 +67,11 @@ function GoalCard({
   color: string
   isGroup?: boolean
 }) {
-  const { transactions, goals, period, saveGoal, deleteGoal } = useAppData()
+  const { businessTransactions, goals, period, regime, saveGoal, deleteGoal } = useAppData()
 
   const kpis: Kpis = useMemo(
-    () => computeKpis(filterTransactions(transactions, companyId, period)),
-    [transactions, companyId, period],
+    () => computeKpis(filterTransactions(businessTransactions, companyId, period, regime)),
+    [businessTransactions, companyId, period, regime],
   )
 
   const existingRevenue = findGoal(goals, companyId, period, 'monthly_revenue')

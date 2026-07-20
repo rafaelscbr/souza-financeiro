@@ -15,6 +15,7 @@ import type {
   ContactInput,
   Goal,
   PersonalBudget,
+  Regime,
   Transaction,
   TransactionInput,
 } from '@/types'
@@ -42,6 +43,10 @@ interface AppDataValue {
   scopeCompanyId: string | null
   setScope: (companyId: string | null) => void
   activeCompany: Company | null
+
+  /** Regime de apuração — decide em qual mês cada lançamento é contado. */
+  regime: Regime
+  setRegime: (regime: Regime) => void
 
   // Período (primeiro dia do mês em foco)
   period: Date
@@ -77,6 +82,17 @@ function startOfMonth(d = new Date()): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1)
 }
 
+const REGIME_KEY = 'sgf.regime'
+
+/** Caixa é o padrão: responde "quanto entrou na conta", que é como se pensa no dia a dia. */
+function loadRegime(): Regime {
+  try {
+    return localStorage.getItem(REGIME_KEY) === 'accrual' ? 'accrual' : 'cash'
+  } catch {
+    return 'cash'
+  }
+}
+
 function coerceTransaction(t: Transaction): Transaction {
   return {
     ...t,
@@ -99,6 +115,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const [scopeCompanyId, setScope] = useState<string | null>(null)
   const [period, setPeriodState] = useState<Date>(startOfMonth())
+  const [regime, setRegimeState] = useState<Regime>(loadRegime)
 
   const refresh = useCallback(async () => {
     setError(null)
@@ -142,6 +159,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     refresh().finally(() => setLoading(false))
   }, [refresh])
+
+  const setRegime = useCallback((r: Regime) => {
+    setRegimeState(r)
+    try {
+      localStorage.setItem(REGIME_KEY, r)
+    } catch {
+      // sem localStorage (aba anônima) o regime só não persiste entre sessões
+    }
+  }, [])
 
   const setPeriod = useCallback((date: Date) => setPeriodState(startOfMonth(date)), [])
   const goToPrevMonth = useCallback(
@@ -309,6 +335,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       scopeCompanyId,
       setScope,
       activeCompany,
+      regime,
+      setRegime,
       period,
       setPeriod,
       goToPrevMonth,
@@ -343,6 +371,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       refresh,
       scopeCompanyId,
       activeCompany,
+      regime,
+      setRegime,
       period,
       setPeriod,
       goToPrevMonth,

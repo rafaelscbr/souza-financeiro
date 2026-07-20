@@ -20,3 +20,6 @@ dist-ssr
 
 # Vercel
 .vercel
+
+# Artefatos de build do TypeScript
+*.tsbuildinfo

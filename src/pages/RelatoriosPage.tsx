@@ -13,6 +13,7 @@ import {
   lastNMonths,
   monthKey,
   monthKeyOf,
+  regimeDate,
   sumByContact,
   type Kpis,
 } from '@/lib/finance'
@@ -30,6 +31,7 @@ export function RelatoriosPage() {
     scopeCompanyId,
     activeCompany,
     period,
+    regime,
   } = useAppData()
   const [range, setRange] = useState<RangeKey>('mes')
 
@@ -37,13 +39,16 @@ export function RelatoriosPage() {
     () => new Set(lastNMonths(period, RANGE_MONTHS[range]).map(monthKey)),
     [period, range],
   )
-  const inRange = (t: Transaction) => monthKeys.has(monthKeyOf(t.competence_date))
+  const inRange = (t: Transaction) => {
+    const d = regimeDate(t, regime)
+    return d !== null && monthKeys.has(monthKeyOf(d))
+  }
 
   // DRE do escopo atual
   const scopedTx = useMemo(
     () => transactions.filter((t) => inRange(t) && (scopeCompanyId === null || t.company_id === scopeCompanyId)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [transactions, monthKeys, scopeCompanyId],
+    [transactions, monthKeys, scopeCompanyId, regime],
   )
   const dre = useMemo(() => computeKpis(scopedTx), [scopedTx])
 
