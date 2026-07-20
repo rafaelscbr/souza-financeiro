@@ -9,6 +9,8 @@ import {
 } from 'react'
 import { supabase } from '@/lib/supabase'
 import type {
+  Account,
+  AccountInput,
   Category,
   Company,
   Contact,
@@ -21,6 +23,8 @@ import type {
   TaxRegime,
   Transaction,
   TransactionInput,
+  Transfer,
+  TransferInput,
 } from '@/types'
 
 interface AppDataValue {
@@ -39,8 +43,12 @@ interface AppDataValue {
   goals: Goal[]
   personalBudgets: PersonalBudget[]
   objectives: Objective[]
+  accounts: Account[]
+  transfers: Transfer[]
   /** `false` enquanto a migração 001 não foi aplicada no Supabase. */
   migrationApplied: boolean
+  /** `false` enquanto a migração 002 (tesouraria) não foi aplicada. */
+  treasuryReady: boolean
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
@@ -80,6 +88,17 @@ interface AppDataValue {
   // Mutações — orçamento pessoal
   savePersonalBudget: (category: string, monthlyLimit: number) => Promise<void>
   deletePersonalBudget: (category: string) => Promise<void>
+
+  // Mutações — contas e transferências
+  createAccount: (input: AccountInput) => Promise<void>
+  updateAccount: (id: string, input: Partial<AccountInput>) => Promise<void>
+  deleteAccount: (id: string) => Promise<void>
+  createTransfer: (input: TransferInput) => Promise<void>
+  deleteTransfer: (id: string) => Promise<void>
+  /** Baixa em um clique: marca como liquidado na data e conta informadas. */
+  settleTransaction: (id: string, accountId: string | null, date: string) => Promise<void>
+  /** Desfaz a baixa, devolvendo o lançamento para pendente. */
+  unsettleTransaction: (id: string, dueDate: string) => Promise<void>
 
   // Mutações — objetivos
   createObjective: (input: ObjectiveInput) => Promise<void>
@@ -125,7 +144,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>([])
   const [personalBudgets, setPersonalBudgets] = useState<PersonalBudget[]>([])
   const [objectives, setObjectives] = useState<Objective[]>([])
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [transfers, setTransfers] = useState<Transfer[]>([])
   const [migrationApplied, setMigrationApplied] = useState(true)
+  const [treasuryReady, setTreasuryReady] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -135,16 +157,27 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     setError(null)
-    const [companiesRes, categoriesRes, contactsRes, txRes, goalsRes, budgetsRes, objectivesRes] =
-      await Promise.all([
-        supabase.from('companies').select('*').order('sort_order'),
-        supabase.from('categories').select('*').order('sort_order'),
-        supabase.from('contacts').select('*').order('name'),
-        supabase.from('transactions').select('*').order('competence_date', { ascending: false }),
-        supabase.from('goals').select('*'),
-        supabase.from('personal_budgets').select('*'),
-        supabase.from('objectives').select('*').order('created_at', { ascending: false }),
-      ])
+    const [
+      companiesRes,
+      categoriesRes,
+      contactsRes,
+      txRes,
+      goalsRes,
+      budgetsRes,
+      objectivesRes,
+      accountsRes,
+      transfersRes,
+    ] = await Promise.all([
+      supabase.from('companies').select('*').order('sort_order'),
+      supabase.from('categories').select('*').order('sort_order'),
+      supabase.from('contacts').select('*').order('name'),
+      supabase.from('transactions').select('*').order('competence_date', { ascending: false }),
+      supabase.from('goals').select('*'),
+      supabase.from('personal_budgets').select('*'),
+      supabase.from('objectives').select('*').order('created_at', { ascending: false }),
+      supabase.from('accounts').select('*').order('sort_order'),
+      supabase.from('transfers').select('*').order('date', { ascending: false }),
+    ])
 
     const firstError =
       companiesRes.error ||
@@ -167,6 +200,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         one_time_cost: Number(o.one_time_cost),
         monthly_cost: Number(o.monthly_cost),
       })),
+    )
+
+    // Idem para a tesouraria (migração 002).
+    setTreasuryReady(!accountsRes.error && !transfersRes.error)
+    setAccounts(
+      ((accountsRes.data as Account[]) ?? []).map((a) => ({
+        ...a,
+        opening_balance: Number(a.opening_balance),
+      })),
+    )
+    setTransfers(
+      ((transfersRes.data as Transfer[]) ?? []).map((t) => ({ ...t, amount: Number(t.amount) })),
     )
 
     setCompanies(
@@ -351,6 +396,75 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [refresh],
   )
 
+  const createAccount = useCallback(
+    async (input: AccountInput) => {
+      const { error } = await supabase.from('accounts').insert(input)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const updateAccount = useCallback(
+    async (id: string, input: Partial<AccountInput>) => {
+      const { error } = await supabase.from('accounts').update(input).eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const deleteAccount = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.from('accounts').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const createTransfer = useCallback(
+    async (input: TransferInput) => {
+      const { error } = await supabase.from('transfers').insert(input)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const deleteTransfer = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.from('transfers').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const settleTransaction = useCallback(
+    async (id: string, accountId: string | null, date: string) => {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ status: 'settled', settled_date: date, due_date: null, account_id: accountId })
+        .eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const unsettleTransaction = useCallback(
+    async (id: string, dueDate: string) => {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ status: 'pending', settled_date: null, due_date: dueDate })
+        .eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
   const createObjective = useCallback(
     async (input: ObjectiveInput) => {
       const { error } = await supabase.from('objectives').insert(input)
@@ -403,7 +517,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       goals,
       personalBudgets,
       objectives,
+      accounts,
+      transfers,
       migrationApplied,
+      treasuryReady,
       loading,
       error,
       refresh,
@@ -429,6 +546,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       deleteContact,
       savePersonalBudget,
       deletePersonalBudget,
+      createAccount,
+      updateAccount,
+      deleteAccount,
+      createTransfer,
+      deleteTransfer,
+      settleTransaction,
+      unsettleTransaction,
       createObjective,
       updateObjective,
       deleteObjective,
@@ -446,7 +570,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       goals,
       personalBudgets,
       objectives,
+      accounts,
+      transfers,
       migrationApplied,
+      treasuryReady,
       loading,
       error,
       refresh,
@@ -471,6 +598,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       deleteContact,
       savePersonalBudget,
       deletePersonalBudget,
+      createAccount,
+      updateAccount,
+      deleteAccount,
+      createTransfer,
+      deleteTransfer,
+      settleTransaction,
+      unsettleTransaction,
       createObjective,
       updateObjective,
       deleteObjective,

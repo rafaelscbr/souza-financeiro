@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Pencil, Trash2, RefreshCw } from 'lucide-react'
+import { Pencil, Trash2, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { useAppData } from '@/context/AppDataContext'
 import { useComposer } from './TransactionComposer'
+import { SettleModal } from './SettleModal'
 import { listingDate } from '@/lib/finance'
 import { formatCurrency, formatDateShort, toDateOnly } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -15,6 +16,7 @@ export function TransactionList({
   showCompany?: boolean
 }) {
   const { regime } = useAppData()
+  const [settling, setSettling] = useState<Transaction | null>(null)
 
   // Ordena pela data que importa no regime atual, para a lista bater com os KPIs.
   const sorted = [...transactions].sort((a, b) => {
@@ -25,15 +27,26 @@ export function TransactionList({
   })
 
   return (
-    <ul className="divide-y divide-line">
-      {sorted.map((t) => (
-        <TransactionRow key={t.id} tx={t} showCompany={showCompany} />
-      ))}
-    </ul>
+    <>
+      <ul className="divide-y divide-line">
+        {sorted.map((t) => (
+          <TransactionRow key={t.id} tx={t} showCompany={showCompany} onSettle={setSettling} />
+        ))}
+      </ul>
+      <SettleModal tx={settling} onClose={() => setSettling(null)} />
+    </>
   )
 }
 
-function TransactionRow({ tx, showCompany }: { tx: Transaction; showCompany: boolean }) {
+function TransactionRow({
+  tx,
+  showCompany,
+  onSettle,
+}: {
+  tx: Transaction
+  showCompany: boolean
+  onSettle: (tx: Transaction) => void
+}) {
   const { deleteTransaction, companies, contacts, regime } = useAppData()
   const { openEdit } = useComposer()
   const [confirming, setConfirming] = useState(false)
@@ -124,6 +137,17 @@ function TransactionRow({ tx, showCompany }: { tx: Transaction; showCompany: boo
           </>
         ) : (
           <>
+            {/* Baixa em um clique — só faz sentido no que ainda está pendente. */}
+            {tx.status === 'pending' && (
+              <button
+                onClick={() => onSettle(tx)}
+                className="rounded-lg p-2 text-content-faint transition-colors hover:bg-income/10 hover:text-income"
+                aria-label={`Dar baixa em ${tx.category}`}
+                title={tx.kind === 'expense' ? 'Marcar como pago' : 'Marcar como recebido'}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+              </button>
+            )}
             <button
               onClick={() => openEdit(tx)}
               className="rounded-lg p-2 text-content-faint transition-colors hover:bg-surface-2 hover:text-content"

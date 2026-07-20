@@ -30,6 +30,7 @@ const SimuladorPage = lazy(() =>
 const ObjetivosPage = lazy(() =>
   import('@/pages/ObjetivosPage').then((m) => ({ default: m.ObjetivosPage })),
 )
+const ContasPage = lazy(() => import('@/pages/ContasPage').then((m) => ({ default: m.ContasPage })))
 
 export default function App() {
   return (
@@ -52,6 +53,7 @@ function AuthGate() {
           <Route element={<AppShell />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/lancamentos" element={<LancamentosPage />} />
+            <Route path="/contas" element={<ContasPage />} />
             <Route path="/fluxo" element={<FluxoCaixaPage />} />
             <Route path="/relatorios" element={<RelatoriosPage />} />
             <Route path="/contatos" element={<ContatosPage />} />

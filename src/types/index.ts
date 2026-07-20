@@ -101,6 +101,8 @@ export interface Transaction {
   group_id: string | null
   installment_index: number | null
   installment_count: number | null
+  /** Conta onde o dinheiro entrou/saiu. `null` = ainda não classificado. */
+  account_id: string | null
   created_at: string
   updated_at: string
 }
@@ -137,7 +139,41 @@ export interface TransactionInput {
   group_id: string | null
   installment_index: number | null
   installment_count: number | null
+  account_id: string | null
 }
+
+export type AccountType = 'checking' | 'savings' | 'cash' | 'investment' | 'credit_card'
+
+/** Conta onde o dinheiro de fato mora: banco, caixinha, investimento. */
+export interface Account {
+  id: string
+  company_id: string
+  name: string
+  type: AccountType
+  bank: string | null
+  /** Saldo no dia em que a conta entrou no sistema. */
+  opening_balance: number
+  opening_date: string
+  color: string
+  is_active: boolean
+  sort_order: number
+  created_at: string
+}
+
+export type AccountInput = Omit<Account, 'id' | 'created_at'>
+
+/** Movimentação entre contas próprias — não é receita nem despesa. */
+export interface Transfer {
+  id: string
+  from_account_id: string
+  to_account_id: string
+  amount: number
+  date: string
+  description: string | null
+  created_at: string
+}
+
+export type TransferInput = Omit<Transfer, 'id' | 'created_at'>
 
 /** Objetivo com custo: alugar uma sala, contratar alguém, comprar um carro. */
 export interface Objective {

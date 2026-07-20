@@ -28,7 +28,7 @@ interface Props {
 }
 
 export function TransactionForm({ editing, prefill, submitting, error, onSubmit, onCancel }: Props) {
-  const { companies, categories, scopeCompanyId } = useAppData()
+  const { companies, categories, scopeCompanyId, accounts, treasuryReady } = useAppData()
   const base = editing ?? prefill
 
   const [kind, setKind] = useState<TransactionKind>(base?.kind ?? 'income')
@@ -53,6 +53,12 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
   const [installmentCount, setInstallmentCount] = useState(3)
   const [firstDate, setFirstDate] = useState(toDateOnly(new Date()))
   const [isRecurring, setIsRecurring] = useState(editing?.is_recurring ?? false)
+  const [accountId, setAccountId] = useState<string>(editing?.account_id ?? '')
+
+  const availableAccounts = useMemo(
+    () => accounts.filter((a) => a.is_active && a.company_id === companyId),
+    [accounts, companyId],
+  )
 
   const availableCategories = useMemo(
     () =>
@@ -151,6 +157,8 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
         group_id: multi ? groupId : null,
         installment_index: count > 1 ? i + 1 : null,
         installment_count: count > 1 ? count : null,
+        // Conta só faz sentido no que já se moveu; pendente recebe na baixa.
+        account_id: settled || kind === 'withdrawal' ? accountId || null : null,
       })
 
       // repasse ao corretor segue cada parcela (custo direto)
@@ -176,6 +184,7 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
           group_id: groupId,
           installment_index: count > 1 ? i + 1 : null,
           installment_count: count > 1 ? count : null,
+          account_id: null,
         })
       }
     })
@@ -333,6 +342,33 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
             <Input id="tx-first" type="date" value={firstDate} onChange={(e) => setFirstDate(e.target.value)} />
           </FormField>
         </div>
+      )}
+
+      {/* Conta — só quando o dinheiro já se moveu */}
+      {treasuryReady && (status === 'settled' || kind === 'withdrawal') && (
+        <FormField
+          label="Conta"
+          htmlFor="tx-account"
+          hint={
+            availableAccounts.length === 0
+              ? 'Nenhuma conta cadastrada para esta empresa — cadastre em Contas'
+              : `Onde o dinheiro ${kind === 'income' ? 'entrou' : 'saiu'}`
+          }
+        >
+          <Select
+            id="tx-account"
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            disabled={availableAccounts.length === 0}
+          >
+            <option value="">Definir depois</option>
+            {availableAccounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+        </FormField>
       )}
 
       {/* Recorrência (despesa à vista) */}

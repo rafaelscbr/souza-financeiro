@@ -33,15 +33,22 @@ export function PersonalTransactionModal({
 }
 
 function PersonalForm({ editing, onClose }: { editing: Transaction | null; onClose: () => void }) {
-  const { personalCompany, categories, createTransaction, updateTransaction } = useAppData()
+  const { personalCompany, categories, accounts, treasuryReady, createTransaction, updateTransaction } =
+    useAppData()
 
   const [kind, setKind] = useState<TransactionKind>(editing?.kind === 'income' ? 'income' : 'expense')
   const [amount, setAmount] = useState<number | null>(editing ? editing.amount : null)
   const [date, setDate] = useState(editing?.settled_date ?? editing?.competence_date ?? toDateOnly(new Date()))
   const [description, setDescription] = useState(editing?.description ?? '')
   const [isRecurring, setIsRecurring] = useState(editing?.is_recurring ?? false)
+  const [accountId, setAccountId] = useState<string>(editing?.account_id ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const personalAccounts = useMemo(
+    () => accounts.filter((a) => a.is_active && a.company_id === personalCompany?.id),
+    [accounts, personalCompany],
+  )
 
   const cats = useMemo(
     () =>
@@ -84,6 +91,7 @@ function PersonalForm({ editing, onClose }: { editing: Transaction | null; onClo
       group_id: null,
       installment_index: null,
       installment_count: null,
+      account_id: accountId || null,
     }
 
     setSaving(true)
@@ -139,6 +147,23 @@ function PersonalForm({ editing, onClose }: { editing: Transaction | null; onClo
       <FormField label="Descrição" htmlFor="p-desc">
         <Input id="p-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Opcional" />
       </FormField>
+
+      {treasuryReady && personalAccounts.length > 0 && (
+        <FormField
+          label="Conta"
+          htmlFor="p-account"
+          hint={`Onde o dinheiro ${kind === 'income' ? 'entrou' : 'saiu'}`}
+        >
+          <Select id="p-account" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+            <option value="">Definir depois</option>
+            {personalAccounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+      )}
 
       {kind === 'expense' && (
         <label className="flex cursor-pointer items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3">
