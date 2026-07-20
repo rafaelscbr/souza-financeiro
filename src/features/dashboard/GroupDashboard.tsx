@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
 import { CompanyCard } from './CompanyCard'
 import { AlertsPanel } from './AlertsPanel'
+import { SetupChecklist } from './SetupChecklist'
 import { ComparisonBarChart, ProfitTrendChart } from './Charts'
 import { useCompanyFinancials, useGroupKpis } from './useFinancials'
 import { useComposer } from '@/features/transactions/TransactionComposer'
@@ -62,7 +63,8 @@ export function GroupDashboard() {
 
   if (!hasAnyData) {
     return (
-      <div className="animate-fade-in">
+      <div className="animate-fade-in space-y-5">
+        <SetupChecklist />
         <EmptyState
           icon={<Sparkles className="h-8 w-8" />}
           title="Bem-vindo ao Souza Group Finance"
@@ -80,6 +82,8 @@ export function GroupDashboard() {
 
   return (
     <div className="animate-fade-in space-y-5">
+      <SetupChecklist />
+
       {/* KPIs do grupo (DRE) */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
@@ -87,6 +91,7 @@ export function GroupDashboard() {
           value={formatCurrency(groupKpis.revenue)}
           tone="positive"
           icon={<Wallet className="h-4 w-4" />}
+          tip="Tudo que você faturou, antes de qualquer desconto. É sobre este valor que o Simples Nacional calcula o imposto — mesmo a parte que vai para o corretor."
           hint={
             groupKpis.toReceive > 0 ? (
               <span className="text-pending">A receber: {formatCurrency(groupKpis.toReceive)}</span>
@@ -100,13 +105,15 @@ export function GroupDashboard() {
           value={formatCurrency(groupKpis.grossProfit)}
           tone={groupKpis.grossProfit >= 0 ? 'positive' : 'negative'}
           icon={<Layers3 className="h-4 w-4" />}
-          hint={`Repasses: ${formatCurrency(groupKpis.costOfSale)} · ${formatPercent(groupKpis.grossMargin, 0)}`}
+          tip="O que sobra depois do imposto e da comissão dos corretores. É o dinheiro disponível para pagar a estrutura da empresa — aluguel, gente, sistema."
+          hint={`Comissões: ${formatCurrency(groupKpis.costOfSale)} · ${formatPercent(groupKpis.grossMargin, 0)}`}
         />
         <KpiCard
           label="Lucro líquido"
           value={formatCurrency(groupKpis.netProfit)}
           tone={groupKpis.netProfit >= 0 ? 'positive' : 'negative'}
           icon={<TrendingUp className="h-4 w-4" />}
+          tip="O que sobra no fim de tudo: depois de imposto, comissão e todas as despesas. É o lucro de verdade, antes de você retirar a sua parte."
           hint={`Despesas: ${formatCurrency(groupKpis.totalExpense)}`}
         />
         <KpiCard
@@ -114,6 +121,7 @@ export function GroupDashboard() {
           value={formatPercent(groupKpis.netMargin)}
           tone="accent"
           icon={<Percent className="h-4 w-4" />}
+          tip="De cada R$ 100 faturados, quanto vira lucro. Como agora o imposto entra na conta, este número ficou menor do que era antes — e mais verdadeiro."
           hint={groupRevenueGoal ? `Meta: ${formatCurrency(groupRevenueGoal)}` : undefined}
         />
       </div>

@@ -159,6 +159,7 @@ export function CompanyDashboard({ company }: { company: Company }) {
               value={formatCurrency(kpis.netProfit)}
               tone={kpis.netProfit >= 0 ? 'positive' : 'negative'}
               icon={<TrendingUp className="h-4 w-4" />}
+              tip="O que sobra depois de imposto, comissão de corretor e todas as despesas. Ainda não desconta a sua retirada."
               hint={`Bruto: ${formatCurrency(kpis.grossProfit)}`}
             />
             <KpiCard
@@ -166,6 +167,7 @@ export function CompanyDashboard({ company }: { company: Company }) {
               value={kpis.revenue > 0 ? formatPercent(kpis.netMargin) : '—'}
               tone="accent"
               icon={<Percent className="h-4 w-4" />}
+              tip="De cada R$ 100 faturados, quanto vira lucro. Abaixo de 10% é sinal de alerta numa imobiliária; acima de 20% é confortável."
             />
           </div>
 

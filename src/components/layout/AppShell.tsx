@@ -8,6 +8,7 @@ import {
   Flag,
   Calculator,
   Landmark,
+  BookOpen,
   Users,
   Wallet,
   Plus,
@@ -34,8 +35,9 @@ const NAV = [
   { to: '/metas', label: 'Metas do mês', icon: Flag, end: false },
   { to: '/contatos', label: 'Contatos', icon: Users, end: false },
 ]
-// Área pessoal (separada do bloco de negócios)
+// Área pessoal e ajuda (separadas do bloco de negócios)
 const PERSONAL_NAV = { to: '/pessoal', label: 'Pessoal', icon: Wallet, end: false }
+const HELP_NAV = { to: '/ajuda', label: 'Ajuda', icon: BookOpen, end: false }
 // Barra inferior do mobile: só os cinco de uso diário — mais que isso
 // vira alvo pequeno demais para o polegar.
 const MOBILE_PATHS = ['/', '/lancamentos', '/contas', '/fluxo', '/relatorios']
@@ -74,6 +76,7 @@ function ShellLayout() {
           ))}
           <div className="my-2 border-t border-line" />
           <NavItem {...PERSONAL_NAV} />
+          <NavItem {...HELP_NAV} />
         </nav>
 
         <button
@@ -107,6 +110,18 @@ function ShellLayout() {
                 aria-label="Pessoal"
               >
                 <Wallet className="h-5 w-5" />
+              </NavLink>
+              <NavLink
+                to="/ajuda"
+                className={({ isActive }) =>
+                  cn(
+                    'rounded-lg p-2 transition-colors',
+                    isActive ? 'text-emerald' : 'text-content-muted hover:bg-surface-2',
+                  )
+                }
+                aria-label="Ajuda"
+              >
+                <BookOpen className="h-5 w-5" />
               </NavLink>
               <NavLink
                 to="/contatos"

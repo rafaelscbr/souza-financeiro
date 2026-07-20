@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react'
+import { Tip } from './Tip'
 import { cn } from '@/lib/utils'
 
 interface KpiCardProps {
@@ -6,6 +7,8 @@ interface KpiCardProps {
   value: string
   hint?: ReactNode
   icon?: ReactNode
+  /** Explicação didática do indicador, aberta pelo ícone de ajuda. */
+  tip?: ReactNode
   /** Cor do valor: 'positive' | 'negative' | 'neutral' | 'accent' */
   tone?: 'positive' | 'negative' | 'neutral' | 'accent'
   className?: string
@@ -18,7 +21,7 @@ const tones = {
   accent: 'text-gold',
 }
 
-export function KpiCard({ label, value, hint, icon, tone = 'neutral', className }: KpiCardProps) {
+export function KpiCard({ label, value, hint, icon, tip, tone = 'neutral', className }: KpiCardProps) {
   return (
     <div
       className={cn(
@@ -27,8 +30,9 @@ export function KpiCard({ label, value, hint, icon, tone = 'neutral', className 
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-content-faint">
+        <span className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-content-faint">
           {label}
+          {tip && <Tip label={`O que é ${label}`} align="start">{tip}</Tip>}
         </span>
         {icon && <span className="text-content-faint">{icon}</span>}
       </div>
