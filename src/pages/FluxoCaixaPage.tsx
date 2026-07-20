@@ -65,7 +65,7 @@ export function FluxoCaixaPage() {
   // projeções do mês (escopo atual)
   const projections = useMemo(() => {
     const months = lastNMonths(period, 4)
-    const series = monthlySeries(transactions, scopeCompanyId, months, regime)
+    const series = monthlySeries(transactions, scopeCompanyId, months, regime, companies)
     const history = series.slice(0, 3)
     const current = series[3]
     const elapsed = monthElapsedFraction(period)
@@ -74,7 +74,7 @@ export function FluxoCaixaPage() {
       revenue: project(current.revenue, elapsed, history.map((h) => h.revenue)),
       profit: project(current.profit, elapsed, history.map((h) => h.profit)),
     }
-  }, [transactions, scopeCompanyId, period, regime])
+  }, [transactions, scopeCompanyId, period, regime, companies])
 
   return (
     <div className="animate-fade-in space-y-5">

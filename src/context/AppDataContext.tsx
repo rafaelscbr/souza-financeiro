@@ -14,8 +14,11 @@ import type {
   Contact,
   ContactInput,
   Goal,
+  Objective,
+  ObjectiveInput,
   PersonalBudget,
   Regime,
+  TaxRegime,
   Transaction,
   TransactionInput,
 } from '@/types'
@@ -35,6 +38,9 @@ interface AppDataValue {
   personalTransactions: Transaction[]
   goals: Goal[]
   personalBudgets: PersonalBudget[]
+  objectives: Objective[]
+  /** `false` enquanto a migração 001 não foi aplicada no Supabase. */
+  migrationApplied: boolean
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
@@ -74,6 +80,14 @@ interface AppDataValue {
   // Mutações — orçamento pessoal
   savePersonalBudget: (category: string, monthlyLimit: number) => Promise<void>
   deletePersonalBudget: (category: string) => Promise<void>
+
+  // Mutações — objetivos
+  createObjective: (input: ObjectiveInput) => Promise<void>
+  updateObjective: (id: string, input: Partial<ObjectiveInput>) => Promise<void>
+  deleteObjective: (id: string) => Promise<void>
+
+  // Configuração tributária
+  updateCompanyTax: (companyId: string, regime: TaxRegime, rate: number | null) => Promise<void>
 }
 
 const AppDataContext = createContext<AppDataValue | null>(null)
@@ -110,6 +124,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
   const [personalBudgets, setPersonalBudgets] = useState<PersonalBudget[]>([])
+  const [objectives, setObjectives] = useState<Objective[]>([])
+  const [migrationApplied, setMigrationApplied] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -119,14 +135,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     setError(null)
-    const [companiesRes, categoriesRes, contactsRes, txRes, goalsRes, budgetsRes] = await Promise.all([
-      supabase.from('companies').select('*').order('sort_order'),
-      supabase.from('categories').select('*').order('sort_order'),
-      supabase.from('contacts').select('*').order('name'),
-      supabase.from('transactions').select('*').order('competence_date', { ascending: false }),
-      supabase.from('goals').select('*'),
-      supabase.from('personal_budgets').select('*'),
-    ])
+    const [companiesRes, categoriesRes, contactsRes, txRes, goalsRes, budgetsRes, objectivesRes] =
+      await Promise.all([
+        supabase.from('companies').select('*').order('sort_order'),
+        supabase.from('categories').select('*').order('sort_order'),
+        supabase.from('contacts').select('*').order('name'),
+        supabase.from('transactions').select('*').order('competence_date', { ascending: false }),
+        supabase.from('goals').select('*'),
+        supabase.from('personal_budgets').select('*'),
+        supabase.from('objectives').select('*').order('created_at', { ascending: false }),
+      ])
 
     const firstError =
       companiesRes.error ||
@@ -140,7 +158,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    setCompanies((companiesRes.data as Company[]) ?? [])
+    // A tabela `objectives` só existe após a migração 001. Enquanto isso, o
+    // resto do sistema continua funcionando e a tela avisa o que falta.
+    setMigrationApplied(!objectivesRes.error)
+    setObjectives(
+      ((objectivesRes.data as Objective[]) ?? []).map((o) => ({
+        ...o,
+        one_time_cost: Number(o.one_time_cost),
+        monthly_cost: Number(o.monthly_cost),
+      })),
+    )
+
+    setCompanies(
+      ((companiesRes.data as Company[]) ?? []).map((c) => ({
+        ...c,
+        tax_rate: c.tax_rate == null ? null : Number(c.tax_rate),
+      })),
+    )
     setCategories((categoriesRes.data as Category[]) ?? [])
     setContacts((contactsRes.data as Contact[]) ?? [])
     setTransactions(((txRes.data as Transaction[]) ?? []).map(coerceTransaction))
@@ -317,6 +351,45 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [refresh],
   )
 
+  const createObjective = useCallback(
+    async (input: ObjectiveInput) => {
+      const { error } = await supabase.from('objectives').insert(input)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const updateObjective = useCallback(
+    async (id: string, input: Partial<ObjectiveInput>) => {
+      const { error } = await supabase.from('objectives').update(input).eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const deleteObjective = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.from('objectives').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const updateCompanyTax = useCallback(
+    async (companyId: string, regime: TaxRegime, rate: number | null) => {
+      const { error } = await supabase
+        .from('companies')
+        .update({ tax_regime: regime, tax_rate: rate })
+        .eq('id', companyId)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
   const value = useMemo<AppDataValue>(
     () => ({
       companies,
@@ -329,6 +402,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       personalTransactions,
       goals,
       personalBudgets,
+      objectives,
+      migrationApplied,
       loading,
       error,
       refresh,
@@ -354,6 +429,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       deleteContact,
       savePersonalBudget,
       deletePersonalBudget,
+      createObjective,
+      updateObjective,
+      deleteObjective,
+      updateCompanyTax,
     }),
     [
       companies,
@@ -366,6 +445,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       personalTransactions,
       goals,
       personalBudgets,
+      objectives,
+      migrationApplied,
       loading,
       error,
       refresh,
@@ -390,6 +471,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       deleteContact,
       savePersonalBudget,
       deletePersonalBudget,
+      createObjective,
+      updateObjective,
+      deleteObjective,
+      updateCompanyTax,
     ],
   )
 

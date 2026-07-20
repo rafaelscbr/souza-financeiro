@@ -5,6 +5,8 @@ import {
   ArrowRightLeft,
   PieChart,
   Target,
+  Flag,
+  Calculator,
   Users,
   Wallet,
   Plus,
@@ -25,13 +27,17 @@ const NAV = [
   { to: '/lancamentos', label: 'Lançamentos', icon: Receipt, end: false },
   { to: '/fluxo', label: 'Fluxo de Caixa', icon: ArrowRightLeft, end: false },
   { to: '/relatorios', label: 'Relatórios', icon: PieChart, end: false },
+  { to: '/simulador', label: 'Simulador', icon: Calculator, end: false },
+  { to: '/objetivos', label: 'Objetivos', icon: Target, end: false },
+  { to: '/metas', label: 'Metas do mês', icon: Flag, end: false },
   { to: '/contatos', label: 'Contatos', icon: Users, end: false },
-  { to: '/metas', label: 'Metas', icon: Target, end: false },
 ]
 // Área pessoal (separada do bloco de negócios)
 const PERSONAL_NAV = { to: '/pessoal', label: 'Pessoal', icon: Wallet, end: false }
-// Itens que também aparecem na barra inferior do mobile
-const MOBILE_NAV = NAV.filter((n) => n.to !== '/contatos')
+// Barra inferior do mobile: só os cinco de uso diário — mais que isso
+// vira alvo pequeno demais para o polegar.
+const MOBILE_PATHS = ['/', '/lancamentos', '/fluxo', '/relatorios', '/objetivos']
+const MOBILE_NAV = MOBILE_PATHS.map((p) => NAV.find((n) => n.to === p)!).filter(Boolean)
 
 export function AppShell() {
   return (

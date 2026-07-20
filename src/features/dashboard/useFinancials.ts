@@ -2,9 +2,11 @@ import { useMemo } from 'react'
 import { useAppData } from '@/context/AppDataContext'
 import {
   computeKpis,
+  computeKpisMulti,
   filterTransactions,
   findGoal,
   healthFromKpis,
+  taxRateOf,
   type Kpis,
 } from '@/lib/finance'
 import type { Company, HealthStatus } from '@/types'
@@ -24,7 +26,10 @@ export function useCompanyFinancials(date: Date): CompanyFinancials[] {
   return useMemo(
     () =>
       businessCompanies.map((company) => {
-        const kpis = computeKpis(filterTransactions(businessTransactions, company.id, date, regime))
+        const kpis = computeKpis(
+          filterTransactions(businessTransactions, company.id, date, regime),
+          taxRateOf(businessCompanies, company.id),
+        )
         const revenueGoal = findGoal(goals, company.id, date, 'monthly_revenue')?.target_value
         const profitGoal = findGoal(goals, company.id, date, 'monthly_profit')?.target_value
         const goalMet = revenueGoal == null || kpis.revenue >= revenueGoal
@@ -43,9 +48,13 @@ export function useCompanyFinancials(date: Date): CompanyFinancials[] {
 
 /** KPIs consolidados do grupo (só empresas de negócio) para o mês informado. */
 export function useGroupKpis(date: Date): Kpis {
-  const { businessTransactions, regime } = useAppData()
+  const { businessTransactions, businessCompanies, regime } = useAppData()
   return useMemo(
-    () => computeKpis(filterTransactions(businessTransactions, null, date, regime)),
-    [businessTransactions, date, regime],
+    () =>
+      computeKpisMulti(
+        filterTransactions(businessTransactions, null, date, regime),
+        businessCompanies,
+      ),
+    [businessTransactions, businessCompanies, date, regime],
   )
 }

@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react'
-import { Download, Users, Building2 } from 'lucide-react'
+import { Download, Users, Building2, AlertTriangle } from 'lucide-react'
 import { useAppData } from '@/context/AppDataContext'
 import { Section } from '@/components/ui/Section'
 import { Segmented } from '@/components/ui/Segmented'
 import { Button } from '@/components/ui/Button'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { TaxSettings } from '@/features/settings/TaxSettings'
 import { companyDisplayColor, COMPANY_SHORT_NAME } from '@/assets/companies'
 import {
   computeKpis,
+  computeKpisMulti,
   healthFromKpis,
   lastNMonths,
   monthKey,
@@ -50,7 +52,7 @@ export function RelatoriosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [transactions, monthKeys, scopeCompanyId, regime],
   )
-  const dre = useMemo(() => computeKpis(scopedTx), [scopedTx])
+  const dre = useMemo(() => computeKpisMulti(scopedTx, companies), [scopedTx, companies])
 
   // Comparativo entre empresas
   const rows = useMemo(
@@ -173,24 +175,55 @@ export function RelatoriosPage() {
           )}
         </Section>
       </div>
+
+      <TaxSettings />
     </div>
   )
 }
 
+interface DreRow {
+  label: string
+  value: number
+  kind?: 'sub' | 'total'
+  hint?: string
+}
+
+/** DRE na ordem contábil: imposto sai da receita antes de qualquer margem. */
 function DreTable({ kpis }: { kpis: Kpis }) {
-  const rows: { label: string; value: number; kind?: 'sub' | 'total'; sign?: '-' }[] = [
-    { label: 'Receita bruta', value: kpis.revenue },
-    { label: '(−) Repasses a corretores', value: -kpis.costOfSale, kind: 'sub' },
+  const rows: DreRow[] = [
+    { label: 'Receita bruta de serviços', value: kpis.revenue },
+    {
+      label: '(−) Impostos sobre o faturamento',
+      value: -kpis.taxDeductions,
+      kind: 'sub',
+      hint: kpis.taxConfigured ? undefined : 'alíquota não configurada',
+    },
+    { label: 'Receita líquida', value: kpis.netRevenue, kind: 'total' },
+    { label: '(−) Comissões de corretores', value: -kpis.costOfSale, kind: 'sub' },
     { label: 'Lucro bruto', value: kpis.grossProfit, kind: 'total' },
     { label: '(−) Despesas operacionais', value: -kpis.operatingExpense, kind: 'sub' },
     { label: '(−) Despesas variáveis', value: -kpis.variableExpense, kind: 'sub' },
-    ...(kpis.otherExpense > 0 ? [{ label: '(−) Outras despesas', value: -kpis.otherExpense, kind: 'sub' as const }] : []),
+    ...(kpis.otherExpense > 0
+      ? [{ label: '(−) Outras despesas', value: -kpis.otherExpense, kind: 'sub' as const }]
+      : []),
     { label: 'Lucro líquido', value: kpis.netProfit, kind: 'total' },
-    { label: '(−) Retiradas', value: -kpis.withdrawals, kind: 'sub' },
-    { label: 'Resultado após retiradas', value: kpis.netProfit - kpis.withdrawals, kind: 'total' },
+    { label: '(−) Distribuição de lucros', value: -kpis.profitDistribution, kind: 'sub' },
+    { label: 'Lucro retido na empresa', value: kpis.retainedProfit, kind: 'total' },
   ]
+
   return (
     <div className="space-y-0.5">
+      {!kpis.taxConfigured && kpis.revenue > 0 && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg bg-pending/10 px-3 py-2 text-xs text-content-muted">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-pending" />
+          <span>
+            Sem alíquota configurada, o imposto entra como zero e o lucro abaixo aparece{' '}
+            <strong className="text-content">maior do que é</strong>. Configure na seção
+            “Configuração tributária”, no fim desta página.
+          </span>
+        </div>
+      )}
+
       {rows.map((r) => (
         <div
           key={r.label}
@@ -200,14 +233,19 @@ function DreTable({ kpis }: { kpis: Kpis }) {
               : 'flex items-center justify-between py-1.5 text-sm text-content-muted'
           }
         >
-          <span>{r.label}</span>
-          <span className={`tnum ${r.value < 0 ? 'text-expense' : r.kind === 'total' ? 'text-content' : 'text-content'}`}>
+          <span>
+            {r.label}
+            {r.hint && <span className="ml-1.5 text-[11px] text-pending">({r.hint})</span>}
+          </span>
+          <span className={`tnum ${r.value < 0 ? 'text-expense' : 'text-content'}`}>
             {formatCurrency(r.value)}
           </span>
         </div>
       ))}
-      <div className="flex items-center justify-between pt-2 text-xs text-content-faint">
+
+      <div className="flex flex-wrap items-center justify-between gap-x-4 pt-2 text-xs text-content-faint">
         <span>Margem bruta {formatPercent(kpis.grossMargin, 0)}</span>
+        <span>Margem EBITDA {formatPercent(kpis.ebitdaMargin, 0)}</span>
         <span>Margem líquida {formatPercent(kpis.netMargin, 0)}</span>
       </div>
     </div>

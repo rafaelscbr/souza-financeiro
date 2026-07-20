@@ -24,6 +24,12 @@ const ContatosPage = lazy(() =>
 )
 const MetasPage = lazy(() => import('@/pages/MetasPage').then((m) => ({ default: m.MetasPage })))
 const PessoalPage = lazy(() => import('@/pages/PessoalPage').then((m) => ({ default: m.PessoalPage })))
+const SimuladorPage = lazy(() =>
+  import('@/pages/SimuladorPage').then((m) => ({ default: m.SimuladorPage })),
+)
+const ObjetivosPage = lazy(() =>
+  import('@/pages/ObjetivosPage').then((m) => ({ default: m.ObjetivosPage })),
+)
 
 export default function App() {
   return (
@@ -50,6 +56,8 @@ function AuthGate() {
             <Route path="/relatorios" element={<RelatoriosPage />} />
             <Route path="/contatos" element={<ContatosPage />} />
             <Route path="/metas" element={<MetasPage />} />
+            <Route path="/simulador" element={<SimuladorPage />} />
+            <Route path="/objetivos" element={<ObjetivosPage />} />
             <Route path="/pessoal" element={<PessoalPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

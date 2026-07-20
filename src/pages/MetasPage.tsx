@@ -6,7 +6,7 @@ import { CurrencyInput } from '@/components/ui/MoneyInput'
 import { Progress } from '@/components/ui/Progress'
 import { companyDisplayColor } from '@/assets/companies'
 import {
-  computeKpis,
+  computeKpisMulti,
   filterTransactions,
   findGoal,
   firstDayOfMonth,
@@ -67,11 +67,16 @@ function GoalCard({
   color: string
   isGroup?: boolean
 }) {
-  const { businessTransactions, goals, period, regime, saveGoal, deleteGoal } = useAppData()
+  const { businessTransactions, businessCompanies, goals, period, regime, saveGoal, deleteGoal } =
+    useAppData()
 
   const kpis: Kpis = useMemo(
-    () => computeKpis(filterTransactions(businessTransactions, companyId, period, regime)),
-    [businessTransactions, companyId, period, regime],
+    () =>
+      computeKpisMulti(
+        filterTransactions(businessTransactions, companyId, period, regime),
+        businessCompanies,
+      ),
+    [businessTransactions, businessCompanies, companyId, period, regime],
   )
 
   const existingRevenue = findGoal(goals, companyId, period, 'monthly_revenue')

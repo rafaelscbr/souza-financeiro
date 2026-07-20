@@ -18,6 +18,8 @@ export type DreGroup =
   | 'variable_expense'
   | 'withdrawal'
 
+export type TaxRegime = 'simples' | 'presumido' | 'real' | 'none'
+
 export interface Company {
   id: string
   slug: string
@@ -27,6 +29,14 @@ export interface Company {
   sort_order: number
   /** true = ledger pessoal do dono (isolado do consolidado das empresas). */
   is_personal: boolean
+  /** Enquadramento tributário. `null` = ainda não configurado. */
+  tax_regime: TaxRegime | null
+  /**
+   * Alíquota EFETIVA sobre a receita bruta, em % (ex.: 8.5).
+   * No Simples é a que aparece no extrato do DAS — não a nominal da tabela.
+   * `null` = não configurada; o DRE avisa em vez de assumir zero.
+   */
+  tax_rate: number | null
   created_at: string
 }
 
@@ -128,6 +138,27 @@ export interface TransactionInput {
   installment_index: number | null
   installment_count: number | null
 }
+
+/** Objetivo com custo: alugar uma sala, contratar alguém, comprar um carro. */
+export interface Objective {
+  id: string
+  /** `business` usa o resultado da empresa · `personal` usa a sobra pessoal. */
+  scope: 'business' | 'personal'
+  /** Empresa alvo quando `scope = business`. */
+  company_id: string | null
+  name: string
+  /** Desembolso único: entrada, caução, mobília, taxa. */
+  one_time_cost: number
+  /** Custo que se repete todo mês: aluguel, condomínio, salário. */
+  monthly_cost: number
+  /** Data desejada (opcional) — o sistema diz se é realista. */
+  target_date: string | null
+  notes: string | null
+  status: 'planned' | 'achieved' | 'cancelled'
+  created_at: string
+}
+
+export type ObjectiveInput = Omit<Objective, 'id' | 'created_at'>
 
 export type ContactInput = Omit<Contact, 'id' | 'created_at'>
 

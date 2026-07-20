@@ -32,12 +32,13 @@ import {
   lastNMonths,
   monthlySeries,
   pipelineSummary,
+  taxRateOf,
 } from '@/lib/finance'
 import { formatCurrency, formatMonthShort, formatMonthYear, formatPercent } from '@/lib/format'
 import type { Company, Transaction, TransactionKind } from '@/types'
 
 export function CompanyDashboard({ company }: { company: Company }) {
-  const { businessTransactions, goals, period, regime } = useAppData()
+  const { businessTransactions, businessCompanies, goals, period, regime } = useAppData()
   const { openNew } = useComposer()
 
   const companyTx = useMemo(
@@ -49,7 +50,8 @@ export function CompanyDashboard({ company }: { company: Company }) {
     () => filterTransactions(companyTx, null, period, regime),
     [companyTx, period, regime],
   )
-  const kpis = useMemo(() => computeKpis(monthTx), [monthTx])
+  const taxRate = taxRateOf(businessCompanies, company.id)
+  const kpis = useMemo(() => computeKpis(monthTx, taxRate), [monthTx, taxRate])
 
   // Pendências e histórico não dependem do mês em foco — é o que mantém
   // o painel útil mesmo num mês sem nenhum lançamento novo.
@@ -57,11 +59,11 @@ export function CompanyDashboard({ company }: { company: Company }) {
 
   const trend = useMemo(
     () =>
-      monthlySeries(companyTx, null, lastNMonths(period, 6), regime).map((p) => ({
+      monthlySeries(companyTx, null, lastNMonths(period, 6), regime, businessCompanies).map((p) => ({
         label: formatMonthShort(p.date),
         lucro: p.profit,
       })),
-    [companyTx, period, regime],
+    [companyTx, period, regime, businessCompanies],
   )
 
   const revenueGoal = findGoal(goals, company.id, period, 'monthly_revenue')?.target_value

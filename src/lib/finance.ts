@@ -1,4 +1,4 @@
-import type { Contact, DreGroup, Goal, HealthStatus, Regime, Transaction } from '@/types'
+import type { Company, Contact, DreGroup, Goal, HealthStatus, Regime, Transaction } from '@/types'
 
 /** Categorias de despesa consideradas FIXAS (fallback de classificação). */
 export const FIXED_EXPENSE_CATEGORIES = new Set([
@@ -10,10 +10,32 @@ export const FIXED_EXPENSE_CATEGORIES = new Set([
   'Contabilidade',
 ])
 
-export const COST_OF_SALE_CATEGORIES = new Set(['Repasse a Corretores', 'Repasse de Comissão'])
+/**
+ * Custo dos Serviços Prestados (CSP): o que só existe porque houve venda.
+ * A comissão paga ao corretor é custo direto, não "repasse" — a imobiliária
+ * fatura a comissão cheia (e é sobre ela que incide o imposto) e paga o
+ * corretor como custo de entregar o serviço. "Repasse" fica como sinônimo
+ * antigo para não quebrar lançamentos já gravados.
+ */
+export const COST_OF_SALE_CATEGORIES = new Set([
+  'Comissões de Corretores',
+  'Repasse a Corretores',
+  'Repasse de Comissão',
+])
+
+/**
+ * Pró-labore é remuneração do sócio pelo TRABALHO: despesa operacional,
+ * entra antes do lucro. Distribuição de lucro é remuneração do CAPITAL:
+ * sai depois do lucro líquido. Somar os dois como "retirada" mascara o
+ * custo real da operação e infla a margem.
+ */
+export const PRO_LABORE_CATEGORIES = new Set(['Pró-labore', 'Pro-labore'])
 
 /** Classificação DRE de um lançamento (usa o campo salvo, com fallback por categoria/tipo). */
 export function dreGroupOf(tx: Transaction): DreGroup {
+  // Pró-labore vence o dre_group gravado: lançamentos antigos foram salvos
+  // como 'withdrawal' e precisam migrar para despesa operacional.
+  if (PRO_LABORE_CATEGORIES.has(tx.category)) return 'operating_expense'
   if (tx.dre_group) return tx.dre_group
   if (tx.kind === 'income') return 'revenue'
   if (tx.kind === 'withdrawal') return 'withdrawal'
@@ -103,22 +125,36 @@ export function filterTransactions(
 // ---------------------------------------------------------------------------
 
 export interface Kpis {
-  /** Receita bruta (competência). */
+  /** Receita bruta de serviços — base de cálculo do imposto no Simples. */
   revenue: number
-  /** Custos diretos (repasses a corretores). */
+  /** Impostos sobre o faturamento (Simples/ISS/PIS/COFINS). */
+  taxDeductions: number
+  /** Receita líquida = bruta − impostos. */
+  netRevenue: number
+  /** Custo dos Serviços Prestados: comissões de corretores. */
   costOfSale: number
-  /** Lucro bruto = receita − custos diretos. */
+  /** Lucro bruto = receita líquida − CSP. O que sobra para pagar a estrutura. */
   grossProfit: number
   grossMargin: number
+  /** Despesas operacionais fixas (estrutura, pessoal, pró-labore). */
   operatingExpense: number
+  /** Despesas variáveis (marketing, comercial). */
   variableExpense: number
   /** Despesas não classificadas (fallback). */
   otherExpense: number
-  /** Total de saídas de despesa (custos + operacionais + variáveis + outras). */
+  /** Resultado operacional antes de juros — capacidade de gerar caixa. */
+  ebitda: number
+  ebitdaMargin: number
+  /** Total de saídas de despesa (não inclui impostos nem distribuição). */
   totalExpense: number
-  /** Lucro líquido = receita − total de despesas. */
+  /** Lucro líquido — depois de imposto, custo e estrutura. */
   netProfit: number
   netMargin: number
+  /** Distribuição de lucros ao sócio (sai DEPOIS do lucro líquido). */
+  profitDistribution: number
+  /** Lucro retido = líquido − distribuição. O que fica na empresa. */
+  retainedProfit: number
+  /** @deprecated use `profitDistribution` — mantido para compatibilidade. */
   withdrawals: number
   /** Receita já recebida (caixa). */
   received: number
@@ -128,16 +164,26 @@ export interface Kpis {
   paid: number
   /** Despesas a pagar. */
   toPay: number
+  /** `false` quando a alíquota da empresa não foi configurada. */
+  taxConfigured: boolean
   count: number
 }
 
-export function computeKpis(txs: Transaction[]): Kpis {
+/**
+ * DRE do conjunto de lançamentos.
+ *
+ * `taxRatePct` é a alíquota EFETIVA sobre a receita bruta (ex.: 8.5 para 8,5%).
+ * Passar `null` significa "não configurada": o imposto entra como zero e
+ * `taxConfigured` fica falso para a tela poder avisar, em vez de mostrar um
+ * lucro que não existe.
+ */
+export function computeKpis(txs: Transaction[], taxRatePct: number | null = null): Kpis {
   let revenue = 0
   let costOfSale = 0
   let operatingExpense = 0
   let variableExpense = 0
   let otherExpense = 0
-  let withdrawals = 0
+  let profitDistribution = 0
   let received = 0
   let toReceive = 0
   let paid = 0
@@ -150,7 +196,7 @@ export function computeKpis(txs: Transaction[]): Kpis {
       if (t.status === 'settled') received += t.amount
       else toReceive += t.amount
     } else if (g === 'withdrawal') {
-      withdrawals += t.amount
+      profitDistribution += t.amount
     } else {
       // despesa (custo direto / operacional / variável / outra)
       if (g === 'cost_of_sale') costOfSale += t.amount
@@ -162,28 +208,133 @@ export function computeKpis(txs: Transaction[]): Kpis {
     }
   }
 
-  const grossProfit = revenue - costOfSale
-  const totalExpense = costOfSale + operatingExpense + variableExpense + otherExpense
-  const netProfit = revenue - totalExpense
+  const taxDeductions = taxRatePct != null ? round2(revenue * (taxRatePct / 100)) : 0
+  const netRevenue = revenue - taxDeductions
+  const grossProfit = netRevenue - costOfSale
+  const structure = operatingExpense + variableExpense + otherExpense
+  const ebitda = grossProfit - structure
+  // Sem empréstimos/juros modelados, o resultado operacional é o próprio líquido.
+  const netProfit = ebitda
+  const totalExpense = costOfSale + structure
 
   return {
     revenue,
+    taxDeductions,
+    netRevenue,
     costOfSale,
     grossProfit,
-    grossMargin: revenue > 0 ? grossProfit / revenue : 0,
+    grossMargin: netRevenue > 0 ? grossProfit / netRevenue : 0,
     operatingExpense,
     variableExpense,
     otherExpense,
+    ebitda,
+    ebitdaMargin: revenue > 0 ? ebitda / revenue : 0,
     totalExpense,
     netProfit,
     netMargin: revenue > 0 ? netProfit / revenue : 0,
-    withdrawals,
+    profitDistribution,
+    retainedProfit: netProfit - profitDistribution,
+    withdrawals: profitDistribution,
     received,
     toReceive,
     paid,
     toPay,
+    taxConfigured: taxRatePct != null,
     count: txs.length,
   }
+}
+
+function round2(v: number): number {
+  return Math.round(v * 100) / 100
+}
+
+/** Alíquota efetiva configurada para a empresa, ou `null` se não houver. */
+export function taxRateOf(companies: Company[], companyId: string): number | null {
+  return companies.find((c) => c.id === companyId)?.tax_rate ?? null
+}
+
+/**
+ * DRE consolidado de várias empresas. Cada uma é apurada com a PRÓPRIA
+ * alíquota e só depois os resultados são somados — somar o faturamento
+ * do grupo e aplicar uma alíquota média daria imposto errado, porque
+ * Imobiliária, Escola e Assessoria têm enquadramentos distintos.
+ */
+export function computeKpisMulti(txs: Transaction[], companies: Company[]): Kpis {
+  const byCompany = new Map<string, Transaction[]>()
+  for (const t of txs) {
+    const arr = byCompany.get(t.company_id)
+    if (arr) arr.push(t)
+    else byCompany.set(t.company_id, [t])
+  }
+
+  const parts = [...byCompany.entries()].map(([companyId, list]) =>
+    computeKpis(list, taxRateOf(companies, companyId)),
+  )
+  return sumKpis(parts, txs.length)
+}
+
+/** Soma DREs já apurados. Margens são recalculadas sobre os totais. */
+export function sumKpis(parts: Kpis[], count: number): Kpis {
+  const acc = parts.reduce<Kpis>(
+    (a, k) => ({
+      ...a,
+      revenue: a.revenue + k.revenue,
+      taxDeductions: a.taxDeductions + k.taxDeductions,
+      netRevenue: a.netRevenue + k.netRevenue,
+      costOfSale: a.costOfSale + k.costOfSale,
+      grossProfit: a.grossProfit + k.grossProfit,
+      operatingExpense: a.operatingExpense + k.operatingExpense,
+      variableExpense: a.variableExpense + k.variableExpense,
+      otherExpense: a.otherExpense + k.otherExpense,
+      ebitda: a.ebitda + k.ebitda,
+      totalExpense: a.totalExpense + k.totalExpense,
+      netProfit: a.netProfit + k.netProfit,
+      profitDistribution: a.profitDistribution + k.profitDistribution,
+      retainedProfit: a.retainedProfit + k.retainedProfit,
+      withdrawals: a.withdrawals + k.withdrawals,
+      received: a.received + k.received,
+      toReceive: a.toReceive + k.toReceive,
+      paid: a.paid + k.paid,
+      toPay: a.toPay + k.toPay,
+      // Só é "configurado" se TODAS as empresas com receita tiverem alíquota.
+      taxConfigured: a.taxConfigured && k.taxConfigured,
+    }),
+    { ...EMPTY_KPIS, taxConfigured: true },
+  )
+
+  return {
+    ...acc,
+    grossMargin: acc.netRevenue > 0 ? acc.grossProfit / acc.netRevenue : 0,
+    ebitdaMargin: acc.revenue > 0 ? acc.ebitda / acc.revenue : 0,
+    netMargin: acc.revenue > 0 ? acc.netProfit / acc.revenue : 0,
+    count,
+  }
+}
+
+const EMPTY_KPIS: Kpis = {
+  revenue: 0,
+  taxDeductions: 0,
+  netRevenue: 0,
+  costOfSale: 0,
+  grossProfit: 0,
+  grossMargin: 0,
+  operatingExpense: 0,
+  variableExpense: 0,
+  otherExpense: 0,
+  ebitda: 0,
+  ebitdaMargin: 0,
+  totalExpense: 0,
+  netProfit: 0,
+  netMargin: 0,
+  profitDistribution: 0,
+  retainedProfit: 0,
+  withdrawals: 0,
+  received: 0,
+  toReceive: 0,
+  paid: 0,
+  toPay: 0,
+  taxConfigured: false,
+  count: 0,
 }
 
 // ---------------------------------------------------------------------------
@@ -215,14 +366,18 @@ export function monthlySeries(
   companyId: string | null,
   months: Date[],
   regime: Regime = 'accrual',
+  companies: Company[] = [],
 ): MonthlyPoint[] {
   return months.map((date) => {
-    const kpis = computeKpis(filterTransactions(transactions, companyId, date, regime))
+    const kpis = computeKpisMulti(
+      filterTransactions(transactions, companyId, date, regime),
+      companies,
+    )
     return {
       date,
       monthKey: monthKey(date),
       revenue: kpis.revenue,
-      expense: kpis.totalExpense,
+      expense: kpis.totalExpense + kpis.taxDeductions,
       profit: kpis.netProfit,
     }
   })
