@@ -17,6 +17,7 @@ import { KpiCard } from '@/components/ui/KpiCard'
 import { Section } from '@/components/ui/Section'
 import { Progress } from '@/components/ui/Progress'
 import { HealthBadge } from '@/components/ui/HealthBadge'
+import { HealthPanel } from './HealthPanel'
 import { Button } from '@/components/ui/Button'
 import { Tip } from '@/components/ui/Tip'
 import { CategoryBarChart, ProfitTrendChart, type CategoryDatum } from './Charts'
@@ -27,18 +28,22 @@ import {
   computeKpis,
   filterTransactions,
   findGoal,
-  healthFromKpis,
   inScope,
   lastNMonths,
   monthlySeries,
   pipelineSummary,
   taxRateOf,
 } from '@/lib/finance'
+import { computeHealth } from '@/lib/health'
+import { computeRunway } from '@/lib/indicators'
+import { deriveCostStructure } from '@/lib/simulator'
+import { treasurySummary } from '@/lib/treasury'
 import { formatCurrency, formatMonthShort, formatMonthYear, formatPercent } from '@/lib/format'
 import type { Company, Transaction, TransactionKind } from '@/types'
 
 export function CompanyDashboard({ company }: { company: Company }) {
-  const { businessTransactions, businessCompanies, goals, period, regime } = useAppData()
+  const { businessTransactions, businessCompanies, accounts, transfers, goals, period, regime } =
+    useAppData()
   const { openNew } = useComposer()
 
   const companyTx = useMemo(
@@ -68,8 +73,22 @@ export function CompanyDashboard({ company }: { company: Company }) {
 
   const revenueGoal = findGoal(goals, company.id, period, 'monthly_revenue')?.target_value
   const profitGoal = findGoal(goals, company.id, period, 'monthly_profit')?.target_value
-  const goalMet = revenueGoal == null || kpis.revenue >= revenueGoal
-  const health = healthFromKpis(kpis, goalMet)
+
+  // Saúde por quatro fatores — margem sozinha mente nos dois sentidos.
+  const health = useMemo(() => {
+    const companyAccounts = accounts.filter((a) => a.company_id === company.id)
+    const cash = treasurySummary(companyAccounts, companyTx, transfers).total
+    const cost = deriveCostStructure(companyTx, null, period, businessCompanies)
+    const runwayMonths =
+      companyAccounts.length === 0 ? null : computeRunway(cash, cost.fixedMonthly).months
+
+    return computeHealth({
+      kpis,
+      runwayMonths,
+      overdueAmount: pipeline.overdueReceivable + pipeline.overduePayable,
+      revenueGoal,
+    })
+  }, [accounts, company.id, companyTx, transfers, period, businessCompanies, kpis, pipeline, revenueGoal])
 
   const color = companyDisplayColor(company.slug, company.brand_color, company.accent_color)
   const incomeByCat = useMemo(() => breakdown(monthTx, 'income', '#34D399'), [monthTx])
@@ -100,8 +119,10 @@ export function CompanyDashboard({ company }: { company: Company }) {
             </p>
           </div>
         </div>
-        <HealthBadge status={health} />
+        <HealthBadge status={health.status} />
       </div>
+
+      {hasHistory && <HealthPanel report={health} />}
 
       {/* Primeiro acesso: a empresa nunca teve lançamento nenhum */}
       {!hasHistory ? (

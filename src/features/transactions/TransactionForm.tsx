@@ -54,6 +54,8 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
   const [firstDate, setFirstDate] = useState(toDateOnly(new Date()))
   const [isRecurring, setIsRecurring] = useState(editing?.is_recurring ?? false)
   const [accountId, setAccountId] = useState<string>(editing?.account_id ?? '')
+  // Apropriação: despesa anual paga de uma vez, mas que "pertence" a N meses.
+  const [spreadMonths, setSpreadMonths] = useState(1)
 
   const availableAccounts = useMemo(
     () => accounts.filter((a) => a.is_active && a.company_id === companyId),
@@ -85,6 +87,8 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
   const isCommission = kind === 'income' && resolvedCategory === COMMISSION_CATEGORY && !editing
   const isParcelable = (kind === 'income' || kind === 'expense') && !editing
   const showStatus = kind !== 'withdrawal'
+  // Só faz sentido apropriar uma despesa já paga: é o caso do anual à vista.
+  const canSpread = kind === 'expense' && !editing && receiveMode === 'avista' && status === 'settled'
 
   // valor base do lançamento
   const commissionGross =
@@ -124,6 +128,53 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
 
     const dre = dreGroupForCategory()
     const groupId = crypto.randomUUID()
+
+    // Apropriação por competência: um pagamento único que cobre N meses vira
+    // N linhas mensais. Sem isso, o seguro anual afunda o mês do pagamento e
+    // deixa os outros onze artificialmente bonitos.
+    if (canSpread && spreadMonths > 1) {
+      const per = Math.floor((baseAmount / spreadMonths) * 100) / 100
+      const [cy, cm, cd] = competenceDate.split('-').map(Number)
+      const rows: TransactionInput[] = []
+
+      for (let i = 0; i < spreadMonths; i++) {
+        const amount =
+          i === spreadMonths - 1
+            ? Math.round((baseAmount - per * (spreadMonths - 1)) * 100) / 100
+            : per
+        rows.push({
+          company_id: companyId,
+          kind,
+          category: resolvedCategory,
+          dre_group: dre,
+          description: description
+            ? `${description} (${i + 1}/${spreadMonths})`
+            : `Apropriação ${i + 1}/${spreadMonths}`,
+          amount,
+          // A competência caminha mês a mês…
+          competence_date: toDateOnly(new Date(cy, cm - 1 + i, cd)),
+          // …mas o dinheiro saiu de uma vez só. Todas as parcelas carregam a
+          // MESMA data de pagamento e a mesma conta: assim o caixa registra a
+          // saída inteira no dia certo, enquanto a competência distribui o
+          // custo pelos meses que ele cobre.
+          status: 'settled',
+          settled_date: movementDate,
+          due_date: null,
+          is_recurring: false,
+          contact_id: kind === 'expense' ? contactId : null,
+          counterparty: null,
+          property_value: null,
+          commission_pct: null,
+          broker_pct: null,
+          group_id: groupId,
+          installment_index: i + 1,
+          installment_count: spreadMonths,
+          account_id: accountId || null,
+        })
+      }
+
+      return onSubmit(rows)
+    }
 
     // define as parcelas (à vista = 1 parcela)
     const parcels =
@@ -342,6 +393,32 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
             <Input id="tx-first" type="date" value={firstDate} onChange={(e) => setFirstDate(e.target.value)} />
           </FormField>
         </div>
+      )}
+
+      {/* Apropriação de despesa que cobre vários meses */}
+      {canSpread && (
+        <FormField
+          label="Esta despesa cobre quantos meses?"
+          htmlFor="tx-spread"
+          hint={
+            spreadMonths > 1
+              ? `${formatCurrency(baseAmount / spreadMonths)} por mês no resultado — o pagamento continua sendo um só`
+              : 'Use para anuidades: contador, seguro, licença paga de uma vez'
+          }
+        >
+          <Select
+            id="tx-spread"
+            value={spreadMonths}
+            onChange={(e) => setSpreadMonths(Number(e.target.value))}
+          >
+            <option value={1}>Só este mês</option>
+            {[2, 3, 6, 12, 24].map((n) => (
+              <option key={n} value={n}>
+                {n} meses
+              </option>
+            ))}
+          </Select>
+        </FormField>
       )}
 
       {/* Conta — só quando o dinheiro já se moveu */}

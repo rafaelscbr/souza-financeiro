@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Tip } from '@/components/ui/Tip'
 import { TransactionList } from '@/features/transactions/TransactionList'
 import { useComposer } from '@/features/transactions/TransactionComposer'
+import { RecurringPrompt } from '@/features/transactions/RecurringPrompt'
 import {
   dreGroupOf,
   inScope,
@@ -149,6 +150,8 @@ export function LancamentosPage() {
           <span className="hidden sm:inline">CSV</span>
         </Button>
       </div>
+
+      <RecurringPrompt />
 
       {/* Abas de situação */}
       <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Situação">
