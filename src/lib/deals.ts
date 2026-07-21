@@ -100,28 +100,31 @@ export function deriveDeals(
     if (revenues.length === 0) continue
 
     const commissions = rows.filter((t) => dreGroupOf(t) === 'cost_of_sale')
-    // Toda despesa do grupo que não é comissão nem distribuição é custo direto
-    // da venda (taxa de tabela, marketing do lançamento). Precisa ser descontada.
+    // Imposto lançado como conta (categoria de imposto) — dedução, não despesa.
+    const taxes = rows.filter((t) => dreGroupOf(t) === 'tax')
+    // Demais despesas do grupo: custo direto da venda (taxa de tabela, marketing).
     const others = rows.filter((t) => {
       const g = dreGroupOf(t)
-      return g !== 'revenue' && g !== 'cost_of_sale' && g !== 'withdrawal'
+      return g !== 'revenue' && g !== 'cost_of_sale' && g !== 'withdrawal' && g !== 'tax'
     })
 
     const companyId = rows[0].company_id
     const taxRate = taxRateOf(companies, companyId)
-    const taxConfigured = taxRate != null
 
     const grossRevenue = sum(revenues)
     const commissionCost = sum(commissions)
     const otherCost = sum(others)
-    const tax = taxConfigured ? round2(grossRevenue * (taxRate as number) / 100) : 0
+    // Imposto lançado manda; a alíquota da empresa é fallback.
+    const taxLaunched = sum(taxes)
+    const tax = taxLaunched > 0 ? taxLaunched : taxRate != null ? round2(grossRevenue * taxRate / 100) : 0
+    const taxConfigured = taxLaunched > 0 || taxRate != null
     const netToCompany = round2(grossRevenue - tax - commissionCost - otherCost)
 
     const received = sum(revenues.filter((t) => t.status === 'settled'))
     const toReceive = sum(revenues.filter((t) => t.status === 'pending'))
     const commissionPaid = sum(commissions.filter((t) => t.status === 'settled'))
     const commissionToPay = sum(commissions.filter((t) => t.status === 'pending'))
-    const taxPaid = taxConfigured ? round2(received * (taxRate as number) / 100) : 0
+    const taxPaid = sum(taxes.filter((t) => t.status === 'settled'))
     const netReceived = round2(received - taxPaid - commissionPaid)
 
     // Duplicatas: uma linha por parcela que TEM receita. Comissão e outras
@@ -129,6 +132,7 @@ export function deriveDeals(
     // receita) contam só no total da venda, nunca viram linha vazia.
     const revByIdx = new Map<number, Transaction[]>()
     const comByIdx = new Map<number, Transaction[]>()
+    const taxByIdx = new Map<number, Transaction[]>()
     const othByIdx = new Map<number, Transaction[]>()
     const push = (m: Map<number, Transaction[]>, i: number, t: Transaction) => {
       const a = m.get(i)
@@ -140,6 +144,7 @@ export function deriveDeals(
       const g = dreGroupOf(t)
       if (g === 'revenue') push(revByIdx, idx, t)
       else if (g === 'cost_of_sale') push(comByIdx, idx, t)
+      else if (g === 'tax') push(taxByIdx, idx, t)
       else if (g !== 'withdrawal') push(othByIdx, idx, t)
     }
 
@@ -148,11 +153,14 @@ export function deriveDeals(
     const installments: DealInstallment[] = indices.map((index) => {
       const revs = revByIdx.get(index) as Transaction[] // garantido por indices
       const coms = comByIdx.get(index) ?? []
+      const txs2 = taxByIdx.get(index) ?? []
       const oths = othByIdx.get(index) ?? []
       const revenue = sum(revs)
       const commission = sum(coms)
       const other = sum(oths)
-      const instTax = taxConfigured ? round2(revenue * (taxRate as number) / 100) : 0
+      const taxLaunchedIdx = sum(txs2)
+      const instTax =
+        taxLaunchedIdx > 0 ? taxLaunchedIdx : taxRate != null ? round2(revenue * taxRate / 100) : 0
       const first = revs[0]
       const date = first.settled_date ?? first.due_date ?? first.competence_date
       const revenueSettled = revs.every((t) => t.status === 'settled')

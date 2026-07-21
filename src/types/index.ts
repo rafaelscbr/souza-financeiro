@@ -13,6 +13,7 @@ export type Regime = 'cash' | 'accrual'
 /** Grupo no DRE (Demonstração de Resultado). */
 export type DreGroup =
   | 'revenue'
+  | 'tax' // imposto sobre faturamento (Simples/DAS) — dedução da receita
   | 'cost_of_sale'
   | 'operating_expense'
   | 'variable_expense'

@@ -31,11 +31,20 @@ export const COST_OF_SALE_CATEGORIES = new Set([
  */
 export const PRO_LABORE_CATEGORIES = new Set(['Pró-labore', 'Pro-labore'])
 
+/**
+ * Imposto sobre faturamento (Simples/DAS). O Rafael lança o imposto como uma
+ * conta a pagar para ter controle de quando paga a guia — mas no DRE ele é
+ * DEDUÇÃO da receita, não despesa. Reconhecer pela categoria põe cada real no
+ * lugar certo: some da linha de imposto, aparece no "a pagar".
+ */
+export const TAX_CATEGORIES = new Set(['Impostos e Taxas', 'Imposto', 'Impostos', 'DAS', 'Simples Nacional'])
+
 /** Classificação DRE de um lançamento (usa o campo salvo, com fallback por categoria/tipo). */
 export function dreGroupOf(tx: Transaction): DreGroup {
-  // Pró-labore vence o dre_group gravado: lançamentos antigos foram salvos
-  // como 'withdrawal' e precisam migrar para despesa operacional.
+  // Categoria vence o dre_group gravado nestes casos: lançamentos antigos
+  // foram salvos com o grupo errado e precisam ser reconhecidos pelo nome.
   if (PRO_LABORE_CATEGORIES.has(tx.category)) return 'operating_expense'
+  if (TAX_CATEGORIES.has(tx.category)) return 'tax'
   if (tx.dre_group) return tx.dre_group
   if (tx.kind === 'income') return 'revenue'
   if (tx.kind === 'withdrawal') return 'withdrawal'
@@ -179,6 +188,7 @@ export interface Kpis {
  */
 export function computeKpis(txs: Transaction[], taxRatePct: number | null = null): Kpis {
   let revenue = 0
+  let taxLaunched = 0 // imposto lançado como conta (categoria de imposto)
   let costOfSale = 0
   let operatingExpense = 0
   let variableExpense = 0
@@ -197,6 +207,11 @@ export function computeKpis(txs: Transaction[], taxRatePct: number | null = null
       else toReceive += t.amount
     } else if (g === 'withdrawal') {
       profitDistribution += t.amount
+    } else if (g === 'tax') {
+      // Imposto é dedução da receita, não despesa — mas ainda é saída de caixa.
+      taxLaunched += t.amount
+      if (t.status === 'settled') paid += t.amount
+      else toPay += t.amount
     } else {
       // despesa (custo direto / operacional / variável / outra)
       if (g === 'cost_of_sale') costOfSale += t.amount
@@ -208,7 +223,11 @@ export function computeKpis(txs: Transaction[], taxRatePct: number | null = null
     }
   }
 
-  const taxDeductions = taxRatePct != null ? round2(revenue * (taxRatePct / 100)) : 0
+  // Imposto lançado manda; a alíquota da empresa é só fallback quando a venda
+  // ainda não tem a guia lançada. Assim os dois modos convivem sem contar 2x.
+  const taxLaunchedR = round2(taxLaunched)
+  const taxByRate = taxRatePct != null ? round2(revenue * (taxRatePct / 100)) : 0
+  const taxDeductions = taxLaunchedR > 0 ? taxLaunchedR : taxByRate
   const netRevenue = revenue - taxDeductions
   const grossProfit = netRevenue - costOfSale
   const structure = operatingExpense + variableExpense + otherExpense
@@ -239,7 +258,8 @@ export function computeKpis(txs: Transaction[], taxRatePct: number | null = null
     toReceive,
     paid,
     toPay,
-    taxConfigured: taxRatePct != null,
+    // Configurado se há imposto lançado OU alíquota definida.
+    taxConfigured: taxLaunchedR > 0 || taxRatePct != null,
     count: txs.length,
   }
 }
