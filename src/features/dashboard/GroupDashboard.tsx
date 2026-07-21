@@ -26,7 +26,8 @@ function deltaOf(s: number[]): number | undefined {
 }
 
 export function GroupDashboard() {
-  const { businessTransactions, businessCompanies, goals, period, regime, setScope } = useAppData()
+  const { businessTransactions, businessCompanies, goals, period, regime, setScope, setPeriod } =
+    useAppData()
   const { openNew } = useComposer()
   const groupKpis = useGroupKpis(period)
   const perCompany = useCompanyFinancials(period)
@@ -55,6 +56,10 @@ export function GroupDashboard() {
   const marginSeries = series.map((p) => (p.revenue > 0 ? (p.profit / p.revenue) * 100 : 0))
   const revenueDelta = deltaOf(revenueSeries)
   const profitDelta = deltaOf(profitSeries)
+  // Clicar num mês do sparkline leva o painel inteiro para aquele mês.
+  const goToSeriesMonth = (i: number) => setPeriod(series[i].date)
+  const labelsFor = (vals: number[]) =>
+    series.map((p, i) => `${formatMonthShort(p.date)}: ${formatCurrency(vals[i])}`)
 
   const alerts = useMemo(
     () =>
@@ -105,6 +110,8 @@ export function GroupDashboard() {
           tone="positive"
           icon={<Wallet className="h-4 w-4" />}
           series={revenueSeries}
+          seriesLabels={labelsFor(revenueSeries)}
+          onSeriesSelect={goToSeriesMonth}
           deltaPct={revenueDelta}
           tip="Tudo que você faturou, antes de qualquer desconto. É sobre este valor que o Simples Nacional calcula o imposto — mesmo a parte que vai para o corretor."
           hint={
@@ -129,6 +136,8 @@ export function GroupDashboard() {
           tone={groupKpis.netProfit >= 0 ? 'positive' : 'negative'}
           icon={<TrendingUp className="h-4 w-4" />}
           series={profitSeries}
+          seriesLabels={labelsFor(profitSeries)}
+          onSeriesSelect={goToSeriesMonth}
           deltaPct={profitDelta}
           tip="O que sobra no fim de tudo: depois de imposto, comissão e todas as despesas. É o lucro de verdade, antes de você retirar a sua parte."
           hint={`Despesas: ${formatCurrency(groupKpis.totalExpense)}`}

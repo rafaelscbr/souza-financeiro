@@ -15,6 +15,10 @@ interface KpiCardProps {
   tone?: 'positive' | 'negative' | 'neutral' | 'accent'
   /** Série dos últimos meses para o mini-gráfico de tendência. */
   series?: number[]
+  /** Rótulos de cada ponto da série (mês + valor), para o toque no sparkline. */
+  seriesLabels?: string[]
+  /** Clique num mês do sparkline — para navegar até aquele período. */
+  onSeriesSelect?: (index: number) => void
   /**
    * Variação vs período anterior, em fração (0.12 = +12%). Mostra ▲/▼.
    * `higherIsBetter=false` inverte a cor (ex.: despesa que sobe é ruim).
@@ -46,6 +50,8 @@ export function KpiCard({
   tip,
   tone = 'neutral',
   series,
+  seriesLabels,
+  onSeriesSelect,
   deltaPct,
   higherIsBetter = true,
   className,
@@ -85,7 +91,12 @@ export function KpiCard({
         </div>
         {hasSpark && (
           <div className="shrink-0 pb-1">
-            <Sparkline data={series!} color={sparkColor[tone]} />
+            <Sparkline
+              data={series!}
+              color={sparkColor[tone]}
+              labels={seriesLabels}
+              onSelect={onSeriesSelect}
+            />
           </div>
         )}
       </div>

@@ -7,11 +7,17 @@ export function Sparkline({
   color = 'currentColor',
   width = 68,
   height = 22,
+  labels,
+  onSelect,
 }: {
   data: number[]
   color?: string
   width?: number
   height?: number
+  /** Texto de cada ponto (mês + valor) mostrado ao tocar/passar o cursor. */
+  labels?: string[]
+  /** Torna cada ponto clicável — recebe o índice do mês. */
+  onSelect?: (index: number) => void
 }) {
   const clean = data.filter((v) => Number.isFinite(v))
   if (clean.length < 2) return null
@@ -51,6 +57,25 @@ export function Sparkline({
       <path d={areaPath} fill={`url(#${gid})`} />
       <path d={path} stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={lastX} cy={lastY} r={2.2} fill={color} />
+      {/* Alvos de clique/toque por ponto — retângulos largos e invisíveis. */}
+      {onSelect &&
+        points.map(([x], i) => (
+          <rect
+            key={i}
+            x={x - width / (points.length * 2)}
+            y={0}
+            width={width / points.length}
+            height={height}
+            fill="transparent"
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelect(i)
+            }}
+          >
+            {labels?.[i] && <title>{labels[i]}</title>}
+          </rect>
+        ))}
     </svg>
   )
 }
