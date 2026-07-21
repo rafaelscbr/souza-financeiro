@@ -76,6 +76,7 @@ export interface TrendDatum {
 
 export interface ForecastDatum {
   label: string
+  monthKey: string
   saldo: number
   entra: number
   sai: number
@@ -85,11 +86,29 @@ export interface ForecastDatum {
 /**
  * Forecast de caixa: barras de entrada/saída por mês + a linha do saldo
  * acumulado. A linha do zero deixa o furo de caixa saltar aos olhos.
+ * Clicar num mês dispara `onSelectMonth` para abrir as duplicatas dele.
  */
-export function CashForecastChart({ data }: { data: ForecastDatum[] }) {
+export function CashForecastChart({
+  data,
+  onSelectMonth,
+  selectedKey,
+}: {
+  data: ForecastDatum[]
+  onSelectMonth?: (monthKey: string) => void
+  selectedKey?: string | null
+}) {
+  const selectedLabel = selectedKey ? data.find((d) => d.monthKey === selectedKey)?.label : null
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <ComposedChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+      <ComposedChart
+        data={data}
+        margin={{ top: 8, right: 12, left: -8, bottom: 0 }}
+        onClick={(state) => {
+          const p = state?.activePayload?.[0]?.payload as ForecastDatum | undefined
+          if (p && onSelectMonth) onSelectMonth(p.monthKey)
+        }}
+        className={onSelectMonth ? 'cursor-pointer' : undefined}
+      >
         <defs>
           <linearGradient id="saldoFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#2563EB" stopOpacity={0.18} />
@@ -106,6 +125,9 @@ export function CashForecastChart({ data }: { data: ForecastDatum[] }) {
           width={64}
         />
         <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(15,23,42,0.04)' }} />
+        {selectedLabel && (
+          <ReferenceLine x={selectedLabel} stroke="rgba(37,99,235,0.5)" strokeWidth={8} />
+        )}
         <ReferenceLine y={0} stroke="#DC2626" strokeWidth={1.5} strokeDasharray="4 3" />
         <Bar dataKey="entra" name="Entra" fill="#34D399" radius={[3, 3, 0, 0]} maxBarSize={22} />
         <Bar dataKey="sai" name="Sai" fill="#F87171" radius={[3, 3, 0, 0]} maxBarSize={22} />

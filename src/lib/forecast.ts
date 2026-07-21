@@ -4,6 +4,7 @@ import {
   pendingPayables,
   pendingReceivables,
   realizedCash,
+  type CashItem,
 } from './finance'
 import { toDateOnly } from './format'
 import type { Transaction } from '@/types'
@@ -28,6 +29,10 @@ export interface ForecastMonth {
   isDeficit: boolean
   /** Mês em que o saldo acumulado fica negativo — furo de caixa. */
   negativeBalance: boolean
+  /** Duplicatas a receber que compõem a entrada do mês (para o drill-down). */
+  receivables: CashItem[]
+  /** Duplicatas a pagar que compõem a saída do mês. */
+  payables: CashItem[]
 }
 
 /**
@@ -48,29 +53,30 @@ export function cashForecast(
   const receivables = pendingReceivables(txs)
   const payables = pendingPayables(txs)
 
-  const inByMonth = new Map<string, number>()
-  const outByMonth = new Map<string, number>()
+  const inItems = new Map<string, CashItem[]>()
+  const outItems = new Map<string, CashItem[]>()
   const bucketKey = (date: string) => {
     const mk = monthKeyOf(date)
     // Vencido (antes do mês atual) cai no mês atual — ainda impacta o caixa.
     return mk < firstKey ? firstKey : mk
   }
-  for (const r of receivables) {
-    const k = bucketKey(r.date)
-    inByMonth.set(k, (inByMonth.get(k) ?? 0) + r.amount)
+  const push = (m: Map<string, CashItem[]>, k: string, item: CashItem) => {
+    const a = m.get(k)
+    if (a) a.push(item)
+    else m.set(k, [item])
   }
-  for (const p of payables) {
-    const k = bucketKey(p.date)
-    outByMonth.set(k, (outByMonth.get(k) ?? 0) + p.amount)
-  }
+  for (const r of receivables) push(inItems, bucketKey(r.date), r)
+  for (const p of payables) push(outItems, bucketKey(p.date), p)
 
   const out: ForecastMonth[] = []
   let running = base
   for (let i = 0; i < months; i++) {
     const d = new Date(from.getFullYear(), from.getMonth() + i, 1)
     const mk = monthKey(d)
-    const inflow = round2(inByMonth.get(mk) ?? 0)
-    const outflow = round2(outByMonth.get(mk) ?? 0)
+    const monthReceivables = inItems.get(mk) ?? []
+    const monthPayables = outItems.get(mk) ?? []
+    const inflow = round2(monthReceivables.reduce((s, r) => s + r.amount, 0))
+    const outflow = round2(monthPayables.reduce((s, p) => s + p.amount, 0))
     const net = round2(inflow - outflow)
     running = round2(running + net)
     out.push({
@@ -82,6 +88,8 @@ export function cashForecast(
       endBalance: running,
       isDeficit: net < 0,
       negativeBalance: running < 0,
+      receivables: monthReceivables,
+      payables: monthPayables,
     })
   }
   return out
