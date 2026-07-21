@@ -28,21 +28,48 @@ import { FullPageLoader } from '@/components/ui/Spinner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { cn } from '@/lib/utils'
 
-const NAV = [
-  { to: '/', label: 'Painel', icon: LayoutDashboard, end: true },
-  { to: '/lancamentos', label: 'Lançamentos', icon: Receipt, end: false },
-  { to: '/vendas', label: 'Vendas', icon: Handshake, end: false },
-  { to: '/contas', label: 'Contas', icon: Landmark, end: false },
-  { to: '/fluxo', label: 'A receber e a pagar', icon: ArrowRightLeft, end: false },
-  { to: '/relatorios', label: 'Relatórios', icon: PieChart, end: false },
-  { to: '/simulador', label: 'Simulador', icon: Calculator, end: false },
-  { to: '/objetivos', label: 'Objetivos', icon: Target, end: false },
-  { to: '/metas', label: 'Orçamento', icon: Flag, end: false },
-  { to: '/contatos', label: 'Contatos', icon: Users, end: false },
+type NavItemDef = { to: string; label: string; icon: typeof LayoutDashboard; end?: boolean }
+
+// Menu em 4 blocos: reduz a carga de 12 itens soltos para grupos com sentido.
+const NAV_GROUPS: { title: string | null; items: NavItemDef[] }[] = [
+  {
+    title: null,
+    items: [{ to: '/', label: 'Painel', icon: LayoutDashboard, end: true }],
+  },
+  {
+    title: 'Movimento',
+    items: [
+      { to: '/lancamentos', label: 'Lançamentos', icon: Receipt },
+      { to: '/vendas', label: 'Vendas', icon: Handshake },
+      { to: '/contas', label: 'Contas', icon: Landmark },
+      { to: '/fluxo', label: 'A receber e a pagar', icon: ArrowRightLeft },
+    ],
+  },
+  {
+    title: 'Análise',
+    items: [
+      { to: '/relatorios', label: 'Relatórios', icon: PieChart },
+      { to: '/simulador', label: 'Simulador', icon: Calculator },
+    ],
+  },
+  {
+    title: 'Planejamento',
+    items: [
+      { to: '/objetivos', label: 'Objetivos', icon: Target },
+      { to: '/metas', label: 'Orçamento', icon: Flag },
+    ],
+  },
+  {
+    title: 'Cadastros',
+    items: [
+      { to: '/contatos', label: 'Contatos', icon: Users },
+      { to: '/pessoal', label: 'Pessoal', icon: Wallet },
+      { to: '/ajuda', label: 'Ajuda', icon: BookOpen },
+    ],
+  },
 ]
-// Área pessoal e ajuda (separadas do bloco de negócios)
-const PERSONAL_NAV = { to: '/pessoal', label: 'Pessoal', icon: Wallet, end: false }
-const HELP_NAV = { to: '/ajuda', label: 'Ajuda', icon: BookOpen, end: false }
+// Lista plana para a barra do mobile e cálculos auxiliares.
+const NAV: NavItemDef[] = NAV_GROUPS.flatMap((g) => g.items)
 // Barra inferior do mobile: só os cinco de uso diário — mais que isso
 // vira alvo pequeno demais para o polegar.
 const MOBILE_PATHS = ['/', '/lancamentos', '/vendas', '/contas', '/relatorios']
@@ -76,13 +103,19 @@ function ShellLayout() {
           </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-0.5" aria-label="Navegação principal">
-          {NAV.map((item) => (
-            <NavItem key={item.to} {...item} />
+        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto" aria-label="Navegação principal">
+          {NAV_GROUPS.map((group, i) => (
+            <div key={group.title ?? 'home'} className={i > 0 ? 'mt-3' : undefined}>
+              {group.title && (
+                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-content-faint">
+                  {group.title}
+                </p>
+              )}
+              {group.items.map((item) => (
+                <NavItem key={item.to} {...item} />
+              ))}
+            </div>
           ))}
-          <div className="my-2 border-t border-line" />
-          <NavItem {...PERSONAL_NAV} />
-          <NavItem {...HELP_NAV} />
         </nav>
 
         <button
@@ -239,7 +272,7 @@ function DataBoundary({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function NavItem({ to, label, icon: Icon, end }: (typeof NAV)[number]) {
+function NavItem({ to, label, icon: Icon, end }: NavItemDef) {
   return (
     <NavLink
       to={to}
@@ -257,7 +290,7 @@ function NavItem({ to, label, icon: Icon, end }: (typeof NAV)[number]) {
   )
 }
 
-function BottomNavItem({ to, label, icon: Icon, end }: (typeof NAV)[number]) {
+function BottomNavItem({ to, label, icon: Icon, end }: NavItemDef) {
   return (
     <NavLink
       to={to}

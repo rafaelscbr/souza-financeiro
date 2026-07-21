@@ -10,6 +10,7 @@ import { useAppData } from '@/context/AppDataContext'
 import { Modal } from '@/components/ui/Modal'
 import type { Transaction, TransactionInput } from '@/types'
 import { TransactionForm } from './TransactionForm'
+import { QuickEntryForm } from './QuickEntryForm'
 
 interface ComposerValue {
   openNew: (prefill?: Partial<TransactionInput>) => void
@@ -25,6 +26,8 @@ export function TransactionComposerProvider({ children }: { children: ReactNode 
   const [prefill, setPrefill] = useState<Partial<TransactionInput> | undefined>()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // 'quick' = lançamento em poucos toques · 'full' = formulário completo
+  const [mode, setMode] = useState<'quick' | 'full'>('quick')
   // chave para reinicializar o estado do formulário a cada abertura
   const [formKey, setFormKey] = useState(0)
 
@@ -32,6 +35,9 @@ export function TransactionComposerProvider({ children }: { children: ReactNode 
     setEditing(null)
     setPrefill(pf)
     setError(null)
+    // Prefill (ex.: "novo lançamento desta empresa/venda") já vai direto ao
+    // completo; entrada solta começa no rápido.
+    setMode(pf ? 'full' : 'quick')
     setFormKey((k) => k + 1)
     setOpen(true)
   }, [])
@@ -40,6 +46,7 @@ export function TransactionComposerProvider({ children }: { children: ReactNode 
     setEditing(tx)
     setPrefill(undefined)
     setError(null)
+    setMode('full')
     setFormKey((k) => k + 1)
     setOpen(true)
   }, [])
@@ -78,18 +85,35 @@ export function TransactionComposerProvider({ children }: { children: ReactNode 
       <Modal
         open={open}
         onClose={close}
-        title={editing ? 'Editar lançamento' : 'Novo lançamento'}
-        description={editing ? undefined : 'Registre uma receita, despesa ou retirada.'}
+        title={editing ? 'Editar lançamento' : mode === 'quick' ? 'Lançamento rápido' : 'Novo lançamento'}
+        description={
+          editing
+            ? undefined
+            : mode === 'quick'
+              ? 'Registre em poucos toques o que já entrou ou saiu.'
+              : 'Receita, despesa, venda com comissão ou parcelamento.'
+        }
       >
-        <TransactionForm
-          key={formKey}
-          editing={editing}
-          prefill={prefill}
-          submitting={submitting}
-          error={error}
-          onSubmit={handleSubmit}
-          onCancel={close}
-        />
+        {mode === 'quick' && !editing ? (
+          <QuickEntryForm
+            key={formKey}
+            submitting={submitting}
+            error={error}
+            onSubmit={handleSubmit}
+            onSwitchToFull={() => setMode('full')}
+            onCancel={close}
+          />
+        ) : (
+          <TransactionForm
+            key={formKey}
+            editing={editing}
+            prefill={prefill}
+            submitting={submitting}
+            error={error}
+            onSubmit={handleSubmit}
+            onCancel={close}
+          />
+        )}
       </Modal>
     </ComposerContext.Provider>
   )
