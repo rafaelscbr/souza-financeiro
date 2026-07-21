@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
   TrendingUp,
-  TrendingDown,
-  Minus,
   Wallet,
   ArrowDownCircle,
   ArrowUpCircle,
@@ -13,24 +11,46 @@ import { useAppData } from '@/context/AppDataContext'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { Section } from '@/components/ui/Section'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Tip } from '@/components/ui/Tip'
 import { Spinner } from '@/components/ui/Spinner'
+import { Input } from '@/components/ui/Field'
 import {
+  firstDayOfMonth,
   inScope,
-  lastNMonths,
-  monthElapsedFraction,
-  monthlySeries,
   pendingPayables,
   pendingReceivables,
-  project,
   realizedCash,
   type CashItem,
-  type Projection,
-  type Trend,
 } from '@/lib/finance'
-import { formatCurrency, formatDate, formatDateShort, formatMonthYear, toDateOnly } from '@/lib/format'
+import { formatCurrency, formatDateShort, formatMonthYear, toDateOnly } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-type Tab = 'receber' | 'pagar' | 'linha'
+type RangeKey = 'mes' | '30d' | '90d' | 'vencidas' | 'tudo' | 'custom'
+type Tab = 'receber' | 'pagar'
+
+/** Janela [início, fim] de vencimento conforme o filtro. '' = sem limite. */
+function rangeWindow(key: RangeKey, period: Date, custom: { start: string; end: string }): [string, string] {
+  const today = new Date()
+  const iso = (d: Date) => toDateOnly(d)
+  switch (key) {
+    case 'mes': {
+      const first = firstDayOfMonth(period)
+      const last = iso(new Date(period.getFullYear(), period.getMonth() + 1, 0))
+      return [first, last]
+    }
+    case '30d':
+      return [iso(today), iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30))]
+    case '90d':
+      return [iso(today), iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 90))]
+    case 'vencidas':
+      return ['', iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1))]
+    case 'custom':
+      return [custom.start || '', custom.end || '9999-12-31']
+    case 'tudo':
+    default:
+      return ['', '9999-12-31']
+  }
+}
 
 export function FluxoCaixaPage() {
   const {
@@ -40,10 +60,11 @@ export function FluxoCaixaPage() {
     scopeCompanyId,
     activeCompany,
     period,
-    regime,
   } = useAppData()
   const today = toDateOnly(new Date())
   const [tab, setTab] = useState<Tab>('receber')
+  const [range, setRange] = useState<RangeKey>('mes')
+  const [custom, setCustom] = useState({ start: '', end: '' })
 
   const scoped = useMemo(
     () => transactions.filter((t) => inScope(t, scopeCompanyId)),
@@ -51,24 +72,26 @@ export function FluxoCaixaPage() {
   )
 
   const realized = useMemo(() => realizedCash(scoped, today), [scoped, today])
-  const receivables = useMemo(() => pendingReceivables(scoped), [scoped])
-  const payables = useMemo(() => pendingPayables(scoped), [scoped])
+  const allReceivables = useMemo(() => pendingReceivables(scoped), [scoped])
+  const allPayables = useMemo(() => pendingPayables(scoped), [scoped])
+
+  const [winStart, winEnd] = rangeWindow(range, period, custom)
+  const inWindow = (i: CashItem) => i.date >= winStart && i.date <= winEnd
+
+  const receivables = allReceivables.filter(inWindow)
+  const payables = allPayables.filter(inWindow)
 
   const totalReceivable = receivables.reduce((s, i) => s + i.amount, 0)
   const totalPayable = payables.reduce((s, i) => s + i.amount, 0)
-  const projectedBalance = realized + totalReceivable - totalPayable
+  const endBalance = realized + totalReceivable - totalPayable
 
-  const overdueIn = receivables.filter((i) => i.date < today)
-  const overdueOut = payables.filter((i) => i.date < today)
-
-  const timeline = useMemo(() => {
-    const merged = [...receivables, ...payables].sort((a, b) => (a.date < b.date ? -1 : 1))
-    let running = realized
-    return merged.map((item) => {
-      running += item.direction === 'in' ? item.amount : -item.amount
-      return { item, running }
-    })
-  }, [receivables, payables, realized])
+  // Vencidas fora da janela atual — para não esconder atraso quando filtra o mês.
+  const overdueOutside = useMemo(() => {
+    if (range === 'tudo' || range === 'vencidas') return { count: 0, amount: 0 }
+    const out = [...allReceivables, ...allPayables].filter((i) => i.date < today && !inWindow(i))
+    return { count: out.length, amount: out.reduce((s, i) => s + i.amount, 0) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allReceivables, allPayables, today, winStart, winEnd, range])
 
   const scopeName = activeCompany ? activeCompany.name : 'Grupo'
   const labelOf = (item: CashItem) => {
@@ -77,186 +100,158 @@ export function FluxoCaixaPage() {
     return [item.tx.category, contact, !activeCompany ? company : null].filter(Boolean).join(' · ')
   }
 
-  const projections = useMemo(() => {
-    const months = lastNMonths(period, 4)
-    const series = monthlySeries(transactions, scopeCompanyId, months, regime, companies)
-    const history = series.slice(0, 3)
-    const current = series[3]
-    const elapsed = monthElapsedFraction(period)
-    return {
-      elapsed,
-      revenue: project(current.revenue, elapsed, history.map((h) => h.revenue)),
-      profit: project(current.profit, elapsed, history.map((h) => h.profit)),
-    }
-  }, [transactions, scopeCompanyId, period, regime, companies])
-
-  const TABS: { value: Tab; label: string; count: number; overdue: number }[] = [
-    { value: 'receber', label: 'A receber', count: receivables.length, overdue: overdueIn.length },
-    { value: 'pagar', label: 'A pagar', count: payables.length, overdue: overdueOut.length },
-    { value: 'linha', label: 'Linha do tempo', count: timeline.length, overdue: 0 },
+  const RANGES: { key: RangeKey; label: string }[] = [
+    { key: 'mes', label: formatMonthYear(period) },
+    { key: '30d', label: 'Próx. 30 dias' },
+    { key: '90d', label: 'Próx. 90 dias' },
+    { key: 'vencidas', label: 'Vencidas' },
+    { key: 'tudo', label: 'Tudo' },
+    { key: 'custom', label: 'Escolher datas' },
   ]
+
+  const items = tab === 'receber' ? receivables : payables
+  const total = tab === 'receber' ? totalReceivable : totalPayable
 
   return (
     <div className="animate-fade-in space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-content">Contas a receber e a pagar</h1>
-        <p className="text-sm text-content-faint">{scopeName} · compromissos em aberto</p>
+        <h1 className="flex items-center gap-2 text-xl font-bold text-content">
+          Contas a receber e a pagar
+          <Tip label="Como ler esta tela" align="start">
+            Os números respondem ao <strong className="text-content">período que você escolher</strong>
+            abaixo. No padrão, mostra o mês em foco — troque o filtro para ver os próximos dias, só
+            as vencidas, ou todo o pipeline.
+          </Tip>
+        </h1>
+        <p className="text-sm text-content-faint">{scopeName}</p>
       </div>
 
-      {/* Visão geral */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Caixa realizado" value={formatCurrency(realized)} tone={realized >= 0 ? 'neutral' : 'negative'} icon={<Wallet className="h-4 w-4" />} />
-        <KpiCard label="A receber" value={formatCurrency(totalReceivable)} tone="positive" icon={<ArrowDownCircle className="h-4 w-4" />} hint={`${receivables.length} conta(s)`} />
-        <KpiCard label="A pagar" value={formatCurrency(totalPayable)} tone="negative" icon={<ArrowUpCircle className="h-4 w-4" />} hint={`${payables.length} conta(s)`} />
-        <KpiCard label="Saldo projetado" value={formatCurrency(projectedBalance)} tone={projectedBalance >= 0 ? 'accent' : 'negative'} icon={<TrendingUp className="h-4 w-4" />} hint="caixa + a receber − a pagar" />
-      </div>
-
-      {/* Abas — separa a receber de a pagar */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Contas">
-        {TABS.map((t) => {
-          const active = tab === t.value
+      {/* Filtro de período — o controle principal da tela */}
+      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Período">
+        {RANGES.map((r) => {
+          const active = range === r.key
           return (
             <button
-              key={t.value}
+              key={r.key}
               role="tab"
               aria-selected={active}
-              onClick={() => setTab(t.value)}
+              onClick={() => setRange(r.key)}
               className={cn(
-                'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
+                'shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors',
                 active
-                  ? 'border-transparent bg-content text-white'
+                  ? 'border-transparent bg-emerald text-white'
                   : 'border-line bg-surface text-content-muted hover:bg-surface-2 hover:text-content',
               )}
             >
-              {t.label}
-              <span className={cn('rounded-full px-1.5 text-[10px] font-bold', active ? 'bg-white/20' : 'bg-surface-3')}>
-                {t.count}
-              </span>
-              {t.overdue > 0 && (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-critical/15 px-1 text-[10px] font-bold text-critical">
-                  <AlertTriangle className="h-2.5 w-2.5" />
-                  {t.overdue}
-                </span>
-              )}
+              {r.label}
             </button>
           )
         })}
       </div>
 
-      {tab === 'receber' && (
-        <CashList items={receivables} today={today} direction="in" labelOf={labelOf} emptyText="Nenhuma conta a receber em aberto." />
+      {range === 'custom' && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface p-3">
+          <span className="text-sm text-content-muted">De</span>
+          <Input
+            type="date"
+            className="w-auto"
+            value={custom.start}
+            onChange={(e) => setCustom((c) => ({ ...c, start: e.target.value }))}
+          />
+          <span className="text-sm text-content-muted">até</span>
+          <Input
+            type="date"
+            className="w-auto"
+            value={custom.end}
+            onChange={(e) => setCustom((c) => ({ ...c, end: e.target.value }))}
+          />
+        </div>
       )}
-      {tab === 'pagar' && (
-        <CashList items={payables} today={today} direction="out" labelOf={labelOf} emptyText="Nenhuma conta a pagar em aberto." />
+
+      {/* KPIs do período selecionado */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Caixa hoje" value={formatCurrency(realized)} tone={realized >= 0 ? 'neutral' : 'negative'} icon={<Wallet className="h-4 w-4" />} hint="saldo realizado até hoje" />
+        <KpiCard label="A receber no período" value={formatCurrency(totalReceivable)} tone="positive" icon={<ArrowDownCircle className="h-4 w-4" />} hint={`${receivables.length} conta(s)`} />
+        <KpiCard label="A pagar no período" value={formatCurrency(totalPayable)} tone="negative" icon={<ArrowUpCircle className="h-4 w-4" />} hint={`${payables.length} conta(s)`} />
+        <KpiCard label="Saldo ao fim do período" value={formatCurrency(endBalance)} tone={endBalance >= 0 ? 'accent' : 'negative'} icon={<TrendingUp className="h-4 w-4" />} hint="caixa + a receber − a pagar" />
+      </div>
+
+      {/* Aviso de vencidas fora da janela */}
+      {overdueOutside.count > 0 && (
+        <button
+          onClick={() => setRange('vencidas')}
+          className="flex w-full items-start gap-2.5 rounded-xl border border-critical/25 bg-critical/5 px-4 py-3 text-left transition-colors hover:bg-critical/10"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-critical" />
+          <span className="text-sm text-content-muted">
+            Você tem <strong className="text-critical">{overdueOutside.count} conta(s) vencida(s)</strong>{' '}
+            fora deste período, somando {formatCurrency(overdueOutside.amount)}.{' '}
+            <span className="font-medium text-critical">Ver vencidas →</span>
+          </span>
+        </button>
       )}
-      {tab === 'linha' && (
-        <>
-          <Section title={`Projeção de ${formatMonthYear(period)}`} subtitle={`${Math.round(projections.elapsed * 100)}% do mês decorrido · base nos últimos 3 meses`}>
-            <div className="grid grid-cols-2 gap-4">
-              <ProjectionMetric label="Receita projetada" projection={projections.revenue} />
-              <ProjectionMetric label="Lucro projetado" projection={projections.profit} />
-            </div>
-          </Section>
-          <Section title="Próximos vencimentos" subtitle="Entradas e saídas por data, com saldo acumulado">
-            {timeline.length === 0 ? (
-              <EmptyState icon={<Wallet className="h-7 w-7" />} title="Sem contas futuras" description="Lançamentos 'a receber' ou 'a pagar' aparecem aqui na data prevista." />
-            ) : (
-              <ul className="divide-y divide-line">
-                {timeline.map(({ item, running }, idx) => (
-                  <li key={idx} className="flex items-center gap-3 py-3">
-                    <div className="w-16 shrink-0">
-                      <span className="tnum text-xs font-medium text-content-muted">{formatDate(item.date)}</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-content">{labelOf(item)}</p>
-                      <p className="text-[11px] text-content-faint">{item.direction === 'in' ? 'A receber' : 'A pagar'}</p>
-                    </div>
-                    <span className={cn('tnum shrink-0 text-sm font-semibold', item.direction === 'in' ? 'text-income' : 'text-expense')}>
-                      {item.direction === 'in' ? '+' : '−'} {formatCurrency(item.amount)}
-                    </span>
-                    <span className="tnum hidden w-28 shrink-0 text-right text-xs text-content-muted sm:block">
-                      saldo {formatCurrency(running)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
-        </>
+
+      {/* Abas A receber / A pagar */}
+      <div className="flex gap-1.5" role="tablist" aria-label="Tipo">
+        {(['receber', 'pagar'] as Tab[]).map((t) => {
+          const active = tab === t
+          const n = t === 'receber' ? receivables.length : payables.length
+          return (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
+                active ? 'border-transparent bg-content text-white' : 'border-line bg-surface text-content-muted hover:bg-surface-2',
+              )}
+            >
+              {t === 'receber' ? 'A receber' : 'A pagar'}
+              <span className={cn('rounded-full px-1.5 text-[10px] font-bold', active ? 'bg-white/20' : 'bg-surface-3')}>{n}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Total do período + lista */}
+      <div className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3 shadow-card">
+        <span className="text-sm font-medium text-content-muted">
+          Total {tab === 'receber' ? 'a receber' : 'a pagar'} · {rangeLabel(range, period)}
+        </span>
+        <span className={cn('tnum text-lg font-bold', tab === 'receber' ? 'text-income' : 'text-expense')}>
+          {formatCurrency(total)}
+        </span>
+      </div>
+
+      {items.length === 0 ? (
+        <EmptyState
+          icon={tab === 'receber' ? <ArrowDownCircle className="h-7 w-7" /> : <ArrowUpCircle className="h-7 w-7" />}
+          title={`Nada ${tab === 'receber' ? 'a receber' : 'a pagar'} neste período`}
+          description="Troque o filtro de período acima para ver outra janela."
+        />
+      ) : (
+        <Section title={tab === 'receber' ? 'Contas a receber' : 'Contas a pagar'} bodyClassName="pt-1">
+          <ul className="divide-y divide-line">
+            {items.map((item) => (
+              <CashRow key={item.tx.id} item={item} today={today} direction={tab === 'receber' ? 'in' : 'out'} label={labelOf(item)} />
+            ))}
+          </ul>
+        </Section>
       )}
     </div>
   )
 }
 
-function CashList({
-  items,
-  today,
-  direction,
-  labelOf,
-  emptyText,
-}: {
-  items: CashItem[]
-  today: string
-  direction: 'in' | 'out'
-  labelOf: (i: CashItem) => string
-  emptyText: string
-}) {
-  const overdue = items.filter((i) => i.date < today)
-  const upcoming = items.filter((i) => i.date >= today)
-  const total = items.reduce((s, i) => s + i.amount, 0)
-
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon={direction === 'in' ? <ArrowDownCircle className="h-7 w-7" /> : <ArrowUpCircle className="h-7 w-7" />}
-        title={emptyText}
-        description="Marque lançamentos como pendentes para acompanhá-los aqui."
-      />
-    )
+function rangeLabel(range: RangeKey, period: Date): string {
+  switch (range) {
+    case 'mes': return formatMonthYear(period)
+    case '30d': return 'próximos 30 dias'
+    case '90d': return 'próximos 90 dias'
+    case 'vencidas': return 'vencidas'
+    case 'custom': return 'período escolhido'
+    default: return 'todo o período'
   }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3 shadow-card">
-        <span className="text-sm font-medium text-content-muted">
-          Total {direction === 'in' ? 'a receber' : 'a pagar'}
-        </span>
-        <span className={cn('tnum text-lg font-bold', direction === 'in' ? 'text-income' : 'text-expense')}>
-          {formatCurrency(total)}
-        </span>
-      </div>
-
-      {overdue.length > 0 && (
-        <Section
-          title="Vencidas"
-          subtitle={`${overdue.length} conta(s) — precisam de atenção`}
-          bodyClassName="pt-1"
-        >
-          <ul className="divide-y divide-line">
-            {overdue.map((item) => (
-              <CashRow key={item.tx.id} item={item} today={today} direction={direction} label={labelOf(item)} />
-            ))}
-          </ul>
-        </Section>
-      )}
-
-      <Section
-        title="A vencer"
-        subtitle={upcoming.length === 0 ? 'Nada a vencer' : `${upcoming.length} conta(s)`}
-        bodyClassName="pt-1"
-      >
-        {upcoming.length === 0 ? (
-          <p className="py-2 text-sm text-content-muted">Tudo que resta já está vencido.</p>
-        ) : (
-          <ul className="divide-y divide-line">
-            {upcoming.map((item) => (
-              <CashRow key={item.tx.id} item={item} today={today} direction={direction} label={labelOf(item)} />
-            ))}
-          </ul>
-        )}
-      </Section>
-    </div>
-  )
 }
 
 function CashRow({
@@ -280,8 +275,6 @@ function CashRow({
   async function settle() {
     setBusy(true)
     try {
-      // Baixa em um clique: liquida na data de hoje. A conta pode ser
-      // classificada depois em Contas; aqui o foco é dar baixa rápido.
       await settleTransaction(item.tx.id, null, today)
     } finally {
       setBusy(false)
@@ -294,7 +287,7 @@ function CashRow({
         <span className={cn('tnum block text-xs font-medium', overdue ? 'text-critical' : 'text-content-muted')}>
           {formatDateShort(item.date)}
         </span>
-        {overdue && <span className="text-[10px] font-medium text-critical">{daysLate}d</span>}
+        {overdue && <span className="text-[10px] font-medium text-critical">{daysLate}d atraso</span>}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm text-content">{label}</p>
@@ -308,9 +301,7 @@ function CashRow({
         disabled={busy}
         className={cn(
           'inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
-          direction === 'in'
-            ? 'border-income/25 text-income hover:bg-income/10'
-            : 'border-expense/25 text-expense hover:bg-expense/10',
+          direction === 'in' ? 'border-income/25 text-income hover:bg-income/10' : 'border-expense/25 text-expense hover:bg-expense/10',
         )}
         title={direction === 'in' ? 'Marcar como recebido hoje' : 'Marcar como pago hoje'}
       >
@@ -318,38 +309,5 @@ function CashRow({
         {direction === 'in' ? 'Recebi' : 'Paguei'}
       </button>
     </li>
-  )
-}
-
-function ProjectionMetric({ label, projection }: { label: string; projection: Projection }) {
-  return (
-    <div className="rounded-xl border border-line bg-surface-2/60 p-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs uppercase tracking-wide text-content-faint">{label}</span>
-        <TrendPill trend={projection.trend} />
-      </div>
-      <p className="tnum mt-1.5 text-xl font-bold text-content">{formatCurrency(projection.projected)}</p>
-      <p className="mt-1 text-xs text-content-faint">
-        Realizado: <span className="tnum">{formatCurrency(projection.current)}</span> · Média 3m:{' '}
-        <span className="tnum">{formatCurrency(projection.historicalAvg)}</span>
-      </p>
-    </div>
-  )
-}
-
-const trendConfig: Record<Trend, { icon: typeof Minus; label: string; className: string }> = {
-  up: { icon: TrendingUp, label: 'Crescendo', className: 'text-income' },
-  flat: { icon: Minus, label: 'Estável', className: 'text-content-muted' },
-  down: { icon: TrendingDown, label: 'Caindo', className: 'text-expense' },
-}
-
-function TrendPill({ trend }: { trend: Trend }) {
-  const c = trendConfig[trend]
-  const Icon = c.icon
-  return (
-    <span className={cn('inline-flex items-center gap-1 text-xs font-medium', c.className)}>
-      <Icon className="h-3.5 w-3.5" />
-      {c.label}
-    </span>
   )
 }
