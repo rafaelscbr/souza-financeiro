@@ -5,6 +5,7 @@ import { Section } from '@/components/ui/Section'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
 import { Tip } from '@/components/ui/Tip'
+import { DevelopmentChart } from '@/features/dashboard/Charts'
 import { dreGroupOf } from '@/lib/finance'
 import { formatCurrency, formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -182,7 +183,17 @@ export function CostCenterReport({ scopedTx }: { scopedTx: Transaction[] }) {
           e selecione-o ao lançar comissões e despesas.
         </p>
       ) : (
-        <div className="-mx-2 overflow-x-auto">
+        <>
+          {rows.filter((r) => r.id).length > 0 && (
+            <div className="mb-4">
+              <DevelopmentChart
+                data={rows
+                  .filter((r) => r.id)
+                  .map((r) => ({ name: r.name, receita: r.revenue, resultado: r.result }))}
+              />
+            </div>
+          )}
+          <div className="-mx-2 overflow-x-auto">
           <table className="w-full min-w-[40rem] text-sm">
             <thead>
               <tr className="border-b border-line text-left text-[11px] uppercase tracking-wide text-content-faint">
@@ -260,7 +271,8 @@ export function CostCenterReport({ scopedTx }: { scopedTx: Transaction[] }) {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </Section>
   )

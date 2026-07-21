@@ -11,6 +11,7 @@ import { CycleIndicators } from '@/features/reports/CycleIndicators'
 import { DreComparative } from '@/features/reports/DreComparative'
 import { CostCenterReport } from '@/features/reports/CostCenterReport'
 import { PeriodClosingPanel } from '@/features/reports/PeriodClosing'
+import { WaterfallChart, type WaterfallDatum } from '@/features/dashboard/Charts'
 import { companyDisplayColor, COMPANY_SHORT_NAME } from '@/assets/companies'
 import {
   computeKpis,
@@ -108,6 +109,11 @@ export function RelatoriosPage() {
 
       {/* DRE */}
       <Section title={`DRE — ${scopeName}`} subtitle="Demonstração de Resultado do período">
+        {dre.revenue > 0 && (
+          <div className="mb-4">
+            <WaterfallChart data={waterfallData(dre)} />
+          </div>
+        )}
         <DreTable kpis={dre} />
       </Section>
 
@@ -191,6 +197,45 @@ export function RelatoriosPage() {
       <TaxSettings />
     </div>
   )
+}
+
+/** Monta os degraus da cascata do DRE: receita descendo até o lucro. */
+function waterfallData(k: Kpis): WaterfallDatum[] {
+  const structure = k.operatingExpense + k.variableExpense + k.otherExpense
+  const steps: { label: string; delta: number; total?: boolean; color?: string }[] = [
+    { label: 'Receita', delta: k.revenue, total: true, color: '#34D399' },
+    { label: '− Imposto', delta: -k.taxDeductions },
+    { label: '− Comissão', delta: -k.costOfSale },
+    { label: '− Despesas', delta: -structure },
+    { label: 'Lucro líq.', delta: k.netProfit, total: true, color: k.netProfit >= 0 ? '#2563EB' : '#F87171' },
+  ]
+  let running = 0
+  return steps
+    .filter((s) => s.total || s.delta !== 0)
+    .map((s) => {
+      if (s.total) {
+        running = s.delta
+        return {
+          label: s.label,
+          spacer: Math.min(0, s.delta),
+          bar: Math.abs(s.delta),
+          fill: s.color ?? '#2563EB',
+          value: s.delta,
+          isTotal: true,
+        }
+      }
+      const start = running
+      const end = running + s.delta
+      running = end
+      return {
+        label: s.label,
+        spacer: Math.min(start, end),
+        bar: Math.abs(s.delta),
+        fill: '#F87171',
+        value: s.delta,
+        isTotal: false,
+      }
+    })
 }
 
 interface DreRow {

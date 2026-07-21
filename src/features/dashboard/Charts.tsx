@@ -186,6 +186,89 @@ export function ProfitTrendChart({ data }: { data: TrendDatum[] }) {
   )
 }
 
+export interface WaterfallDatum {
+  label: string
+  /** Base invisível que posiciona a barra flutuante. */
+  spacer: number
+  /** Altura visível. */
+  bar: number
+  fill: string
+  /** Valor real (com sinal) para o tooltip. */
+  value: number
+  isTotal: boolean
+}
+
+function WaterfallTooltip({ active, payload }: TooltipProps<number, string>) {
+  if (!active || !payload?.length) return null
+  const d = payload[0]?.payload as WaterfallDatum | undefined
+  if (!d) return null
+  return (
+    <div className="rounded-xl border border-line bg-surface px-3 py-2 shadow-pop">
+      <p className="text-xs font-medium text-content-muted">{d.label}</p>
+      <p className="tnum text-sm font-bold text-content">{formatCurrency(d.value)}</p>
+    </div>
+  )
+}
+
+/**
+ * Cascata do DRE: a receita bruta descendo pelas deduções até o lucro.
+ * Cada degrau mostra quanto some em imposto, comissão e despesa — a
+ * mesma informação da tabela, mas onde o olho enxerga a queda.
+ */
+export function WaterfallChart({ data }: { data: WaterfallDatum[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+        <XAxis dataKey="label" tick={{ fill: AXIS, fontSize: 10 }} tickLine={false} axisLine={false} interval={0} />
+        <YAxis
+          tick={{ fill: AXIS, fontSize: 11 }}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(v) => formatCurrencyCompact(Number(v))}
+          width={64}
+        />
+        <Tooltip content={<WaterfallTooltip />} cursor={{ fill: 'rgba(15,23,42,0.04)' }} />
+        <Bar dataKey="spacer" stackId="w" fill="transparent" />
+        <Bar dataKey="bar" stackId="w" radius={[3, 3, 0, 0]}>
+          {data.map((d, i) => (
+            <Cell key={i} fill={d.fill} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
+export interface DevelopmentDatum {
+  name: string
+  receita: number
+  resultado: number
+}
+
+/** Receita × resultado líquido por empreendimento. */
+export function DevelopmentChart({ data }: { data: DevelopmentDatum[] }) {
+  const height = Math.max(140, data.length * 54)
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 12, left: 0, bottom: 0 }} barGap={2}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} horizontal={false} />
+        <XAxis
+          type="number"
+          tick={{ fill: AXIS, fontSize: 11 }}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(v) => formatCurrencyCompact(Number(v))}
+        />
+        <YAxis type="category" dataKey="name" tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={130} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(15,23,42,0.04)' }} />
+        <Bar dataKey="receita" name="Receita" fill="#34D399" radius={[0, 3, 3, 0]} maxBarSize={16} />
+        <Bar dataKey="resultado" name="Resultado" fill="#2563EB" radius={[0, 3, 3, 0]} maxBarSize={16} />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
 export interface CategoryDatum {
   name: string
   value: number
