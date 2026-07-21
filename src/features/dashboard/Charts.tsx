@@ -1,10 +1,13 @@
 import {
+  Area,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -69,6 +72,67 @@ export function ComparisonBarChart({ data }: { data: ComparisonDatum[] }) {
 export interface TrendDatum {
   label: string
   lucro: number
+}
+
+export interface ForecastDatum {
+  label: string
+  saldo: number
+  entra: number
+  sai: number
+  negativo: boolean
+}
+
+/**
+ * Forecast de caixa: barras de entrada/saída por mês + a linha do saldo
+ * acumulado. A linha do zero deixa o furo de caixa saltar aos olhos.
+ */
+export function CashForecastChart({ data }: { data: ForecastDatum[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <ComposedChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+        <defs>
+          <linearGradient id="saldoFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2563EB" stopOpacity={0.18} />
+            <stop offset="100%" stopColor="#2563EB" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+        <XAxis dataKey="label" tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} />
+        <YAxis
+          tick={{ fill: AXIS, fontSize: 11 }}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(v) => formatCurrencyCompact(Number(v))}
+          width={64}
+        />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(15,23,42,0.04)' }} />
+        <ReferenceLine y={0} stroke="#DC2626" strokeWidth={1.5} strokeDasharray="4 3" />
+        <Bar dataKey="entra" name="Entra" fill="#34D399" radius={[3, 3, 0, 0]} maxBarSize={22} />
+        <Bar dataKey="sai" name="Sai" fill="#F87171" radius={[3, 3, 0, 0]} maxBarSize={22} />
+        <Area
+          type="monotone"
+          dataKey="saldo"
+          name="Saldo projetado"
+          stroke="#2563EB"
+          strokeWidth={2.5}
+          fill="url(#saldoFill)"
+          dot={(props) => {
+            const { cx, cy, payload } = props as { cx: number; cy: number; payload: ForecastDatum }
+            return (
+              <circle
+                key={`${cx}-${cy}`}
+                cx={cx}
+                cy={cy}
+                r={payload.negativo ? 4.5 : 3}
+                fill={payload.negativo ? '#DC2626' : '#2563EB'}
+              />
+            )
+          }}
+          activeDot={{ r: 5 }}
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
+  )
 }
 
 /** Linha: evolução do lucro ao longo dos meses. */

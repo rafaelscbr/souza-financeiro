@@ -21,6 +21,7 @@ import { HealthPanel } from './HealthPanel'
 import { Button } from '@/components/ui/Button'
 import { Tip } from '@/components/ui/Tip'
 import { CategoryBarChart, ProfitTrendChart, type CategoryDatum } from './Charts'
+import { ForecastPanel } from './ForecastPanel'
 import { TransactionList } from '@/features/transactions/TransactionList'
 import { useComposer } from '@/features/transactions/TransactionComposer'
 import { companyDisplayColor } from '@/assets/companies'
@@ -268,6 +269,9 @@ export function CompanyDashboard({ company }: { company: Company }) {
               </div>
             )}
           </Section>
+
+          {/* Previsão de caixa da empresa */}
+          <ForecastPanel months={12} />
 
           {/* Evolução — sempre presente, mesmo com o mês zerado */}
           <Section title="Evolução do lucro" subtitle={`${company.name} — últimos 6 meses`}>

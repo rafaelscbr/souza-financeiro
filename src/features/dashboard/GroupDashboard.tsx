@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
 import { CompanyCard } from './CompanyCard'
 import { AlertsPanel } from './AlertsPanel'
+import { ForecastPanel } from './ForecastPanel'
 import { SetupChecklist } from './SetupChecklist'
 import { ComparisonBarChart, ProfitTrendChart } from './Charts'
 import { useCompanyFinancials, useGroupKpis } from './useFinancials'
@@ -125,6 +126,9 @@ export function GroupDashboard() {
           hint={groupRevenueGoal ? `Meta: ${formatCurrency(groupRevenueGoal)}` : undefined}
         />
       </div>
+
+      {/* Previsão de caixa — a previsibilidade em primeiro plano */}
+      <ForecastPanel months={12} />
 
       {/* Cards das empresas */}
       <div>
