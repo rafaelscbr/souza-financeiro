@@ -82,7 +82,7 @@ export function SetupChecklist() {
         </div>
         <button
           onClick={dismiss}
-          className="rounded-lg p-1 text-content-faint transition-colors hover:bg-white/60 hover:text-content"
+          className="rounded-lg p-1 text-content-faint transition-colors hover:bg-surface-2 hover:text-content"
           aria-label="Dispensar guia de primeiros passos"
         >
           <X className="h-4 w-4" />
@@ -111,7 +111,7 @@ export function SetupChecklist() {
             {!s.done && (
               <Link
                 to={s.to}
-                className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-emerald-dark shadow-card transition-colors hover:bg-emerald hover:text-white"
+                className="shrink-0 rounded-lg bg-surface px-2.5 py-1 text-xs font-semibold text-emerald-dark shadow-card transition-colors hover:bg-emerald hover:text-white"
               >
                 {s.cta}
               </Link>

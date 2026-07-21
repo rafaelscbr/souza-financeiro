@@ -17,7 +17,7 @@ import {
 import { formatCurrency, formatCurrencyCompact } from '@/lib/format'
 
 const AXIS = '#64748B'
-const GRID = '#E6EAF1'
+const GRID = 'rgba(148,163,184,0.22)'
 
 function ChartTooltip({ active, payload, label }: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null

@@ -11,6 +11,21 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Souza Finance" />
     <title>Souza Group Finance</title>
+    <script>
+      // Aplica o tema antes do render para não piscar branco ao abrir no escuro.
+      (function () {
+        try {
+          var t = localStorage.getItem('sgf.theme')
+          if (t !== 'light' && t !== 'dark') {
+            t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+          }
+          document.documentElement.setAttribute('data-theme', t)
+          if (t === 'dark') {
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0B1220')
+          }
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

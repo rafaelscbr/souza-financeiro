@@ -2,7 +2,7 @@ import { useEffect, useState, type InputHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 const fieldBase =
-  'w-full rounded-xl border border-line bg-white px-3.5 text-content placeholder:text-content-faint ' +
+  'w-full rounded-xl border border-line bg-surface-2 px-3.5 text-content placeholder:text-content-faint ' +
   'transition-colors focus:border-emerald focus:outline-none focus:ring-2 focus:ring-emerald/30 ' +
   'disabled:opacity-50 tnum h-11'
 

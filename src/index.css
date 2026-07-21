@@ -5,8 +5,62 @@
 @tailwind utilities;
 
 @layer base {
+  /* ---- Tema claro (padrão) ---- */
   :root {
     color-scheme: light;
+    --c-base: 244 246 250;
+    --c-surface: 255 255 255;
+    --c-surface-2: 241 244 249;
+    --c-surface-3: 231 236 243;
+    --c-line: 230 234 241;
+    --c-content: 15 23 42;
+    --c-content-muted: 91 102 117;
+    --c-content-faint: 148 163 184;
+    --c-emerald: 16 185 129;
+    --c-emerald-dark: 5 150 105;
+    --c-emerald-soft: 231 247 241;
+    --c-brandblue: 37 99 235;
+    --c-brandblue-soft: 234 241 254;
+    --c-gold: 176 137 0;
+    --c-gold-soft: 251 243 220;
+    --c-income: 5 150 105;
+    --c-expense: 220 38 38;
+    --c-withdrawal: 124 58 237;
+    --c-pending: 217 119 6;
+    --c-healthy: 5 150 105;
+    --c-warning: 217 119 6;
+    --c-critical: 220 38 38;
+    --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+    --shadow-pop: 0 12px 40px -12px rgba(16, 24, 40, 0.2);
+  }
+
+  /* ---- Tema escuro ---- */
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+    --c-base: 11 18 32;
+    --c-surface: 19 28 46;
+    --c-surface-2: 27 37 55;
+    --c-surface-3: 40 52 76;
+    --c-line: 39 51 75;
+    --c-content: 232 237 244;
+    --c-content-muted: 158 171 191;
+    --c-content-faint: 110 125 148;
+    --c-emerald: 52 211 153;
+    --c-emerald-dark: 16 185 129;
+    --c-emerald-soft: 22 46 38;
+    --c-brandblue: 96 165 250;
+    --c-brandblue-soft: 23 37 61;
+    --c-gold: 212 167 44;
+    --c-gold-soft: 46 39 18;
+    --c-income: 52 211 153;
+    --c-expense: 248 113 113;
+    --c-withdrawal: 167 139 250;
+    --c-pending: 251 191 36;
+    --c-healthy: 52 211 153;
+    --c-warning: 251 191 36;
+    --c-critical: 248 113 113;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.32);
+    --shadow-pop: 0 16px 44px -12px rgba(0, 0, 0, 0.6);
   }
 
   * {

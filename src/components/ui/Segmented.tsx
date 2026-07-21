@@ -40,7 +40,7 @@ export function Segmented<T extends string>({
             className={cn(
               'h-9 rounded-lg text-sm font-medium transition-colors',
               active
-                ? opt.activeClass ?? 'bg-white text-content shadow-sm'
+                ? opt.activeClass ?? 'bg-surface text-content shadow-sm'
                 : 'text-content-muted hover:text-content',
             )}
           >

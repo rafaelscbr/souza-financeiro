@@ -34,7 +34,7 @@ export function RegimeSwitch({ className }: { className?: string }) {
               className={cn(
                 'rounded-md px-2.5 py-1 text-xs font-semibold transition-colors',
                 active
-                  ? 'bg-white text-content shadow-card'
+                  ? 'bg-surface text-content shadow-card'
                   : 'text-content-muted hover:text-content',
               )}
             >

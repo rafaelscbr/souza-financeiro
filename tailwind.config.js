@@ -1,45 +1,48 @@
 /** @type {import('tailwindcss').Config} */
+
+// Cor via variável CSS em RGB triplo — permite alpha (bg-income/12) e troca de
+// tema sem recompilar. Os valores das variáveis ficam em src/index.css.
+const v = (name) => `rgb(var(${name}) / <alpha-value>)`
+
 export default {
+  darkMode: ['selector', '[data-theme="dark"]'],
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        // Superfícies (tema claro estilo ContaAzul)
-        base: '#F4F6FA', // fundo da aplicação
+        base: v('--c-base'),
         surface: {
-          DEFAULT: '#FFFFFF', // cards
-          2: '#F1F4F9', // hover / campos
-          3: '#E7ECF3', // elementos mais marcados
+          DEFAULT: v('--c-surface'),
+          2: v('--c-surface-2'),
+          3: v('--c-surface-3'),
         },
-        line: '#E6EAF1', // bordas sutis
+        line: v('--c-line'),
         content: {
-          DEFAULT: '#0F172A', // texto principal
-          muted: '#5B6675', // texto secundário
-          faint: '#94A3B8', // texto terciário
+          DEFAULT: v('--c-content'),
+          muted: v('--c-content-muted'),
+          faint: v('--c-content-faint'),
         },
-        // Marca do grupo
         emerald: {
-          DEFAULT: '#10B981',
-          dark: '#059669',
-          soft: '#E7F7F1',
+          DEFAULT: v('--c-emerald'),
+          dark: v('--c-emerald-dark'),
+          soft: v('--c-emerald-soft'),
         },
         brandblue: {
-          DEFAULT: '#2563EB',
-          soft: '#EAF1FE',
+          DEFAULT: v('--c-brandblue'),
+          soft: v('--c-brandblue-soft'),
         },
         gold: {
-          DEFAULT: '#B08900',
-          soft: '#FBF3DC',
+          DEFAULT: v('--c-gold'),
+          soft: v('--c-gold-soft'),
         },
-        // Semânticas financeiras (contraste AA sobre branco)
-        income: '#059669',
-        expense: '#DC2626',
-        withdrawal: '#7C3AED',
-        pending: '#D97706',
-        healthy: '#059669',
-        warning: '#D97706',
-        critical: '#DC2626',
-        // Marcas das empresas
+        income: v('--c-income'),
+        expense: v('--c-expense'),
+        withdrawal: v('--c-withdrawal'),
+        pending: v('--c-pending'),
+        healthy: v('--c-healthy'),
+        warning: v('--c-warning'),
+        critical: v('--c-critical'),
+        // Marcas das empresas — identidade fixa, não muda com o tema.
         brand: {
           imobiliaria: '#1E3A8A',
           'imobiliaria-accent': '#B08900',
@@ -57,8 +60,8 @@ export default {
         '2xl': '1.125rem',
       },
       boxShadow: {
-        card: '0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06)',
-        pop: '0 12px 40px -12px rgba(16,24,40,0.20)',
+        card: 'var(--shadow-card)',
+        pop: 'var(--shadow-pop)',
       },
       keyframes: {
         'fade-in': {

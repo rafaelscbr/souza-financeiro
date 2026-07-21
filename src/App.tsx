@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { AppDataProvider } from '@/context/AppDataContext'
+import { ThemeProvider } from '@/context/ThemeContext'
 import { FullPageLoader } from '@/components/ui/Spinner'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/LoginPage'
@@ -38,9 +39,11 @@ const AjudaPage = lazy(() => import('@/pages/AjudaPage').then((m) => ({ default:
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AuthGate />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

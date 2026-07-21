@@ -303,7 +303,7 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
               <PercentInput id="tx-comm-pct" value={commissionPct} onChange={setCommissionPct} />
             </FormField>
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm">
+          <div className="flex items-center justify-between rounded-lg bg-surface px-3 py-2 text-sm">
             <span className="text-content-muted">Comissão bruta</span>
             <span className="tnum font-bold text-income">{formatCurrency(commissionGross ?? 0)}</span>
           </div>
@@ -316,7 +316,7 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
             </FormField>
             <div className="flex flex-col justify-end">
               <span className="mb-1.5 text-sm font-medium text-content-muted">Custo do corretor</span>
-              <div className="flex h-11 items-center rounded-xl bg-white px-3.5">
+              <div className="flex h-11 items-center rounded-xl bg-surface px-3.5">
                 <span className="tnum font-bold text-expense">− {formatCurrency(repasseTotal)}</span>
               </div>
             </div>

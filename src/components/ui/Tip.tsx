@@ -64,7 +64,7 @@ export function Tip({
           id={id}
           role="tooltip"
           className={cn(
-            'absolute top-full z-50 mt-1.5 w-64 animate-scale-in rounded-xl border border-line bg-white p-3 text-left text-xs font-normal leading-relaxed text-content-muted shadow-pop',
+            'absolute top-full z-50 mt-1.5 w-64 animate-scale-in rounded-xl border border-line bg-surface p-3 text-left text-xs font-normal leading-relaxed text-content-muted shadow-pop',
             align === 'end' ? 'right-0' : 'left-0',
           )}
         >

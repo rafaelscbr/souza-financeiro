@@ -83,11 +83,11 @@ export function RecurringPrompt() {
           const company = companies.find((co) => co.id === c.template.company_id)
           return (
             <li key={c.template.id}>
-              <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/60">
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-2">
                 <span
                   className={cn(
                     'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
-                    isOn ? 'border-brandblue bg-brandblue text-white' : 'border-line bg-white',
+                    isOn ? 'border-brandblue bg-brandblue text-white' : 'border-line bg-surface',
                   )}
                 >
                   {isOn && <Check className="h-3 w-3" strokeWidth={3} />}

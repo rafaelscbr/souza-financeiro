@@ -23,6 +23,7 @@ import { TransactionComposerProvider, useComposer } from '@/features/transaction
 import { ScopeSwitcher } from './ScopeSwitcher'
 import { PeriodNav } from './PeriodNav'
 import { RegimeSwitch } from './RegimeSwitch'
+import { ThemeToggle } from './ThemeToggle'
 import { Button } from '@/components/ui/Button'
 import { FullPageLoader } from '@/components/ui/Spinner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -92,7 +93,7 @@ function ShellLayout() {
   return (
     <div className="min-h-screen bg-base lg:flex">
       {/* Sidebar desktop */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-white px-3 py-5 lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-surface px-3 py-5 lg:flex">
         <div className="mb-7 flex items-center gap-2.5 px-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald">
             <span className="text-lg font-extrabold text-white">S</span>
@@ -118,18 +119,21 @@ function ShellLayout() {
           ))}
         </nav>
 
-        <button
-          onClick={() => signOut()}
-          className="mt-2 flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
-        >
-          <LogOut className="h-4 w-4" />
-          Sair
-        </button>
+        <div className="mt-2 flex items-center gap-1">
+          <button
+            onClick={() => signOut()}
+            className="flex flex-1 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
+          >
+            <LogOut className="h-4 w-4" />
+            Sair
+          </button>
+          <ThemeToggle />
+        </div>
       </aside>
 
       {/* Coluna principal */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 border-b border-line bg-white/85 backdrop-blur-md pt-safe">
+        <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur-md pt-safe">
           <div className="flex items-center justify-between px-4 py-3 lg:hidden">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald">
@@ -174,6 +178,7 @@ function ShellLayout() {
               >
                 <Users className="h-5 w-5" />
               </NavLink>
+              <ThemeToggle />
               <button
                 onClick={() => signOut()}
                 className="rounded-lg p-2 text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
@@ -218,7 +223,7 @@ function ShellLayout() {
 
       {/* Bottom nav mobile */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-white/95 backdrop-blur-md pb-safe lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface/95 backdrop-blur-md pb-safe lg:hidden"
         aria-label="Navegação principal"
       >
         {MOBILE_NAV.map((item) => (
