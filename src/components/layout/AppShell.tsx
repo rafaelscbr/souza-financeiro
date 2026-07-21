@@ -25,6 +25,7 @@ import { PeriodNav } from './PeriodNav'
 import { RegimeSwitch } from './RegimeSwitch'
 import { Button } from '@/components/ui/Button'
 import { FullPageLoader } from '@/components/ui/Spinner'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { cn } from '@/lib/utils'
 
 const NAV = [
@@ -58,7 +59,8 @@ export function AppShell() {
 function ShellLayout() {
   const { signOut } = useAuth()
   const { openNew } = useComposer()
-  const isPersonal = useLocation().pathname === '/pessoal'
+  const { pathname } = useLocation()
+  const isPersonal = pathname === '/pessoal'
 
   return (
     <div className="min-h-screen bg-base lg:flex">
@@ -174,7 +176,9 @@ function ShellLayout() {
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 pb-28 lg:pb-8">
           <DataBoundary>
             <ClosedPeriodBanner />
-            <Outlet />
+            <ErrorBoundary resetKey={pathname}>
+              <Outlet />
+            </ErrorBoundary>
           </DataBoundary>
         </main>
       </div>

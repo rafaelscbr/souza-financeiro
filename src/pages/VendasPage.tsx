@@ -249,6 +249,13 @@ function DealCard({
               warn={!d.taxConfigured}
             />
             <CascadeLine label="(−) Comissão de corretor" value={-d.commissionCost} />
+            {d.otherCost > 0 && (
+              <CascadeLine
+                label="(−) Outras despesas da venda"
+                value={-d.otherCost}
+                hint="taxas, marketing do lançamento"
+              />
+            )}
             <div className="my-2 border-t border-line" />
             <CascadeLine label="Fica para a imobiliária" value={d.netToCompany} bold accent />
             <p className="mt-1.5 text-right text-[11px] text-content-faint">
@@ -282,6 +289,7 @@ function DealCard({
                     <th className="px-3 py-2 text-right font-medium">Receita</th>
                     <th className="px-3 py-2 text-right font-medium">Imposto</th>
                     <th className="px-3 py-2 text-right font-medium">Comissão</th>
+                    <th className="px-3 py-2 text-right font-medium">Outras</th>
                     <th className="px-3 py-2 text-right font-medium">Líquido</th>
                     <th className="px-3 py-2 text-center font-medium">Situação</th>
                   </tr>
@@ -301,6 +309,9 @@ function DealCard({
                       </td>
                       <td className="tnum px-3 py-2.5 text-right text-content-muted">
                         {p.commission > 0 ? `−${formatCurrency(p.commission)}` : '—'}
+                      </td>
+                      <td className="tnum px-3 py-2.5 text-right text-content-muted">
+                        {p.other > 0 ? `−${formatCurrency(p.other)}` : '—'}
                       </td>
                       <td className="tnum px-3 py-2.5 text-right font-semibold text-content">
                         {formatCurrency(p.net)}

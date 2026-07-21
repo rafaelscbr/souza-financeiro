@@ -21,7 +21,9 @@ export interface DealInstallment {
   /** Imposto proporcional a esta parcela. */
   tax: number
   commission: number
-  /** Receita − imposto − comissão desta parcela. */
+  /** Outras despesas diretas da venda ligadas a esta parcela (taxas, marketing). */
+  other: number
+  /** Receita − imposto − comissão − outras desta parcela. */
   net: number
   revenueSettled: boolean
   commissionSettled: boolean
@@ -42,7 +44,9 @@ export interface Deal {
   taxConfigured: boolean
   tax: number
   commissionCost: number
-  /** O que fica para a imobiliária: receita − imposto − comissão. */
+  /** Outras despesas diretas da venda (taxas, marketing) amarradas ao negócio. */
+  otherCost: number
+  /** O que fica para a imobiliária: receita − imposto − comissão − outras. */
   netToCompany: number
   netMargin: number
 
@@ -96,14 +100,22 @@ export function deriveDeals(
     if (revenues.length === 0) continue
 
     const commissions = rows.filter((t) => dreGroupOf(t) === 'cost_of_sale')
+    // Toda despesa do grupo que não é comissão nem distribuição é custo direto
+    // da venda (taxa de tabela, marketing do lançamento). Precisa ser descontada.
+    const others = rows.filter((t) => {
+      const g = dreGroupOf(t)
+      return g !== 'revenue' && g !== 'cost_of_sale' && g !== 'withdrawal'
+    })
+
     const companyId = rows[0].company_id
     const taxRate = taxRateOf(companies, companyId)
     const taxConfigured = taxRate != null
 
     const grossRevenue = sum(revenues)
     const commissionCost = sum(commissions)
+    const otherCost = sum(others)
     const tax = taxConfigured ? round2(grossRevenue * (taxRate as number) / 100) : 0
-    const netToCompany = round2(grossRevenue - tax - commissionCost)
+    const netToCompany = round2(grossRevenue - tax - commissionCost - otherCost)
 
     const received = sum(revenues.filter((t) => t.status === 'settled'))
     const toReceive = sum(revenues.filter((t) => t.status === 'pending'))
@@ -112,41 +124,53 @@ export function deriveDeals(
     const taxPaid = taxConfigured ? round2(received * (taxRate as number) / 100) : 0
     const netReceived = round2(received - taxPaid - commissionPaid)
 
-    // Duplicatas: agrupa por índice de parcela.
-    const byIndex = new Map<number, { rev: Transaction[]; com: Transaction[] }>()
+    // Duplicatas: uma linha por parcela que TEM receita. Comissão e outras
+    // despesas do mesmo índice são anexadas; despesas órfãs (índice sem
+    // receita) contam só no total da venda, nunca viram linha vazia.
+    const revByIdx = new Map<number, Transaction[]>()
+    const comByIdx = new Map<number, Transaction[]>()
+    const othByIdx = new Map<number, Transaction[]>()
+    const push = (m: Map<number, Transaction[]>, i: number, t: Transaction) => {
+      const a = m.get(i)
+      if (a) a.push(t)
+      else m.set(i, [t])
+    }
     for (const t of rows) {
       const idx = t.installment_index ?? 1
-      const bucket = byIndex.get(idx) ?? { rev: [], com: [] }
-      if (dreGroupOf(t) === 'revenue') bucket.rev.push(t)
-      else if (dreGroupOf(t) === 'cost_of_sale') bucket.com.push(t)
-      byIndex.set(idx, bucket)
+      const g = dreGroupOf(t)
+      if (g === 'revenue') push(revByIdx, idx, t)
+      else if (g === 'cost_of_sale') push(comByIdx, idx, t)
+      else if (g !== 'withdrawal') push(othByIdx, idx, t)
     }
 
     let hasOverdue = false
-    const installments: DealInstallment[] = [...byIndex.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([index, b]) => {
-        const revenue = sum(b.rev)
-        const commission = sum(b.com)
-        const instTax = taxConfigured ? round2(revenue * (taxRate as number) / 100) : 0
-        const first = b.rev[0] ?? b.com[0]
-        const date = first.settled_date ?? first.due_date ?? first.competence_date
-        const revenueSettled = b.rev.every((t) => t.status === 'settled') && b.rev.length > 0
-        const commissionSettled = b.com.every((t) => t.status === 'settled') && b.com.length > 0
-        const pendingRev = b.rev.some((t) => t.status === 'pending')
-        if (pendingRev && date < today) hasOverdue = true
-        return {
-          index,
-          count: byIndex.size,
-          date,
-          revenue,
-          tax: instTax,
-          commission,
-          net: round2(revenue - instTax - commission),
-          revenueSettled,
-          commissionSettled,
-        }
-      })
+    const indices = [...revByIdx.keys()].sort((a, b) => a - b)
+    const installments: DealInstallment[] = indices.map((index) => {
+      const revs = revByIdx.get(index) as Transaction[] // garantido por indices
+      const coms = comByIdx.get(index) ?? []
+      const oths = othByIdx.get(index) ?? []
+      const revenue = sum(revs)
+      const commission = sum(coms)
+      const other = sum(oths)
+      const instTax = taxConfigured ? round2(revenue * (taxRate as number) / 100) : 0
+      const first = revs[0]
+      const date = first.settled_date ?? first.due_date ?? first.competence_date
+      const revenueSettled = revs.every((t) => t.status === 'settled')
+      const commissionSettled = coms.length > 0 && coms.every((t) => t.status === 'settled')
+      if (revs.some((t) => t.status === 'pending') && date < today) hasOverdue = true
+      return {
+        index,
+        count: indices.length,
+        date,
+        revenue,
+        tax: instTax,
+        commission,
+        other,
+        net: round2(revenue - instTax - commission - other),
+        revenueSettled,
+        commissionSettled,
+      }
+    })
 
     deals.push({
       key,
@@ -160,6 +184,7 @@ export function deriveDeals(
       taxConfigured,
       tax,
       commissionCost,
+      otherCost,
       netToCompany,
       netMargin: grossRevenue > 0 ? netToCompany / grossRevenue : 0,
       received,
