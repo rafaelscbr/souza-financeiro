@@ -26,6 +26,8 @@ import type {
   TaxRegime,
   Transaction,
   TransactionInput,
+  TransactionTemplate,
+  TransactionTemplateInput,
   Transfer,
   TransferInput,
 } from '@/types'
@@ -48,6 +50,9 @@ interface AppDataValue {
   objectives: Objective[]
   accounts: Account[]
   transfers: Transfer[]
+  templates: TransactionTemplate[]
+  /** `false` enquanto a migração 004 (modelos) não foi aplicada. */
+  templatesReady: boolean
   costCenters: CostCenter[]
   periodClosings: PeriodClosing[]
   /** `true` quando o mês em foco já foi fechado para o escopo atual. */
@@ -111,6 +116,10 @@ interface AppDataValue {
   deleteCostCenter: (id: string) => Promise<void>
   closePeriod: (companyId: string | null, month: string, notes?: string) => Promise<void>
   reopenPeriod: (id: string) => Promise<void>
+  // Mutações — modelos de lançamento
+  createTemplate: (input: TransactionTemplateInput) => Promise<void>
+  deleteTemplate: (id: string) => Promise<void>
+
   /** Baixa em um clique: marca como liquidado na data e conta informadas. */
   settleTransaction: (id: string, accountId: string | null, date: string) => Promise<void>
   /** Desfaz a baixa, devolvendo o lançamento para pendente. */
@@ -164,9 +173,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [transfers, setTransfers] = useState<Transfer[]>([])
   const [costCenters, setCostCenters] = useState<CostCenter[]>([])
   const [periodClosings, setPeriodClosings] = useState<PeriodClosing[]>([])
+  const [templates, setTemplates] = useState<TransactionTemplate[]>([])
   const [migrationApplied, setMigrationApplied] = useState(true)
   const [treasuryReady, setTreasuryReady] = useState(true)
   const [costCentersReady, setCostCentersReady] = useState(true)
+  const [templatesReady, setTemplatesReady] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -188,6 +199,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       transfersRes,
       costCentersRes,
       closingsRes,
+      templatesRes,
     ] = await Promise.all([
       supabase.from('companies').select('*').order('sort_order'),
       supabase.from('categories').select('*').order('sort_order'),
@@ -200,6 +212,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       supabase.from('transfers').select('*').order('date', { ascending: false }),
       supabase.from('cost_centers').select('*').order('name'),
       supabase.from('period_closings').select('*').order('month', { ascending: false }),
+      supabase.from('transaction_templates').select('*').order('sort_order'),
     ])
 
     const firstError =
@@ -241,6 +254,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setCostCentersReady(!costCentersRes.error && !closingsRes.error)
     setCostCenters((costCentersRes.data as CostCenter[]) ?? [])
     setPeriodClosings((closingsRes.data as PeriodClosing[]) ?? [])
+
+    // Idem para modelos de lançamento (migração 004).
+    setTemplatesReady(!templatesRes.error)
+    setTemplates(
+      ((templatesRes.data as TransactionTemplate[]) ?? []).map((t) => ({
+        ...t,
+        amount: t.amount == null ? null : Number(t.amount),
+      })),
+    )
 
     setCompanies(
       ((companiesRes.data as Company[]) ?? []).map((c) => ({
@@ -477,6 +499,24 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [refresh],
   )
 
+  const createTemplate = useCallback(
+    async (input: TransactionTemplateInput) => {
+      const { error } = await supabase.from('transaction_templates').insert(input)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const deleteTemplate = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.from('transaction_templates').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
   const settleTransaction = useCallback(
     async (id: string, accountId: string | null, date: string) => {
       const { error } = await supabase
@@ -605,6 +645,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       costCenters,
       periodClosings,
       isPeriodClosed,
+      templates,
+      templatesReady,
       migrationApplied,
       treasuryReady,
       costCentersReady,
@@ -643,6 +685,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       deleteCostCenter,
       closePeriod,
       reopenPeriod,
+      createTemplate,
+      deleteTemplate,
       settleTransaction,
       unsettleTransaction,
       createObjective,
@@ -667,6 +711,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       costCenters,
       periodClosings,
       isPeriodClosed,
+      templates,
+      templatesReady,
       migrationApplied,
       treasuryReady,
       costCentersReady,
@@ -704,6 +750,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       deleteCostCenter,
       closePeriod,
       reopenPeriod,
+      createTemplate,
+      deleteTemplate,
       settleTransaction,
       unsettleTransaction,
       createObjective,

@@ -34,18 +34,19 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
 
   const [kind, setKind] = useState<TransactionKind>(base?.kind ?? 'income')
   const [companyId, setCompanyId] = useState(base?.company_id ?? scopeCompanyId ?? companies[0]?.id ?? '')
-  const [description, setDescription] = useState(editing?.description ?? '')
-  const [competenceDate, setCompetenceDate] = useState(base?.competence_date ?? toDateOnly(new Date()))
-  const [contactId, setContactId] = useState<string | null>(editing?.contact_id ?? null)
+  const [description, setDescription] = useState(base?.description ?? '')
+  // Ao duplicar, a competência volta para hoje (não herda a data original).
+  const [competenceDate, setCompetenceDate] = useState(editing?.competence_date ?? toDateOnly(new Date()))
+  const [contactId, setContactId] = useState<string | null>(base?.contact_id ?? null)
   const [localError, setLocalError] = useState<string | null>(null)
 
   // valor genérico (receita não-comissão / despesa / retirada)
-  const [amount, setAmount] = useState<number | null>(editing ? editing.amount : null)
+  const [amount, setAmount] = useState<number | null>(base?.amount ?? null)
 
   // comissão detalhada
-  const [propertyValue, setPropertyValue] = useState<number | null>(editing?.property_value ?? null)
-  const [commissionPct, setCommissionPct] = useState<number | null>(editing?.commission_pct ?? null)
-  const [brokerPct, setBrokerPct] = useState<number | null>(editing?.broker_pct ?? null)
+  const [propertyValue, setPropertyValue] = useState<number | null>(base?.property_value ?? null)
+  const [commissionPct, setCommissionPct] = useState<number | null>(base?.commission_pct ?? null)
+  const [brokerPct, setBrokerPct] = useState<number | null>(base?.broker_pct ?? null)
 
   // recebimento / pagamento
   const [receiveMode, setReceiveMode] = useState<'avista' | 'parcelado'>('avista')
@@ -57,7 +58,7 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
   const [accountId, setAccountId] = useState<string>(editing?.account_id ?? '')
   // Apropriação: despesa anual paga de uma vez, mas que "pertence" a N meses.
   const [spreadMonths, setSpreadMonths] = useState(1)
-  const [costCenterId, setCostCenterId] = useState<string>(editing?.cost_center_id ?? '')
+  const [costCenterId, setCostCenterId] = useState<string>(base?.cost_center_id ?? '')
 
   const availableCostCenters = useMemo(
     () => costCenters.filter((c) => c.is_active && c.company_id === companyId),
@@ -77,11 +78,12 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
     [categories, kind, companyId],
   )
 
-  const initialCategoryIsCustom = !!editing && !availableCategories.some((c) => c.name === editing.category)
+  const initialCategoryIsCustom =
+    !!base?.category && !availableCategories.some((c) => c.name === base.category)
   const [selectedCategory, setSelectedCategory] = useState(
-    editing ? (initialCategoryIsCustom ? CUSTOM : editing.category) : availableCategories[0]?.name ?? CUSTOM,
+    base?.category ? (initialCategoryIsCustom ? CUSTOM : base.category) : availableCategories[0]?.name ?? CUSTOM,
   )
-  const [customCategory, setCustomCategory] = useState(initialCategoryIsCustom ? editing!.category : '')
+  const [customCategory, setCustomCategory] = useState(initialCategoryIsCustom ? base!.category ?? '' : '')
 
   useEffect(() => {
     if (selectedCategory === CUSTOM) return

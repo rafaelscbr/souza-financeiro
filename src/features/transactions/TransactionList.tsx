@@ -1,12 +1,29 @@
 import { useState } from 'react'
-import { Pencil, Trash2, RefreshCw, CheckCircle2 } from 'lucide-react'
+import { Pencil, Trash2, RefreshCw, CheckCircle2, Copy } from 'lucide-react'
 import { useAppData } from '@/context/AppDataContext'
 import { useComposer } from './TransactionComposer'
 import { SettleModal } from './SettleModal'
 import { listingDate } from '@/lib/finance'
 import { formatCurrency, formatDateShort, toDateOnly } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import type { Transaction } from '@/types'
+import type { Transaction, TransactionInput } from '@/types'
+
+/** Campos a repetir ao duplicar — datas, status e parcelamento voltam ao padrão. */
+function duplicatePrefill(tx: Transaction): Partial<TransactionInput> {
+  return {
+    company_id: tx.company_id,
+    kind: tx.kind,
+    category: tx.category,
+    dre_group: tx.dre_group,
+    description: tx.description,
+    amount: tx.amount,
+    contact_id: tx.contact_id,
+    cost_center_id: tx.cost_center_id,
+    property_value: tx.property_value,
+    commission_pct: tx.commission_pct,
+    broker_pct: tx.broker_pct,
+  }
+}
 
 export function TransactionList({
   transactions,
@@ -48,7 +65,7 @@ function TransactionRow({
   onSettle: (tx: Transaction) => void
 }) {
   const { deleteTransaction, companies, contacts, regime } = useAppData()
-  const { openEdit } = useComposer()
+  const { openEdit, openNew } = useComposer()
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -148,6 +165,14 @@ function TransactionRow({
                 <CheckCircle2 className="h-4 w-4" />
               </button>
             )}
+            <button
+              onClick={() => openNew(duplicatePrefill(tx))}
+              className="hidden rounded-lg p-2 text-content-faint transition-colors hover:bg-surface-2 hover:text-content sm:block"
+              aria-label={`Duplicar lançamento ${tx.category}`}
+              title="Duplicar"
+            >
+              <Copy className="h-4 w-4" />
+            </button>
             <button
               onClick={() => openEdit(tx)}
               className="rounded-lg p-2 text-content-faint transition-colors hover:bg-surface-2 hover:text-content"

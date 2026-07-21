@@ -225,6 +225,23 @@ export interface Objective {
 
 export type ObjectiveInput = Omit<Objective, 'id' | 'created_at'>
 
+/** Atalho para lançamentos repetitivos (Contador, Meta Ads, Aluguel). */
+export interface TransactionTemplate {
+  id: string
+  company_id: string | null
+  name: string
+  kind: TransactionKind
+  category: string
+  dre_group: DreGroup | null
+  /** Valor sugerido; `null` = pergunta ao usar. */
+  amount: number | null
+  contact_id: string | null
+  sort_order: number
+  created_at: string
+}
+
+export type TransactionTemplateInput = Omit<TransactionTemplate, 'id' | 'created_at'>
+
 export type ContactInput = Omit<Contact, 'id' | 'created_at'>
 
 export type HealthStatus = 'healthy' | 'warning' | 'critical'
