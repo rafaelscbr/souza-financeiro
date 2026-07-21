@@ -16,6 +16,15 @@ import { COMPANY_SHORT_NAME } from '@/assets/companies'
 import { buildAlerts, findGoal, lastNMonths, monthlySeries } from '@/lib/finance'
 import { formatCurrency, formatMonthShort, formatPercent } from '@/lib/format'
 
+/** Variação do último ponto vs o anterior, em fração. 0 se não dá para medir. */
+function deltaOf(s: number[]): number | undefined {
+  if (s.length < 2) return undefined
+  const prev = s[s.length - 2]
+  const last = s[s.length - 1]
+  if (prev === 0) return undefined
+  return (last - prev) / Math.abs(prev)
+}
+
 export function GroupDashboard() {
   const { businessTransactions, businessCompanies, goals, period, regime, setScope } = useAppData()
   const { openNew } = useComposer()
@@ -33,16 +42,19 @@ export function GroupDashboard() {
     [perCompany],
   )
 
-  const trendData = useMemo(
-    () =>
-      monthlySeries(businessTransactions, null, lastNMonths(period, 6), regime, businessCompanies).map(
-        (p) => ({
-          label: formatMonthShort(p.date),
-          lucro: p.profit,
-        }),
-      ),
+  const series = useMemo(
+    () => monthlySeries(businessTransactions, null, lastNMonths(period, 6), regime, businessCompanies),
     [businessTransactions, businessCompanies, period, regime],
   )
+  const trendData = useMemo(
+    () => series.map((p) => ({ label: formatMonthShort(p.date), lucro: p.profit })),
+    [series],
+  )
+  const revenueSeries = series.map((p) => p.revenue)
+  const profitSeries = series.map((p) => p.profit)
+  const marginSeries = series.map((p) => (p.revenue > 0 ? (p.profit / p.revenue) * 100 : 0))
+  const revenueDelta = deltaOf(revenueSeries)
+  const profitDelta = deltaOf(profitSeries)
 
   const alerts = useMemo(
     () =>
@@ -92,6 +104,8 @@ export function GroupDashboard() {
           value={formatCurrency(groupKpis.revenue)}
           tone="positive"
           icon={<Wallet className="h-4 w-4" />}
+          series={revenueSeries}
+          deltaPct={revenueDelta}
           tip="Tudo que você faturou, antes de qualquer desconto. É sobre este valor que o Simples Nacional calcula o imposto — mesmo a parte que vai para o corretor."
           hint={
             groupKpis.toReceive > 0 ? (
@@ -114,6 +128,8 @@ export function GroupDashboard() {
           value={formatCurrency(groupKpis.netProfit)}
           tone={groupKpis.netProfit >= 0 ? 'positive' : 'negative'}
           icon={<TrendingUp className="h-4 w-4" />}
+          series={profitSeries}
+          deltaPct={profitDelta}
           tip="O que sobra no fim de tudo: depois de imposto, comissão e todas as despesas. É o lucro de verdade, antes de você retirar a sua parte."
           hint={`Despesas: ${formatCurrency(groupKpis.totalExpense)}`}
         />
@@ -122,6 +138,7 @@ export function GroupDashboard() {
           value={formatPercent(groupKpis.netMargin)}
           tone="accent"
           icon={<Percent className="h-4 w-4" />}
+          series={marginSeries}
           tip="De cada R$ 100 faturados, quanto vira lucro. Como agora o imposto entra na conta, este número ficou menor do que era antes — e mais verdadeiro."
           hint={groupRevenueGoal ? `Meta: ${formatCurrency(groupRevenueGoal)}` : undefined}
         />
