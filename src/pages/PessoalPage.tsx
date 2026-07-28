@@ -29,6 +29,7 @@ import { PersonalRecurringPrompt } from '@/features/personal/PersonalRecurringPr
 import { CardPanel } from '@/features/personal/CardPanel'
 import { BudgetEditor } from '@/features/personal/BudgetEditor'
 import { VitalsPanel } from '@/features/personal/VitalsPanel'
+import { InsightsPanel } from '@/features/personal/InsightsPanel'
 import { OwnerIncomePanel } from '@/features/personal/OwnerIncomePanel'
 import { NetWorthPanel } from '@/features/personal/NetWorthPanel'
 import { PersonalForecastPanel } from '@/features/personal/PersonalForecastPanel'
@@ -393,12 +394,15 @@ export function PessoalPage() {
             )}
           </Section>
 
-          {/* Gastos por categoria */}
+          {/* Gastos por categoria (mês em foco) */}
           {categoryData.length > 0 && (
-            <Section title="Gastos por categoria">
+            <Section title="Gastos por categoria" subtitle={formatMonthYear(period)}>
               <CategoryBarChart data={categoryData} />
             </Section>
           )}
+
+          {/* Relatórios: cartão por categoria, lugares, fixos, ritmo e tendências */}
+          <InsightsPanel livingCostAvg={vitals.livingCostAvg} />
 
           {/* Renda das empresas e quanto ainda dá para distribuir */}
           <OwnerIncomePanel livingCostAvg={vitals.livingCostAvg} />

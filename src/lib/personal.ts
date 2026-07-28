@@ -46,18 +46,21 @@ export interface MonthlyPersonalPoint {
   monthKey: string
   inflow: number
   outflow: number
-  /** Saídas que são consumo (exclui o que foi guardado). */
+  /** Saídas que são consumo (exclui o que foi guardado e o que é da empresa). */
   livingCost: number
   invested: number
+  /** Despesa da empresa paga do bolso pessoal — saída real, mas não custo de vida. */
+  businessPaid: number
   surplus: number
   /** (entradas − saídas) / entradas. `null` quando não houve renda no mês. */
   savingsRate: number | null
 }
 
 /**
- * Série mensal do ledger pessoal. `livingCost` exclui a categoria de
- * investimento: guardar dinheiro não é custo de vida, e contá-lo como tal
- * inflaria o custo e derrubaria a reserva de emergência sem motivo.
+ * Série mensal do ledger pessoal. `livingCost` exclui duas categorias:
+ * investimento (guardar não é gastar) e despesa da empresa paga do bolso
+ * pessoal (se a renda parasse, o gasto pararia junto). Contá-las como custo de
+ * vida inflaria o custo e derrubaria a reserva de emergência sem motivo.
  */
 export function personalMonthlySeries(
   personalTx: Transaction[],
@@ -67,7 +70,7 @@ export function personalMonthlySeries(
 ): MonthlyPersonalPoint[] {
   return months.map((date) => {
     const s = personalSummary(personalTx, businessTx, date, regime)
-    const livingCost = round2(s.outflow - s.invested)
+    const livingCost = round2(s.outflow - s.invested - s.businessPaid)
     return {
       date,
       monthKey: monthKey(date),
@@ -75,6 +78,7 @@ export function personalMonthlySeries(
       outflow: round2(s.outflow),
       livingCost,
       invested: round2(s.invested),
+      businessPaid: round2(s.businessPaid),
       surplus: round2(s.surplus),
       savingsRate: s.inflow > 0 ? s.surplus / s.inflow : null,
     }

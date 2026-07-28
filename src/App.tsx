@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { AppDataProvider } from '@/context/AppDataContext'
@@ -37,6 +37,37 @@ const ObjetivosPage = lazy(() =>
 const ContasPage = lazy(() => import('@/pages/ContasPage').then((m) => ({ default: m.ContasPage })))
 const AjudaPage = lazy(() => import('@/pages/AjudaPage').then((m) => ({ default: m.AjudaPage })))
 
+/**
+ * O app está rodando instalado na tela de início (PWA), e não numa aba do
+ * navegador? `display-mode: standalone` cobre Android e desktop; iOS usa a
+ * propriedade proprietária `navigator.standalone`.
+ */
+function isInstalledApp(): boolean {
+  if (typeof window === 'undefined') return false
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches ?? false
+  const iosStandalone = (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  return standalone || iosStandalone
+}
+
+/**
+ * Rota inicial. Aberto pelo ícone do iPhone, o app cai direto no Pessoal — é
+ * de lá que o dia a dia acontece; o painel das empresas é trabalho de mesa.
+ *
+ * O desvio vale só na ABERTURA: o módulo guarda que já redirecionou, então
+ * tocar em "Painel" no menu depois disso mostra o painel de verdade, em vez de
+ * jogar o usuário de volta para o Pessoal a cada toque.
+ */
+let entradaTratada = false
+
+function RotaInicial() {
+  const [irParaPessoal] = useState(() => {
+    if (entradaTratada) return false
+    entradaTratada = true
+    return isInstalledApp()
+  })
+  return irParaPessoal ? <Navigate to="/pessoal" replace /> : <DashboardPage />
+}
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -58,7 +89,7 @@ function AuthGate() {
       <Suspense fallback={<FullPageLoader />}>
         <Routes>
           <Route element={<AppShell />}>
-            <Route path="/" element={<DashboardPage />} />
+            <Route path="/" element={<RotaInicial />} />
             <Route path="/lancamentos" element={<LancamentosPage />} />
             <Route path="/vendas" element={<VendasPage />} />
             <Route path="/contas" element={<ContasPage />} />

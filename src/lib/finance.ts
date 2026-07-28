@@ -581,6 +581,8 @@ export interface PersonalSummary {
   outflow: number
   surplus: number
   invested: number
+  /** Despesas da empresa pagas com dinheiro/cartão pessoal (categoria `BUSINESS_CATEGORY`). */
+  businessPaid: number
   byCategory: { name: string; value: number }[]
 }
 
@@ -590,6 +592,14 @@ export interface PersonalSummary {
  * reserva em meses artificialmente.
  */
 export const INVEST_CATEGORY = 'Investimentos/Poupança'
+
+/**
+ * Despesa da empresa paga pelo bolso do dono (Meta Ads, portais, ferramentas no
+ * cartão pessoal). Sai do caixa dele, então conta como saída — mas NÃO é custo
+ * de vida: se a renda parasse, esse gasto pararia junto. Mantê-lo no custo de
+ * vida encolheria a reserva de emergência sem motivo real.
+ */
+export const BUSINESS_CATEGORY = 'Despesas da Empresa'
 
 /**
  * Resumo pessoal do mês. `personalTx` = lançamentos do ledger Pessoal;
@@ -604,6 +614,7 @@ export function personalSummary(
   let inflowManual = 0
   let outflow = 0
   let invested = 0
+  let businessPaid = 0
   const catMap = new Map<string, number>()
 
   for (const t of personalTx) {
@@ -614,6 +625,7 @@ export function personalSummary(
       outflow += t.amount
       catMap.set(t.category, (catMap.get(t.category) ?? 0) + t.amount)
       if (t.category === INVEST_CATEGORY) invested += t.amount
+      if (t.category === BUSINESS_CATEGORY) businessPaid += t.amount
     }
   }
 
@@ -626,7 +638,16 @@ export function personalSummary(
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value)
 
-  return { inflowFromBusiness, inflowManual, inflow, outflow, surplus: inflow - outflow, invested, byCategory }
+  return {
+    inflowFromBusiness,
+    inflowManual,
+    inflow,
+    outflow,
+    surplus: inflow - outflow,
+    invested,
+    businessPaid,
+    byCategory,
+  }
 }
 
 // ---------------------------------------------------------------------------
