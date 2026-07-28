@@ -121,26 +121,57 @@ export function ContasPage() {
           <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-medium uppercase tracking-wide text-content-faint">
-                Saldo total {activeCompany ? `· ${activeCompany.name}` : 'do grupo'}
+                {summary.hasCards ? 'Disponível' : 'Saldo total'}{' '}
+                {activeCompany ? `· ${activeCompany.name}` : 'do grupo'}
               </span>
               <Tip label="Como o saldo é calculado" align="start">
                 Saldo inicial de cada conta, mais tudo que <strong className="text-content">já
                 foi recebido</strong>, menos tudo que <strong className="text-content">já foi
                 pago</strong>. Contas a receber e a pagar não entram — compromisso não é
                 dinheiro em conta.
+                {summary.hasCards && (
+                  <span className="mt-1.5 block">
+                    Cartão de crédito é dívida, não dinheiro: fica fora do disponível e aparece
+                    como "faturas a pagar".
+                  </span>
+                )}
               </Tip>
             </div>
             <p
               className={cn(
                 'tnum mt-1 text-3xl font-bold',
-                summary.total >= 0 ? 'text-content' : 'text-expense',
+                (summary.hasCards ? summary.available : summary.total) >= 0
+                  ? 'text-content'
+                  : 'text-expense',
               )}
             >
-              {formatCurrency(summary.total)}
+              {formatCurrency(summary.hasCards ? summary.available : summary.total)}
             </p>
-            <p className="mt-1 text-xs text-content-faint">
-              {summary.balances.length} {summary.balances.length === 1 ? 'conta' : 'contas'}
-            </p>
+            {summary.hasCards ? (
+              <div className="mt-2 space-y-0.5 border-t border-line pt-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-content-muted">Cartões (saldo devedor)</span>
+                  <span className="tnum font-semibold text-expense">
+                    − {formatCurrency(summary.cardDebt)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-content">Líquido</span>
+                  <span
+                    className={cn(
+                      'tnum font-bold',
+                      summary.total >= 0 ? 'text-content' : 'text-expense',
+                    )}
+                  >
+                    {formatCurrency(summary.total)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-1 text-xs text-content-faint">
+                {summary.balances.length} {summary.balances.length === 1 ? 'conta' : 'contas'}
+              </p>
+            )}
           </div>
 
           {/* Movimento sem conta */}
@@ -296,7 +327,11 @@ export function ContasPage() {
         </>
       )}
 
+      {/* `key` remonta o formulário a cada conta: os campos nascem de useState
+          e, sem isto, editar uma conta depois de abrir "Nova conta" mostraria
+          o formulário vazio — e salvar apagaria saldo e ciclo do cartão. */}
       <AccountModal
+        key={editing?.id ?? 'nova'}
         open={accountModal}
         editing={editing}
         onClose={() => {

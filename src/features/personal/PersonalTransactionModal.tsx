@@ -7,6 +7,7 @@ import { CurrencyInput } from '@/components/ui/MoneyInput'
 import { Segmented } from '@/components/ui/Segmented'
 import { Spinner } from '@/components/ui/Spinner'
 import { toDateOnly } from '@/lib/format'
+import { invoiceCycleOf } from '@/lib/cards'
 import type { Transaction, TransactionInput, TransactionKind } from '@/types'
 
 const CUSTOM = '__custom__'
@@ -33,8 +34,15 @@ export function PersonalTransactionModal({
 }
 
 function PersonalForm({ editing, onClose }: { editing: Transaction | null; onClose: () => void }) {
-  const { personalCompany, categories, accounts, treasuryReady, createTransaction, updateTransaction } =
-    useAppData()
+  const {
+    personalCompany,
+    categories,
+    accounts,
+    treasuryReady,
+    personalReady,
+    createTransaction,
+    updateTransaction,
+  } = useAppData()
 
   const [kind, setKind] = useState<TransactionKind>(editing?.kind === 'income' ? 'income' : 'expense')
   const [amount, setAmount] = useState<number | null>(editing ? editing.amount : null)
@@ -71,6 +79,17 @@ function PersonalForm({ editing, onClose }: { editing: Transaction | null; onClo
     if ((amount ?? 0) <= 0) return setError('Informe um valor maior que zero.')
     if (!category) return setError('Selecione ou informe uma categoria.')
 
+    // Editar um lançamento pendente não pode marcá-lo como pago por acidente:
+    // o status atual é preservado; a baixa acontece pelo botão próprio.
+    const keepPending = editing?.status === 'pending'
+    // Se a conta escolhida for um cartão, o lançamento tem que nascer (ou
+    // continuar) carimbado com a fatura do ciclo — é o carimbo que define em
+    // qual mês ele pesa. Trocar de conta na edição precisa recarimbar.
+    const chosenAccount = personalAccounts.find((a) => a.id === accountId)
+    const cardCycle =
+      chosenAccount && chosenAccount.type === 'credit_card'
+        ? invoiceCycleOf(date, chosenAccount.card_closing_day ?? 31)
+        : null
     const input: TransactionInput = {
       company_id: personalCompany.id,
       kind,
@@ -79,9 +98,9 @@ function PersonalForm({ editing, onClose }: { editing: Transaction | null; onClo
       description: description.trim(),
       amount: amount ?? 0,
       competence_date: date,
-      status: 'settled',
-      settled_date: date,
-      due_date: null,
+      status: keepPending ? 'pending' : 'settled',
+      settled_date: keepPending ? null : date,
+      due_date: keepPending ? date : null,
       is_recurring: kind === 'expense' ? isRecurring : false,
       contact_id: null,
       counterparty: null,
@@ -92,6 +111,7 @@ function PersonalForm({ editing, onClose }: { editing: Transaction | null; onClo
       installment_index: null,
       installment_count: null,
       account_id: accountId || null,
+      ...(personalReady ? { card_cycle_month: cardCycle } : {}),
     }
 
     setSaving(true)

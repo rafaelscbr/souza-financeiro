@@ -45,6 +45,12 @@ export interface PersonalBudget {
   id: string
   category: string
   monthly_limit: number
+  /**
+   * `null` = limite padrão que vale todo mês; 'YYYY-MM-01' = ajuste pontual
+   * daquele mês (viagem em julho, 13º em dezembro). O mês específico vence
+   * o padrão na leitura. (migração 005)
+   */
+  month: string | null
   created_at: string
 }
 
@@ -56,6 +62,10 @@ export interface Category {
   dre_group: DreGroup | null
   is_recurring_default: boolean
   sort_order: number
+  /** Emoji exibido na grade de 1 toque do lançamento rápido. (migração 005) */
+  icon: string | null
+  /** Cor da categoria (hex) — identidade visual persistente. (migração 005) */
+  color: string | null
   created_at: string
 }
 
@@ -106,6 +116,12 @@ export interface Transaction {
   account_id: string | null
   /** Empreendimento a que o lançamento pertence. */
   cost_center_id: string | null
+  /**
+   * Compra de cartão de crédito: 1º dia do mês da FATURA em que a compra pesa.
+   * Carimbado no lançamento (mudar o fechamento do cartão depois não reescreve
+   * o histórico). `null` = lançamento fora de cartão. (migração 005)
+   */
+  card_cycle_month: string | null
   created_at: string
   updated_at: string
 }
@@ -144,6 +160,7 @@ export interface TransactionInput {
   installment_count: number | null
   account_id: string | null
   cost_center_id?: string | null
+  card_cycle_month?: string | null
 }
 
 /** Empreendimento ou projeto — permite apurar resultado por produto. */
@@ -186,6 +203,12 @@ export interface Account {
   color: string
   is_active: boolean
   sort_order: number
+  /** Dia de fechamento da fatura (só cartão). Compra após o fechamento cai na fatura seguinte. */
+  card_closing_day: number | null
+  /** Dia de vencimento: primeira ocorrência APÓS o fechamento (pode ser no mesmo mês). */
+  card_due_day: number | null
+  /** Limite total do cartão. `null` = não informado. */
+  card_limit: number | null
   created_at: string
 }
 

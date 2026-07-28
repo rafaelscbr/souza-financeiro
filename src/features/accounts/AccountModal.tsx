@@ -22,7 +22,7 @@ export function AccountModal({
   editing: Account | null
   onClose: () => void
 }) {
-  const { businessCompanies, personalCompany, scopeCompanyId, createAccount, updateAccount } =
+  const { businessCompanies, personalCompany, scopeCompanyId, personalReady, createAccount, updateAccount } =
     useAppData()
 
   const allCompanies = personalCompany ? [...businessCompanies, personalCompany] : businessCompanies
@@ -37,9 +37,25 @@ export function AccountModal({
   const [openingDate, setOpeningDate] = useState(editing?.opening_date ?? toDateOnly(new Date()))
   const [color, setColor] = useState(editing?.color ?? COLORS[0])
   const [isActive, setIsActive] = useState(editing?.is_active ?? true)
+  // Ciclo do cartão (só quando type = credit_card, migração 005)
+  const [closingDay, setClosingDay] = useState<string>(
+    editing?.card_closing_day != null ? String(editing.card_closing_day) : '',
+  )
+  const [dueDay, setDueDay] = useState<string>(
+    editing?.card_due_day != null ? String(editing.card_due_day) : '',
+  )
+  const [cardLimit, setCardLimit] = useState<number | null>(editing?.card_limit ?? null)
+  // Dívida acumulada do cartão de antes do sistema (vira opening_balance negativo).
+  const [cardDebt, setCardDebt] = useState<number | null>(
+    editing && editing.type === 'credit_card' && editing.opening_balance < 0
+      ? -editing.opening_balance
+      : null,
+  )
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isCard = type === 'credit_card'
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -47,16 +63,32 @@ export function AccountModal({
     if (!name.trim()) return setError('Dê um nome à conta.')
     if (!companyId) return setError('Escolha a empresa.')
 
+    const closing = closingDay === '' ? null : Number(closingDay)
+    const due = dueDay === '' ? null : Number(dueDay)
+    if (isCard && closing != null && (closing < 1 || closing > 31))
+      return setError('Dia de fechamento precisa estar entre 1 e 31.')
+    if (isCard && due != null && (due < 1 || due > 31))
+      return setError('Dia de vencimento precisa estar entre 1 e 31.')
+
     const input: AccountInput = {
       company_id: companyId,
       name: name.trim(),
       type,
       bank: bank.trim() || null,
-      opening_balance: opening ?? 0,
+      // Cartão: a "fatura acumulada" entra como saldo devedor (negativo).
+      opening_balance: isCard ? -(cardDebt ?? 0) : opening ?? 0,
       opening_date: openingDate,
       color,
       is_active: isActive,
       sort_order: editing?.sort_order ?? 0,
+      // Antes da migração 005 as colunas do cartão não existem — não enviar.
+      ...(personalReady
+        ? {
+            card_closing_day: isCard ? closing : null,
+            card_due_day: isCard ? due : null,
+            card_limit: isCard ? cardLimit : null,
+          }
+        : ({} as Pick<AccountInput, 'card_closing_day' | 'card_due_day' | 'card_limit'>)),
     }
 
     setSaving(true)
@@ -119,13 +151,61 @@ export function AccountModal({
           </FormField>
         </div>
 
-        <FormField
-          label="Saldo hoje"
-          htmlFor="acc-opening"
-          hint="O valor que está na conta neste momento — abra o app do banco e copie"
-        >
-          <CurrencyInput id="acc-opening" value={opening} onChange={setOpening} />
-        </FormField>
+        {isCard && personalReady && (
+          <div className="space-y-3 rounded-xl border border-withdrawal/20 bg-withdrawal/5 p-3">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                label="Fecha dia"
+                htmlFor="acc-closing"
+                hint="Compra após o fechamento cai na fatura seguinte"
+              >
+                <Input
+                  id="acc-closing"
+                  type="number"
+                  min={1}
+                  max={31}
+                  inputMode="numeric"
+                  value={closingDay}
+                  onChange={(e) => setClosingDay(e.target.value)}
+                  placeholder="Ex.: 28"
+                />
+              </FormField>
+              <FormField label="Vence dia" htmlFor="acc-due">
+                <Input
+                  id="acc-due"
+                  type="number"
+                  min={1}
+                  max={31}
+                  inputMode="numeric"
+                  value={dueDay}
+                  onChange={(e) => setDueDay(e.target.value)}
+                  placeholder="Ex.: 5"
+                />
+              </FormField>
+            </div>
+            <FormField label="Limite do cartão (opcional)" htmlFor="acc-limit">
+              <CurrencyInput id="acc-limit" value={cardLimit} onChange={setCardLimit} />
+            </FormField>
+          </div>
+        )}
+
+        {isCard ? (
+          <FormField
+            label="Fatura acumulada até hoje (opcional)"
+            htmlFor="acc-card-debt"
+            hint="O que você já deve neste cartão de compras de antes do sistema. Deixe vazio se está zerado."
+          >
+            <CurrencyInput id="acc-card-debt" value={cardDebt} onChange={setCardDebt} />
+          </FormField>
+        ) : (
+          <FormField
+            label="Saldo hoje"
+            htmlFor="acc-opening"
+            hint="O valor que está na conta neste momento — abra o app do banco e copie"
+          >
+            <CurrencyInput id="acc-opening" value={opening} onChange={setOpening} />
+          </FormField>
+        )}
 
         <FormField
           label="Data desse saldo"

@@ -26,6 +26,7 @@ import { RegimeSwitch } from './RegimeSwitch'
 import { ThemeToggle } from './ThemeToggle'
 import { Button } from '@/components/ui/Button'
 import { FullPageLoader } from '@/components/ui/Spinner'
+import { ToastProvider } from '@/components/ui/Toast'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { cn } from '@/lib/utils'
 
@@ -78,9 +79,11 @@ const MOBILE_NAV = MOBILE_PATHS.map((p) => NAV.find((n) => n.to === p)!).filter(
 
 export function AppShell() {
   return (
-    <TransactionComposerProvider>
-      <ShellLayout />
-    </TransactionComposerProvider>
+    <ToastProvider>
+      <TransactionComposerProvider>
+        <ShellLayout />
+      </TransactionComposerProvider>
+    </ToastProvider>
   )
 }
 

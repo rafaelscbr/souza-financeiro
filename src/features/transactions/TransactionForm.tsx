@@ -7,6 +7,7 @@ import { Segmented } from '@/components/ui/Segmented'
 import { Spinner } from '@/components/ui/Spinner'
 import { ContactSelect } from '@/features/contacts/ContactSelect'
 import { formatCurrency, toDateOnly } from '@/lib/format'
+import { buildInstallments } from '@/lib/installments'
 import type { DreGroup, Transaction, TransactionInput, TransactionKind } from '@/types'
 
 const CUSTOM = '__custom__'
@@ -510,16 +511,4 @@ export function TransactionForm({ editing, prefill, submitting, error, onSubmit,
       </div>
     </form>
   )
-}
-
-// Divide um total em N parcelas (última absorve o arredondamento) com datas mensais.
-function buildInstallments(total: number, count: number, firstDate: string): { amount: number; due: string }[] {
-  const base = Math.floor((total / count) * 100) / 100
-  const [y, m, d] = firstDate.split('-').map(Number)
-  const out: { amount: number; due: string }[] = []
-  for (let i = 0; i < count; i++) {
-    const amount = i === count - 1 ? Math.round((total - base * (count - 1)) * 100) / 100 : base
-    out.push({ amount, due: toDateOnly(new Date(y, m - 1 + i, d)) })
-  }
-  return out
 }

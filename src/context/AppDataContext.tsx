@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { supabase } from '@/lib/supabase'
+import { invoiceCycleOf } from '@/lib/cards'
 import type {
   Account,
   AccountInput,
@@ -53,6 +54,8 @@ interface AppDataValue {
   templates: TransactionTemplate[]
   /** `false` enquanto a migração 004 (modelos) não foi aplicada. */
   templatesReady: boolean
+  /** `false` enquanto a migração 005 (módulo pessoal/cartão) não foi aplicada. */
+  personalReady: boolean
   costCenters: CostCenter[]
   periodClosings: PeriodClosing[]
   /** `true` quando o mês em foco já foi fechado para o escopo atual. */
@@ -83,11 +86,13 @@ interface AppDataValue {
   goToNextMonth: () => void
   goToCurrentMonth: () => void
 
-  // Mutações — lançamentos
-  createTransaction: (input: TransactionInput) => Promise<void>
-  createTransactions: (inputs: TransactionInput[]) => Promise<void>
+  // Mutações — lançamentos (create devolve as linhas criadas — o Desfazer do
+  // lançamento rápido precisa dos ids)
+  createTransaction: (input: TransactionInput) => Promise<Transaction>
+  createTransactions: (inputs: TransactionInput[]) => Promise<Transaction[]>
   updateTransaction: (id: string, input: Partial<TransactionInput>) => Promise<void>
   deleteTransaction: (id: string) => Promise<void>
+  deleteTransactions: (ids: string[]) => Promise<void>
   deleteGroup: (groupId: string) => Promise<void>
 
   // Mutações — metas
@@ -99,9 +104,11 @@ interface AppDataValue {
   updateContact: (id: string, input: Partial<ContactInput>) => Promise<void>
   deleteContact: (id: string) => Promise<void>
 
-  // Mutações — orçamento pessoal
-  savePersonalBudget: (category: string, monthlyLimit: number) => Promise<void>
-  deletePersonalBudget: (category: string) => Promise<void>
+  // Mutações — orçamento pessoal (`month` null = limite padrão de todo mês)
+  savePersonalBudget: (category: string, monthlyLimit: number, month?: string | null) => Promise<void>
+  deletePersonalBudget: (category: string, month?: string | null) => Promise<void>
+  /** Cria as categorias pessoais padrão (com ícone e cor) que ainda não existem. */
+  seedPersonalCategories: () => Promise<number>
 
   // Mutações — contas e transferências
   createAccount: (input: AccountInput) => Promise<void>
@@ -158,6 +165,7 @@ function coerceTransaction(t: Transaction): Transaction {
     property_value: t.property_value == null ? null : Number(t.property_value),
     commission_pct: t.commission_pct == null ? null : Number(t.commission_pct),
     broker_pct: t.broker_pct == null ? null : Number(t.broker_pct),
+    card_cycle_month: t.card_cycle_month ?? null,
   }
 }
 
@@ -178,6 +186,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [treasuryReady, setTreasuryReady] = useState(true)
   const [costCentersReady, setCostCentersReady] = useState(true)
   const [templatesReady, setTemplatesReady] = useState(true)
+  const [personalReady, setPersonalReady] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -200,6 +209,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       costCentersRes,
       closingsRes,
       templatesRes,
+      migration005Res,
     ] = await Promise.all([
       supabase.from('companies').select('*').order('sort_order'),
       supabase.from('categories').select('*').order('sort_order'),
@@ -213,6 +223,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       supabase.from('cost_centers').select('*').order('name'),
       supabase.from('period_closings').select('*').order('month', { ascending: false }),
       supabase.from('transaction_templates').select('*').order('sort_order'),
+      // Sonda a migração 005: se a coluna não existe, o módulo pessoal degrada
+      // com aviso em vez de quebrar (mesmo padrão das migrações 001–004).
+      supabase.from('transactions').select('card_cycle_month').limit(1),
     ])
 
     const firstError =
@@ -244,6 +257,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       ((accountsRes.data as Account[]) ?? []).map((a) => ({
         ...a,
         opening_balance: Number(a.opening_balance),
+        card_closing_day: a.card_closing_day == null ? null : Number(a.card_closing_day),
+        card_due_day: a.card_due_day == null ? null : Number(a.card_due_day),
+        card_limit: a.card_limit == null ? null : Number(a.card_limit),
       })),
     )
     setTransfers(
@@ -254,6 +270,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setCostCentersReady(!costCentersRes.error && !closingsRes.error)
     setCostCenters((costCentersRes.data as CostCenter[]) ?? [])
     setPeriodClosings((closingsRes.data as PeriodClosing[]) ?? [])
+
+    // Idem para o módulo pessoal/cartão (migração 005).
+    setPersonalReady(!migration005Res.error)
 
     // Idem para modelos de lançamento (migração 004).
     setTemplatesReady(!templatesRes.error)
@@ -270,7 +289,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         tax_rate: c.tax_rate == null ? null : Number(c.tax_rate),
       })),
     )
-    setCategories((categoriesRes.data as Category[]) ?? [])
+    setCategories(
+      ((categoriesRes.data as Category[]) ?? []).map((c) => ({
+        ...c,
+        icon: c.icon ?? null,
+        color: c.color ?? null,
+      })),
+    )
     setContacts((contactsRes.data as Contact[]) ?? [])
     setTransactions(((txRes.data as Transaction[]) ?? []).map(coerceTransaction))
     setGoals(
@@ -280,6 +305,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       ((budgetsRes.data as PersonalBudget[]) ?? []).map((b) => ({
         ...b,
         monthly_limit: Number(b.monthly_limit),
+        month: b.month ?? null,
       })),
     )
   }, [])
@@ -311,19 +337,21 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const createTransaction = useCallback(
     async (input: TransactionInput) => {
-      const { error } = await supabase.from('transactions').insert(input)
+      const { data, error } = await supabase.from('transactions').insert(input).select().single()
       if (error) throw new Error(error.message)
       await refresh()
+      return coerceTransaction(data as Transaction)
     },
     [refresh],
   )
 
   const createTransactions = useCallback(
     async (inputs: TransactionInput[]) => {
-      if (inputs.length === 0) return
-      const { error } = await supabase.from('transactions').insert(inputs)
+      if (inputs.length === 0) return []
+      const { data, error } = await supabase.from('transactions').insert(inputs).select()
       if (error) throw new Error(error.message)
       await refresh()
+      return ((data as Transaction[]) ?? []).map(coerceTransaction)
     },
     [refresh],
   )
@@ -340,6 +368,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const deleteTransaction = useCallback(
     async (id: string) => {
       const { error } = await supabase.from('transactions').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const deleteTransactions = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return
+      const { error } = await supabase.from('transactions').delete().in('id', ids)
       if (error) throw new Error(error.message)
       await refresh()
     },
@@ -432,27 +470,74 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   )
 
   const savePersonalBudget = useCallback(
-    async (category: string, monthlyLimit: number) => {
-      await supabase.from('personal_budgets').delete().eq('category', category)
+    async (category: string, monthlyLimit: number, month: string | null = null) => {
+      // Antes da migração 005 a coluna `month` não existe — filtrá-la erraria.
+      // Comportamento antigo (limite único por categoria) como degradação.
+      if (!personalReady) {
+        await supabase.from('personal_budgets').delete().eq('category', category)
+        if (monthlyLimit > 0) {
+          const { error } = await supabase
+            .from('personal_budgets')
+            .insert({ category, monthly_limit: monthlyLimit })
+          if (error) throw new Error(error.message)
+        }
+        await refresh()
+        return
+      }
+
+      let del = supabase.from('personal_budgets').delete().eq('category', category)
+      del = month === null ? del.is('month', null) : del.eq('month', month)
+      await del
       if (monthlyLimit > 0) {
         const { error } = await supabase
           .from('personal_budgets')
-          .insert({ category, monthly_limit: monthlyLimit })
+          .insert({ category, monthly_limit: monthlyLimit, month })
         if (error) throw new Error(error.message)
       }
       await refresh()
     },
-    [refresh],
+    [refresh, personalReady],
   )
 
   const deletePersonalBudget = useCallback(
-    async (category: string) => {
-      const { error } = await supabase.from('personal_budgets').delete().eq('category', category)
+    async (category: string, month: string | null = null) => {
+      let del = supabase.from('personal_budgets').delete().eq('category', category)
+      if (personalReady) del = month === null ? del.is('month', null) : del.eq('month', month)
+      const { error } = await del
       if (error) throw new Error(error.message)
       await refresh()
     },
-    [refresh],
+    [refresh, personalReady],
   )
+
+  const seedPersonalCategories = useCallback(async () => {
+    const personal = companies.find((c) => c.is_personal)
+    if (!personal) throw new Error('Empresa pessoal não encontrada.')
+    const { DEFAULT_PERSONAL_CATEGORIES } = await import('@/lib/personalDefaults')
+    const existing = new Set(
+      categories
+        .filter((c) => c.company_id === personal.id)
+        .map((c) => `${c.kind}|${c.name.toLowerCase()}`),
+    )
+    const missing = DEFAULT_PERSONAL_CATEGORIES.filter(
+      (c) => !existing.has(`${c.kind}|${c.name.toLowerCase()}`),
+    )
+    if (missing.length === 0) return 0
+    const rows = missing.map((c, i) => ({
+      company_id: personal.id,
+      kind: c.kind,
+      name: c.name,
+      dre_group: null,
+      is_recurring_default: false,
+      sort_order: i,
+      // Ícone/cor dependem da migração 005 — sem ela, semeia sem identidade visual.
+      ...(personalReady ? { icon: c.icon, color: c.color } : {}),
+    }))
+    const { error } = await supabase.from('categories').insert(rows)
+    if (error) throw new Error(error.message)
+    await refresh()
+    return missing.length
+  }, [refresh, companies, categories, personalReady])
 
   const createAccount = useCallback(
     async (input: AccountInput) => {
@@ -519,26 +604,46 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const settleTransaction = useCallback(
     async (id: string, accountId: string | null, date: string) => {
+      // Dar baixa apontando um CARTÃO precisa carimbar a fatura do ciclo — é o
+      // carimbo que define em qual mês a despesa pesa. Sem ele, o lançamento
+      // ficaria no mês da baixa e sumiria da fatura correspondente.
+      const target = accountId ? accounts.find((a) => a.id === accountId) : null
+      const cardCycle =
+        target && target.type === 'credit_card'
+          ? invoiceCycleOf(date, target.card_closing_day ?? 31)
+          : null
       const { error } = await supabase
         .from('transactions')
-        .update({ status: 'settled', settled_date: date, due_date: null, account_id: accountId })
+        .update({
+          status: 'settled',
+          settled_date: date,
+          due_date: null,
+          account_id: accountId,
+          ...(personalReady ? { card_cycle_month: cardCycle } : {}),
+        })
         .eq('id', id)
       if (error) throw new Error(error.message)
       await refresh()
     },
-    [refresh],
+    [refresh, accounts, personalReady],
   )
 
   const unsettleTransaction = useCallback(
     async (id: string, dueDate: string) => {
       const { error } = await supabase
         .from('transactions')
-        .update({ status: 'pending', settled_date: null, due_date: dueDate })
+        .update({
+          status: 'pending',
+          settled_date: null,
+          due_date: dueDate,
+          // Voltar a pendente tira o lançamento de qualquer fatura.
+          ...(personalReady ? { card_cycle_month: null } : {}),
+        })
         .eq('id', id)
       if (error) throw new Error(error.message)
       await refresh()
     },
-    [refresh],
+    [refresh, personalReady],
   )
 
   const createCostCenter = useCallback(
@@ -647,6 +752,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       isPeriodClosed,
       templates,
       templatesReady,
+      personalReady,
       migrationApplied,
       treasuryReady,
       costCentersReady,
@@ -667,6 +773,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       createTransactions,
       updateTransaction,
       deleteTransaction,
+      deleteTransactions,
       deleteGroup,
       saveGoal,
       deleteGoal,
@@ -675,6 +782,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       deleteContact,
       savePersonalBudget,
       deletePersonalBudget,
+      seedPersonalCategories,
       createAccount,
       updateAccount,
       deleteAccount,
@@ -713,6 +821,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       isPeriodClosed,
       templates,
       templatesReady,
+      personalReady,
       migrationApplied,
       treasuryReady,
       costCentersReady,
@@ -732,6 +841,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       createTransactions,
       updateTransaction,
       deleteTransaction,
+      deleteTransactions,
       deleteGroup,
       saveGoal,
       deleteGoal,
@@ -740,6 +850,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       deleteContact,
       savePersonalBudget,
       deletePersonalBudget,
+      seedPersonalCategories,
       createAccount,
       updateAccount,
       deleteAccount,

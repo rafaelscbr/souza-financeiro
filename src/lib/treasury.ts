@@ -9,6 +9,12 @@ import type { Account, Transaction, Transfer } from '@/types'
  * REALMENTE se moveu (`status = 'settled'`). Pendente é compromisso, não
  * saldo — misturar os dois é o erro que faz o app mostrar dinheiro que
  * ainda não existe.
+ *
+ * Nota sobre cartão de crédito: parcelas de cartão nascem `settled` com data
+ * futura (a data em que postam na fatura do ciclo). A guarda `d > upto` faz o
+ * saldo devedor do cartão crescer mês a mês conforme as faturas viram — o
+ * limite COMPROMETIDO (que inclui parcelas futuras) vem de `lib/cards.ts`,
+ * nunca daqui.
  */
 export interface AccountBalance {
   account: Account
@@ -71,8 +77,20 @@ export function accountBalance(
 
 export interface TreasurySummary {
   balances: AccountBalance[]
-  /** Soma das contas cadastradas. */
+  /**
+   * Soma das contas cadastradas — LÍQUIDO (inclui o saldo negativo dos
+   * cartões). Para "quanto dinheiro eu tenho", use `available`.
+   */
   total: number
+  /** Dinheiro de verdade: soma das contas que NÃO são cartão de crédito. */
+  available: number
+  /**
+   * Dívida de cartão: saldo devedor somado dos cartões (positivo). Cartão é
+   * passivo — somá-lo ao disponível como se fosse dinheiro mentiria o caixa.
+   */
+  cardDebt: number
+  /** Há pelo menos um cartão entre as contas (decide se a UI mostra o split). */
+  hasCards: boolean
   /**
    * Movimento liquidado que ainda não foi atribuído a nenhuma conta.
    * Aparece separado porque somá-lo ao total daria um saldo que não
@@ -103,9 +121,23 @@ export function treasurySummary(
     unassigned += dreGroupOf(t) === 'revenue' ? t.amount : -t.amount
   }
 
+  const cardBalances = balances.filter((b) => b.account.type === 'credit_card')
+  // Cartão com saldo POSITIVO é crédito a favor (pagou a mais): vira dinheiro
+  // disponível. Só o saldo negativo é dívida. Sem esta separação o crédito
+  // sumia do resumo e `available − cardDebt` deixava de fechar com `total`.
+  const cardCredit = round2(cardBalances.reduce((s, b) => s + Math.max(0, b.balance), 0))
+  const available = round2(
+    balances.filter((b) => b.account.type !== 'credit_card').reduce((s, b) => s + b.balance, 0) +
+      cardCredit,
+  )
+  const cardDebt = round2(cardBalances.reduce((s, b) => s + Math.max(0, -b.balance), 0))
+
   return {
     balances,
     total: round2(balances.reduce((s, b) => s + b.balance, 0)),
+    available,
+    cardDebt,
+    hasCards: cardBalances.length > 0,
     unassigned: round2(unassigned),
     unassignedCount,
   }

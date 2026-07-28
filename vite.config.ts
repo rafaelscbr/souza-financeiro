@@ -25,6 +25,23 @@ export default defineConfig({
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
+        // Segurar o ícone do app na home do iPhone/Android mostra estes atalhos.
+        shortcuts: [
+          {
+            name: 'Novo gasto pessoal',
+            short_name: 'Novo gasto',
+            description: 'Lançar um gasto pessoal em 3 toques',
+            url: '/pessoal?novo=gasto',
+            icons: [{ src: 'pwa-192.png', sizes: '192x192' }],
+          },
+          {
+            name: 'Pessoal',
+            short_name: 'Pessoal',
+            description: 'Suas finanças pessoais',
+            url: '/pessoal',
+            icons: [{ src: 'pwa-192.png', sizes: '192x192' }],
+          },
+        ],
       },
     }),
   ],

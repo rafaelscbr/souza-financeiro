@@ -97,8 +97,14 @@ export function inScope(t: Transaction, companyId: string | null): boolean {
  * - `accrual` (competência): mês da venda/faturamento, mesmo que o dinheiro caia depois.
  * - `cash` (caixa): mês em que o dinheiro entrou/saiu de fato. Pendente não entra
  *   em mês nenhum — por isso devolve `null`.
+ *
+ * Exceção deliberada: compra de CARTÃO DE CRÉDITO pesa no mês da fatura
+ * (`card_cycle_month`), nos DOIS regimes — decisão de 27/07. O toggle de
+ * regime existe para o DRE das empresas; o cartão pessoal é invariante a ele,
+ * senão alternar o regime reescreveria o orçamento pessoal retroativamente.
  */
 export function regimeDate(t: Transaction, regime: Regime): string | null {
+  if (t.card_cycle_month) return t.card_cycle_month
   if (regime === 'accrual') return t.competence_date
   if (t.status !== 'settled') return null
   return t.settled_date ?? t.competence_date
