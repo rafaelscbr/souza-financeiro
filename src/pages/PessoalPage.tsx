@@ -28,13 +28,21 @@ import { PersonalQuickSheet } from '@/features/personal/PersonalQuickSheet'
 import { PersonalRecurringPrompt } from '@/features/personal/PersonalRecurringPrompt'
 import { CardPanel } from '@/features/personal/CardPanel'
 import { BudgetEditor } from '@/features/personal/BudgetEditor'
+import { VitalsPanel } from '@/features/personal/VitalsPanel'
+import { OwnerIncomePanel } from '@/features/personal/OwnerIncomePanel'
+import { NetWorthPanel } from '@/features/personal/NetWorthPanel'
+import { PersonalForecastPanel } from '@/features/personal/PersonalForecastPanel'
+import { MonthlyClosePanel } from '@/features/personal/MonthlyClosePanel'
+import { AnnualReportPanel } from '@/features/personal/AnnualReportPanel'
 import { SettleModal } from '@/features/transactions/SettleModal'
 import { cardSummary, cardPayables } from '@/lib/cards'
+import { ownerIncome, personalVitals } from '@/lib/personal'
 import { resolveBudgets } from '@/lib/budgets'
 import {
-  dreGroupOf,
   firstDayOfMonth,
   inMonth,
+  isOwnerPayout,
+  lastNMonths,
   monthElapsedFraction,
   personalSummary,
 } from '@/lib/finance'
@@ -88,6 +96,33 @@ export function PessoalPage() {
     [personalTransactions, businessTransactions, period, regime],
   )
 
+  const personalAccounts = useMemo(
+    () => accounts.filter((a) => a.company_id === personalCompany?.id),
+    [accounts, personalCompany],
+  )
+
+  // Indicadores de planejamento: taxa de poupança, custo de vida e reserva.
+  const vitals = useMemo(
+    () =>
+      personalVitals(
+        personalTransactions,
+        businessTransactions,
+        personalAccounts,
+        transfers,
+        period,
+        regime,
+      ),
+    [personalTransactions, businessTransactions, personalAccounts, transfers, period, regime],
+  )
+
+  // Renda média que as empresas pagam — alimenta a previsão de caixa dos
+  // meses futuros (o mês corrente já tem o que entrou de verdade).
+  const expectedMonthlyIncome = useMemo(
+    () =>
+      ownerIncome(businessTransactions, companies, lastNMonths(period, 12), regime).monthlyAvg,
+    [businessTransactions, companies, period, regime],
+  )
+
   const monthPersonal = useMemo(
     () =>
       personalTransactions
@@ -102,7 +137,7 @@ export function PessoalPage() {
   )
 
   const withdrawals = useMemo(
-    () => businessTransactions.filter((t) => dreGroupOf(t) === 'withdrawal' && inMonth(t, period, regime)),
+    () => businessTransactions.filter((t) => isOwnerPayout(t) && inMonth(t, period, regime)),
     [businessTransactions, period, regime],
   )
 
@@ -239,6 +274,9 @@ export function PessoalPage() {
             />
           </div>
 
+          {/* Saúde financeira: poupança, custo de vida e reserva */}
+          <VitalsPanel vitals={vitals} />
+
           {/* Cartões de crédito */}
           {personalReady && hasCards && <CardPanel />}
 
@@ -361,6 +399,21 @@ export function PessoalPage() {
               <CategoryBarChart data={categoryData} />
             </Section>
           )}
+
+          {/* Renda das empresas e quanto ainda dá para distribuir */}
+          <OwnerIncomePanel livingCostAvg={vitals.livingCostAvg} />
+
+          {/* Previsão de caixa, já com as faturas de cartão */}
+          <PersonalForecastPanel monthlyIncome={expectedMonthlyIncome} />
+
+          {/* Patrimônio líquido */}
+          <NetWorthPanel />
+
+          {/* Fechamento e conciliação */}
+          <MonthlyClosePanel />
+
+          {/* Resumo do ano (apoio ao IR) */}
+          <AnnualReportPanel />
 
           {/* Movimentações */}
           <Section title="Movimentações do mês" subtitle={`${monthPersonal.length + withdrawals.length} registros`}>

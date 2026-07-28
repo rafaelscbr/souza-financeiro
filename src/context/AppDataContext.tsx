@@ -22,6 +22,8 @@ import type {
   Goal,
   Objective,
   ObjectiveInput,
+  PersonalAsset,
+  PersonalAssetInput,
   PersonalBudget,
   Regime,
   TaxRegime,
@@ -56,6 +58,10 @@ interface AppDataValue {
   templatesReady: boolean
   /** `false` enquanto a migração 005 (módulo pessoal/cartão) não foi aplicada. */
   personalReady: boolean
+  /** Bens e dívidas do patrimônio pessoal (migração 006). */
+  personalAssets: PersonalAsset[]
+  /** `false` enquanto a migração 006 (patrimônio) não foi aplicada. */
+  assetsReady: boolean
   costCenters: CostCenter[]
   periodClosings: PeriodClosing[]
   /** `true` quando o mês em foco já foi fechado para o escopo atual. */
@@ -109,6 +115,11 @@ interface AppDataValue {
   deletePersonalBudget: (category: string, month?: string | null) => Promise<void>
   /** Cria as categorias pessoais padrão (com ícone e cor) que ainda não existem. */
   seedPersonalCategories: () => Promise<number>
+
+  // Mutações — patrimônio pessoal
+  createPersonalAsset: (input: PersonalAssetInput) => Promise<void>
+  updatePersonalAsset: (id: string, input: Partial<PersonalAssetInput>) => Promise<void>
+  deletePersonalAsset: (id: string) => Promise<void>
 
   // Mutações — contas e transferências
   createAccount: (input: AccountInput) => Promise<void>
@@ -187,6 +198,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [costCentersReady, setCostCentersReady] = useState(true)
   const [templatesReady, setTemplatesReady] = useState(true)
   const [personalReady, setPersonalReady] = useState(true)
+  const [personalAssets, setPersonalAssets] = useState<PersonalAsset[]>([])
+  const [assetsReady, setAssetsReady] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -210,6 +223,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       closingsRes,
       templatesRes,
       migration005Res,
+      assetsRes,
     ] = await Promise.all([
       supabase.from('companies').select('*').order('sort_order'),
       supabase.from('categories').select('*').order('sort_order'),
@@ -226,6 +240,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       // Sonda a migração 005: se a coluna não existe, o módulo pessoal degrada
       // com aviso em vez de quebrar (mesmo padrão das migrações 001–004).
       supabase.from('transactions').select('card_cycle_month').limit(1),
+      supabase.from('personal_assets').select('*').order('sort_order'),
     ])
 
     const firstError =
@@ -273,6 +288,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     // Idem para o módulo pessoal/cartão (migração 005).
     setPersonalReady(!migration005Res.error)
+
+    // Idem para o patrimônio pessoal (migração 006).
+    setAssetsReady(!assetsRes.error)
+    setPersonalAssets(
+      ((assetsRes.data as PersonalAsset[]) ?? []).map((a) => ({ ...a, value: Number(a.value) })),
+    )
 
     // Idem para modelos de lançamento (migração 004).
     setTemplatesReady(!templatesRes.error)
@@ -539,6 +560,33 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return missing.length
   }, [refresh, companies, categories, personalReady])
 
+  const createPersonalAsset = useCallback(
+    async (input: PersonalAssetInput) => {
+      const { error } = await supabase.from('personal_assets').insert(input)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const updatePersonalAsset = useCallback(
+    async (id: string, input: Partial<PersonalAssetInput>) => {
+      const { error } = await supabase.from('personal_assets').update(input).eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const deletePersonalAsset = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.from('personal_assets').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      await refresh()
+    },
+    [refresh],
+  )
+
   const createAccount = useCallback(
     async (input: AccountInput) => {
       const { error } = await supabase.from('accounts').insert(input)
@@ -753,6 +801,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       templates,
       templatesReady,
       personalReady,
+      personalAssets,
+      assetsReady,
       migrationApplied,
       treasuryReady,
       costCentersReady,
@@ -783,6 +833,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       savePersonalBudget,
       deletePersonalBudget,
       seedPersonalCategories,
+      createPersonalAsset,
+      updatePersonalAsset,
+      deletePersonalAsset,
       createAccount,
       updateAccount,
       deleteAccount,
@@ -822,6 +875,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       templates,
       templatesReady,
       personalReady,
+      personalAssets,
+      assetsReady,
       migrationApplied,
       treasuryReady,
       costCentersReady,
@@ -851,6 +906,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       savePersonalBudget,
       deletePersonalBudget,
       seedPersonalCategories,
+      createPersonalAsset,
+      updatePersonalAsset,
+      deletePersonalAsset,
       createAccount,
       updateAccount,
       deleteAccount,

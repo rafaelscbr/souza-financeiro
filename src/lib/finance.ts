@@ -39,6 +39,20 @@ export const PRO_LABORE_CATEGORIES = new Set(['Pró-labore', 'Pro-labore'])
  */
 export const TAX_CATEGORIES = new Set(['Impostos e Taxas', 'Imposto', 'Impostos', 'DAS', 'Simples Nacional'])
 
+/**
+ * Dinheiro que a empresa paga ao DONO — pró-labore ou distribuição de lucros.
+ *
+ * A mesma operação tem dois lados: para a empresa, pró-labore é despesa
+ * operacional (entra antes do lucro) e distribuição é retirada (sai depois).
+ * Para a pessoa física, os dois são renda. Olhar só o `dre_group` faria o
+ * pró-labore sumir do lado pessoal — que é justamente a parte fixa e
+ * previsível da renda do dono.
+ */
+export function isOwnerPayout(tx: Transaction): boolean {
+  if (PRO_LABORE_CATEGORIES.has(tx.category)) return true
+  return dreGroupOf(tx) === 'withdrawal'
+}
+
 /** Classificação DRE de um lançamento (usa o campo salvo, com fallback por categoria/tipo). */
 export function dreGroupOf(tx: Transaction): DreGroup {
   // Categoria vence o dre_group gravado nestes casos: lançamentos antigos
@@ -570,7 +584,12 @@ export interface PersonalSummary {
   byCategory: { name: string; value: number }[]
 }
 
-const INVEST_CATEGORY = 'Investimentos/Poupança'
+/**
+ * Categoria que marca dinheiro guardado, não consumido. Fica de fora do custo
+ * de vida: poupar não é gastar — misturar os dois infla o custo e derruba a
+ * reserva em meses artificialmente.
+ */
+export const INVEST_CATEGORY = 'Investimentos/Poupança'
 
 /**
  * Resumo pessoal do mês. `personalTx` = lançamentos do ledger Pessoal;
@@ -599,7 +618,7 @@ export function personalSummary(
   }
 
   const inflowFromBusiness = businessTx
-    .filter((t) => dreGroupOf(t) === 'withdrawal' && inMonth(t, date, regime))
+    .filter((t) => isOwnerPayout(t) && inMonth(t, date, regime))
     .reduce((s, t) => s + t.amount, 0)
 
   const inflow = inflowFromBusiness + inflowManual

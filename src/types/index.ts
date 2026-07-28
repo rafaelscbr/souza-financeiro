@@ -265,6 +265,36 @@ export interface TransactionTemplate {
 
 export type TransactionTemplateInput = Omit<TransactionTemplate, 'id' | 'created_at'>
 
+/** Categorias de bem/dívida do patrimônio pessoal (migração 006). */
+export type AssetCategory =
+  | 'imovel'
+  | 'veiculo'
+  | 'participacao'
+  | 'investimento'
+  | 'financiamento'
+  | 'emprestimo'
+  | 'outro'
+
+/**
+ * Bem ou dívida informado à mão. O sistema já sabe de contas, investimentos e
+ * faturas — aqui entra o que ele não tem como descobrir sozinho.
+ */
+export interface PersonalAsset {
+  id: string
+  kind: 'asset' | 'liability'
+  category: AssetCategory
+  name: string
+  value: number
+  /** Data da última avaliação — a tela avisa quando o valor ficar velho. */
+  valued_at: string
+  notes: string | null
+  is_active: boolean
+  sort_order: number
+  created_at: string
+}
+
+export type PersonalAssetInput = Omit<PersonalAsset, 'id' | 'created_at'>
+
 export type ContactInput = Omit<Contact, 'id' | 'created_at'>
 
 export type HealthStatus = 'healthy' | 'warning' | 'critical'
