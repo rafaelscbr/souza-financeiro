@@ -125,6 +125,7 @@ const PESSOAL: Workspace = {
       items: [
         { to: '/pessoal/patrimonio', label: 'Patrimônio', icon: Gem },
         { to: '/pessoal/renda', label: 'Renda e retiradas', icon: ArrowDownCircle },
+        { to: '/pessoal/objetivos', label: 'Objetivos', icon: Target },
       ],
     },
     {

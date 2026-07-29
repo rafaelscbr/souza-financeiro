@@ -20,14 +20,19 @@ export function ObjectiveModal({
   open,
   editing,
   onClose,
+  escopo = 'empresas',
 }: {
   open: boolean
   editing: Objective | null
   onClose: () => void
+  /** De qual espaço o objetivo está nascendo — decide o tipo padrão. */
+  escopo?: 'empresas' | 'pessoal'
 }) {
   const { businessCompanies, scopeCompanyId, createObjective, updateObjective } = useAppData()
 
-  const [scope, setScope] = useState<Scope>(editing?.scope ?? 'business')
+  const [scope, setScope] = useState<Scope>(
+    editing?.scope ?? (escopo === 'pessoal' ? 'personal' : 'business'),
+  )
   const [companyId, setCompanyId] = useState(
     editing?.company_id ?? scopeCompanyId ?? businessCompanies[0]?.id ?? '',
   )
@@ -81,7 +86,9 @@ export function ObjectiveModal({
       description="Informe o custo e eu digo se dá, quanto falta faturar e quando fazer o movimento."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Segmented ariaLabel="Tipo de objetivo" value={scope} onChange={setScope} options={SCOPE_OPTIONS} />
+        {escopo === 'empresas' || editing ? (
+          <Segmented ariaLabel="Tipo de objetivo" value={scope} onChange={setScope} options={SCOPE_OPTIONS} />
+        ) : null}
 
         {scope === 'business' && (
           <FormField label="Empresa" htmlFor="obj-company">

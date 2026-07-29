@@ -119,6 +119,7 @@ export function ContasPessoaisPage() {
           key={editando?.id ?? 'nova'}
           open={aberto}
           editing={editando}
+          escopo="pessoal"
           onClose={() => {
             setAberto(false)
             setEditando(null)

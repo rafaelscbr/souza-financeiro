@@ -17,18 +17,37 @@ export function AccountModal({
   open,
   editing,
   onClose,
+  escopo = 'empresas',
 }: {
   open: boolean
   editing: Account | null
   onClose: () => void
+  /**
+   * De qual lado a conta está sendo cadastrada. Sem isto, o cadastro de conta
+   * PJ oferecia "Pessoal" na lista (e vice-versa) — era possível criar a conta
+   * do banco da empresa dentro do módulo pessoal sem perceber.
+   */
+  escopo?: 'empresas' | 'pessoal'
 }) {
   const { businessCompanies, personalCompany, scopeCompanyId, personalReady, createAccount, updateAccount } =
     useAppData()
 
-  const allCompanies = personalCompany ? [...businessCompanies, personalCompany] : businessCompanies
+  const allCompanies =
+    escopo === 'pessoal'
+      ? personalCompany
+        ? [personalCompany]
+        : []
+      : businessCompanies
 
   const [companyId, setCompanyId] = useState(
-    editing?.company_id ?? scopeCompanyId ?? allCompanies[0]?.id ?? '',
+    editing?.company_id ??
+      (escopo === 'pessoal'
+        ? personalCompany?.id
+        : scopeCompanyId && scopeCompanyId !== personalCompany?.id
+          ? scopeCompanyId
+          : undefined) ??
+      allCompanies[0]?.id ??
+      '',
   )
   const [name, setName] = useState(editing?.name ?? '')
   const [type, setType] = useState<AccountType>(editing?.type ?? 'checking')
@@ -111,15 +130,22 @@ export function AccountModal({
       description="Informe o saldo que existe hoje. É dele que o sistema parte para acompanhar tudo."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <FormField label="Empresa" htmlFor="acc-company">
-          <Select id="acc-company" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
-            {allCompanies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </FormField>
+        {allCompanies.length > 1 ? (
+          <FormField label="Empresa" htmlFor="acc-company">
+            <Select id="acc-company" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+              {allCompanies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+        ) : (
+          // Um só destino possível: o seletor viraria ruído.
+          <p className="text-xs text-content-faint">
+            Conta de <strong className="text-content">{allCompanies[0]?.name ?? '—'}</strong>
+          </p>
+        )}
 
         <FormField label="Nome da conta" htmlFor="acc-name">
           <Input

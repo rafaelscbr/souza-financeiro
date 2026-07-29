@@ -59,7 +59,14 @@ const VERDICT: Record<
   },
 }
 
-export function ObjetivosPage() {
+/**
+ * Objetivos financeiros. A MESMA tela serve os dois espaços, filtrada pelo
+ * escopo: em Empresas mostra só os objetivos das empresas; em Pessoal, só os
+ * do Rafael. Misturar os dois na mesma lista era o que fazia "objetivo" virar
+ * uma gaveta sem dono.
+ */
+export function ObjetivosPage({ escopo = 'empresas' }: { escopo?: 'empresas' | 'pessoal' }) {
+
   const {
     objectives,
     migrationApplied,
@@ -75,9 +82,17 @@ export function ObjetivosPage() {
   const [composing, setComposing] = useState(false)
   const [editing, setEditing] = useState<Objective | null>(null)
 
+  const doEscopo = useMemo(
+    () =>
+      objectives.filter((o) =>
+        escopo === 'pessoal' ? o.scope === 'personal' : o.scope !== 'personal',
+      ),
+    [objectives, escopo],
+  )
+
   const analyses = useMemo<ObjectiveAnalysis[]>(
     () =>
-      objectives
+      doEscopo
         .filter((o) => o.status === 'planned')
         .map((o) => {
           if (o.scope === 'personal') {
@@ -106,10 +121,10 @@ export function ObjetivosPage() {
             ),
           )
         }),
-    [objectives, personalTransactions, businessTransactions, businessCompanies, period, regime],
+    [doEscopo, personalTransactions, businessTransactions, businessCompanies, period, regime],
   )
 
-  const achieved = objectives.filter((o) => o.status === 'achieved')
+  const achieved = doEscopo.filter((o) => o.status === 'achieved')
 
   function openNew() {
     setEditing(null)
@@ -186,7 +201,7 @@ export function ObjetivosPage() {
         </Section>
       )}
 
-      <ObjectiveModal
+      <ObjectiveModal escopo={escopo}
         open={composing}
         editing={editing}
         onClose={() => {

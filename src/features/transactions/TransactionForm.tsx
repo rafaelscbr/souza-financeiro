@@ -29,12 +29,20 @@ interface Props {
 }
 
 export function TransactionForm({ editing, prefill, submitting, error, onSubmit, onCancel }: Props) {
-  const { companies, categories, scopeCompanyId, accounts, treasuryReady, costCenters, costCentersReady } =
+  // SÓ empresas: o lançamento pessoal tem o seu próprio fluxo (PersonalQuickSheet).
+  // Enquanto a lista trazia "Pessoal", dava para gravar um gasto do Rafael no
+  // razão das empresas sem perceber — e ele sumia dos dois lugares certos.
+  const { businessCompanies: companies, categories, scopeCompanyId, accounts, treasuryReady, costCenters, costCentersReady } =
     useAppData()
   const base = editing ?? prefill
 
   const [kind, setKind] = useState<TransactionKind>(base?.kind ?? 'income')
-  const [companyId, setCompanyId] = useState(base?.company_id ?? scopeCompanyId ?? companies[0]?.id ?? '')
+  const [companyId, setCompanyId] = useState(
+    base?.company_id ??
+      (scopeCompanyId && companies.some((c) => c.id === scopeCompanyId) ? scopeCompanyId : undefined) ??
+      companies[0]?.id ??
+      '',
+  )
   const [description, setDescription] = useState(base?.description ?? '')
   // Ao duplicar, a competência volta para hoje (não herda a data original).
   const [competenceDate, setCompetenceDate] = useState(editing?.competence_date ?? toDateOnly(new Date()))
