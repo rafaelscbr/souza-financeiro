@@ -109,6 +109,11 @@ export function survival(params: {
  * Simula mês a mês: entra o que está contratado, sai o custo de vida. Devolve
  * quando o caixa vira negativo.
  *
+ * O MÊS CORRENTE entra proporcional aos dias que faltam — o saldo de hoje já
+ * embute o que foi gasto até aqui, e cobrar o mês inteiro de novo contaria a
+ * mesma despesa duas vezes (no dia 29, isso derrubava a projeção em um mês
+ * inteiro de custo que já tinha saído).
+ *
  * Projeta 24 meses no máximo — além disso a previsão vira ficção, porque
  * depende de vendas que ainda não existem.
  */
@@ -128,22 +133,25 @@ function projectRunway(
 
   let saldo = saldoInicial
   let meses = 0
-  const [y0, m0] = today.split('-').map(Number)
+  const [y0, m0, d0] = today.split('-').map(Number)
+  const diasNoMes = new Date(y0, m0, 0).getDate()
+  const fracaoRestante = Math.max(0, (diasNoMes - d0 + 1) / diasNoMes)
+
   for (let i = 0; i < 24; i++) {
     const t = m0 - 1 + i
     const chave = `${y0 + Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`
+    const custo = i === 0 ? custoMensal * fracaoRestante : custoMensal
     saldo += porMes.get(chave) ?? 0
-    saldo -= custoMensal
+    saldo -= custo
     if (saldo < 0) {
-      // Fração do mês em que o dinheiro acabou.
-      const sobra = (saldo + custoMensal) / custoMensal
+      const sobra = custo > 0 ? (saldo + custo) / custo : 0
       return {
-        months: round2(meses + Math.max(0, sobra)),
+        months: round2(meses + Math.max(0, sobra) * (i === 0 ? fracaoRestante : 1)),
         breaksAt: chave,
         incoming: round2(receipts.reduce((s, r) => s + r.amount, 0)),
       }
     }
-    meses += 1
+    meses += i === 0 ? fracaoRestante : 1
   }
   return { months: null, breaksAt: null, incoming: round2(receipts.reduce((s, r) => s + r.amount, 0)) }
 }

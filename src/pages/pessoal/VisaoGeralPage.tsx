@@ -13,11 +13,11 @@ import { PersonalTransactionModal } from '@/features/personal/PersonalTransactio
 import { PersonalRow } from '@/features/personal/PersonalRow'
 import { SettleModal } from '@/features/transactions/SettleModal'
 import { cardPayables, cardSummary } from '@/lib/cards'
-import { activeInstallments, recurringSpend } from '@/lib/insights'
+import { activeInstallments, businessShareOfCardDebt, recurringSpend } from '@/lib/insights'
 import { personalVitals } from '@/lib/personal'
 import { nextObligations, survival } from '@/lib/survival'
 import { ownerReceivables } from '@/lib/commissions'
-import { BUSINESS_CATEGORY } from '@/lib/finance'
+
 import { inMonth, isOwnerPayout, lastNMonths, personalSummary } from '@/lib/finance'
 import { formatCurrency, formatMonthShort, formatMonthYear, toDateOnly } from '@/lib/format'
 import type { Transaction } from '@/types'
@@ -76,20 +76,18 @@ export function VisaoGeralPage() {
     [businessTransactions],
   )
 
-  // Parte da fatura do cartão que é despesa da empresa: sai do bolso dele agora,
-  // mas a empresa deve, e a partir do cartão PJ nem passa mais por aqui.
+  // Parte da DÍVIDA ATUAL do cartão que é despesa da empresa — só a fatura em
+  // aberto, nunca as parcelas futuras (isso daria um número maior que a fatura).
   const empresaNoCartao = useMemo(() => {
     const hoje = toDateOnly(new Date())
-    return personalTransactions
-      .filter(
-        (t) =>
-          t.kind === 'expense' &&
-          t.category === BUSINESS_CATEGORY &&
-          t.card_cycle_month != null &&
-          (t.settled_date ?? t.competence_date) >= hoje.slice(0, 8) + '01',
-      )
-      .reduce((s, t) => s + t.amount, 0)
-  }, [personalTransactions])
+    const cartoes = accounts.filter(
+      (a) => a.is_active && a.company_id === personalCompany?.id && a.type === 'credit_card',
+    )
+    if (cartoes.length === 0) return 0
+    const ids = new Set(cartoes.map((c) => c.id))
+    const ciclo = cardSummary(cartoes[0], personalTransactions, transfers, hoje).open.cycleMonth
+    return businessShareOfCardDebt(personalTransactions, ids, ciclo, hoje)
+  }, [personalTransactions, accounts, personalCompany, transfers])
 
   const folego = useMemo(
     () =>

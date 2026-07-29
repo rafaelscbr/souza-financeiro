@@ -520,6 +520,38 @@ export function fixedVsVariable(recurringMonthly: number, livingCostAvg: number)
   return { fixed, variable, fixedShare: livingCostAvg > 0 ? fixed / livingCostAvg : 0 }
 }
 
+/**
+ * Quanto da DÍVIDA ATUAL do cartão é despesa da empresa.
+ *
+ * Só o que já está lançado até hoje e ainda não foi pago — ou seja, a fatura em
+ * aberto. Somar as parcelas futuras aqui daria um número muitas vezes maior que
+ * a própria fatura (foi o erro que o Rafael pegou: R$ 6.309 "da fatura" quando
+ * a fatura era R$ 4.284, porque a conta ia até 2027).
+ *
+ * Pressupõe que as faturas já fechadas estão pagas — se houver fatura fechada
+ * em aberto, esta conta subestima a parte da empresa.
+ */
+export function businessShareOfCardDebt(
+  transactions: Transaction[],
+  cardIds: Set<string>,
+  openCycle: string,
+  today: string,
+): number {
+  return round2(
+    transactions
+      .filter(
+        (t) =>
+          t.kind === 'expense' &&
+          t.category === BUSINESS_CATEGORY &&
+          t.account_id != null &&
+          cardIds.has(t.account_id) &&
+          t.card_cycle_month === openCycle &&
+          (t.settled_date ?? t.competence_date) <= today,
+      )
+      .reduce((s, t) => s + t.amount, 0),
+  )
+}
+
 /** Ids das contas de cartão de crédito de uma empresa. */
 export function cardIdsOf(accounts: Account[], companyId: string | undefined): Set<string> {
   return new Set(

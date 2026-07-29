@@ -87,9 +87,10 @@ export function SurvivalPanel({
 
         {s.businessOnCard > 0 && (
           <p className="rounded-xl bg-surface-2 px-3.5 py-2.5 text-xs text-content-muted">
-            <strong className="text-content">{formatCurrency(s.businessOnCard)}</strong> da sua
-            fatura são gastos da imobiliária. Não entram no seu custo de vida e somem do seu cartão
-            quando a PJ assumir — por isso o fôlego acima já os desconsidera.
+            <strong className="text-content">{formatCurrency(s.businessOnCard)}</strong> da dívida
+            atual do cartão são gastos da imobiliária — ela te deve isso. Não entram no seu custo de
+            vida e somem do cartão pessoal quando a PJ assumir, por isso o fôlego acima já os
+            desconsidera.
           </p>
         )}
 
