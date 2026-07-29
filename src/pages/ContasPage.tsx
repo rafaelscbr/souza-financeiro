@@ -42,6 +42,7 @@ export function ContasPage() {
     treasuryReady,
     scopeCompanyId,
     activeCompany,
+    personalCompany,
     deleteAccount,
   } = useAppData()
 
@@ -51,9 +52,17 @@ export function ContasPage() {
   const [openStatement, setOpenStatement] = useState<string | null>(null)
 
   // Contas seguem o escopo do topo, como todo o resto do app.
+  // Contas da PESSOA FÍSICA moram em /pessoal/contas e não podem vazar para cá
+  // nem quando o escopo é "Grupo" — foi a mistura dos dois cadastros que
+  // motivou a separação dos espaços.
   const scoped = useMemo(
-    () => accounts.filter((a) => scopeCompanyId === null || a.company_id === scopeCompanyId),
-    [accounts, scopeCompanyId],
+    () =>
+      accounts.filter(
+        (a) =>
+          a.company_id !== personalCompany?.id &&
+          (scopeCompanyId === null || a.company_id === scopeCompanyId),
+      ),
+    [accounts, scopeCompanyId, personalCompany],
   )
 
   const summary = useMemo(

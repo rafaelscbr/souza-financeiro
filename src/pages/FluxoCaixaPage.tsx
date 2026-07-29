@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   TrendingUp,
   Wallet,
@@ -52,7 +53,13 @@ function rangeWindow(key: RangeKey, period: Date, custom: { start: string; end: 
   }
 }
 
-export function FluxoCaixaPage() {
+/**
+ * A receber e a pagar são TELAS separadas (`/receber` e `/pagar`), não abas.
+ * São dois trabalhos diferentes — cobrar cliente e honrar compromisso — e
+ * quem entra numa raramente quer a outra no mesmo clique. O componente é o
+ * mesmo porque a mecânica (janela de período, baixa, atraso) é idêntica.
+ */
+export function FluxoCaixaPage({ modo }: { modo: Tab }) {
   const {
     businessTransactions: transactions,
     contacts,
@@ -62,7 +69,7 @@ export function FluxoCaixaPage() {
     period,
   } = useAppData()
   const today = toDateOnly(new Date())
-  const [tab, setTab] = useState<Tab>('receber')
+  const tab = modo
   const [range, setRange] = useState<RangeKey>('mes')
   const [custom, setCustom] = useState({ start: '', end: '' })
 
@@ -116,7 +123,7 @@ export function FluxoCaixaPage() {
     <div className="animate-fade-in space-y-5">
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold text-content">
-          Contas a receber e a pagar
+          {tab === 'receber' ? 'Contas a receber' : 'Contas a pagar'}
           <Tip label="Como ler esta tela" align="start">
             Os números respondem ao <strong className="text-content">período que você escolher</strong>
             abaixo. No padrão, mostra o mês em foco — troque o filtro para ver os próximos dias, só
@@ -191,28 +198,16 @@ export function FluxoCaixaPage() {
         </button>
       )}
 
-      {/* Abas A receber / A pagar */}
-      <div className="flex gap-1.5" role="tablist" aria-label="Tipo">
-        {(['receber', 'pagar'] as Tab[]).map((t) => {
-          const active = tab === t
-          const n = t === 'receber' ? receivables.length : payables.length
-          return (
-            <button
-              key={t}
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(t)}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
-                active ? 'border-transparent bg-content text-white' : 'border-line bg-surface text-content-muted hover:bg-surface-2',
-              )}
-            >
-              {t === 'receber' ? 'A receber' : 'A pagar'}
-              <span className={cn('rounded-full px-1.5 text-[10px] font-bold', active ? 'bg-white/20' : 'bg-surface-3')}>{n}</span>
-            </button>
-          )
-        })}
-      </div>
+      {/* Atalho para a tela irmã, com o volume dela — evita ter que voltar ao menu */}
+      <Link
+        to={tab === 'receber' ? '/pagar' : '/receber'}
+        className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-1.5 text-sm font-medium text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
+      >
+        {tab === 'receber' ? 'Ver contas a pagar' : 'Ver contas a receber'}
+        <span className="rounded-full bg-surface-3 px-1.5 text-[10px] font-bold">
+          {tab === 'receber' ? payables.length : receivables.length}
+        </span>
+      </Link>
 
       {/* Total do período + lista */}
       <div className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3 shadow-card">

@@ -1,26 +1,11 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import {
-  LayoutDashboard,
-  Receipt,
-  ArrowRightLeft,
-  PieChart,
-  Target,
-  Flag,
-  Calculator,
-  Landmark,
-  Handshake,
-  BookOpen,
-  Users,
-  Wallet,
-  Plus,
-  LogOut,
-  Lock,
-} from 'lucide-react'
+import { Wallet, Plus, LogOut, Lock, BookOpen } from 'lucide-react'
 import { formatMonthYear } from '@/lib/format'
 import { useAuth } from '@/context/AuthContext'
 import { useAppData } from '@/context/AppDataContext'
 import { TransactionComposerProvider, useComposer } from '@/features/transactions/TransactionComposer'
 import { ScopeSwitcher } from './ScopeSwitcher'
+import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 import { PeriodNav } from './PeriodNav'
 import { RegimeSwitch } from './RegimeSwitch'
 import { ThemeToggle } from './ThemeToggle'
@@ -29,53 +14,7 @@ import { FullPageLoader } from '@/components/ui/Spinner'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { cn } from '@/lib/utils'
-
-type NavItemDef = { to: string; label: string; icon: typeof LayoutDashboard; end?: boolean }
-
-// Menu em 4 blocos: reduz a carga de 12 itens soltos para grupos com sentido.
-const NAV_GROUPS: { title: string | null; items: NavItemDef[] }[] = [
-  {
-    title: null,
-    items: [{ to: '/', label: 'Painel', icon: LayoutDashboard, end: true }],
-  },
-  {
-    title: 'Movimento',
-    items: [
-      { to: '/lancamentos', label: 'Lançamentos', icon: Receipt },
-      { to: '/vendas', label: 'Vendas', icon: Handshake },
-      { to: '/contas', label: 'Contas', icon: Landmark },
-      { to: '/fluxo', label: 'A receber e a pagar', icon: ArrowRightLeft },
-    ],
-  },
-  {
-    title: 'Análise',
-    items: [
-      { to: '/relatorios', label: 'Relatórios', icon: PieChart },
-      { to: '/simulador', label: 'Simulador', icon: Calculator },
-    ],
-  },
-  {
-    title: 'Planejamento',
-    items: [
-      { to: '/objetivos', label: 'Objetivos', icon: Target },
-      { to: '/metas', label: 'Orçamento', icon: Flag },
-    ],
-  },
-  {
-    title: 'Cadastros',
-    items: [
-      { to: '/contatos', label: 'Contatos', icon: Users },
-      { to: '/pessoal', label: 'Pessoal', icon: Wallet },
-      { to: '/ajuda', label: 'Ajuda', icon: BookOpen },
-    ],
-  },
-]
-// Lista plana para a barra do mobile e cálculos auxiliares.
-const NAV: NavItemDef[] = NAV_GROUPS.flatMap((g) => g.items)
-// Barra inferior do mobile: só os cinco de uso diário — mais que isso
-// vira alvo pequeno demais para o polegar.
-const MOBILE_PATHS = ['/', '/lancamentos', '/vendas', '/contas', '/relatorios']
-const MOBILE_NAV = MOBILE_PATHS.map((p) => NAV.find((n) => n.to === p)!).filter(Boolean)
+import { mobileItems, workspaceOf, type NavItemDef } from '@/lib/navigation'
 
 export function AppShell() {
   return (
@@ -91,7 +30,8 @@ function ShellLayout() {
   const { signOut } = useAuth()
   const { openNew } = useComposer()
   const { pathname } = useLocation()
-  const isPersonal = pathname === '/pessoal'
+  const ws = workspaceOf(pathname)
+  const isPersonal = ws.id === 'pessoal'
 
   return (
     <div className="min-h-screen bg-base lg:flex">
@@ -107,8 +47,12 @@ function ShellLayout() {
           </div>
         </div>
 
+        <div className="mb-4">
+          <WorkspaceSwitcher current={ws} />
+        </div>
+
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto" aria-label="Navegação principal">
-          {NAV_GROUPS.map((group, i) => (
+          {ws.groups.map((group, i) => (
             <div key={group.title ?? 'home'} className={i > 0 ? 'mt-3' : undefined}>
               {group.title && (
                 <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-content-faint">
@@ -146,18 +90,6 @@ function ShellLayout() {
             </div>
             <div className="flex items-center gap-1">
               <NavLink
-                to="/pessoal"
-                className={({ isActive }) =>
-                  cn(
-                    'rounded-lg p-2 transition-colors',
-                    isActive ? 'text-emerald' : 'text-content-muted hover:bg-surface-2',
-                  )
-                }
-                aria-label="Pessoal"
-              >
-                <Wallet className="h-5 w-5" />
-              </NavLink>
-              <NavLink
                 to="/ajuda"
                 className={({ isActive }) =>
                   cn(
@@ -168,18 +100,6 @@ function ShellLayout() {
                 aria-label="Ajuda"
               >
                 <BookOpen className="h-5 w-5" />
-              </NavLink>
-              <NavLink
-                to="/contatos"
-                className={({ isActive }) =>
-                  cn(
-                    'rounded-lg p-2 transition-colors',
-                    isActive ? 'text-emerald' : 'text-content-muted hover:bg-surface-2',
-                  )
-                }
-                aria-label="Contatos"
-              >
-                <Users className="h-5 w-5" />
               </NavLink>
               <ThemeToggle />
               <button
@@ -192,11 +112,15 @@ function ShellLayout() {
             </div>
           </div>
 
+          <div className="px-4 pb-2 lg:hidden">
+            <WorkspaceSwitcher current={ws} />
+          </div>
+
           <div className="flex flex-col gap-2 px-4 pb-3 lg:flex-row lg:items-center lg:justify-between lg:py-3">
             {isPersonal ? (
               <div className="flex items-center gap-2 text-sm font-semibold text-content">
                 <Wallet className="h-4 w-4 text-content-muted" />
-                Finanças pessoais
+                Suas finanças pessoais
               </div>
             ) : (
               <ScopeSwitcher />
@@ -229,7 +153,7 @@ function ShellLayout() {
         className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface/95 backdrop-blur-md pb-safe lg:hidden"
         aria-label="Navegação principal"
       >
-        {MOBILE_NAV.map((item) => (
+        {mobileItems(ws).map((item) => (
           <BottomNavItem key={item.to} {...item} />
         ))}
       </nav>

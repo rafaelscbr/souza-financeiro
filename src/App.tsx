@@ -24,7 +24,36 @@ const ContatosPage = lazy(() =>
   import('@/pages/ContatosPage').then((m) => ({ default: m.ContatosPage })),
 )
 const MetasPage = lazy(() => import('@/pages/MetasPage').then((m) => ({ default: m.MetasPage })))
-const PessoalPage = lazy(() => import('@/pages/PessoalPage').then((m) => ({ default: m.PessoalPage })))
+// Módulo pessoal: casca + telas, todas sob demanda
+const PessoalLayout = lazy(() =>
+  import('@/pages/pessoal/PessoalLayout').then((m) => ({ default: m.PessoalLayout })),
+)
+const VisaoGeralPage = lazy(() =>
+  import('@/pages/pessoal/VisaoGeralPage').then((m) => ({ default: m.VisaoGeralPage })),
+)
+const GastosPage = lazy(() =>
+  import('@/pages/pessoal/GastosPage').then((m) => ({ default: m.GastosPage })),
+)
+const CartaoPage = lazy(() =>
+  import('@/pages/pessoal/CartaoPage').then((m) => ({ default: m.CartaoPage })),
+)
+const PagarPessoalPage = lazy(() =>
+  import('@/pages/pessoal/PagarPessoalPage').then((m) => ({ default: m.PagarPessoalPage })),
+)
+const PatrimonioPage = lazy(() =>
+  import('@/pages/pessoal/PatrimonioPage').then((m) => ({ default: m.PatrimonioPage })),
+)
+const RendaPage = lazy(() =>
+  import('@/pages/pessoal/RendaPage').then((m) => ({ default: m.RendaPage })),
+)
+const ContasPessoaisPage = lazy(() =>
+  import('@/pages/pessoal/ContasPessoaisPage').then((m) => ({ default: m.ContasPessoaisPage })),
+)
+const RelatoriosPessoaisPage = lazy(() =>
+  import('@/pages/pessoal/RelatoriosPessoaisPage').then((m) => ({
+    default: m.RelatoriosPessoaisPage,
+  })),
+)
 const VendasPage = lazy(() =>
   import('@/pages/VendasPage').then((m) => ({ default: m.VendasPage })),
 )
@@ -93,13 +122,25 @@ function AuthGate() {
             <Route path="/lancamentos" element={<LancamentosPage />} />
             <Route path="/vendas" element={<VendasPage />} />
             <Route path="/contas" element={<ContasPage />} />
-            <Route path="/fluxo" element={<FluxoCaixaPage />} />
+            <Route path="/receber" element={<FluxoCaixaPage modo="receber" />} />
+            <Route path="/pagar" element={<FluxoCaixaPage modo="pagar" />} />
+            {/* rota antiga, mantida para links já salvos */}
+            <Route path="/fluxo" element={<Navigate to="/receber" replace />} />
             <Route path="/relatorios" element={<RelatoriosPage />} />
             <Route path="/contatos" element={<ContatosPage />} />
             <Route path="/metas" element={<MetasPage />} />
             <Route path="/simulador" element={<SimuladorPage />} />
             <Route path="/objetivos" element={<ObjetivosPage />} />
-            <Route path="/pessoal" element={<PessoalPage />} />
+            <Route path="/pessoal" element={<PessoalLayout />}>
+              <Route index element={<VisaoGeralPage />} />
+              <Route path="gastos" element={<GastosPage />} />
+              <Route path="cartao" element={<CartaoPage />} />
+              <Route path="pagar" element={<PagarPessoalPage />} />
+              <Route path="patrimonio" element={<PatrimonioPage />} />
+              <Route path="renda" element={<RendaPage />} />
+              <Route path="contas" element={<ContasPessoaisPage />} />
+              <Route path="relatorios" element={<RelatoriosPessoaisPage />} />
+            </Route>
             <Route path="/ajuda" element={<AjudaPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
