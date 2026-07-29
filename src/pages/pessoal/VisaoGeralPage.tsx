@@ -175,19 +175,53 @@ export function VisaoGeralPage() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-xs text-content-faint">Disponível hoje</p>
-            <p className={cn('tnum text-3xl font-bold', vitals.liquid >= 0 ? 'text-content' : 'text-expense')}>
-              {formatCurrency(vitals.liquid)}
+            <p className="tnum text-3xl font-bold text-content">
+              {formatCurrency(tesouraria.available)}
             </p>
-            <p className="mt-0.5 text-xs text-content-muted">
-              contas menos a fatura do cartão
-              {empresaNoCartao > 0 && (
-                <> · {formatCurrency(empresaNoCartao)} da fatura é da imobiliária</>
-              )}
-            </p>
+            <p className="mt-0.5 text-xs text-content-muted">somando todas as suas contas</p>
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {/* A conta aberta: o que tem, o que deve, o que sobra de verdade */}
+        <dl className="mt-4 space-y-1.5 rounded-xl bg-surface-2 px-3.5 py-3">
+          {tesouraria.balances
+            .filter((b) => b.account.type !== 'credit_card')
+            .map((b) => (
+              <div key={b.account.id} className="flex items-baseline justify-between text-sm">
+                <dt className="truncate text-content-muted">{b.account.name}</dt>
+                <dd className="tnum shrink-0 font-medium text-content">{formatCurrency(b.balance)}</dd>
+              </div>
+            ))}
+          {tesouraria.cardDebt > 0 && (
+            <div className="flex items-baseline justify-between border-t border-line pt-1.5 text-sm">
+              <dt className="truncate text-content-muted">
+                Fatura do cartão
+                {empresaNoCartao > 0 && (
+                  <span className="text-content-faint">
+                    {' '}
+                    · {formatCurrency(empresaNoCartao)} é da imobiliária
+                  </span>
+                )}
+              </dt>
+              <dd className="tnum shrink-0 font-medium text-expense">
+                − {formatCurrency(tesouraria.cardDebt)}
+              </dd>
+            </div>
+          )}
+          <div className="flex items-baseline justify-between border-t border-line pt-1.5">
+            <dt className="text-sm font-semibold text-content">Sobra livre</dt>
+            <dd
+              className={cn(
+                'tnum shrink-0 text-base font-bold',
+                vitals.liquid >= 0 ? 'text-content' : 'text-expense',
+              )}
+            >
+              {formatCurrency(vitals.liquid)}
+            </dd>
+          </div>
+        </dl>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-surface-2 px-3.5 py-3">
             <p className="text-[11px] uppercase tracking-wide text-content-faint">Sem receber nada</p>
             <p className={cn('tnum text-xl font-bold', f.cor)}>
@@ -197,7 +231,7 @@ export function VisaoGeralPage() {
                   ? `${folego.runwayDays} dias`
                   : `${folego.runwayMonths.toFixed(1).replace('.', ',')} meses`}
             </p>
-            <p className="text-[11px] text-content-faint">o piso, se tudo atrasar</p>
+            <p className="text-[11px] text-content-faint">a sobra livre ÷ seu custo de vida</p>
           </div>
           <div className="rounded-xl border border-income/25 bg-income/5 px-3.5 py-3">
             <p className="text-[11px] uppercase tracking-wide text-content-faint">Com o contratado</p>
@@ -268,7 +302,7 @@ export function VisaoGeralPage() {
       {/* 3 ──────────────────────────────────────────── O QUE VEM AÍ */}
       <Section
         title="Próximos 30 dias"
-        subtitle={`Saldo ao fim: ${formatCurrency(trintaDias.saldo)}`}
+        subtitle={`Sobra livre ao fim: ${formatCurrency(trintaDias.saldo)}`}
         action={
           <Link
             to="/pessoal/receber"

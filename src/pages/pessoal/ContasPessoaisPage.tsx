@@ -39,13 +39,18 @@ export function ContasPessoaisPage() {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <Cartao label="Disponível" valor={resumo.available} tom="positive" nota="banco + investimentos" />
+        <Cartao
+          label="Disponível"
+          valor={resumo.available}
+          tom="positive"
+          nota="soma de todas as contas"
+        />
         <Cartao label="Fatura do cartão" valor={-resumo.cardDebt} tom="negative" nota="dívida em aberto" />
         <Cartao
-          label="Líquido"
+          label="Sobra livre"
           valor={resumo.available - resumo.cardDebt}
           tom={resumo.available - resumo.cardDebt >= 0 ? 'neutral' : 'negative'}
-          nota="o que sobra de verdade"
+          nota="disponível menos a fatura"
         />
       </div>
 
