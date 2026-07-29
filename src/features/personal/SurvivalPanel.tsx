@@ -32,7 +32,7 @@ export function SurvivalPanel({
   return (
     <Section
       title="Fôlego financeiro"
-      subtitle="Quanto tempo você aguenta sem entrar dinheiro nenhum"
+      subtitle="O pior cenário e o cenário real, lado a lado"
     >
       <div className="space-y-4">
         <div className="flex items-start gap-3">
@@ -61,6 +61,37 @@ export function SurvivalPanel({
             )}
           </div>
         </div>
+
+        {/* Com o que está contratado para entrar — o número honesto para renda
+            por comissão. O de cima é o pior cenário: ninguém te paga nada. */}
+        {s.withReceipts != null && s.withReceipts.incoming > 0 && (
+          <div className="rounded-xl border border-income/25 bg-income/5 px-3.5 py-3">
+            <p className="flex items-baseline gap-2">
+              <span className="tnum text-2xl font-bold text-income">
+                {s.withReceipts.months == null
+                  ? 'mais de 24 meses'
+                  : s.withReceipts.months < 1
+                    ? `${Math.round(s.withReceipts.months * 30)} dias`
+                    : `${s.withReceipts.months.toFixed(1).replace('.', ',')} meses`}
+              </span>
+              <span className="text-xs text-content-muted">contando o que já está contratado</span>
+            </p>
+            <p className="mt-0.5 text-xs text-content-muted">
+              {formatCurrency(s.withReceipts.incoming)} a receber das empresas
+              {s.withReceipts.breaksAt && (
+                <> · o caixa aperta em {mesLegivel(s.withReceipts.breaksAt)}</>
+              )}
+            </p>
+          </div>
+        )}
+
+        {s.businessOnCard > 0 && (
+          <p className="rounded-xl bg-surface-2 px-3.5 py-2.5 text-xs text-content-muted">
+            <strong className="text-content">{formatCurrency(s.businessOnCard)}</strong> da sua
+            fatura são gastos da imobiliária. Não entram no seu custo de vida e somem do seu cartão
+            quando a PJ assumir — por isso o fôlego acima já os desconsidera.
+          </p>
+        )}
 
         {s.runwayMonths != null && (
           <div>
@@ -123,6 +154,13 @@ export function SurvivalPanel({
       </div>
     </Section>
   )
+}
+
+/** '2026-11' → 'nov/26'. */
+function mesLegivel(ym: string): string {
+  const [y, m] = ym.split('-')
+  const nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+  return `${nomes[Number(m) - 1]}/${y.slice(2)}`
 }
 
 function Bloco({

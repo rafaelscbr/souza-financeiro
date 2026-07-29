@@ -16,6 +16,15 @@ function round2(n: number): number {
 
 export type Faixa = 'critico' | 'atencao' | 'saudavel'
 
+export interface Runway {
+  /** Meses até o caixa zerar considerando o que ainda vai entrar. */
+  months: number | null
+  /** Mês em que o caixa fica negativo ('YYYY-MM'), se ficar. */
+  breaksAt: string | null
+  /** Soma do que está contratado para entrar na janela projetada. */
+  incoming: number
+}
+
 export interface Survival {
   /** Dinheiro que dá para usar hoje: contas − fatura do cartão. */
   liquid: number
@@ -37,6 +46,17 @@ export interface Survival {
   /** Dívidas ÷ ativos (0–1). Acima de 1 o patrimônio é negativo. */
   leverage: number | null
   faixa: Faixa
+  /**
+   * Fôlego COM os recebimentos contratados. É o número honesto para quem vive
+   * de comissão: o saldo de hoje não conta a história toda quando há dinheiro
+   * com data marcada para entrar.
+   */
+  withReceipts: Runway | null
+  /**
+   * Parte da dívida de cartão que é despesa da empresa (some quando a PJ
+   * assumir o cartão). Não é custo de vida dele e não pode pesar como se fosse.
+   */
+  businessOnCard: number
 }
 
 /** Reserva de referência para renda variável — comissão não cai todo mês. */
@@ -48,8 +68,16 @@ export function survival(params: {
   fixedCommitment: number
   assets: PersonalAsset[]
   targetMonths?: number
+  /** O que está contratado para entrar, com data. */
+  receipts?: { date: string; amount: number }[]
+  /** Quanto da fatura do cartão é despesa da empresa. */
+  businessOnCard?: number
+  today?: string
 }): Survival {
   const { liquid, livingCostAvg, fixedCommitment, assets } = params
+  const receipts = params.receipts ?? []
+  const businessOnCard = round2(params.businessOnCard ?? 0)
+  const today = params.today ?? toDateOnly(new Date())
   const targetMonths = params.targetMonths ?? RESERVE_TARGET_MONTHS
 
   const ativos = assets.filter((a) => a.is_active)
@@ -61,6 +89,8 @@ export function survival(params: {
     runwayMonths == null ? 'atencao' : runwayMonths < 1 ? 'critico' : runwayMonths < 3 ? 'atencao' : 'saudavel'
 
   return {
+    withReceipts: projectRunway(liquid + businessOnCard, livingCostAvg, receipts, today),
+    businessOnCard,
     liquid: round2(liquid),
     livingCost: round2(livingCostAvg),
     fixedCommitment: round2(fixedCommitment),
@@ -73,6 +103,49 @@ export function survival(params: {
     leverage: bens > 0 ? round2(dividas / bens) : null,
     faixa,
   }
+}
+
+/**
+ * Simula mês a mês: entra o que está contratado, sai o custo de vida. Devolve
+ * quando o caixa vira negativo.
+ *
+ * Projeta 24 meses no máximo — além disso a previsão vira ficção, porque
+ * depende de vendas que ainda não existem.
+ */
+function projectRunway(
+  saldoInicial: number,
+  custoMensal: number,
+  receipts: { date: string; amount: number }[],
+  today: string,
+): Runway | null {
+  if (custoMensal <= 0) return null
+  const porMes = new Map<string, number>()
+  for (const r of receipts) {
+    // Recebimento vencido conta no mês corrente: o dinheiro é devido agora.
+    const k = r.date < today ? today.slice(0, 7) : r.date.slice(0, 7)
+    porMes.set(k, (porMes.get(k) ?? 0) + r.amount)
+  }
+
+  let saldo = saldoInicial
+  let meses = 0
+  const [y0, m0] = today.split('-').map(Number)
+  for (let i = 0; i < 24; i++) {
+    const t = m0 - 1 + i
+    const chave = `${y0 + Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`
+    saldo += porMes.get(chave) ?? 0
+    saldo -= custoMensal
+    if (saldo < 0) {
+      // Fração do mês em que o dinheiro acabou.
+      const sobra = (saldo + custoMensal) / custoMensal
+      return {
+        months: round2(meses + Math.max(0, sobra)),
+        breaksAt: chave,
+        incoming: round2(receipts.reduce((s, r) => s + r.amount, 0)),
+      }
+    }
+    meses += 1
+  }
+  return { months: null, breaksAt: null, incoming: round2(receipts.reduce((s, r) => s + r.amount, 0)) }
 }
 
 export interface NextObligation {

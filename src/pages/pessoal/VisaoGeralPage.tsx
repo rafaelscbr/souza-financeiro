@@ -16,6 +16,8 @@ import { cardPayables, cardSummary } from '@/lib/cards'
 import { activeInstallments, recurringSpend } from '@/lib/insights'
 import { personalVitals } from '@/lib/personal'
 import { nextObligations, survival } from '@/lib/survival'
+import { ownerReceivables } from '@/lib/commissions'
+import { BUSINESS_CATEGORY } from '@/lib/finance'
 import { inMonth, isOwnerPayout, lastNMonths, personalSummary } from '@/lib/finance'
 import { formatCurrency, formatMonthShort, formatMonthYear, toDateOnly } from '@/lib/format'
 import type { Transaction } from '@/types'
@@ -68,6 +70,27 @@ export function VisaoGeralPage() {
     )
   }, [personalReady, personalCompany, accounts, personalTransactions, transfers])
 
+  // O que está contratado para entrar (comissões e distribuições das empresas).
+  const aReceber = useMemo(
+    () => ownerReceivables(businessTransactions, toDateOnly(new Date())),
+    [businessTransactions],
+  )
+
+  // Parte da fatura do cartão que é despesa da empresa: sai do bolso dele agora,
+  // mas a empresa deve, e a partir do cartão PJ nem passa mais por aqui.
+  const empresaNoCartao = useMemo(() => {
+    const hoje = toDateOnly(new Date())
+    return personalTransactions
+      .filter(
+        (t) =>
+          t.kind === 'expense' &&
+          t.category === BUSINESS_CATEGORY &&
+          t.card_cycle_month != null &&
+          (t.settled_date ?? t.competence_date) >= hoje.slice(0, 8) + '01',
+      )
+      .reduce((s, t) => s + t.amount, 0)
+  }, [personalTransactions])
+
   const folego = useMemo(
     () =>
       survival({
@@ -75,8 +98,10 @@ export function VisaoGeralPage() {
         livingCostAvg: vitals.livingCostAvg,
         fixedCommitment: compromisso,
         assets: personalAssets,
+        receipts: aReceber.map((r) => ({ date: r.date, amount: r.amount })),
+        businessOnCard: empresaNoCartao,
       }),
-    [vitals, compromisso, personalAssets],
+    [vitals, compromisso, personalAssets, aReceber, empresaNoCartao],
   )
 
   const proximas = useMemo(
