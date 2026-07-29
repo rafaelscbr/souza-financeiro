@@ -91,6 +91,14 @@ lançar dos dois lados contaria a mesma renda duas vezes.
 **Pagamento de fatura é transferência** conta → cartão, nunca despesa. Lançar
 como despesa conta o gasto duas vezes.
 
+**Filtre por CATEGORIA, nunca por texto da descrição.** Ao somar imposto ou
+repasse de uma parcela, use `category === 'Impostos e Taxas'` e
+`category === 'Comissões de Corretores'`. Um filtro por `/Imposto/` na descrição
+já quebrou de verdade: o repasse foi renomeado para "(sobre comissão líquida de
+imposto)" e passou a ser somado como imposto, jogando a base para negativo e
+fazendo o lançamento sumir sem erro nenhum. Descrição é texto livre; categoria é
+dado.
+
 ## Depois de gravar
 
 Rode `npm run auditoria`. Ela verifica os invariantes (fatura bate com o extrato,

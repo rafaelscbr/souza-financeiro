@@ -43,7 +43,7 @@ for (const l of linhas) {
     headers: H,
     body: JSON.stringify({
       amount: novo,
-      description: `Repasse Dionata 65% (sobre comissão líquida de imposto) — PortoVelas 414-D — Pc ${l.installment_index}/2`,
+      description: `Repasse Dionata 65% (base líquida) — PortoVelas 414-D — Pc ${l.installment_index}/2`,
     }),
   })
   const [novoReg] = await r.json()

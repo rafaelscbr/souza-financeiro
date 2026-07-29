@@ -64,15 +64,19 @@ for (const v of VENDAS) {
   for (const c of comissoes.sort((a, b) => (a.installment_index ?? 0) - (b.installment_index ?? 0))) {
     const idx = c.installment_index
     const mesma = (t) => (idx == null ? true : t.installment_index === idx)
-    // imposto e repasse a terceiros da MESMA parcela
+    // Imposto e repasse a terceiros da MESMA parcela, reconhecidos pela
+    // CATEGORIA — nunca por texto da descrição. Filtrar por /Imposto/ na
+    // descrição já quebrou uma vez: o repasse foi renomeado para "(sobre
+    // comissão líquida de imposto)" e passou a ser contado como imposto,
+    // jogando a base para negativo e sumindo com o lançamento.
     const imposto = daVenda
-      .filter((t) => t.kind === 'expense' && /Imposto/i.test(t.description || '') && mesma(t))
+      .filter((t) => t.kind === 'expense' && t.category === 'Impostos e Taxas' && mesma(t))
       .reduce((s, t) => s + t.amount, 0)
     const repasseTerceiro = daVenda
       .filter(
         (t) =>
           t.kind === 'expense' &&
-          /Repasse/i.test(t.description || '') &&
+          t.category === 'Comissões de Corretores' &&
           t.counterparty !== RAFAEL &&
           mesma(t),
       )
