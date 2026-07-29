@@ -12,6 +12,9 @@ import type { Account, Transaction, Transfer } from '@/types'
  * lançadas — pensão e financiamento. As entradas saem do que as empresas devem
  * a ele, com data. Nenhuma média, nenhum "provavelmente".
  *
+ * Da fatura do cartão entra só a PARTE DELE: a imobiliária paga direto o que é
+ * dela. Projetar a fatura cheia mostraria uma saída que ele não desembolsa.
+ *
  * ⚠️ O saldo de partida é o DISPONÍVEL (dinheiro em conta), nunca o líquido.
  * O líquido já desconta a fatura do cartão; usá-lo aqui descontaria a mesma
  * fatura duas vezes — uma no ponto de partida e outra como saída do mês em que
@@ -62,7 +65,7 @@ export interface Cashflow {
   opening: number
   /** Meses até o saldo projetado ficar negativo. `null` se não fica na janela. */
   runwayMonths: number | null
-  /** Total de despesa da imobiliária embutida nas saídas da janela. */
+  /** Despesa da imobiliária dentro das faturas — ela paga, fora das saídas dele. */
   businessInOutflow: number
   /** Primeiro mês em que o saldo projetado fica negativo. */
   breaksAt: string | null
@@ -119,23 +122,28 @@ export function personalCashflow(params: {
   for (const p of cardPayables(resumos)) {
     const m = alvo(p.dueDate)
     if (!m || p.amount <= 0) continue
-    m.card = round2(m.card + p.amount)
-    // Parte da fatura que é despesa da imobiliária: sai do bolso dele, mas o
-    // custo não é dele. A tela mostra separado em vez de esconder.
-    m.business = round2(
-      m.business +
-        personalTransactions
-          .filter(
-            (t) =>
-              t.category === BUSINESS_CATEGORY &&
-              t.kind === 'expense' &&
-              t.card_cycle_month === p.cycleMonth,
-          )
-          .reduce((s, t) => s + t.amount, 0),
+
+    // Quanto desta fatura é despesa da imobiliária. Ela paga a parte dela
+    // direto, então SÓ a parte dele sai do caixa pessoal — projetar a fatura
+    // cheia assustaria com um valor que ele não desembolsa.
+    const daEmpresa = round2(
+      personalTransactions
+        .filter(
+          (t) =>
+            t.category === BUSINESS_CATEGORY &&
+            t.kind === 'expense' &&
+            t.card_cycle_month === p.cycleMonth,
+        )
+        .reduce((s, t) => s + t.amount, 0),
     )
+    const dele = round2(Math.max(0, p.amount - daEmpresa))
+    if (dele <= 0) continue
+
+    m.card = round2(m.card + dele)
+    m.business = round2(m.business + daEmpresa)
     m.items.push({
-      label: `Fatura ${p.account.name}`,
-      amount: p.amount,
+      label: `Fatura ${p.account.name}${daEmpresa > 0 ? ' (sua parte)' : ''}`,
+      amount: dele,
       kind: 'out',
       date: p.dueDate,
     })

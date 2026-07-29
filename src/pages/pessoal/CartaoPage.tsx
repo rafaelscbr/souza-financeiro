@@ -3,6 +3,7 @@ import { CreditCard } from 'lucide-react'
 import { useAppData } from '@/context/AppDataContext'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { CardPanel } from '@/features/personal/CardPanel'
+import { CardStatementPanel } from '@/features/personal/CardStatementPanel'
 import { Section } from '@/components/ui/Section'
 import { StackedInvoiceChart } from '@/features/dashboard/Charts'
 import { cardSummary } from '@/lib/cards'
@@ -34,6 +35,7 @@ export function CartaoPage() {
     <div className="space-y-5">
       <ProximasFaturas />
       <CardPanel />
+      <CardStatementPanel />
     </div>
   )
 }
@@ -66,12 +68,13 @@ function ProximasFaturas() {
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-3">
         <Cartao
-          rotulo="Próxima fatura"
-          valor={proxima.total}
-          nota={formatMonthShort(parseDateOnly(proxima.cycleMonth))}
+          rotulo="Você paga"
+          valor={proxima.personal}
+          nota={`fatura de ${formatMonthShort(parseDateOnly(proxima.cycleMonth))}`}
+          destaque
         />
-        <Cartao rotulo="Seu gasto" valor={proxima.personal} nota="é isto que te custa" destaque />
-        <Cartao rotulo="Da imobiliária" valor={proxima.business} nota="ela te deve" cinza />
+        <Cartao rotulo="A imobiliária paga" valor={proxima.business} nota="a parte dela" cinza />
+        <Cartao rotulo="Fatura cheia" valor={proxima.total} nota="o que o banco cobra" />
       </div>
 
       <Section
@@ -86,8 +89,8 @@ function ProximasFaturas() {
           }))}
         />
         <p className="mt-2 text-xs text-content-muted">
-          A barra cinza é despesa da imobiliária que passou no seu cartão — o banco cobra de você,
-          mas o custo não é seu. Some do cartão pessoal quando a PJ assumir o tráfego pago.
+          A barra cinza é a parte da imobiliária, que ela paga direto. Você desembolsa só a barra
+          vermelha. Quando a PJ assumir o tráfego pago, a cinza some do seu cartão de vez.
         </p>
       </Section>
     </div>

@@ -182,6 +182,25 @@ ok(
   'fatura entra só uma vez (como saída futura)',
   `${brl(faturaNasSaidas)} em faturas · partida ${brl(fluxo.opening)}`,
 )
+// A imobiliária paga a parte dela: nas saídas dele entra só o gasto pessoal.
+const cartaoIds = new Set(contasPF.filter((a: any) => a.type === 'credit_card').map((a: any) => a.id))
+const empresaNoCartaoTotal = round2(
+  pf
+    .filter(
+      (t: any) =>
+        t.kind === 'expense' &&
+        t.category === 'Despesas da Empresa' &&
+        t.account_id &&
+        cartaoIds.has(t.account_id) &&
+        t.card_cycle_month >= HOJE.slice(0, 8) + '01',
+    )
+    .reduce((s: number, t: any) => s + t.amount, 0),
+)
+ok(
+  fluxo.businessInOutflow > 0 && faturaNasSaidas < empresaNoCartaoTotal + faturaNasSaidas,
+  'saídas excluem a parte da imobiliária',
+  `fora das saídas: ${brl(fluxo.businessInOutflow)}`,
+)
 // Saldo de cada mês tem de ser o anterior mais o líquido do mês.
 let esperado = fluxo.opening
 let cadeiaOk = true

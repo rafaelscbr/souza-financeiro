@@ -95,17 +95,23 @@ export function VisaoGeralPage() {
     )
   }, [contasPF, personalTransactions, transfers, hoje, accounts, personalCompany])
 
+  // A fatura tem duas partes e ele só paga a dele — a imobiliária quita a
+  // dela direto. A sobra livre tem de refletir isso, senão o topo assusta com
+  // uma dívida que não é dele.
+  const minhaFatura = Math.max(0, tesouraria.cardDebt - empresaNoCartao)
+  const sobraLivre = Math.round((tesouraria.available - minhaFatura) * 100) / 100
+
   const folego = useMemo(
     () =>
       survival({
-        liquid: vitals.liquid,
+        liquid: sobraLivre,
         livingCostAvg: vitals.livingCostAvg,
         fixedCommitment: compromisso,
         assets: personalAssets,
         businessOnCard: empresaNoCartao,
         today: hoje,
       }),
-    [vitals, compromisso, personalAssets, empresaNoCartao, hoje],
+    [sobraLivre, vitals.livingCostAvg, compromisso, personalAssets, empresaNoCartao, hoje],
   )
 
   const fluxo = useMemo(
@@ -196,19 +202,25 @@ export function VisaoGeralPage() {
               </div>
             ))}
           {tesouraria.cardDebt > 0 && (
-            <div className="flex items-baseline justify-between border-t border-line pt-1.5 text-sm">
-              <dt className="truncate text-content-muted">
-                Fatura do cartão
-                {empresaNoCartao > 0 && (
-                  <span className="text-content-faint">
-                    {' '}
-                    · {formatCurrency(empresaNoCartao)} é da imobiliária
-                  </span>
-                )}
-              </dt>
-              <dd className="tnum shrink-0 font-medium text-expense">
-                − {formatCurrency(tesouraria.cardDebt)}
-              </dd>
+            <div className="border-t border-line pt-1.5">
+              <div className="flex items-baseline justify-between text-sm">
+                <dt className="truncate text-content-muted">
+                  Fatura do cartão {empresaNoCartao > 0 && '— sua parte'}
+                </dt>
+                <dd className="tnum shrink-0 font-medium text-expense">
+                  − {formatCurrency(minhaFatura)}
+                </dd>
+              </div>
+              {empresaNoCartao > 0 && (
+                <div className="flex items-baseline justify-between text-xs">
+                  <dt className="truncate text-content-faint">
+                    da imobiliária (ela paga a parte dela)
+                  </dt>
+                  <dd className="tnum shrink-0 text-content-faint">
+                    {formatCurrency(empresaNoCartao)}
+                  </dd>
+                </div>
+              )}
             </div>
           )}
           <div className="flex items-baseline justify-between border-t border-line pt-1.5">
@@ -216,10 +228,10 @@ export function VisaoGeralPage() {
             <dd
               className={cn(
                 'tnum shrink-0 text-base font-bold',
-                vitals.liquid >= 0 ? 'text-content' : 'text-expense',
+                sobraLivre >= 0 ? 'text-content' : 'text-expense',
               )}
             >
-              {formatCurrency(vitals.liquid)}
+              {formatCurrency(sobraLivre)}
             </dd>
           </div>
         </dl>
@@ -275,9 +287,10 @@ export function VisaoGeralPage() {
         />
         {fluxo.businessInOutflow > 0 && (
           <p className="mt-2 rounded-xl bg-surface-2 px-3.5 py-2.5 text-xs text-content-muted">
-            <strong className="text-content">{formatCurrency(fluxo.businessInOutflow)}</strong> das
-            saídas acima são despesas da imobiliária dentro das suas faturas. Saem do seu bolso hoje,
-            mas ela te deve — e somem quando a PJ assumir o cartão.
+            As saídas acima já excluem{' '}
+            <strong className="text-content">{formatCurrency(fluxo.businessInOutflow)}</strong> de
+            despesas da imobiliária que estão dentro das suas faturas — ela paga a parte dela. Você
+            desembolsa só o que é seu.
           </p>
         )}
         {fluxo.breaksAt && (
