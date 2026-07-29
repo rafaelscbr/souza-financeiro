@@ -6,34 +6,11 @@ import { ThemeProvider } from '@/context/ThemeContext'
 import { FullPageLoader } from '@/components/ui/Spinner'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/LoginPage'
+import { carregarComRecuperacao } from '@/lib/chunkRecovery'
 
-/**
- * `lazy` que sobrevive a um deploy novo.
- *
- * O app é um PWA: depois que sobe uma versão, o service worker antigo continua
- * servindo o index velho, que aponta para chunks com hash que não existem mais.
- * O import falha com "Failed to fetch dynamically imported module" e a tela
- * quebra — sem culpa do código da página.
- *
- * Aqui a falha vira uma recarga única (marcada no sessionStorage, para nunca
- * virar laço): a recarga pega o index novo e o app volta ao ar sozinho.
- */
+/** `lazy` que sobrevive a um deploy novo — ver lib/chunkRecovery. */
 function lazyPage<T extends { default: React.ComponentType<any> }>(load: () => Promise<T>) {
-  return lazy(async () => {
-    try {
-      return await load()
-    } catch (err) {
-      const CHAVE = 'sgf.chunk-reload'
-      if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem(CHAVE)) {
-        sessionStorage.setItem(CHAVE, '1')
-        window.location.reload()
-        // A recarga é assíncrona: devolve um componente vazio para o React não
-        // renderizar erro no meio do caminho.
-        return { default: () => null } as unknown as T
-      }
-      throw err
-    }
-  })
+  return lazy(() => carregarComRecuperacao(load))
 }
 
 // Páginas carregadas sob demanda (reduz o bundle inicial no mobile)

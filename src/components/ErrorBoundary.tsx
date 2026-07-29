@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { AlertTriangle, RotateCcw } from 'lucide-react'
+import { AlertTriangle, RotateCcw, DownloadCloud } from 'lucide-react'
+import { forcarAtualizacao } from '@/lib/chunkRecovery'
 
 interface Props {
   children: ReactNode
@@ -37,25 +38,44 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.error) {
+      // "Failed to fetch dynamically imported module" não é erro da tela: é
+      // versão em cache apontando para arquivo que já não existe. Merece uma
+      // saída própria, porque "tentar novamente" não resolve.
+      const versaoVelha = /dynamically imported module|Importing a module script failed|Failed to fetch/i.test(
+        this.state.error.message,
+      )
       return (
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-critical/10">
             <AlertTriangle className="h-6 w-6 text-critical" />
           </div>
           <div className="max-w-md">
-            <h2 className="text-lg font-bold text-content">Algo nesta tela deu erro</h2>
+            <h2 className="text-lg font-bold text-content">
+              {versaoVelha ? 'Saiu uma versão nova do sistema' : 'Algo nesta tela deu erro'}
+            </h2>
             <p className="mt-1 text-sm text-content-muted">
-              O resto do sistema continua funcionando. Você pode tentar de novo ou ir para outra
-              parte pelo menu. Se persistir, me avise com o que estava fazendo.
+              {versaoVelha
+                ? 'Seu aparelho está com a versão anterior guardada. Toque abaixo para baixar a atualização — leva um segundo e você não perde nada.'
+                : 'O resto do sistema continua funcionando. Você pode tentar de novo ou ir para outra parte pelo menu. Se persistir, me avise com o que estava fazendo.'}
             </p>
           </div>
-          <button
-            onClick={() => this.setState({ error: null })}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-white transition-transform active:scale-95"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Tentar novamente
-          </button>
+          {versaoVelha ? (
+            <button
+              onClick={forcarAtualizacao}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-white transition-transform active:scale-95"
+            >
+              <DownloadCloud className="h-4 w-4" />
+              Atualizar agora
+            </button>
+          ) : (
+            <button
+              onClick={() => this.setState({ error: null })}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-white transition-transform active:scale-95"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Tentar novamente
+            </button>
+          )}
           <details className="mt-1 max-w-md text-left">
             <summary className="cursor-pointer text-xs text-content-faint">Detalhes técnicos</summary>
             <pre className="mt-2 overflow-x-auto rounded-lg bg-surface-2 p-3 text-[11px] text-content-muted">
