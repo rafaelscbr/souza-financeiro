@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { VitalsPanel } from '@/features/personal/VitalsPanel'
 import { PersonalTrendChart } from '@/features/dashboard/Charts'
 import { SurvivalPanel } from '@/features/personal/SurvivalPanel'
+import { PersonalRecurringPrompt } from '@/features/personal/PersonalRecurringPrompt'
 import { PersonalTransactionModal } from '@/features/personal/PersonalTransactionModal'
 import { PersonalRow } from '@/features/personal/PersonalRow'
 import { SettleModal } from '@/features/transactions/SettleModal'
@@ -138,6 +139,9 @@ export function VisaoGeralPage() {
 
   return (
     <div className="space-y-5">
+      {/* Fixas do mês ainda não lançadas — some sozinho quando não há nenhuma */}
+      <PersonalRecurringPrompt />
+
       <SurvivalPanel s={folego} proximas={proximas} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
