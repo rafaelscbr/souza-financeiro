@@ -1,5 +1,6 @@
 import { cardPayables, cardSummary } from './cards'
 import { ownerReceivables } from './commissions'
+import { BUSINESS_CATEGORY } from './finance'
 import type { Account, Transaction, Transfer } from '@/types'
 
 /**
@@ -10,6 +11,12 @@ import type { Account, Transaction, Transfer } from '@/types'
  * faturas de cartão (que já contêm as parcelas em curso) e das contas a pagar
  * lançadas — pensão e financiamento. As entradas saem do que as empresas devem
  * a ele, com data. Nenhuma média, nenhum "provavelmente".
+ *
+ * ⚠️ O saldo de partida é o DISPONÍVEL (dinheiro em conta), nunca o líquido.
+ * O líquido já desconta a fatura do cartão; usá-lo aqui descontaria a mesma
+ * fatura duas vezes — uma no ponto de partida e outra como saída do mês em que
+ * vence. Foi exatamente esse o erro que jogava a projeção uns R$ 4 mil para
+ * baixo em todos os meses.
  *
  * O efeito colateral é bom: quanto mais ele lança, mais a projeção acerta — e
  * ele vê isso acontecer, o que é o melhor incentivo para manter o hábito.
@@ -43,14 +50,20 @@ export interface CashflowMonth {
   net: number
   /** Saldo projetado ao fim do mês. */
   balance: number
+  /** Quanto da saída é despesa da imobiliária que passou no cartão dele. */
+  business: number
   /** Detalhe do que compõe o mês, para a tela abrir sob demanda. */
   items: { label: string; amount: number; kind: 'in' | 'out'; date: string }[]
 }
 
 export interface Cashflow {
   months: CashflowMonth[]
-  /** Saldo líquido de hoje, ponto de partida da projeção. */
+  /** DISPONÍVEL de hoje (dinheiro em conta), ponto de partida da projeção. */
   opening: number
+  /** Meses até o saldo projetado ficar negativo. `null` se não fica na janela. */
+  runwayMonths: number | null
+  /** Total de despesa da imobiliária embutida nas saídas da janela. */
+  businessInOutflow: number
   /** Primeiro mês em que o saldo projetado fica negativo. */
   breaksAt: string | null
   /** Pior saldo da janela e em que mês acontece. */
@@ -60,7 +73,8 @@ export interface Cashflow {
 }
 
 export function personalCashflow(params: {
-  liquid: number
+  /** DISPONÍVEL em conta — não o líquido. Ver a nota no topo do arquivo. */
+  available: number
   personalTransactions: Transaction[]
   businessTransactions: Transaction[]
   accounts: Account[]
@@ -68,7 +82,7 @@ export function personalCashflow(params: {
   today: string
   months?: number
 }): Cashflow {
-  const { liquid, personalTransactions, businessTransactions, accounts, transfers, today } = params
+  const { available, personalTransactions, businessTransactions, accounts, transfers, today } = params
   const janela = proximosMeses(mesDe(today), params.months ?? 8)
 
   const porMes = new Map<string, CashflowMonth>()
@@ -81,6 +95,7 @@ export function personalCashflow(params: {
       outflow: 0,
       net: 0,
       balance: 0,
+      business: 0,
       items: [],
     })
   }
@@ -105,6 +120,19 @@ export function personalCashflow(params: {
     const m = alvo(p.dueDate)
     if (!m || p.amount <= 0) continue
     m.card = round2(m.card + p.amount)
+    // Parte da fatura que é despesa da imobiliária: sai do bolso dele, mas o
+    // custo não é dele. A tela mostra separado em vez de esconder.
+    m.business = round2(
+      m.business +
+        personalTransactions
+          .filter(
+            (t) =>
+              t.category === BUSINESS_CATEGORY &&
+              t.kind === 'expense' &&
+              t.card_cycle_month === p.cycleMonth,
+          )
+          .reduce((s, t) => s + t.amount, 0),
+    )
     m.items.push({
       label: `Fatura ${p.account.name}`,
       amount: p.amount,
@@ -125,7 +153,7 @@ export function personalCashflow(params: {
   }
 
   // ---- fecha a conta e acumula o saldo
-  let saldo = liquid
+  let saldo = available
   let breaksAt: string | null = null
   let lowest: { month: string; balance: number } | null = null
   const months: CashflowMonth[] = []
@@ -141,9 +169,26 @@ export function personalCashflow(params: {
     months.push(m)
   }
 
+  // Meses até o caixa virar, com a fração do mês em que isso acontece.
+  let runwayMonths: number | null = null
+  let corrido = 0
+  let acumulado = available
+  for (const m of months) {
+    const proximo = round2(acumulado + m.net)
+    if (proximo < 0) {
+      const fracao = m.net < 0 ? Math.max(0, acumulado / -m.net) : 0
+      runwayMonths = round2(corrido + fracao)
+      break
+    }
+    acumulado = proximo
+    corrido += 1
+  }
+
   return {
     months,
-    opening: round2(liquid),
+    opening: round2(available),
+    runwayMonths,
+    businessInOutflow: round2(months.reduce((s, m) => s + m.business, 0)),
     breaksAt,
     lowest,
     totalIn: round2(months.reduce((s, m) => s + m.inflow, 0)),

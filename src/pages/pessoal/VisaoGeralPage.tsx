@@ -21,6 +21,7 @@ import { ownerReceivables } from '@/lib/commissions'
 import { activeInstallments, businessShareOfCardDebt, cardIdsOf, recurringSpend } from '@/lib/insights'
 import { cardSummary } from '@/lib/cards'
 import { personalVitals } from '@/lib/personal'
+import { treasurySummary } from '@/lib/treasury'
 import { survival } from '@/lib/survival'
 import { lastNMonths } from '@/lib/finance'
 import { formatCurrency, formatDateShort, formatMonthShort, parseDateOnly, toDateOnly } from '@/lib/format'
@@ -64,6 +65,13 @@ export function VisaoGeralPage() {
     [personalTransactions, businessTransactions, contasPF, transfers, period, regime],
   )
 
+  // Dinheiro em conta hoje. É daqui que a projeção parte — o líquido já desconta
+  // a fatura, e usá-lo faria a mesma fatura sair duas vezes.
+  const tesouraria = useMemo(
+    () => treasurySummary(contasPF, personalTransactions, transfers, hoje),
+    [contasPF, personalTransactions, transfers, hoje],
+  )
+
   const compromisso = useMemo(() => {
     const rec = recurringSpend(personalTransactions, lastNMonths(period, 6), regime)
     const parc = activeInstallments(personalTransactions, hoje)
@@ -94,17 +102,17 @@ export function VisaoGeralPage() {
         livingCostAvg: vitals.livingCostAvg,
         fixedCommitment: compromisso,
         assets: personalAssets,
-        receipts: aReceber.map((r) => ({ date: r.date, amount: r.amount })),
         businessOnCard: empresaNoCartao,
         today: hoje,
       }),
-    [vitals, compromisso, personalAssets, aReceber, empresaNoCartao, hoje],
+    [vitals, compromisso, personalAssets, empresaNoCartao, hoje],
   )
 
   const fluxo = useMemo(
     () =>
       personalCashflow({
-        liquid: vitals.liquid,
+        // DISPONÍVEL, não líquido: as faturas entram como saída mês a mês.
+        available: tesouraria.available,
         personalTransactions,
         businessTransactions,
         accounts: contasPF,
@@ -112,7 +120,7 @@ export function VisaoGeralPage() {
         today: hoje,
         months: 8,
       }),
-    [vitals.liquid, personalTransactions, businessTransactions, contasPF, transfers, hoje],
+    [tesouraria.available, personalTransactions, businessTransactions, contasPF, transfers, hoje],
   )
 
   // Os próximos 30 dias — o horizonte em que ele realmente decide alguma coisa.
@@ -194,12 +202,12 @@ export function VisaoGeralPage() {
           <div className="rounded-xl border border-income/25 bg-income/5 px-3.5 py-3">
             <p className="text-[11px] uppercase tracking-wide text-content-faint">Com o contratado</p>
             <p className="tnum text-xl font-bold text-income">
-              {folego.withReceipts?.months == null
-                ? 'mais de 24 meses'
-                : `${folego.withReceipts.months.toFixed(1).replace('.', ',')} meses`}
+              {fluxo.runwayMonths == null
+                ? `mais de ${fluxo.months.length} meses`
+                : `${fluxo.runwayMonths.toFixed(1).replace('.', ',')} meses`}
             </p>
             <p className="text-[11px] text-content-faint">
-              {formatCurrency(folego.withReceipts?.incoming ?? 0)} a receber
+              {formatCurrency(aReceber.reduce((s, r) => s + r.amount, 0))} a receber
             </p>
           </div>
         </div>
@@ -228,6 +236,13 @@ export function VisaoGeralPage() {
             saldo: m.balance,
           }))}
         />
+        {fluxo.businessInOutflow > 0 && (
+          <p className="mt-2 rounded-xl bg-surface-2 px-3.5 py-2.5 text-xs text-content-muted">
+            <strong className="text-content">{formatCurrency(fluxo.businessInOutflow)}</strong> das
+            saídas acima são despesas da imobiliária dentro das suas faturas. Saem do seu bolso hoje,
+            mas ela te deve — e somem quando a PJ assumir o cartão.
+          </p>
+        )}
         {fluxo.breaksAt && (
           <p className="mt-2 flex items-start gap-2 rounded-xl bg-expense/8 px-3.5 py-2.5 text-xs text-content-muted">
             <ArrowDownRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-expense" />

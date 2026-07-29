@@ -7,6 +7,8 @@ import { treasurySummary, accountBalance } from '@/lib/treasury'
 import { personalVitals } from '@/lib/personal'
 import { activeInstallments, recurringSpend } from '@/lib/insights'
 import { lastNMonths } from '@/lib/finance'
+import { personalCashflow } from '@/lib/cashflow'
+import { saleSplits } from '@/lib/commissions'
 
 const URL = process.env.VITE_SUPABASE_URL!
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -155,5 +157,70 @@ ok(Math.abs(v.liquid - (tes.available - tes.cardDebt)) < 0.02, 'líquido = dispo
 const rec = recurringSpend(pf, lastNMonths(new Date(2026, 6, 1), 6), 'cash')
 ok(rec.monthlyTotal > 0 && v.livingCostAvg > 0, 'custo de vida e recorrentes apurados',
    `custo ${brl(v.livingCostAvg)} · recorrente ${brl(rec.monthlyTotal)}`)
+
+// ------------------------------------------------ 11. previsão de caixa
+console.log('\n11. PREVISÃO DE CAIXA sem contagem dupla')
+const fluxo = personalCashflow({
+  available: tes.available,
+  personalTransactions: pf,
+  businessTransactions: pj,
+  accounts: contasPF,
+  transfers,
+  today: HOJE,
+  months: 8,
+})
+ok(
+  Math.abs(fluxo.opening - tes.available) < 0.02,
+  'projeção parte do DISPONÍVEL, não do líquido',
+  `${brl(fluxo.opening)} vs disponível ${brl(tes.available)}`,
+)
+// A fatura em aberto não pode estar no ponto de partida E nas saídas.
+const faturaNasSaidas = fluxo.months.reduce((s, m) => s + m.card, 0)
+ok(
+  faturaNasSaidas > 0 && fluxo.opening > v.liquid,
+  'fatura entra só uma vez (como saída futura)',
+  `${brl(faturaNasSaidas)} em faturas · partida ${brl(fluxo.opening)}`,
+)
+// Saldo de cada mês tem de ser o anterior mais o líquido do mês.
+let esperado = fluxo.opening
+let cadeiaOk = true
+for (const m of fluxo.months) {
+  esperado = Math.round((esperado + m.net) * 100) / 100
+  if (Math.abs(esperado - m.balance) > 0.02) cadeiaOk = false
+}
+ok(cadeiaOk, 'saldo acumulado fecha mês a mês')
+ok(
+  fluxo.months.every((m) => Math.abs(m.outflow - (m.card + m.bills)) < 0.02),
+  'saída de cada mês = fatura + contas',
+)
+
+// ------------------------------------------- 12. divisão das comissões
+console.log('\n12. DIVISÃO DAS COMISSÕES fecha')
+const splits = saleSplits(pj)
+const somaOk = splits.every(
+  (s) => Math.abs(s.gross - (s.tax + s.partner + s.toOwner + s.toCompany)) < 0.05,
+)
+ok(somaOk, `${splits.length} venda(s): bruta = imposto + parceiro + Rafael + empresa`,
+   splits.filter((s) => Math.abs(s.gross - (s.tax + s.partner + s.toOwner + s.toCompany)) >= 0.05)
+     .map((s) => s.label.slice(0, 28)).join(' | '))
+ok(
+  splits.every((s) => s.toCompany >= -0.05),
+  'nenhuma venda deixa saldo negativo para a empresa',
+  splits.filter((s) => s.toCompany < -0.05).map((s) => `${s.label.slice(0, 24)} ${brl(s.toCompany)}`).join(' | '),
+)
+
+// ------------------------------------------------- 13. caixa das empresas
+console.log('\n13. CAIXA DAS EMPRESAS bate com o que foi liquidado')
+for (const c of companies.filter((x: any) => !x.is_personal)) {
+  const seus = pj.filter((t: any) => t.company_id === c.id && t.status === 'settled')
+  const ent = seus.filter((t: any) => t.kind === 'income').reduce((s: number, t: any) => s + t.amount, 0)
+  const sai = seus.filter((t: any) => t.kind !== 'income').reduce((s: number, t: any) => s + t.amount, 0)
+  const temConta = accounts.some((a: any) => a.company_id === c.id && a.type !== 'credit_card')
+  ok(
+    ent - sai >= -0.02,
+    `${c.name}: caixa não negativo`,
+    `entrou ${brl(ent)} − saiu ${brl(sai)} = ${brl(ent - sai)}${temConta ? '' : ' (sem conta bancária cadastrada — é aritmética, não saldo)'}`,
+  )
+}
 
 console.log(`\n${falhas === 0 ? '✓ TUDO CERTO' : `✗ ${falhas} FALHA(S)`} — ${tx.length} lançamentos auditados`)
