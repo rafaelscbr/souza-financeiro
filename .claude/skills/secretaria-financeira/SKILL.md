@@ -71,3 +71,80 @@ que você acabou de gravar, corrija antes de dar a tarefa por encerrada.
 
 Objetiva e curta. Ele lança pelo celular, muitas vezes andando. Uma linha de
 confirmação basta; guarde a explicação para quando ele perguntar.
+
+---
+
+## Contrato de construtora: ler, resumir e lançar
+
+Quando o Rafael mandar um contrato (quadro resumo, CCV ou os dois), o trabalho é
+transformar o PDF em lançamentos corretos e num resumo que ele leia em 30
+segundos.
+
+### 1. Extrair o texto
+
+```bash
+python3 -c "
+from pypdf import PdfReader
+r=PdfReader('CAMINHO.pdf')
+print('\n'.join((p.extract_text() or '') for p in r.pages[:8]))"
+```
+
+Se vier vazio, o PDF é imagem: extraia o XObject de cada página com pypdf e
+monte PNG com `zlib`+`struct` para ler visualmente (`pdftoppm` não existe nesta
+máquina).
+
+### 2. Colher os dados — todos, e do contrato, nunca de memória
+
+- **Comprador(es)**: nome completo de cada um (o quadro resumo traz cônjuge/companheiro)
+- **Imóvel**: unidade, torre, empreendimento, incorporadora e CNPJ
+- **Valor**: preço à vista total do contrato
+- **Comissão**: valor em reais, % sobre o contrato, e **como é paga** — quase
+  sempre por GATILHO ("50% quando o comprador atingir 5% do valor pago"), não
+  por data
+- **Cronograma do comprador**: entrada, mensais (valor, quantidade, 1º
+  vencimento, dia), intermediárias (valores e datas), parcela final
+- **Prazo de entrega da obra**
+
+### 3. Calcular as datas de recebimento
+
+Este é o passo que o contrato não entrega pronto e o Rafael precisa. Some o
+cronograma do comprador em ordem de data e marque **em que pagamento o
+acumulado cruza cada gatilho** — a data desse pagamento é quando a comissão
+nasce.
+
+**Tolerância de R$ 1,00 na comparação.** A entrada costuma ser exatamente a
+comissão, e o arredondamento de centavos faz o acumulado ficar meio centavo
+abaixo do gatilho — sem tolerância, o gatilho pula para a parcela seguinte e a
+data sai um mês errada.
+
+Diga sempre que a data é **derivada do cronograma**, não escrita no contrato: se
+o comprador atrasar ou antecipar, ela anda junto.
+
+### 4. Apresentar o resumo antes de lançar
+
+```
+VENDA — <unidade>, <empreendimento>
+Comprador   <nomes>
+Imóvel      R$ <valor>            Entrega <data>
+Comissão    R$ <valor> (<%>)      Parceria: <corretor> <%>
+
+RECEBIMENTOS
+  <data>  R$ <bruto>  −repasse R$ <x>  −imposto R$ <y>  = líquido R$ <z>
+  <data>  ...
+LÍQUIDO TOTAL PARA A IMOBILIÁRIA: R$ <total>
+```
+
+### 5. Lançar, depois do "pode"
+
+Para **cada parcela** da comissão, três lançamentos na empresa vendedora, todos
+`pending` com o mesmo vencimento e o mesmo `group_id`:
+
+1. **Comissão** — `income`, categoria `Comissões de Venda`, com
+   `property_value`, `commission_pct`, `broker_pct` e `counterparty` preenchidos
+2. **Imposto do Simples** — `expense`, categoria `Impostos e Taxas`,
+   `dre_group = 'variable_expense'`, **6% do valor da parcela** (regra fixa: o
+   imposto nasce por parcela porque a NF sai por parcela)
+3. **Repasse do parceiro**, quando houver — `expense`, `Comissões de Corretores`,
+   `dre_group = 'cost_of_sale'` (Dionata é 65%)
+
+Depois rode `npm run auditoria`.
