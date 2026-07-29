@@ -6,6 +6,7 @@ import { KpiCard } from '@/components/ui/KpiCard'
 import { Section } from '@/components/ui/Section'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { VitalsPanel } from '@/features/personal/VitalsPanel'
+import { PersonalTrendChart } from '@/features/dashboard/Charts'
 import { SurvivalPanel } from '@/features/personal/SurvivalPanel'
 import { PersonalTransactionModal } from '@/features/personal/PersonalTransactionModal'
 import { PersonalRow } from '@/features/personal/PersonalRow'
@@ -15,7 +16,7 @@ import { activeInstallments, recurringSpend } from '@/lib/insights'
 import { personalVitals } from '@/lib/personal'
 import { nextObligations, survival } from '@/lib/survival'
 import { inMonth, isOwnerPayout, lastNMonths, personalSummary } from '@/lib/finance'
-import { formatCurrency, formatMonthYear, toDateOnly } from '@/lib/format'
+import { formatCurrency, formatMonthShort, formatMonthYear, toDateOnly } from '@/lib/format'
 import type { Transaction } from '@/types'
 
 /**
@@ -96,6 +97,18 @@ export function VisaoGeralPage() {
     [faturas, personalTransactions],
   )
 
+  // A série já vem calculada nos vitals — aqui é só dar forma de gráfico.
+  const serieGrafico = useMemo(
+    () =>
+      vitals.series.map((p) => ({
+        label: formatMonthShort(p.date),
+        renda: p.inflow,
+        custo: p.livingCost,
+        sobra: p.surplus,
+      })),
+    [vitals.series],
+  )
+
   const doMes = useMemo(
     () =>
       personalTransactions
@@ -166,6 +179,15 @@ export function VisaoGeralPage() {
       </div>
 
       <VitalsPanel vitals={vitals} />
+
+      {serieGrafico.length > 1 && (
+        <Section
+          title="Sua história mês a mês"
+          subtitle="O que entrou, o que a vida custou e o que sobrou"
+        >
+          <PersonalTrendChart data={serieGrafico} />
+        </Section>
+      )}
 
       <Section
         title="Movimentações do mês"

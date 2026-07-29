@@ -307,3 +307,84 @@ export function CategoryBarChart({ data }: { data: CategoryDatum[] }) {
     </ResponsiveContainer>
   )
 }
+
+export interface PersonalMonthDatum {
+  label: string
+  renda: number
+  custo: number
+  sobra: number
+}
+
+/**
+ * Renda × custo de vida × sobra, mês a mês.
+ *
+ * As barras são o que entrou e o que a vida custou; a linha é o que sobrou.
+ * É o gráfico que responde "eu estou ganhando terreno ou perdendo?" — nenhum
+ * número isolado responde isso.
+ */
+export function PersonalTrendChart({ data }: { data: PersonalMonthDatum[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <ComposedChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+        <XAxis dataKey="label" tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} />
+        <YAxis
+          tick={{ fill: AXIS, fontSize: 11 }}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(v) => formatCurrencyCompact(Number(v))}
+          width={64}
+        />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(15,23,42,0.04)' }} />
+        <ReferenceLine y={0} stroke={AXIS} strokeWidth={1} />
+        <Bar dataKey="renda" name="Entrou" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={26} />
+        <Bar dataKey="custo" name="Custo de vida" fill="#DC2626" radius={[4, 4, 0, 0]} maxBarSize={26} />
+        <Line
+          type="monotone"
+          dataKey="sobra"
+          name="Sobrou"
+          stroke="#6366F1"
+          strokeWidth={2.5}
+          dot={{ r: 3, fill: '#6366F1' }}
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
+  )
+}
+
+export interface InvoiceDatum {
+  label: string
+  valor: number
+  /** Fatura já fechada (passado) pinta diferente da que ainda vai fechar. */
+  futura: boolean
+}
+
+/**
+ * As próximas faturas do cartão, mês a mês.
+ *
+ * Cada parcelamento em curso é uma barra que só vai baixar quando ele acabar —
+ * ver o degrau caindo é o que mostra em que mês o orçamento respira.
+ */
+export function InvoiceForecastChart({ data }: { data: InvoiceDatum[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <BarChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+        <XAxis dataKey="label" tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} />
+        <YAxis
+          tick={{ fill: AXIS, fontSize: 11 }}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(v) => formatCurrencyCompact(Number(v))}
+          width={64}
+        />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(15,23,42,0.04)' }} />
+        <Bar dataKey="valor" name="Fatura" radius={[4, 4, 0, 0]} maxBarSize={34}>
+          {data.map((d, i) => (
+            <Cell key={i} fill={d.futura ? '#94A3B8' : '#BE123C'} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
