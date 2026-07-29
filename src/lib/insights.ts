@@ -552,6 +552,50 @@ export function businessShareOfCardDebt(
   )
 }
 
+export interface InvoiceSplit {
+  cycleMonth: string
+  /** O que é gasto de vida do Rafael. */
+  personal: number
+  /** O que é despesa da empresa que passou no cartão dele. */
+  business: number
+  total: number
+}
+
+/**
+ * Fatura a fatura, quanto é dele e quanto é da empresa.
+ *
+ * É a resposta para "quanto meu cartão custa DE VERDADE". O valor que o banco
+ * cobra mistura as duas coisas, e enquanto ele olhar só o total vai continuar
+ * achando que gasta ~40% a mais do que gasta.
+ */
+export function invoiceSplit(
+  transactions: Transaction[],
+  cardIds: Set<string>,
+  fromCycle: string,
+  limit = 12,
+): InvoiceSplit[] {
+  const map = new Map<string, { personal: number; business: number }>()
+  for (const t of transactions) {
+    if (!t.account_id || !cardIds.has(t.account_id)) continue
+    if (!t.card_cycle_month || t.card_cycle_month < fromCycle) continue
+    const e = map.get(t.card_cycle_month) ?? { personal: 0, business: 0 }
+    // Estorno (income no cartão) abate do lado a que pertence.
+    const sinal = t.kind === 'income' ? -1 : 1
+    if (t.category === BUSINESS_CATEGORY) e.business += sinal * t.amount
+    else e.personal += sinal * t.amount
+    map.set(t.card_cycle_month, e)
+  }
+  return [...map.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .slice(0, limit)
+    .map(([cycleMonth, e]) => ({
+      cycleMonth,
+      personal: round2(e.personal),
+      business: round2(e.business),
+      total: round2(e.personal + e.business),
+    }))
+}
+
 /** Ids das contas de cartão de crédito de uma empresa. */
 export function cardIdsOf(accounts: Account[], companyId: string | undefined): Set<string> {
   return new Set(

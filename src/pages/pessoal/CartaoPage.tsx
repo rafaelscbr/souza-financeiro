@@ -4,9 +4,11 @@ import { useAppData } from '@/context/AppDataContext'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { CardPanel } from '@/features/personal/CardPanel'
 import { Section } from '@/components/ui/Section'
-import { InvoiceForecastChart } from '@/features/dashboard/Charts'
+import { StackedInvoiceChart } from '@/features/dashboard/Charts'
 import { cardSummary } from '@/lib/cards'
-import { formatMonthShort, parseDateOnly, toDateOnly } from '@/lib/format'
+import { cardIdsOf, invoiceSplit } from '@/lib/insights'
+import { formatCurrency, formatMonthShort, parseDateOnly, toDateOnly } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 /** Faturas, limite e parcelas — tudo do cartão num lugar só. */
 export function CartaoPage() {
@@ -45,34 +47,78 @@ function ProximasFaturas() {
   const { accounts, personalTransactions, transfers, personalCompany } = useAppData()
   const hoje = toDateOnly(new Date())
 
-  const dados = useMemo(() => {
+  const partes = useMemo(() => {
     const cartoes = accounts.filter(
       (a) => a.is_active && a.company_id === personalCompany?.id && a.type === 'credit_card',
     )
-    const porCiclo = new Map<string, number>()
-    for (const c of cartoes) {
-      for (const f of cardSummary(c, personalTransactions, transfers).invoices) {
-        if (f.cycleMonth < hoje.slice(0, 8) + '01') continue
-        porCiclo.set(f.cycleMonth, (porCiclo.get(f.cycleMonth) ?? 0) + f.total)
-      }
-    }
-    return [...porCiclo.entries()]
-      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-      .slice(0, 12)
-      .map(([ciclo, valor], i) => ({
-        label: formatMonthShort(parseDateOnly(ciclo)),
-        valor: Math.round(valor * 100) / 100,
-        futura: i > 0,
-      }))
+    if (cartoes.length === 0) return []
+    const aberto = cardSummary(cartoes[0], personalTransactions, transfers, hoje).open.cycleMonth
+    return invoiceSplit(personalTransactions, cardIdsOf(accounts, personalCompany?.id), aberto)
   }, [accounts, personalTransactions, transfers, personalCompany, hoje])
 
-  if (dados.length < 2) return null
+  if (partes.length < 2) return null
+
+  const seuTotal = partes.reduce((s, p) => s + p.personal, 0)
+  const empresaTotal = partes.reduce((s, p) => s + p.business, 0)
+  const proxima = partes[0]
+
   return (
-    <Section
-      title="Próximas faturas"
-      subtitle="Quanto já está comprometido em cada mês pelas parcelas em curso"
-    >
-      <InvoiceForecastChart data={dados} />
-    </Section>
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-3">
+        <Cartao
+          rotulo="Próxima fatura"
+          valor={proxima.total}
+          nota={formatMonthShort(parseDateOnly(proxima.cycleMonth))}
+        />
+        <Cartao rotulo="Seu gasto" valor={proxima.personal} nota="é isto que te custa" destaque />
+        <Cartao rotulo="Da imobiliária" valor={proxima.business} nota="ela te deve" cinza />
+      </div>
+
+      <Section
+        title="Próximas faturas"
+        subtitle={`${formatCurrency(seuTotal)} seus · ${formatCurrency(empresaTotal)} da imobiliária`}
+      >
+        <StackedInvoiceChart
+          data={partes.map((p) => ({
+            label: formatMonthShort(parseDateOnly(p.cycleMonth)),
+            seu: p.personal,
+            empresa: p.business,
+          }))}
+        />
+        <p className="mt-2 text-xs text-content-muted">
+          A barra cinza é despesa da imobiliária que passou no seu cartão — o banco cobra de você,
+          mas o custo não é seu. Some do cartão pessoal quando a PJ assumir o tráfego pago.
+        </p>
+      </Section>
+    </div>
+  )
+}
+
+function Cartao({
+  rotulo,
+  valor,
+  nota,
+  destaque,
+  cinza,
+}: {
+  rotulo: string
+  valor: number
+  nota: string
+  destaque?: boolean
+  cinza?: boolean
+}) {
+  return (
+    <div className="rounded-2xl border border-line bg-surface px-3 py-2.5 shadow-card">
+      <p className="text-[11px] text-content-faint">{rotulo}</p>
+      <p
+        className={cn(
+          'tnum text-base font-bold',
+          destaque ? 'text-expense' : cinza ? 'text-content-muted' : 'text-content',
+        )}
+      >
+        {formatCurrency(valor)}
+      </p>
+      <p className="text-[10px] text-content-faint">{nota}</p>
+    </div>
   )
 }

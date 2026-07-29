@@ -388,3 +388,36 @@ export function InvoiceForecastChart({ data }: { data: InvoiceDatum[] }) {
     </ResponsiveContainer>
   )
 }
+
+export interface StackedInvoiceDatum {
+  label: string
+  seu: number
+  empresa: number
+}
+
+/**
+ * Fatura do cartão empilhada: o que é gasto dele embaixo, o da empresa em cima.
+ *
+ * Uma barra só esconderia a informação que interessa — o total que o banco
+ * cobra não é o custo dele.
+ */
+export function StackedInvoiceChart({ data }: { data: StackedInvoiceDatum[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+        <XAxis dataKey="label" tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} />
+        <YAxis
+          tick={{ fill: AXIS, fontSize: 11 }}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(v) => formatCurrencyCompact(Number(v))}
+          width={64}
+        />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(15,23,42,0.04)' }} />
+        <Bar dataKey="seu" name="Seu gasto" stackId="f" fill="#BE123C" maxBarSize={34} />
+        <Bar dataKey="empresa" name="Da imobiliária" stackId="f" fill="#94A3B8" radius={[4, 4, 0, 0]} maxBarSize={34} />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
