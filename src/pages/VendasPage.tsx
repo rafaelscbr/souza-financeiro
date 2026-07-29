@@ -12,6 +12,7 @@ import {
 import { useAppData } from '@/context/AppDataContext'
 import { Input } from '@/components/ui/Field'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { CommissionSplitPanel } from '@/features/dashboard/CommissionSplitPanel'
 import { Tip } from '@/components/ui/Tip'
 import { Progress } from '@/components/ui/Progress'
 import { deriveDeals, type Deal } from '@/lib/deals'
@@ -102,6 +103,9 @@ export function VendasPage() {
               tip="Repasses a corretores que ainda vão sair, ligados a essas vendas."
             />
           </div>
+
+          {/* Para onde vai cada real da comissão */}
+          <CommissionSplitPanel companyId={scopeCompanyId} />
 
           {/* Busca */}
           <div className="relative">

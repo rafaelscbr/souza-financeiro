@@ -43,6 +43,9 @@ const GastosPage = lazyPage(() =>
 const CartaoPage = lazyPage(() =>
   import('@/pages/pessoal/CartaoPage').then((m) => ({ default: m.CartaoPage })),
 )
+const ReceberPage = lazyPage(() =>
+  import('@/pages/pessoal/ReceberPage').then((m) => ({ default: m.ReceberPage })),
+)
 const PagarPessoalPage = lazyPage(() =>
   import('@/pages/pessoal/PagarPessoalPage').then((m) => ({ default: m.PagarPessoalPage })),
 )
@@ -141,6 +144,7 @@ function AuthGate() {
               <Route index element={<VisaoGeralPage />} />
               <Route path="gastos" element={<GastosPage />} />
               <Route path="cartao" element={<CartaoPage />} />
+              <Route path="receber" element={<ReceberPage />} />
               <Route path="pagar" element={<PagarPessoalPage />} />
               <Route path="patrimonio" element={<PatrimonioPage />} />
               <Route path="renda" element={<RendaPage />} />

@@ -117,6 +117,7 @@ const PESSOAL: Workspace = {
       items: [
         { to: '/pessoal/gastos', label: 'Gastos', icon: ShoppingBag },
         { to: '/pessoal/cartao', label: 'Cartão de crédito', icon: CreditCard },
+        { to: '/pessoal/receber', label: 'A receber', icon: ArrowDownCircle },
         { to: '/pessoal/pagar', label: 'A pagar', icon: ArrowUpCircle },
       ],
     },
@@ -136,7 +137,7 @@ const PESSOAL: Workspace = {
       ],
     },
   ],
-  mobile: ['/pessoal', '/pessoal/gastos', '/pessoal/cartao', '/pessoal/pagar', '/pessoal/patrimonio'],
+  mobile: ['/pessoal', '/pessoal/gastos', '/pessoal/cartao', '/pessoal/receber', '/pessoal/pagar'],
 }
 
 export const WORKSPACES: Workspace[] = [EMPRESAS, PESSOAL]
