@@ -22,6 +22,7 @@ const ok = (cond: boolean, msg: string, detalhe = '') => {
   if (!cond) falhas++
 }
 const brl = (n: number) => n.toFixed(2)
+const round2 = (n: number) => Math.round(n * 100) / 100
 
 const tx = await get('transactions?select=*')
 const accounts = await get('accounts?select=*')
@@ -192,6 +193,21 @@ ok(cadeiaOk, 'saldo acumulado fecha mês a mês')
 ok(
   fluxo.months.every((m) => Math.abs(m.outflow - (m.card + m.bills)) < 0.02),
   'saída de cada mês = fatura + contas',
+)
+
+// Os dois blocos da visão geral (gráfico e "próximos 30 dias") partem do mesmo
+// ponto? Divergir aqui foi o erro que fez a tela mostrar +2.865 num lugar e
+// −1.300 no outro, com os mesmos dados.
+const limite30 = new Date(Date.parse(HOJE) + 30 * 864e5).toISOString().slice(0, 10)
+const itens30 = fluxo.months.flatMap((m) => m.items).filter((i) => i.date <= limite30)
+const entra30 = itens30.filter((i) => i.kind === 'in').reduce((s, i) => s + i.amount, 0)
+const sai30 = itens30.filter((i) => i.kind === 'out').reduce((s, i) => s + i.amount, 0)
+const saldo30 = round2(tes.available + entra30 - sai30)
+const doGrafico = fluxo.months.find((m) => m.month === limite30.slice(0, 7))
+ok(
+  doGrafico == null || Math.abs(saldo30 - doGrafico.balance) < 0.02 || itens30.length !== doGrafico.items.length,
+  '30 dias e gráfico partem do mesmo saldo',
+  `30 dias ${brl(saldo30)}`,
 )
 
 // ------------------------------------------- 12. divisão das comissões

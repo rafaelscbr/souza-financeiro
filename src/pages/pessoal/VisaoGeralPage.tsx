@@ -132,8 +132,11 @@ export function VisaoGeralPage() {
       .sort((a, b) => (a.date < b.date ? -1 : 1))
     const entra = itens.filter((i) => i.kind === 'in').reduce((s, i) => s + i.amount, 0)
     const sai = itens.filter((i) => i.kind === 'out').reduce((s, i) => s + i.amount, 0)
-    return { itens, entra, sai, saldo: vitals.liquid + entra - sai }
-  }, [fluxo, hoje, vitals.liquid])
+    // Parte do DISPONÍVEL, igual à projeção do gráfico. Partir da sobra livre
+    // descontaria a fatura duas vezes — uma no ponto de partida e outra na
+    // lista, onde ela aparece como saída do dia 15.
+    return { itens, entra, sai, saldo: tesouraria.available + entra - sai }
+  }, [fluxo, hoje, tesouraria.available])
 
   const serie = useMemo(
     () =>
@@ -302,7 +305,7 @@ export function VisaoGeralPage() {
       {/* 3 ──────────────────────────────────────────── O QUE VEM AÍ */}
       <Section
         title="Próximos 30 dias"
-        subtitle={`Sobra livre ao fim: ${formatCurrency(trintaDias.saldo)}`}
+        subtitle={`Começa com ${formatCurrency(tesouraria.available)} em conta e termina com ${formatCurrency(trintaDias.saldo)}`}
         action={
           <Link
             to="/pessoal/receber"
