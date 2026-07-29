@@ -421,3 +421,49 @@ export function StackedInvoiceChart({ data }: { data: StackedInvoiceDatum[] }) {
     </ResponsiveContainer>
   )
 }
+
+export interface CashflowDatum {
+  label: string
+  entrada: number
+  /** Negativo, para descer no eixo. */
+  saida: number
+  saldo: number
+}
+
+/**
+ * Entradas, saídas e o saldo que sobra — o gráfico que responde "quando aperta".
+ *
+ * As barras vão para lados opostos porque entrada e saída não se comparam em
+ * altura: o que importa é a LINHA do saldo cruzando o zero. Uma barra
+ * empilhada esconderia justamente esse cruzamento.
+ */
+export function CashflowChart({ data }: { data: CashflowDatum[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <ComposedChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 0 }} stackOffset="sign">
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+        <XAxis dataKey="label" tick={{ fill: AXIS, fontSize: 11 }} tickLine={false} axisLine={false} />
+        <YAxis
+          tick={{ fill: AXIS, fontSize: 11 }}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(v) => formatCurrencyCompact(Number(v))}
+          width={64}
+        />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(15,23,42,0.04)' }} />
+        <ReferenceLine y={0} stroke={AXIS} strokeWidth={1} />
+        <Bar dataKey="entrada" name="Entra" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={28} />
+        <Bar dataKey="saida" name="Sai" fill="#DC2626" radius={[0, 0, 4, 4]} maxBarSize={28} />
+        <Line
+          type="monotone"
+          dataKey="saldo"
+          name="Saldo no fim do mês"
+          stroke="#6366F1"
+          strokeWidth={2.5}
+          dot={{ r: 3, fill: '#6366F1' }}
+          activeDot={{ r: 5 }}
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
+  )
+}
