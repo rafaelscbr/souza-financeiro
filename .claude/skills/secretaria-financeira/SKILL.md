@@ -68,6 +68,26 @@ imobiliária — na venda do Anderson isso dava R$ 1.327,59 de diferença.
 Parceria com o Dionata: 65%. **Exceção — venda sem NF** (caso Rogga/Urban Club):
 sem NF não há imposto, então a base do repasse é a comissão bruta mesmo.
 
+**O que o Rafael recebe de cada venda.** Ele participa de duas formas diferentes,
+e a natureza do lançamento muda junto:
+
+- **Quando ELE foi o corretor** → `Comissões de Corretores` (`cost_of_sale`).
+  É custo da venda e reduz o lucro da imobiliária — vale tanto para 100% quanto
+  para 50% da comissão líquida.
+  Hoje: PortoVelas 513-B (Daniela) 100% · PortoVelas 714-B (Andreia) 100% ·
+  Lago di San Pellegrino 50%.
+- **Quando é a fatia dele no que SOBRA** → `Distribuição de Lucro`
+  (`withdrawal`). Sai do lucro já apurado, não o reduz. Base = comissão −
+  imposto − repasse ao parceiro.
+  Hoje: Urban Club/Rogga 50% · PortoVelas 414-D (Anderson) 50%.
+
+Sempre `pending`, com vencimento igual ao da parcela que o origina: ele só
+recebe quando a empresa receber. `counterparty = 'Rafael Alves de Souza'`.
+
+**Não crie o espelho no razão pessoal para a distribuição de lucro**:
+`isOwnerPayout` já reconhece `dre_group = 'withdrawal'` como entrada pessoal, e
+lançar dos dois lados contaria a mesma renda duas vezes.
+
 **Pagamento de fatura é transferência** conta → cartão, nunca despesa. Lançar
 como despesa conta o gasto duas vezes.
 
