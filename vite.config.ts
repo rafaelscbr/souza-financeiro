@@ -10,6 +10,15 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      workbox: {
+        // Um deploy novo troca o hash de todos os chunks. Sem limpar o cache
+        // velho e sem assumir o controle na hora, o service worker antigo
+        // continua servindo um index que aponta para arquivos que não existem
+        // mais — é o "Failed to fetch dynamically imported module".
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+      },
       manifest: {
         name: 'Souza Group Finance',
         short_name: 'Souza Finance',
