@@ -54,9 +54,19 @@ débito do Bradesco. Ao lançar qualquer obrigação recorrente, crie também as
 ocorrências **futuras** como `pending` — senão ela não aparece em "próximos
 vencimentos".
 
-**Comissão com contrato.** Toda parcela de comissão recebida gera 6% de imposto
-do Simples na mesma competência, categoria `Impostos e Taxas`. Repasse de
-parceria com o Dionata é 65% para ele.
+**Comissão com contrato — a ORDEM importa.** Para cada parcela:
+
+1. `comissão da parcela`
+2. `imposto = 6% da comissão` (Simples, categoria `Impostos e Taxas`)
+3. `base do parceiro = comissão − imposto`
+4. `repasse = % do parceiro × base`
+
+O repasse incide sobre a comissão **líquida de imposto**, nunca sobre a bruta.
+Aplicar o percentual no bruto paga o parceiro a mais e some com o líquido da
+imobiliária — na venda do Anderson isso dava R$ 1.327,59 de diferença.
+
+Parceria com o Dionata: 65%. **Exceção — venda sem NF** (caso Rogga/Urban Club):
+sem NF não há imposto, então a base do repasse é a comissão bruta mesmo.
 
 **Pagamento de fatura é transferência** conta → cartão, nunca despesa. Lançar
 como despesa conta o gasto duas vezes.
