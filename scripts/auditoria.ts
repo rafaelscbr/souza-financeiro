@@ -160,11 +160,19 @@ ok(orfas.size === 0, 'toda categoria usada existe', [...orfas].join(' | '))
 
 // --------------------------------------------- 7. crédito contra a empresa
 console.log('\n7. CRÉDITO do Rafael bate com o que a imobiliária deve a ele')
+// O crédito é o que ela já deve MENOS o que ela já devolveu. Sem descontar o
+// reembolso, o ativo continuaria contando dinheiro que já voltou para a conta.
 const devido = pj
   .filter((t: any) => t.counterparty === 'Rafael (cartão pessoal)' && (t.due_date ?? '9999') <= HOJE)
   .reduce((s: number, t: any) => s + t.amount, 0)
+const reembolsado = pf
+  .filter((t: any) => t.kind === 'income' && t.category === 'Reembolsos' &&
+    t.counterparty === 'Souza Imobiliária' && t.status === 'settled')
+  .reduce((s: number, t: any) => s + t.amount, 0)
+const aReceber = round2(devido - reembolsado)
 const credito = assets.find((a: any) => a.name === 'A receber da Souza Imobiliária')?.value ?? 0
-ok(Math.abs(devido - credito) < 0.02, 'crédito = soma do que ela já deve', `${brl(credito)} vs ${brl(devido)}`)
+ok(Math.abs(aReceber - credito) < 0.02, 'crédito = o que ela deve − o que já reembolsou',
+   `${brl(credito)} vs ${brl(aReceber)} (${brl(devido)} devido − ${brl(reembolsado)} reembolsado)`)
 
 // --------------------------------------------------- 8. duplicatas grosseiras
 console.log('\n8. SEM PARCELA DUPLICADA')
