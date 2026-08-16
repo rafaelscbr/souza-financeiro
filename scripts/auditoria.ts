@@ -70,7 +70,7 @@ console.log('\n2. SALDOS')
 const EXTRATO: Record<string, [string, number, Array<[string, number]>]> = {
   'Nubank': ['2026-08-15', 0.0, []],
   'Caixinha Nubank (RDB)': ['2026-08-15', 0.0, []],
-  'Bradesco': ['2026-08-17', 6501.01, [['reembolso da cesta pela imobiliária', 164.63]]],
+  'Bradesco': ['2026-08-17', 6501.01, [['reembolso da cesta', 164.63], ['parte da imobiliária na fatura de agosto', 1965.49]]],
   'Bradesco PJ': ['2026-08-12', 6194.78, []],
 }
 for (const [nome, [data, saldoBanco, depois]] of Object.entries(EXTRATO)) {
@@ -167,6 +167,18 @@ ok(orfas.size === 0, 'toda categoria usada existe', [...orfas].join(' | '))
 console.log('\n7. CRÉDITO do Rafael bate com o que a imobiliária deve a ele')
 // O crédito é o que ela já deve MENOS o que ela já devolveu. Sem descontar o
 // reembolso, o ativo continuaria contando dinheiro que já voltou para a conta.
+// Todo gasto da empresa no cartão dele TEM de existir no DRE dela. Três
+// cobranças do Meta Ads passaram batido na carga da fatura de agosto e só
+// apareceram quando ele foi transferir — nada aqui pegava isso.
+const noCartao = pf
+  .filter((t: any) => t.category === 'Despesas da Empresa' && t.kind === 'expense')
+  .reduce((s: number, t: any) => s + t.amount, 0)
+const noDre = pj
+  .filter((t: any) => t.counterparty === 'Rafael (cartão pessoal)')
+  .reduce((s: number, t: any) => s + t.amount, 0)
+ok(Math.abs(noCartao - noDre) < 0.02, 'todo gasto da empresa no cartão dele está no DRE dela',
+   `cartão ${brl(noCartao)} vs DRE ${brl(noDre)}`)
+
 const devido = pj
   .filter((t: any) => t.counterparty === 'Rafael (cartão pessoal)' && (t.due_date ?? '9999') <= HOJE)
   .reduce((s: number, t: any) => s + t.amount, 0)
