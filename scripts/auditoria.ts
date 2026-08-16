@@ -179,17 +179,20 @@ const noDre = pj
 ok(Math.abs(noCartao - noDre) < 0.02, 'todo gasto da empresa no cartão dele está no DRE dela',
    `cartão ${brl(noCartao)} vs DRE ${brl(noDre)}`)
 
-const devido = pj
-  .filter((t: any) => t.counterparty === 'Rafael (cartão pessoal)' && (t.due_date ?? '9999') <= HOJE)
+// O Rafael abriu mão do acumulado de dez/2025 a jun/2026: bancou aquilo e não
+// vai cobrar. Esses ficam settled SEM conta — o custo é dela, mas o dinheiro
+// nunca saiu do caixa dela. Se algum encostar numa conta bancária, o saldo
+// dela passa a mentir.
+const bancados = pj.filter((t: any) =>
+  t.counterparty === 'Rafael (cartão pessoal)' && /bancado pelo Rafael/.test(t.description ?? ''))
+ok(bancados.every((t: any) => !t.account_id), 'o que ele bancou não saiu do caixa dela',
+   `${bancados.length} lançamentos · ${brl(bancados.reduce((s: number, t: any) => s + t.amount, 0))}`)
+ok(assets.every((a: any) => a.name !== 'A receber da Souza Imobiliária'),
+   'não existe mais ativo de crédito contra a imobiliária')
+const aberto = pj
+  .filter((t: any) => t.counterparty === 'Rafael (cartão pessoal)' && t.status === 'pending')
   .reduce((s: number, t: any) => s + t.amount, 0)
-const reembolsado = pf
-  .filter((t: any) => t.kind === 'income' && t.category === 'Reembolsos' &&
-    t.counterparty === 'Souza Imobiliária' && t.status === 'settled')
-  .reduce((s: number, t: any) => s + t.amount, 0)
-const aReceber = round2(devido - reembolsado)
-const credito = assets.find((a: any) => a.name === 'A receber da Souza Imobiliária')?.value ?? 0
-ok(Math.abs(aReceber - credito) < 0.02, 'crédito = o que ela deve − o que já reembolsou',
-   `${brl(credito)} vs ${brl(aReceber)} (${brl(devido)} devido − ${brl(reembolsado)} reembolsado)`)
+console.log(`  ··  ainda a reembolsar nas próximas faturas: ${brl(aberto)}`)
 
 // --------------------------------------------------- 8. duplicatas grosseiras
 console.log('\n8. SEM PARCELA DUPLICADA')
@@ -308,7 +311,10 @@ ok(
 // ------------------------------------------------- 13. caixa das empresas
 console.log('\n13. CAIXA DAS EMPRESAS bate com o que foi liquidado')
 for (const c of companies.filter((x: any) => !x.is_personal)) {
-  const seus = pj.filter((t: any) => t.company_id === c.id && t.status === 'settled')
+  // O que o Rafael bancou é custo dela, mas nunca foi dinheiro saindo do caixa
+  // dela — entra no DRE e fica de fora daqui.
+  const seus = pj.filter((t: any) => t.company_id === c.id && t.status === 'settled' &&
+    !/bancado pelo Rafael/.test(t.description ?? ''))
   const ent = seus.filter((t: any) => t.kind === 'income').reduce((s: number, t: any) => s + t.amount, 0)
   const sai = seus.filter((t: any) => t.kind !== 'income').reduce((s: number, t: any) => s + t.amount, 0)
   const temConta = accounts.some((a: any) => a.company_id === c.id && a.type !== 'credit_card')
