@@ -6,7 +6,7 @@ import { cardSummary } from '@/lib/cards'
 import { treasurySummary, accountBalance } from '@/lib/treasury'
 import { personalVitals } from '@/lib/personal'
 import { activeInstallments, recurringSpend } from '@/lib/insights'
-import { lastNMonths } from '@/lib/finance'
+import { lastNMonths, dreGroupOf } from '@/lib/finance'
 import { personalCashflow } from '@/lib/cashflow'
 import { saleSplits } from '@/lib/commissions'
 
@@ -30,7 +30,10 @@ const transfers = await get('transfers?select=*')
 const assets = await get('personal_assets?select=*')
 const cats = await get('categories?select=*')
 const companies = await get('companies?select=*')
-const HOJE = '2026-07-28'
+// A auditoria roda contra o estado de HOJE. Data fixa aqui já causou falso
+// alarme: os indicadores eram apurados numa data e os saldos em outra.
+const HOJE = new Date().toISOString().slice(0, 10)
+const REF = new Date(Date.parse(HOJE + 'T12:00:00'))
 
 const pf = tx.filter((t: any) => t.company_id === P)
 const pj = tx.filter((t: any) => t.company_id !== P)
@@ -42,31 +45,59 @@ console.log('\n1. FATURAS DO CARTÃO batem com o extrato oficial do Bradesco')
 const OFICIAL: Record<string, number> = {
   '2026-01-01': 3790.51, '2026-02-01': 4106.81, '2026-03-01': 3569.44,
   '2026-04-01': 3993.76, '2026-05-01': 6554.44, '2026-06-01': 4473.28,
-  '2026-07-01': 6692.89 - 230.0, '2026-08-01': 3767.91,
+  '2026-07-01': 6692.89 - 230.0, '2026-08-01': 6088.79,
 }
+// Só confere ciclo FECHADO com extrato oficial em mãos. O ciclo aberto ainda
+// recebe compra todo dia — cobrá-lo de um total fixo seria falso alarme.
 const resumoCartao = cardSummary(cartao, pf, transfers, HOJE)
 for (const [ciclo, esperado] of Object.entries(OFICIAL)) {
   const f = resumoCartao.invoices.find((i: any) => i.cycleMonth === ciclo)
   const real = f ? f.total : 0
-  // O extrato do app foi puxado em 28/07: compra feita depois disso (ou parcela
-  // que posta depois) entra legitimamente no ciclo e não é divergência.
-  const posteriores =
-    ciclo === '2026-08-01'
-      ? pf
-          .filter((t: any) => t.card_cycle_month === ciclo && t.kind === 'expense')
-          .filter((t: any) => (t.settled_date ?? '') >= '2026-07-28')
-          .reduce((s: number, t: any) => s + t.amount, 0)
-      : 0
-  const alvo = esperado + posteriores
-  ok(Math.abs(real - alvo) < 0.02, `fatura ${ciclo.slice(0, 7)}`, `${brl(real)} vs ${brl(alvo)}`)
+  ok(Math.abs(real - esperado) < 0.02, `fatura ${ciclo.slice(0, 7)}`, `${brl(real)} vs ${brl(esperado)}`)
 }
+const semExtrato = resumoCartao.invoices
+  .filter((i: any) => i.total > 0 && !(i.cycleMonth in OFICIAL))
+  .map((i: any) => `${i.cycleMonth.slice(0, 7)} ${brl(i.total)}`)
+console.log(`  ··  ciclos ainda sem extrato oficial: ${semExtrato.join(', ') || 'nenhum'}`)
 
 // ------------------------------------------------------------- 2. saldo/limite
 console.log('\n2. SALDOS')
+// Cada conta é conferida contra o SALDO DO EXTRATO do banco, na data do
+// extrato — é o único juiz externo que o sistema tem.
+const EXTRATO: Record<string, [string, number]> = {
+  'Nubank': ['2026-08-15', 0.0],
+  'Caixinha Nubank (RDB)': ['2026-08-15', 0.0],
+  'Bradesco': ['2026-08-17', 6501.01],
+  'Bradesco PJ': ['2026-08-12', 6194.78],
+}
+for (const [nome, [data, esperado]] of Object.entries(EXTRATO)) {
+  const c = accounts.find((a: any) => a.name === nome)
+  const razao = c.company_id === P ? pf : pj
+  const real = c ? accountBalance(c, razao, transfers, data).balance : NaN
+  ok(Math.abs(real - esperado) < 0.02, `${nome} em ${data.slice(8)}/${data.slice(5, 7)}`,
+     `${brl(real)} vs extrato ${brl(esperado)}`)
+}
+// Devo hoje o que já passei no cartão e ainda não paguei — a data da COMPRA,
+// não a do ciclo: compra de agosto que cai na fatura de setembro já é dívida.
+// Fecha por dois caminhos diferentes (cardSummary × accountBalance), então
+// pega compra que sumiu de uma fatura ou que entrou em duas.
 const saldoCartao = accountBalance(cartao, pf, transfers, HOJE).balance
-ok(Math.abs(saldoCartao + 4165.95) < 0.02, 'saldo devedor do cartão = fatura aberta', brl(saldoCartao))
+const emFaturas = resumoCartao.invoices.reduce((s: number, i: any) => s + i.total, 0)
+const aindaNaoPostou = pf
+  .filter((t: any) => t.account_id === cartao.id && (t.settled_date ?? '') > HOJE)
+  .reduce((s: number, t: any) => s + (dreGroupOf(t) === 'revenue' ? -t.amount : t.amount), 0)
+const pago = transfers
+  .filter((tr: any) => tr.to_account_id === cartao.id && tr.date <= HOJE)
+  .reduce((s: number, tr: any) => s + tr.amount, 0)
+const devoHoje = round2(emFaturas - aindaNaoPostou - pago)
+ok(Math.abs(-saldoCartao - devoHoje) < 0.02, 'dívida do cartão = comprado − pago',
+   `${brl(-saldoCartao)} vs ${brl(devoHoje)} (${brl(emFaturas)} em faturas − ${brl(aindaNaoPostou)} a postar − ${brl(pago)} pago)`)
 const tes = treasurySummary(contasPF, pf, transfers, HOJE)
-ok(Math.abs(tes.available - 5218.81) < 0.02, 'disponível (Nubank + Bradesco)', brl(tes.available))
+const somaContas = contasPF
+  .filter((a: any) => a.type !== 'credit_card')
+  .reduce((s: number, a: any) => s + accountBalance(a, pf, transfers, HOJE).balance, 0)
+ok(Math.abs(tes.available - somaContas) < 0.02, 'disponível = soma das contas',
+   `${brl(tes.available)} vs ${brl(somaContas)}`)
 ok(
   resumoCartao.limitAvailable != null && resumoCartao.limitAvailable > 0,
   'limite disponível positivo',
@@ -77,9 +108,14 @@ ok(
 console.log('\n3. PARCELAMENTOS íntegros (sem índice repetido, sem buraco, sem passar do total)')
 // A chave é grupo + TIPO: `group_id` junta a venda e o repasse da mesma
 // operação, então cada lado tem a sua própria sequência 1..n.
+// ...e mais a SÉRIE: a mesma parcela pode ter dois impostos diferentes (Simples
+// 6% e ISS retido 3%), que não são duplicata um do outro. A série é o que vem
+// antes do primeiro travessão, sem os parênteses de observação.
+const serie = (t: any) =>
+  String(t.description || '').split('—')[0].replace(/\([^)]*\)/g, '').trim()
 const grupos = new Map<string, any[]>()
 for (const t of tx) if (t.group_id && t.installment_count) {
-  const k = `${t.group_id}|${t.kind}|${t.category}`
+  const k = `${t.group_id}|${t.kind}|${t.category}|${serie(t)}`
   const a = grupos.get(k) ?? []
   a.push(t); grupos.set(k, a)
 }
@@ -138,7 +174,7 @@ console.log('\n8. SEM PARCELA DUPLICADA')
 const vistos = new Map<string, number>()
 for (const t of tx) {
   if (!t.group_id || !t.installment_index) continue
-  const k = `${t.group_id}|${t.kind}|${t.category}|${t.installment_index}`
+  const k = `${t.group_id}|${t.kind}|${t.category}|${serie(t)}|${t.installment_index}`
   vistos.set(k, (vistos.get(k) ?? 0) + 1)
 }
 const dups = [...vistos.entries()].filter(([, n]) => n > 1)
@@ -153,9 +189,9 @@ ok(semVenc.length === 0, 'todo pending tem vencimento', `${semVenc.length} sem`)
 
 // -------------------------------------------------------- 10. sobrevivência
 console.log('\n10. INDICADORES batem entre si')
-const v = personalVitals(pf, pj, contasPF, transfers, new Date(2026, 6, 1), 'cash')
+const v = personalVitals(pf, pj, contasPF, transfers, REF, 'cash')
 ok(Math.abs(v.liquid - (tes.available - tes.cardDebt)) < 0.02, 'líquido = disponível − cartão', brl(v.liquid))
-const rec = recurringSpend(pf, lastNMonths(new Date(2026, 6, 1), 6), 'cash')
+const rec = recurringSpend(pf, lastNMonths(REF, 6), 'cash')
 ok(rec.monthlyTotal > 0 && v.livingCostAvg > 0, 'custo de vida e recorrentes apurados',
    `custo ${brl(v.livingCostAvg)} · recorrente ${brl(rec.monthlyTotal)}`)
 
