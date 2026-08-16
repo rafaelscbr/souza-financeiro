@@ -1,5 +1,6 @@
 import {
   INVEST_CATEGORY,
+  OWNER_TRANSFER_CATEGORY,
   PRO_LABORE_CATEGORIES,
   computeKpis,
   filterTransactions,
@@ -442,7 +443,9 @@ export function annualReport(
     const m = months.find((mm) => inMonth(t, mm, regime))
     if (!m) continue
     if (t.kind === 'income') {
-      otherIncome += t.amount
+      // Retirada de empresa já foi contada pelo razão dela — ver
+      // OWNER_TRANSFER_CATEGORY. Somar aqui dobraria a renda do ano.
+      if (t.category !== OWNER_TRANSFER_CATEGORY) otherIncome += t.amount
       continue
     }
     if (t.kind !== 'expense') continue

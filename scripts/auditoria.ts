@@ -6,7 +6,7 @@ import { cardSummary } from '@/lib/cards'
 import { treasurySummary, accountBalance } from '@/lib/treasury'
 import { personalVitals } from '@/lib/personal'
 import { activeInstallments, recurringSpend } from '@/lib/insights'
-import { lastNMonths, dreGroupOf } from '@/lib/finance'
+import { lastNMonths, dreGroupOf, isOwnerPayout, OWNER_TRANSFER_CATEGORY } from '@/lib/finance'
 import { personalCashflow } from '@/lib/cashflow'
 import { saleSplits } from '@/lib/commissions'
 
@@ -148,6 +148,18 @@ ok(parc.length > 0, 'parcelamentos em curso detectados', `${parc.length}`)
 
 // ------------------------------------------------------- 5. razões separados
 console.log('\n5. SEPARAÇÃO PF × PJ')
+// Retirada de empresa entra na renda dele pelo razão DELA. A linha no extrato
+// pessoal existe só para mover o saldo do banco — se ela for lançada como
+// receita comum, o mesmo dinheiro conta duas vezes. Foi o que aconteceu com a
+// participação da Araújo em julho, que inflou a renda do mês em R$ 1.440,76.
+const retiradas = pj
+  .filter((t: any) => isOwnerPayout(t) && t.status === 'settled' && (t.settled_date ?? '') <= HOJE)
+  .reduce((s: number, t: any) => s + t.amount, 0)
+const chegaram = pf
+  .filter((t: any) => t.kind === 'income' && t.category === OWNER_TRANSFER_CATEGORY)
+  .reduce((s: number, t: any) => s + t.amount, 0)
+ok(Math.abs(retiradas - chegaram) < 0.02, 'retirada de empresa aparece uma vez só na renda dele',
+   `saiu das empresas ${brl(retiradas)} vs chegou marcado como retirada ${brl(chegaram)}`)
 const idsPF = new Set(contasPF.map((a: any) => a.id))
 const idsPJ = new Set(accounts.filter((a: any) => a.company_id !== P).map((a: any) => a.id))
 ok(pj.every((t: any) => !t.account_id || !idsPF.has(t.account_id)), 'nenhum lançamento PJ em conta PF')

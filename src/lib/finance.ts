@@ -594,6 +594,15 @@ export interface PersonalSummary {
 export const INVEST_CATEGORY = 'Investimentos/Poupança'
 
 /**
+ * Retirada de empresa CHEGANDO na conta pessoal. O saldo da conta precisa
+ * dessa linha — o dinheiro entrou no banco de verdade —, mas ela não é renda
+ * nova: a mesma retirada já entra por `inflowFromBusiness`, apurada do razão
+ * da empresa. Sem essa categoria a renda do mês conta o mesmo dinheiro duas
+ * vezes, que foi o que aconteceu com a participação da Araújo em julho.
+ */
+export const OWNER_TRANSFER_CATEGORY = 'Retirada de Empresa'
+
+/**
  * Despesa da empresa paga pelo bolso do dono (Meta Ads, portais, ferramentas no
  * cartão pessoal). Sai do caixa dele, então conta como saída — mas NÃO é custo
  * de vida: se a renda parasse, esse gasto pararia junto. Mantê-lo no custo de
@@ -620,7 +629,7 @@ export function personalSummary(
   for (const t of personalTx) {
     if (!inMonth(t, date, regime)) continue
     if (t.kind === 'income') {
-      inflowManual += t.amount
+      if (t.category !== OWNER_TRANSFER_CATEGORY) inflowManual += t.amount
     } else if (t.kind === 'expense') {
       outflow += t.amount
       catMap.set(t.category, (catMap.get(t.category) ?? 0) + t.amount)

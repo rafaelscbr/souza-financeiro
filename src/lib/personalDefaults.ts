@@ -39,6 +39,7 @@ export const DEFAULT_PERSONAL_CATEGORIES: DefaultCategory[] = [
   { name: 'Renda Extra', kind: 'income', icon: '💰', color: '#059669' },
   { name: 'Rendimentos', kind: 'income', icon: '📊', color: '#0F766E' },
   { name: 'Reembolsos', kind: 'income', icon: '🔁', color: '#0369A1' },
+  { name: 'Retirada de Empresa', kind: 'income', icon: '🏢', color: '#7C3AED' },
   { name: 'Outros Recebimentos', kind: 'income', icon: '✨', color: '#6366F1' },
 ]
 
