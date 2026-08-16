@@ -64,18 +64,23 @@ console.log(`  ··  ciclos ainda sem extrato oficial: ${semExtrato.join(', ') |
 console.log('\n2. SALDOS')
 // Cada conta é conferida contra o SALDO DO EXTRATO do banco, na data do
 // extrato — é o único juiz externo que o sistema tem.
-const EXTRATO: Record<string, [string, number]> = {
-  'Nubank': ['2026-08-15', 0.0],
-  'Caixinha Nubank (RDB)': ['2026-08-15', 0.0],
-  'Bradesco': ['2026-08-17', 6501.01],
-  'Bradesco PJ': ['2026-08-12', 6194.78],
+// [data do extrato, saldo do extrato, lançamentos feitos DEPOIS que o extrato
+// foi puxado]. O terceiro campo existe para não adulterar o número do banco:
+// quando chegar extrato novo, ele zera e o saldo volta a ser só o do banco.
+const EXTRATO: Record<string, [string, number, Array<[string, number]>]> = {
+  'Nubank': ['2026-08-15', 0.0, []],
+  'Caixinha Nubank (RDB)': ['2026-08-15', 0.0, []],
+  'Bradesco': ['2026-08-17', 6501.01, [['reembolso da cesta pela imobiliária', 164.63]]],
+  'Bradesco PJ': ['2026-08-12', 6194.78, []],
 }
-for (const [nome, [data, esperado]] of Object.entries(EXTRATO)) {
+for (const [nome, [data, saldoBanco, depois]] of Object.entries(EXTRATO)) {
   const c = accounts.find((a: any) => a.name === nome)
   const razao = c.company_id === P ? pf : pj
   const real = c ? accountBalance(c, razao, transfers, data).balance : NaN
+  const esperado = round2(saldoBanco + depois.reduce((s, [, v]) => s + v, 0))
+  const nota = depois.map(([q, v]) => ` + ${brl(v)} ${q}`).join('')
   ok(Math.abs(real - esperado) < 0.02, `${nome} em ${data.slice(8)}/${data.slice(5, 7)}`,
-     `${brl(real)} vs extrato ${brl(esperado)}`)
+     `${brl(real)} vs extrato ${brl(saldoBanco)}${nota}`)
 }
 // Devo hoje o que já passei no cartão e ainda não paguei — a data da COMPRA,
 // não a do ciclo: compra de agosto que cai na fatura de setembro já é dívida.
