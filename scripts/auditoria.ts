@@ -201,6 +201,17 @@ ok(bancados.every((t: any) => !t.account_id), 'o que ele bancou não saiu do cai
    `${bancados.length} lançamentos · ${brl(bancados.reduce((s: number, t: any) => s + t.amount, 0))}`)
 ok(assets.every((a: any) => a.name !== 'A receber da Souza Imobiliária'),
    'não existe mais ativo de crédito contra a imobiliária')
+// Liquidação SEM conta bancária não moveu dinheiro, então não pode inventar
+// data de pagamento: a data tem de ser a do próprio custo. Quando dei baixa
+// nos 77 com a data de hoje, oito meses de custo caíram todos em agosto e a
+// imobiliária apareceu com R$ 8.381,94 de prejuízo que não existiu.
+// Só vale para o que ele bancou: empresa sem conta cadastrada pode
+// legitimamente pagar adiantado ou atrasado, e aí a data difere do vencimento.
+const dataInventada = bancados.filter((t: any) =>
+  t.settled_date && t.settled_date !== (t.due_date ?? t.competence_date))
+ok(dataInventada.length === 0, 'quitação sem dinheiro mantém a data do custo',
+   dataInventada.slice(0, 3).map((t: any) =>
+     `${(t.description ?? '').slice(0, 24)} ${t.settled_date}≠${t.due_date ?? t.competence_date}`).join(' | '))
 const aberto = pj
   .filter((t: any) => t.counterparty === 'Rafael (cartão pessoal)' && t.status === 'pending')
   .reduce((s: number, t: any) => s + t.amount, 0)
