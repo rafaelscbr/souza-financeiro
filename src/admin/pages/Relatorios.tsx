@@ -1,26 +1,73 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Download } from 'lucide-react'
 import { useAdmin } from '../AdminData'
+import { useComposicao } from '@/components/composicao/Composicao'
+import { Heroi } from '@/components/ui/Assinatura'
+import { Secao } from '@/components/ui/Secao'
+import { Lista, Linha } from '@/components/ui/Lista'
+import { Valor, ValorComOrigem } from '@/components/ui/Valor'
 import { Button } from '@/components/ui/Button'
 import { Segmented } from '@/components/ui/Segmented'
-import { Tip } from '@/components/ui/Tip'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { computeKpis, dreGroupOf, lastNMonths, monthKey } from '@/lib/finance'
-import { treasurySummary } from '@/lib/treasury'
-import { brokerProduction, developmentResults } from '@/lib/sales'
-import { formatCurrency, formatMonthShort, formatMonthYear, formatPercent } from '@/lib/format'
+import { ACCOUNT_TYPE_LABEL, treasurySummary } from '@/lib/treasury'
+import {
+  brokerProduction,
+  developmentResults,
+  type BrokerProduction,
+  type DevelopmentResult,
+} from '@/lib/sales'
+import { formatCurrency, formatDate, formatMonthShort, formatMonthYear, formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { Transaction } from '@/types'
 
 type Regime = 'caixa' | 'competencia'
 
-/**
- * Os números do negócio. A chave caixa/competência vive AQUI, e não no
- * cabeçalho do app: ela só muda o DRE, e como chave global fazia todas as
- * telas mudarem de sentido sem explicação.
+/*
+ * RELATÓRIOS — a tela do DRE.
+ *
+ * Aqui mora a palavra "Resultado", e ela mora só aqui. O Início chamava de
+ * "Resultado do mês" uma conta que tratava retirada de sócio como despesa,
+ * enquanto esta tela manda retirada para distribuição de lucro e a deixa FORA
+ * do lucro líquido. Eram dois números com o mesmo nome divergindo exatamente
+ * pelo valor das retiradas. O Início passou a dizer "Sobrou no mês"; esta tela
+ * ficou com "Resultado", e o número vem inteiro de `computeKpis` — esta tela
+ * não soma nada por fora.
+ *
+ * O que mudou no desenho, e por quê:
+ *
+ * 1. As seis seções eram seis cartões com `shadow-card`. Essa sombra não
+ *    existe mais em tailwind.config.js (sobrou só `pop`, para o que flutua),
+ *    então os cartões já estavam apenas fingindo profundidade. Viraram seções
+ *    separadas por fio.
+ *
+ * 2. Os três cabeçalhos de tabela eram `text-[10px]` em `content-faint` —
+ *    10px a contraste baixo, num documento que existe para ser CONFERIDO.
+ *    Passaram ao piso do sistema, 12px, em `content-muted`.
+ *
+ * 3. O DRE do mês era uma pilha de <div>. Virou <table> de verdade: é uma
+ *    demonstração contábil, tem cabeçalho de coluna e leitor de tela precisa
+ *    navegar por ela como tabela. Toda tabela rola dentro do próprio
+ *    container, para a PÁGINA nunca rolar na horizontal.
+ *
+ * 4. Fio estrutural (`border-rule`, 3,54:1) acima de cada total — receita
+ *    líquida, lucro bruto, resultado. Fio decorativo (`border-line`, 1,24:1)
+ *    entre as linhas comuns. É a regra do §2.6 do sistema visual: o fio que
+ *    fecha uma conta não pode ser o mesmo que só separa duas linhas.
+ *
+ * 5. O saldo em conta era a 2ª de 6 seções desta tela sendo o número mais
+ *    decisório do sistema. Ele subiu para o herói do Início. Aqui continua,
+ *    no mesmo lugar, mas como seção normal: quem abre Relatórios está
+ *    perguntando pelo resultado, não pelo saldo.
+ *
+ * 6. Todo total por mês, por empreendimento, por corretor e por categoria
+ *    abre no que o compõe, e cada item leva à ficha da venda. Antes eram
+ *    números terminais: dava para ver que PortoVelas rendeu X e não havia
+ *    nenhum caminho de X até as vendas que formaram X.
  */
 export function Relatorios() {
   const { transactions, accounts, transfers, mes, vendas, contacts, contatosComAcesso } = useAdmin()
+  const { abrir } = useComposicao()
   const [regime, setRegime] = useState<Regime>('caixa')
 
   const dataDoRegime = (t: Transaction): string | null => {
@@ -88,14 +135,108 @@ export function Relatorios() {
     URL.revokeObjectURL(url)
   }
 
+  /*
+   * Data nunca aparece sozinha neste sistema: sempre com o verbo do que
+   * aconteceu. Num lançamento isso depende do lado do DRE — receita se recebe,
+   * despesa se paga — e do status.
+   */
+  const frase = (t: Transaction) => {
+    if (t.status === 'settled') {
+      const d = t.settled_date ?? t.competence_date
+      return `${dreGroupOf(t) === 'revenue' ? 'recebido' : 'pago'} em ${formatDate(d)}`
+    }
+    return `previsto para ${formatDate(t.due_date ?? t.competence_date)}`
+  }
+
+  /**
+   * Transforma lançamentos na composição que a folha exibe. Receita entra
+   * positiva e o resto negativo, porque é assim que a soma fecha com o
+   * resultado — e `para` leva à venda que originou o lançamento (migração 008).
+   */
+  const compLancamentos = (txs: Transaction[]) =>
+    txs.map((t) => ({
+      id: t.id,
+      titulo: t.description || t.category,
+      meta: `${frase(t)} · ${t.category}`,
+      valor: dreGroupOf(t) === 'revenue' ? t.amount : -t.amount,
+      para: t.sale_id ? `/vendas/${t.sale_id}` : undefined,
+    }))
+
+  /** O resultado de um mês da série, aberto nos lançamentos que o formam. */
+  const abrirMes = (s: { mes: Date; kpis: ReturnType<typeof computeKpis> }) =>
+    abrir({
+      rotulo: 'Resultado',
+      titulo: `Resultado de ${formatMonthYear(s.mes)}`,
+      explica:
+        'Receita de comissão menos imposto sobre o faturamento, comissão de corretor e estrutura. O total vem do DRE; a lista abaixo é o que o formou.',
+      total: s.kpis.netProfit,
+      itens: compLancamentos(
+        transactions
+          .filter((t) => dataDoRegime(t)?.slice(0, 7) === monthKey(s.mes))
+          .filter((t) => dreGroupOf(t) !== 'withdrawal')
+          .sort((a, b) => (dataDoRegime(a) ?? '').localeCompare(dataDoRegime(b) ?? '')),
+      ),
+      nota: 'Retirada de sócio não aparece aqui: ela é remuneração do capital e sai DEPOIS do resultado, nunca antes.',
+      vazio: 'Nenhum lançamento neste mês.',
+    })
+
+  const r2 = (v: number) => Math.round(v * 100) / 100
+
+  /** As vendas de um empreendimento — a mesma chave que `developmentResults` usa. */
+  const vendasDoEmpreendimento = (d: DevelopmentResult) =>
+    vendas.filter((v) => v.status !== 'cancelada' && (v.cost_center_id ?? '—') === (d.id ?? '—'))
+
+  const metaDaVenda = (titulo: string | null, data: string) =>
+    [titulo, `vendida em ${formatDate(data)}`].filter(Boolean).join(' · ')
+
+  /** A produção de um corretor, aberta nas vendas dele. */
+  function abrirCorretor(p: BrokerProduction) {
+    abrir({
+      rotulo: 'Comissão',
+      titulo: `Comissão de ${p.contact.name}`,
+      explica:
+        'A comissão contratada do corretor nas vendas ativas dele — o que já foi pago mais o que ainda falta.',
+      total: p.commissionTotal,
+      itens: vendas
+        .filter((v) => v.status !== 'cancelada' && v.broker_id === p.contact.id)
+        .map((v) => ({
+          id: v.id,
+          titulo: v.title,
+          meta: metaDaVenda(v.client_name, v.sale_date),
+          valor: r2(v.brokerPaid + v.brokerToPay),
+          para: `/vendas/${v.id}`,
+        })),
+      nota: 'Comissão de parcela que a construtora ainda não pagou não é dívida hoje: ela só é liberada quando o dinheiro entra.',
+      vazio: 'Nenhuma venda ativa para este corretor.',
+    })
+  }
+
   return (
-    <div className="animate-fade-in space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-content">Relatórios</h1>
-          <p className="text-sm text-content-faint">{formatMonthYear(mes)}</p>
-        </div>
-        <div className="w-full sm:w-64">
+    <div className="animate-fade-in">
+      {/*
+       * UM herói, e o rótulo é "Resultado do mês" — a palavra é reservada a
+       * esta tela. O número sai inteiro de `computeKpis`, a mesma função que
+       * monta a tabela logo abaixo: não existe aqui nenhuma soma paralela que
+       * possa divergir dela.
+       */}
+      <Heroi
+        rotulo="Resultado do mês"
+        contexto="Da comissão saem os impostos sobre o faturamento, depois a comissão dos corretores e por fim a estrutura. O que resta é o resultado — não é saldo em conta, e retirada de sócio não está descontada dele."
+      >
+        <Valor
+          valor={kpis.netProfit}
+          posto="heroi"
+          tinta={kpis.netProfit < 0 ? 'text-expense' : undefined}
+        />
+      </Heroi>
+
+      {/*
+       * A chave caixa/competência vive AQUI, e não no cabeçalho do app: ela só
+       * muda o DRE, e como chave global fazia todas as telas mudarem de
+       * sentido sem explicação nenhuma.
+       */}
+      <div className="-mt-2 pb-2">
+        <div className="sm:max-w-[16rem]">
           <Segmented
             ariaLabel="Regime"
             value={regime}
@@ -106,247 +247,443 @@ export function Relatorios() {
             ]}
           />
         </div>
+        <p className="mt-2 text-sm text-content-muted">
+          {regime === 'caixa'
+            ? 'Caixa: conta no mês em que o dinheiro se moveu.'
+            : 'Competência: conta no mês da venda, mesmo que o dinheiro entre depois.'}
+        </p>
       </div>
-      <p className="-mt-3 text-xs text-content-faint">
-        {regime === 'caixa'
-          ? 'Caixa: conta no mês em que o dinheiro se moveu.'
-          : 'Competência: conta no mês da venda, mesmo que o dinheiro entre depois.'}
-      </p>
 
-      {/* DRE do mês */}
-      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-        <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-content">
-          Resultado do mês
-          <Tip label="Como o resultado é formado" align="start">
-            Da comissão saem os impostos sobre o faturamento, depois a comissão dos corretores (custo
-            direto da venda) e por fim a estrutura. O que resta é o resultado.
-          </Tip>
-        </h2>
-        <Linha rotulo="Receita de comissões" valor={kpis.revenue} forte />
-        <Linha rotulo="(−) Impostos sobre o faturamento" valor={-kpis.taxDeductions} />
-        <Linha rotulo="Receita líquida" valor={kpis.netRevenue} />
-        <Linha rotulo="(−) Comissões de corretores" valor={-kpis.costOfSale} />
-        <Linha rotulo="Lucro bruto" valor={kpis.grossProfit} forte />
-        <Linha rotulo="(−) Despesas fixas" valor={-kpis.operatingExpense} />
-        <Linha rotulo="(−) Despesas variáveis" valor={-(kpis.variableExpense + kpis.otherExpense)} />
-        <div className="my-2 border-t border-line" />
-        <Linha rotulo="Resultado" valor={kpis.netProfit} forte destaque />
+      <Secao titulo="Como o resultado se forma">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[18rem]">
+            <caption className="sr-only">
+              Demonstração do resultado de {formatMonthYear(mes)}
+            </caption>
+            <thead>
+              <tr className="border-b border-b-line text-xs font-medium uppercase tracking-wide text-content-muted">
+                <th scope="col" className="py-2 text-left">
+                  Conta
+                </th>
+                <th scope="col" className="py-2 text-right">
+                  No mês
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <LinhaDre rotulo="Receita de comissões" valor={kpis.revenue} />
+              <LinhaDre rotulo="(−) Impostos sobre o faturamento" valor={-kpis.taxDeductions} />
+              <LinhaDre rotulo="Receita líquida" valor={kpis.netRevenue} total />
+              <LinhaDre rotulo="(−) Comissões de corretores" valor={-kpis.costOfSale} />
+              <LinhaDre rotulo="Lucro bruto" valor={kpis.grossProfit} total />
+              <LinhaDre rotulo="(−) Despesas fixas" valor={-kpis.operatingExpense} />
+              <LinhaDre
+                rotulo="(−) Despesas variáveis"
+                valor={-(kpis.variableExpense + kpis.otherExpense)}
+              />
+              <LinhaDre rotulo="Resultado" valor={kpis.netProfit} total />
+            </tbody>
+          </table>
+        </div>
         {kpis.revenue > 0 && (
-          <p className="mt-1 text-right text-[11px] text-content-faint">
+          <p className="mt-2 text-right text-sm text-content-faint">
             margem {formatPercent(kpis.netMargin, 0)}
           </p>
         )}
         {kpis.profitDistribution > 0 && (
-          <p className="mt-2 text-xs text-content-muted">
-            Retiradas do sócio no mês: {formatCurrency(kpis.profitDistribution)} (saem depois do
-            resultado).
+          <p className="mt-3 border-t border-rule pt-3 text-sm text-content-muted">
+            Retiradas do sócio no mês: {formatCurrency(kpis.profitDistribution)}. Saem depois do
+            resultado — são remuneração do capital, não custo da operação.
           </p>
         )}
-      </section>
+      </Secao>
 
-      {/* Saldos */}
+      {/*
+       * O saldo em conta. Continua sendo o número mais decisório do sistema,
+       * mas o herói desta tela é o resultado: aqui ele é seção normal, no
+       * degrau de comparação, sem competir com a dobra.
+       */}
       {tesouraria.balances.length > 0 && (
-        <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-          <h2 className="mb-3 text-sm font-semibold text-content">Contas</h2>
-          <ul className="space-y-2">
+        <Secao titulo="Saldo em conta">
+          <Lista>
             {tesouraria.balances.map((b) => (
-              <li key={b.account.id} className="flex items-baseline justify-between gap-3">
-                <span className="text-sm text-content-muted">{b.account.name}</span>
-                <span className={cn('tnum text-sm font-semibold', b.balance < 0 ? 'text-expense' : 'text-content')}>
-                  {formatCurrency(b.balance)}
-                </span>
-              </li>
+              <Linha
+                key={b.account.id}
+                titulo={b.account.name}
+                meta={ACCOUNT_TYPE_LABEL[b.account.type]}
+                valor={
+                  <Valor
+                    valor={b.balance}
+                    posto="linha"
+                    tinta={b.balance < 0 ? 'text-expense' : undefined}
+                  />
+                }
+              />
             ))}
-          </ul>
-          <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
-            <span className="text-sm font-semibold text-content">Disponível</span>
-            <span className="tnum text-base font-bold text-content">{formatCurrency(tesouraria.available)}</span>
+          </Lista>
+          <div className="mt-2 flex items-baseline justify-between gap-4 border-t border-rule pt-3">
+            <span className="text-base font-semibold text-content">Disponível</span>
+            <Valor valor={tesouraria.available} posto="linha" />
           </div>
           {tesouraria.unassignedCount > 0 && (
-            <p className="mt-2 text-xs text-content-faint">
+            <p className="mt-2 text-sm text-content-faint">
               {tesouraria.unassignedCount} lançamento(s) liquidado(s) sem conta, somando{' '}
               {formatCurrency(tesouraria.unassigned)}. Ficam fora do saldo das contas de propósito —
               incluir daria um número que não bate com banco nenhum.
             </p>
           )}
-        </section>
+        </Secao>
       )}
 
-      {/* 12 meses */}
-      <section className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
-        <div className="flex items-center justify-between px-5 pb-2 pt-4">
-          <h2 className="text-sm font-semibold text-content">Doze meses</h2>
-          <Button variant="secondary" size="sm" onClick={exportarDre}>
-            <Download className="h-3.5 w-3.5" />
+      <Secao
+        titulo="Doze meses"
+        acao={
+          <Button variant="secondary" onClick={exportarDre}>
+            <Download className="h-4 w-4" />
             CSV
           </Button>
-        </div>
-        <div className="overflow-x-auto px-5 pb-5">
-          <table className="w-full min-w-[560px] text-sm">
+        }
+      >
+        {/*
+         * Comparação por COLUNA alinhada à direita, em figura tabular — nunca
+         * por barrinha dentro da linha. Uma barra compara por comprimento
+         * estimado; a coluna compara por contagem de dígito, que é o que se
+         * faz ao conferir contra o extrato.
+         */}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[44rem]">
+            <caption className="sr-only">Resultado dos últimos doze meses</caption>
             <thead>
-              <tr className="border-b border-line text-left text-[10px] uppercase tracking-wide text-content-faint">
-                <th className="py-2 font-medium">Mês</th>
-                <th className="py-2 text-right font-medium">Receita</th>
-                <th className="py-2 text-right font-medium">Impostos</th>
-                <th className="py-2 text-right font-medium">Comissões</th>
-                <th className="py-2 text-right font-medium">Despesas</th>
-                <th className="py-2 text-right font-medium">Resultado</th>
+              <tr className="border-b border-b-line text-xs font-medium uppercase tracking-wide text-content-muted">
+                <th scope="col" className="py-2 text-left">
+                  Mês
+                </th>
+                <th scope="col" className="py-2 text-right">
+                  Receita
+                </th>
+                <th scope="col" className="py-2 text-right">
+                  Impostos
+                </th>
+                <th scope="col" className="py-2 text-right">
+                  Comissões
+                </th>
+                <th scope="col" className="py-2 text-right">
+                  Despesas
+                </th>
+                <th scope="col" className="py-2 text-right">
+                  Resultado
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line">
+            <tbody>
               {serie
                 .filter((s) => s.kpis.revenue > 0 || s.kpis.totalExpense > 0 || s.kpis.taxDeductions > 0)
                 .map((s) => {
                   const despesas =
                     s.kpis.operatingExpense + s.kpis.variableExpense + s.kpis.otherExpense
                   return (
-                    <tr key={monthKey(s.mes)}>
-                      <td className="py-2 text-content-muted">{formatMonthShort(s.mes)}</td>
-                      <td className="tnum py-2 text-right text-income">{formatCurrency(s.kpis.revenue)}</td>
-                      <td className="tnum py-2 text-right text-content-muted">
-                        {s.kpis.taxDeductions > 0 ? `−${formatCurrency(s.kpis.taxDeductions)}` : '—'}
-                      </td>
-                      <td className="tnum py-2 text-right text-content-muted">
-                        {s.kpis.costOfSale > 0 ? `−${formatCurrency(s.kpis.costOfSale)}` : '—'}
-                      </td>
-                      <td className="tnum py-2 text-right text-content-muted">
-                        {despesas > 0 ? `−${formatCurrency(despesas)}` : '—'}
-                      </td>
-                      <td
-                        className={cn(
-                          'tnum py-2 text-right font-semibold',
-                          s.kpis.netProfit < 0 ? 'text-expense' : 'text-content',
-                        )}
-                      >
-                        {formatCurrency(s.kpis.netProfit)}
-                      </td>
+                    <tr key={monthKey(s.mes)} className="border-b border-b-line">
+                      <th scope="row" className="py-2.5 pr-3 text-left text-base font-medium text-content">
+                        {formatMonthShort(s.mes)}
+                      </th>
+                      <Cel>
+                        <Dinheiro valor={s.kpis.revenue} />
+                      </Cel>
+                      <Cel>
+                        {s.kpis.taxDeductions > 0 ? <Dinheiro valor={-s.kpis.taxDeductions} /> : <Traco />}
+                      </Cel>
+                      <Cel>
+                        {s.kpis.costOfSale > 0 ? <Dinheiro valor={-s.kpis.costOfSale} /> : <Traco />}
+                      </Cel>
+                      <Cel>{despesas > 0 ? <Dinheiro valor={-despesas} /> : <Traco />}</Cel>
+                      <Cel>
+                        <ValorComOrigem
+                          valor={s.kpis.netProfit}
+                          posto="fato"
+                          tinta={s.kpis.netProfit < 0 ? 'text-expense' : undefined}
+                          rotuloAcessivel={`Ver de onde vem o resultado de ${formatMonthYear(s.mes)}`}
+                          aoAbrir={() => abrirMes(s)}
+                        />
+                      </Cel>
                     </tr>
                   )
                 })}
             </tbody>
           </table>
         </div>
-      </section>
+      </Secao>
 
-      {/* Por empreendimento */}
       {porEmpreendimento.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
-          <div className="px-5 pb-2 pt-4">
-            <h2 className="text-sm font-semibold text-content">Por empreendimento</h2>
-            <p className="text-xs text-content-faint">
-              Qual produto dá lucro de verdade. Considera todas as vendas, não só o mês.
-            </p>
-          </div>
-          <div className="overflow-x-auto px-5 pb-5">
-            <table className="w-full min-w-[520px] text-sm">
+        <Secao titulo="Por empreendimento">
+          <p className="mb-1 text-sm text-content-muted">
+            Qual produto dá lucro de verdade. Considera todas as vendas, não só o mês.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[40rem]">
               <thead>
-                <tr className="border-b border-line text-left text-[10px] uppercase tracking-wide text-content-faint">
-                  <th className="py-2 font-medium">Empreendimento</th>
-                  <th className="py-2 text-right font-medium">Vendas</th>
-                  <th className="py-2 text-right font-medium">Comissão</th>
-                  <th className="py-2 text-right font-medium">Fica limpo</th>
-                  <th className="py-2 text-right font-medium">Margem</th>
+                <tr className="border-b border-b-line text-xs font-medium uppercase tracking-wide text-content-muted">
+                  <th scope="col" className="py-2 text-left">
+                    Empreendimento
+                  </th>
+                  <th scope="col" className="py-2 text-right">
+                    Vendas
+                  </th>
+                  <th scope="col" className="py-2 text-right">
+                    Comissão
+                  </th>
+                  <th scope="col" className="py-2 text-right">
+                    Fica limpo
+                  </th>
+                  <th scope="col" className="py-2 text-right">
+                    Margem
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line">
+              <tbody>
                 {porEmpreendimento.map((d) => (
-                  <tr key={d.id ?? 'sem'}>
-                    <td className="py-2">
-                      <span className="text-content">{d.name}</span>
-                      {d.developer && <span className="ml-1 text-xs text-content-faint">{d.developer}</span>}
-                    </td>
-                    <td className="tnum py-2 text-right text-content-muted">{d.sales}</td>
-                    <td className="tnum py-2 text-right text-content">{formatCurrency(d.commission)}</td>
-                    <td className="tnum py-2 text-right font-semibold text-income">{formatCurrency(d.net)}</td>
-                    <td className="tnum py-2 text-right text-content-muted">{formatPercent(d.margin, 0)}</td>
+                  <tr key={d.id ?? 'sem'} className="border-b border-b-line">
+                    <th scope="row" className="py-2.5 pr-3 text-left font-normal">
+                      <span className="text-base font-medium text-content">{d.name}</span>
+                      {d.developer && (
+                        <span className="block text-sm text-content-faint">{d.developer}</span>
+                      )}
+                    </th>
+                    <Cel className="tnum text-base text-content-muted">{d.sales}</Cel>
+                    <Cel>
+                      {/*
+                       * Nenhum número sem origem: a comissão do empreendimento
+                       * abre nas vendas que a formaram, e cada uma leva à ficha.
+                       */}
+                      <ValorComOrigem
+                        valor={d.commission}
+                        posto="fato"
+                        rotuloAcessivel={`Ver as vendas que formam a comissão de ${d.name}`}
+                        aoAbrir={() =>
+                          abrir({
+                            rotulo: 'Comissão',
+                            titulo: `Comissão de ${d.name}`,
+                            explica:
+                              'A comissão contratada da imobiliária em todas as vendas ativas deste empreendimento, recebida ou não.',
+                            total: d.commission,
+                            itens: vendasDoEmpreendimento(d).map((v) => ({
+                              id: v.id,
+                              titulo: v.title,
+                              meta: metaDaVenda(v.client_name, v.sale_date),
+                              valor: v.cascade.commission,
+                              para: `/vendas/${v.id}`,
+                            })),
+                            vazio: 'Nenhuma venda ativa neste empreendimento.',
+                          })
+                        }
+                      />
+                    </Cel>
+                    <Cel>
+                      <ValorComOrigem
+                        valor={d.net}
+                        posto="fato"
+                        rotuloAcessivel={`Ver as vendas que formam o que fica limpo em ${d.name}`}
+                        aoAbrir={() =>
+                          abrir({
+                            rotulo: 'Fica limpo',
+                            titulo: `O que fica limpo em ${d.name}`,
+                            explica:
+                              'A comissão depois do ISS retido, do Simples, da comissão do corretor e da parte do sócio. É o que sobra para a imobiliária.',
+                            total: d.net,
+                            itens: vendasDoEmpreendimento(d).map((v) => ({
+                              id: v.id,
+                              titulo: v.title,
+                              meta: metaDaVenda(v.client_name, v.sale_date),
+                              valor: v.cascade.net,
+                              para: `/vendas/${v.id}`,
+                            })),
+                            vazio: 'Nenhuma venda ativa neste empreendimento.',
+                          })
+                        }
+                      />
+                    </Cel>
+                    <Cel className="tnum text-base text-content-muted">{formatPercent(d.margin, 0)}</Cel>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </section>
+        </Secao>
       )}
 
-      {/* Por corretor */}
       {porCorretor.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
-          <div className="px-5 pb-2 pt-4">
-            <h2 className="text-sm font-semibold text-content">Por corretor</h2>
-            <p className="text-xs text-content-faint">Produção e comissão, todas as vendas.</p>
-          </div>
-          <div className="overflow-x-auto px-5 pb-5">
-            <table className="w-full min-w-[520px] text-sm">
+        <Secao titulo="Por corretor">
+          <p className="mb-1 text-sm text-content-muted">Produção e comissão, todas as vendas.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[40rem]">
               <thead>
-                <tr className="border-b border-line text-left text-[10px] uppercase tracking-wide text-content-faint">
-                  <th className="py-2 font-medium">Corretor</th>
-                  <th className="py-2 text-right font-medium">Vendas</th>
-                  <th className="py-2 text-right font-medium">VGV</th>
-                  <th className="py-2 text-right font-medium">Comissão</th>
-                  <th className="py-2 text-right font-medium">A pagar</th>
+                <tr className="border-b border-b-line text-xs font-medium uppercase tracking-wide text-content-muted">
+                  <th scope="col" className="py-2 text-left">
+                    Corretor
+                  </th>
+                  <th scope="col" className="py-2 text-right">
+                    Vendas
+                  </th>
+                  <th scope="col" className="py-2 text-right">
+                    VGV
+                  </th>
+                  <th scope="col" className="py-2 text-right">
+                    Comissão
+                  </th>
+                  <th scope="col" className="py-2 text-right">
+                    A pagar
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line">
+              <tbody>
                 {porCorretor.map((p) => (
-                  <tr key={p.contact.id}>
-                    <td className="py-2 text-content">{p.contact.name}</td>
-                    <td className="tnum py-2 text-right text-content-muted">{p.sales}</td>
-                    <td className="tnum py-2 text-right text-content-muted">{formatCurrency(p.vgv)}</td>
-                    <td className="tnum py-2 text-right text-content">{formatCurrency(p.commissionTotal)}</td>
-                    <td className="tnum py-2 text-right font-semibold text-expense">
-                      {formatCurrency(p.released + p.expected)}
-                    </td>
+                  <tr key={p.contact.id} className="border-b border-b-line">
+                    <th
+                      scope="row"
+                      className="py-2.5 pr-3 text-left text-base font-medium text-content"
+                    >
+                      {p.contact.name}
+                    </th>
+                    <Cel className="tnum text-base text-content-muted">{p.sales}</Cel>
+                    <Cel>
+                      {/* O sistema diz em texto quando não sabe — nunca em zero. */}
+                      {p.vgv > 0 ? (
+                        <Dinheiro valor={p.vgv} />
+                      ) : (
+                        <span className="text-sm text-content-faint">sem VGV informado</span>
+                      )}
+                    </Cel>
+                    <Cel>
+                      <ValorComOrigem
+                        valor={p.commissionTotal}
+                        posto="fato"
+                        rotuloAcessivel={`Ver as vendas que formam a comissão de ${p.contact.name}`}
+                        aoAbrir={() => abrirCorretor(p)}
+                      />
+                    </Cel>
+                    <Cel>
+                      <Dinheiro valor={p.released + p.expected} className="font-semibold" />
+                    </Cel>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </section>
+          {porCorretor.some((p) => p.salesWithoutVgv > 0) && (
+            <p className="mt-2 text-sm text-content-faint">
+              Vendas sem o valor do imóvel informado ficam fora da coluna de VGV. Elas continuam
+              inteiras na comissão — o VGV é que não pode ser inventado.
+            </p>
+          )}
+        </Secao>
       )}
 
-      {/* Despesas por categoria */}
       {porCategoria.length > 0 && (
-        <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-          <h2 className="mb-3 text-sm font-semibold text-content">Saídas do mês por categoria</h2>
-          <ul className="space-y-1.5">
+        <Secao titulo="Saídas do mês por categoria">
+          <Lista>
             {porCategoria.map((c) => (
-              <li key={c.nome} className="flex items-baseline justify-between gap-3">
-                <span className="truncate text-sm text-content-muted">{c.nome}</span>
-                <span className="tnum shrink-0 text-sm text-content">{formatCurrency(c.valor)}</span>
-              </li>
+              <Linha
+                key={c.nome}
+                titulo={c.nome}
+                valor={
+                  <ValorComOrigem
+                    valor={c.valor}
+                    rotuloAcessivel={`Ver os lançamentos de ${c.nome}`}
+                    aoAbrir={() =>
+                      abrir({
+                        rotulo: 'Saídas',
+                        titulo: `${c.nome} em ${formatMonthYear(mes)}`,
+                        explica:
+                          'Tudo o que saiu nesta categoria no mês, no regime selecionado. Duas saídas aparecem aqui sem estar no resultado acima: o imposto sobre o faturamento, que no DRE é dedução da receita, e a retirada de sócio, que sai depois do lucro.',
+                        total: c.valor,
+                        itens: doMes
+                          .filter((t) => t.category === c.nome && dreGroupOf(t) !== 'revenue')
+                          .sort((a, b) => (dataDoRegime(a) ?? '').localeCompare(dataDoRegime(b) ?? ''))
+                          .map((t) => ({
+                            id: t.id,
+                            titulo: t.description || t.category,
+                            meta: frase(t),
+                            valor: t.amount,
+                            para: t.sale_id ? `/vendas/${t.sale_id}` : undefined,
+                          })),
+                        vazio: 'Nenhuma saída nesta categoria.',
+                      })
+                    }
+                  />
+                }
+              />
             ))}
-          </ul>
-        </section>
+          </Lista>
+        </Secao>
       )}
 
       {transactions.length === 0 && (
-        <EmptyState title="Sem dados ainda" description="Registre uma venda ou uma despesa para os relatórios ganharem conteúdo." />
+        <EmptyState
+          title="Sem dados ainda"
+          description="Registre uma venda ou uma despesa para os relatórios ganharem conteúdo."
+        />
       )}
     </div>
   )
+
 }
 
-function Linha({
-  rotulo,
-  valor,
-  forte,
-  destaque,
-}: {
-  rotulo: string
-  valor: number
-  forte?: boolean
-  destaque?: boolean
-}) {
+/**
+ * Uma linha do DRE.
+ *
+ * O fio é a única marca de hierarquia: `border-rule` (3,54:1) fecha um total,
+ * `border-line` (1,24:1) apenas separa duas linhas comuns. São grupos de
+ * borda diferentes de propósito — `border-b-line` e `border-t-rule` não
+ * colidem no merge, então uma linha de total carrega os dois fios sem que um
+ * apague o outro.
+ */
+function LinhaDre({ rotulo, valor, total }: { rotulo: string; valor: number; total?: boolean }) {
   return (
-    <div className="flex items-baseline justify-between py-1">
-      <span className={cn('text-sm', forte ? 'font-semibold text-content' : 'text-content-muted')}>{rotulo}</span>
-      <span
+    <tr className={cn('border-b border-b-line', total && 'border-t border-t-rule')}>
+      <th
+        scope="row"
         className={cn(
-          'tnum shrink-0 font-semibold',
-          destaque ? (valor < 0 ? 'text-lg text-expense' : 'text-lg text-income') : valor < 0 ? 'text-expense' : 'text-content',
+          'py-2.5 pr-4 text-left text-base',
+          total ? 'font-semibold text-content' : 'font-normal text-content-muted',
         )}
       >
-        {formatCurrency(valor)}
+        {rotulo}
+      </th>
+      <td className="py-2.5 text-right">
+        <Dinheiro valor={valor} className={total ? 'font-semibold' : undefined} />
+      </td>
+    </tr>
+  )
+}
+
+/** Ausência de movimento na coluna. Zero conhecido continua sendo escrito como zero. */
+function Traco() {
+  return (
+    <>
+      <span className="sr-only">sem movimento</span>
+      <span className="text-base text-content-faint" aria-hidden>
+        —
       </span>
-    </div>
+    </>
+  )
+}
+
+/** Célula de dado: sempre à direita, para as colunas se compararem por dígito. */
+function Cel({ children, className }: { children: ReactNode; className?: string }) {
+  return <td className={cn('py-2.5 pl-4 text-right align-middle', className)}>{children}</td>
+}
+
+/**
+ * Dinheiro dentro de uma conta — o posto `fato`. Nunca abreviado: a diferença
+ * de R$ 0,04 é o que trava um cadastro, e `formatCurrencyCompact` foi apagada
+ * justamente para que essa regra não dependa de lembrança.
+ */
+function Dinheiro({ valor, className }: { valor: number; className?: string }) {
+  return (
+    <Valor
+      valor={valor}
+      posto="fato"
+      tinta={valor < 0 ? 'text-expense' : undefined}
+      className={className}
+    />
   )
 }

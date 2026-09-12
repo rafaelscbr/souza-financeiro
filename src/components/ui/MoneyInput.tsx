@@ -2,9 +2,9 @@ import { useEffect, useState, type InputHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 const fieldBase =
-  'w-full rounded-xl border border-line bg-surface-2 px-3.5 text-content placeholder:text-content-faint ' +
-  'transition-colors focus:border-emerald focus:outline-none focus:ring-2 focus:ring-emerald/30 ' +
-  'disabled:opacity-50 tnum h-11'
+  'w-full rounded-lg border border-rule bg-surface-2 px-3.5 text-content placeholder:text-content-faint ' +
+  'transition-colors focus:border-content focus:outline-none focus:ring-2 focus:ring-content focus:ring-offset-2 focus:ring-offset-papel ' +
+  'disabled:opacity-50 cifra h-toque'
 
 type BaseProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'>
 

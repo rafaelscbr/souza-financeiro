@@ -16,7 +16,7 @@ export function Spinner({ className }: { className?: string }) {
 export function FullPageLoader({ label = 'Carregando…' }: { label?: string }) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-content-muted">
-      <Spinner className="h-7 w-7 text-emerald" />
+      <Spinner className="h-7 w-7 text-content-muted" />
       <p className="text-sm">{label}</p>
     </div>
   )

@@ -38,7 +38,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // A barra do navegador/PWA acompanha o tema.
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'dark' ? '#0B1220' : '#FFFFFF')
+      ?.setAttribute('content', theme === 'dark' ? '#0A1020' : '#FFFFFF')
     try {
       localStorage.setItem(KEY, theme)
     } catch {

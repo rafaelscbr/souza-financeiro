@@ -1,66 +1,186 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * ---------------------------------------------------------------------------
+ * A tinta da marca, medida — não escolhida.
+ * ---------------------------------------------------------------------------
+ * src/assets/logo-imobiliaria.png tem 60.634 pixels opacos. Deles:
+ *   #0F1730  →  60.007 px = 98,97% de toda a tinta   (o navy)
+ *   #E4B23C  →      89 px =  0,15%                   (o ponto final de
+ *                                                     "IMOBILIÁRIA.", um disco
+ *                                                     de 11 px, e nada mais)
+ * A marca tem DUAS cores. Nenhuma das duas existia no código: o #1E3A8A e o
+ * #B08900 que estavam aqui eram invenção.
+ *
+ * Consequências que governam este arquivo:
+ *
+ * 1. O chão e o bloco são dois tons (1,15:1 no claro, 1,14:1 no escuro), e o
+ *    bloco carrega fio de 1px e elevação curta. A primeira versão unificava os
+ *    dois para matar o cartão no mecanismo; o Rafael pediu mais volume.
+ * 2. A cor de AÇÃO é o navy da marca. O esmeralda saiu: verde agora significa
+ *    só "dinheiro que se moveu". O botão "Entrar" era branco sobre esmeralda a
+ *    2,54:1 — a pior reprovação do app, e a primeira tela que todo mundo vê.
+ * 3. O ouro nunca é texto no tema claro (1,96:1 sobre branco). Por isso ele se
+ *    chama --c-seal, e não --c-gold: o nome impede o uso errado melhor que
+ *    qualquer comentário. Como PREENCHIMENTO sob tinta navy ele dá 9,05:1 —
+ *    e esse par é idêntico nos dois temas, porque é a única coisa que o
+ *    corretor abre o app para ver.
+ * 4. Todo estado tem o par tinta+fundo declarado. Nunca uma cor com alpha:
+ *    era assim que os selos ficavam presos em 2,71:1.
+ *
+ * Todos os contrastes abaixo foram calculados (WCAG 2.x, sRGB), não estimados.
+ */
+
 @layer base {
-  /* ---- Tema claro (padrão) ---- */
+  /* ---------------------------- Tema claro ---------------------------- */
   :root {
     color-scheme: light;
-    --c-base: 244 246 250;
-    --c-surface: 255 255 255;
-    --c-surface-2: 241 244 249;
-    --c-surface-3: 231 236 243;
-    --c-line: 230 234 241;
-    --c-content: 15 23 42;
-    --c-content-muted: 91 102 117;
-    --c-content-faint: 148 163 184;
-    --c-emerald: 16 185 129;
-    --c-emerald-dark: 5 150 105;
-    --c-emerald-soft: 231 247 241;
-    --c-brandblue: 37 99 235;
-    --c-brandblue-soft: 234 241 254;
-    --c-gold: 176 137 0;
-    --c-gold-soft: 251 243 220;
-    --c-income: 5 150 105;
-    --c-expense: 220 38 38;
-    --c-withdrawal: 124 58 237;
-    --c-pending: 217 119 6;
-    --c-healthy: 5 150 105;
-    --c-warning: 217 119 6;
-    --c-critical: 220 38 38;
-    --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
-    --shadow-pop: 0 12px 40px -12px rgba(16, 24, 40, 0.2);
+
+    /*
+     * O CHÃO e o BLOCO.
+     *
+     * A primeira versão deste arquivo fazia `base` e `surface` compartilharem
+     * um único hex: sem dois tons não existe cartão para desenhar, e a página
+     * virava uma folha contínua separada por fios. Era coerente, e o Rafael
+     * pediu o contrário — mais volume, blocos com corpo. Então voltam a ser
+     * dois tons, e com eles a sombra de cartão.
+     *
+     * O que NÃO volta: sombra em conteúdo solto, borda colorida, barra de
+     * acento lateral, gradiente. O bloco é um retângulo de papel sobre um
+     * chão um degrau mais escuro, com fio de 1px e elevação curta. Nada mais.
+     */
+    --c-base: 235 239 246; /* o chão */
+    --c-surface: 255 255 255; /* o bloco — 1,15:1 contra o chão, com fio e sombra */
+    /* Recuo DENTRO do bloco: campo de formulário e cabeçalho de tabela. */
+    --c-surface-2: 240 243 249;
+    --c-surface-3: 225 231 242;
+
+    /* Fio decorativo entre linhas — não carrega leitura. */
+    --c-line: 225 231 240;
+    /* Fio ESTRUTURAL: fecha total, delimita região. Carrega leitura, ≥3:1. */
+    --c-rule: 122 136 171; /* 3,54:1 no papel · 3,24:1 no recuo */
+
+    /* Tinta. A do app já estava a 1,008:1 do navy da marca sem ninguém ter
+       declarado; agora é exatamente o navy. */
+    --c-content: 15 23 48; /* #0F1730 · 17,71:1 */
+    --c-content-muted: 71 83 107; /* #47536B ·  7,73:1 */
+    /* content-faint reprovava a 2,56:1 em 114 lugares. Uma troca de valor
+       conserta os 114. Nada abaixo de 12px usa este tom. */
+    --c-content-faint: 89 101 121; /* #596579 ·  5,90:1 */
+
+    /* Ação — o navy da marca, cor única de clicável. */
+    --c-action: 15 23 48; /* preenchimento do botão */
+    --c-action-ink: 255 255 255; /* tinta sobre ele · 17,71:1 */
+    --c-action-hover: 27 37 71;
+    --c-action-soft: 237 241 250; /* campo de nav ativa / link */
+    --c-action-soft-ink: 34 51 107; /* 10,58:1 dentro dele */
+
+    /* Ouro. Só existe em dois papéis: preenchimento sob tinta navy, e o disco
+       decorativo de 5px do rótulo assinatura (aria-hidden, 3,62:1). */
+    --c-seal: 228 178 60; /* #E4B23C — o ouro verdadeiro, só como fundo */
+    --c-seal-ink: 15 23 48; /* 9,05:1 sobre ele, nos DOIS temas */
+    --c-seal-dot: 172 127 21; /* o disco, no claro */
+
+    /* Dinheiro que se moveu. */
+    --c-income: 5 103 75; /* #05674B · 6,89:1 */
+    --c-income-field: 228 243 236;
+    --c-income-ink: 5 103 75; /* 6,01:1 no campo */
+
+    /* Promessa quebrada. Um só token: ou está vencido, ou não está. */
+    --c-critical: 181 31 38; /* #B51F26 · 6,59:1 */
+    --c-critical-field: 252 233 233;
+    --c-critical-ink: 181 31 38; /* 5,64:1 no campo */
+
+    --c-expense: 181 31 38;
+
+    /* Previsto não tem cor. A ausência de tônica é o sinal: cor = dinheiro que
+       existe. O que carrega o estado é a forma, a palavra e a frase de tempo. */
+    --c-forecast-ink: 71 83 107;
+    --c-forecast-border: 122 136 171; /* 3,54:1 */
+
+    /* Elevação curta, tingida de navy — não cinza-neutro, não preta. */
+    --shadow-card: 0 1px 2px rgba(15, 23, 48, 0.05), 0 2px 6px -1px rgba(15, 23, 48, 0.07);
+    --shadow-pop: 0 12px 40px -12px rgba(15, 23, 48, 0.22);
   }
 
-  /* ---- Tema escuro ---- */
+  /* ---------------------------- Tema escuro ---------------------------- */
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --c-base: 7 12 23; /* o chão, mais fundo que antes */
+    --c-surface: 18 27 46; /* o bloco — 1,14:1 contra o chão */
+    --c-surface-2: 28 40 66;
+    --c-surface-3: 35 48 71;
+
+    --c-line: 36 48 74;
+    --c-rule: 94 110 150; /* 3,74:1 no papel · 3,09:1 no recuo */
+
+    --c-content: 231 236 246; /* 16,00:1 */
+    --c-content-muted: 157 170 196; /*  8,11:1 */
+    --c-content-faint: 148 162 189; /*  7,60:1 no chão · 5,15:1 no recuo-2 */
+
+    /* No escuro o navy é invisível (1,07:1 contra o próprio papel), então o
+       botão inverte: campo claro, tinta navy. */
+    --c-action: 198 213 247;
+    --c-action-ink: 10 16 32; /* 12,87:1 */
+    --c-action-hover: 184 203 245;
+    --c-action-soft: 28 42 78;
+    --c-action-soft-ink: 169 188 238; /* 7,46:1 */
+
+    --c-seal: 228 178 60; /* o mesmo ouro, o mesmo par */
+    --c-seal-ink: 15 23 48; /* 9,05:1 — invariante de tema */
+    --c-seal-dot: 228 178 60; /* 9,69:1 sobre o papel escuro */
+
+    --c-income: 46 211 151; /* 9,82:1 */
+    --c-income-field: 16 53 42;
+    --c-income-ink: 46 211 151; /* 6,95:1 no campo */
+
+    --c-critical: 255 138 138; /* 8,35:1 */
+    --c-critical-field: 61 29 31;
+    --c-critical-ink: 255 138 138; /* 6,64:1 no campo */
+
+    --c-expense: 255 138 138;
+
+    --c-forecast-ink: 157 170 196;
+    --c-forecast-border: 94 110 150; /* 3,74:1 */
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px -1px rgba(0, 0, 0, 0.35);
+    --shadow-pop: 0 16px 44px -12px rgba(0, 0, 0, 0.62);
+  }
+
+  /* A preferência explícita do usuário vence o sistema operacional nos dois
+     sentidos. Sem este bloco, escolher "escuro" num SO claro não faz nada. */
   :root[data-theme='dark'] {
     color-scheme: dark;
-    --c-base: 11 18 32;
-    --c-surface: 19 28 46;
-    --c-surface-2: 27 37 55;
-    --c-surface-3: 40 52 76;
-    --c-line: 39 51 75;
-    --c-content: 232 237 244;
-    --c-content-muted: 158 171 191;
-    --c-content-faint: 110 125 148;
-    --c-emerald: 52 211 153;
-    --c-emerald-dark: 16 185 129;
-    --c-emerald-soft: 22 46 38;
-    --c-brandblue: 96 165 250;
-    --c-brandblue-soft: 23 37 61;
-    --c-gold: 212 167 44;
-    --c-gold-soft: 46 39 18;
-    --c-income: 52 211 153;
-    --c-expense: 248 113 113;
-    --c-withdrawal: 167 139 250;
-    --c-pending: 251 191 36;
-    --c-healthy: 52 211 153;
-    --c-warning: 251 191 36;
-    --c-critical: 248 113 113;
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.32);
-    --shadow-pop: 0 16px 44px -12px rgba(0, 0, 0, 0.6);
+    --c-base: 7 12 23; /* o chão, mais fundo que antes */
+    --c-surface: 18 27 46; /* o bloco — 1,14:1 contra o chão */
+    --c-surface-2: 28 40 66;
+    --c-surface-3: 35 48 71;
+    --c-line: 36 48 74;
+    --c-rule: 94 110 150;
+    --c-content: 231 236 246;
+    --c-content-muted: 157 170 196;
+    --c-content-faint: 148 162 189;
+    --c-action: 198 213 247;
+    --c-action-ink: 10 16 32;
+    --c-action-hover: 184 203 245;
+    --c-action-soft: 28 42 78;
+    --c-action-soft-ink: 169 188 238;
+    --c-seal: 228 178 60;
+    --c-seal-ink: 15 23 48;
+    --c-seal-dot: 228 178 60;
+    --c-income: 46 211 151;
+    --c-income-field: 16 53 42;
+    --c-income-ink: 46 211 151;
+    --c-critical: 255 138 138;
+    --c-critical-field: 61 29 31;
+    --c-critical-ink: 255 138 138;
+    --c-expense: 255 138 138;
+    --c-forecast-ink: 157 170 196;
+    --c-forecast-border: 94 110 150;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px -1px rgba(0, 0, 0, 0.35);
+    --shadow-pop: 0 16px 44px -12px rgba(0, 0, 0, 0.62);
   }
 
   * {
@@ -74,20 +194,19 @@
   }
 
   body {
-    @apply bg-base text-content font-sans antialiased;
+    @apply bg-papel text-content font-sans antialiased;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
-  /* Números financeiros sempre alinhados */
-  .tnum {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum';
-  }
-
-  /* Foco visível e acessível para navegação por teclado */
+  /*
+   * Foco: contorno SÓLIDO de 2px na tinta da marca, com 2px de afastamento.
+   * 17,71:1 sobre o papel e 16,21:1 dentro do campo. O anel esmeralda que
+   * estava aqui dava 2,34:1 sobre o papel e 1,46:1 dentro do campo de login —
+   * ou seja, invisível exatamente onde mais importa.
+   */
   :focus-visible {
-    @apply outline-none ring-2 ring-emerald ring-offset-2 ring-offset-base;
+    @apply outline-none ring-2 ring-content ring-offset-2 ring-offset-papel;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -101,18 +220,81 @@
     }
   }
 
-  /* Scrollbar discreta */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-surface-3 rounded-full;
+    @apply rounded-full bg-surface-3;
     border: 2px solid transparent;
     background-clip: content-box;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
+  }
+}
+
+@layer components {
+  /*
+   * O RÓTULO ASSINATURA.
+   *
+   * No logotipo, "IMOBILIÁRIA" não é caixa alta de grotesca: é SLAB SERIF.
+   * Medi o "I" pixel a pixel — barra de 19px sobre haste de 7px (2,71:1), sem
+   * bracket, caixa alta de 43px, vãos de 22 a 26px. O avanço da letra (42px)
+   * é igual à caixa alta: célula quadrada, entreletra de ~0,38em.
+   *
+   * Esta classe é a única porta para a slab no sistema, e ela vem sempre com
+   * o disco de ouro no fim — o ponto final da marca, na mesma proporção em
+   * que ele aparece no logotipo. Um por tela. Nunca dois.
+   */
+  .assinatura {
+    font-family: 'Roboto Slab', ui-serif, Georgia, serif;
+    font-weight: 500;
+    font-size: 0.75rem; /* 12px — piso absoluto do sistema */
+    line-height: 1rem;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: rgb(var(--c-content-muted));
+  }
+
+  /* O ponto. Disco, nunca quadrado: medi o perfil do glifo
+     (6,8,10,10,10,11,10,10,9,7,1 px por linha) e ele é redondo.
+
+     A casca usa `.assinatura.sem-ponto`: o rótulo do produto aparece em toda
+     tela, e se ele levasse o ponto haveria sempre DOIS pontos de ouro na
+     mesma tela — o da casca e o do herói. Dois pontos e a assinatura morre. */
+  .assinatura::after {
+    content: '';
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    margin-left: 0.1em;
+    border-radius: 9999px;
+    background: rgb(var(--c-seal-dot));
+    vertical-align: baseline;
+  }
+
+  .assinatura.sem-ponto::after {
+    content: none;
+  }
+
+  /*
+   * Dinheiro. Archivo com figura tabular de verdade.
+   * O SOUZA do logotipo é grotesca pesada — haste de 27px sobre caixa alta de
+   * 111px, 24,3%, território Archivo 700. Os números herdam a letra do
+   * wordmark; a Inter fica só com o texto de interface.
+   */
+  .cifra {
+    font-family: 'Archivo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+    letter-spacing: -0.01em;
+  }
+
+  /* Mantida porque 77 lugares ainda a citam; agora só liga a figura tabular. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
   }
 }
 

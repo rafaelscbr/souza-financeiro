@@ -54,7 +54,7 @@ export function Tip({
         aria-label={label}
         aria-expanded={open}
         aria-describedby={open ? id : undefined}
-        className="inline-flex items-center justify-center rounded-full p-0.5 text-content-faint transition-colors hover:text-content-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald focus-visible:ring-offset-1"
+        className="-m-2.5 inline-flex h-toque w-toque items-center justify-center rounded-lg text-content-faint transition-colors hover:bg-surface-2 hover:text-content-muted"
       >
         <HelpCircle className="h-3.5 w-3.5" />
       </button>
@@ -64,7 +64,7 @@ export function Tip({
           id={id}
           role="tooltip"
           className={cn(
-            'absolute top-full z-50 mt-1.5 w-64 animate-scale-in rounded-xl border border-line bg-surface p-3 text-left text-xs font-normal leading-relaxed text-content-muted shadow-pop',
+            'absolute top-full z-50 mt-1.5 w-64 animate-scale-in rounded-lg border border-rule bg-surface p-3 text-left text-sm font-normal leading-relaxed text-content-muted shadow-pop',
             align === 'end' ? 'right-0' : 'left-0',
           )}
         >

@@ -1,48 +1,92 @@
 import { useState } from 'react'
-import { Building, KeyRound, Landmark, Plus, Receipt, Tag } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { TrocarSenha } from '@/auth/TrocarSenha'
 import { useAdmin } from '../AdminData'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
+import { Secao } from '@/components/ui/Secao'
+import { Lista, Linha } from '@/components/ui/Lista'
+import { Valor } from '@/components/ui/Valor'
 import { FormField, Input, Select } from '@/components/ui/Field'
 import { CurrencyInput, PercentInput } from '@/components/ui/MoneyInput'
 import { Segmented } from '@/components/ui/Segmented'
 import { Spinner } from '@/components/ui/Spinner'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import { ACCOUNT_TYPE_LABEL, accountBalance } from '@/lib/treasury'
-import { formatCurrency, formatDate, toDateOnly } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatDate, toDateOnly } from '@/lib/format'
 import type { Account, CostCenter } from '@/types'
 
 type Aba = 'contas' | 'empreendimentos' | 'categorias' | 'imposto' | 'conta'
 
-/** Cadastros e regras. O que se configura uma vez e some do caminho. */
+/*
+ * CONFIGURAÇÕES — cadastros e regras. O que se configura uma vez e some do
+ * caminho.
+ *
+ * Com 587 linhas, era a tela mais longa do app, e é inteira formulário. Duas
+ * decisões de desenho saem disso:
+ *
+ * 1. **Não há herói.** A regra do sistema é um número em degrau herói por
+ *    tela, e ela existe para obrigar a tela a declarar qual pergunta responde.
+ *    Configuração não responde pergunta de dinheiro nenhuma: o saldo é do
+ *    Início, o resultado é de Relatórios. Inventar um herói aqui seria pôr um
+ *    terceiro número grande disputando com os dois que já têm dono — que é
+ *    exatamente o defeito que a regra foi escrita para impedir. Então a tela
+ *    abre com um h1 comum, sem ponto de ouro.
+ *
+ * 2. **Nenhum cartão.** Eram sete blocos `rounded-2xl border bg-surface
+ *    shadow-card`, mais um oitavo tracejado para o vazio — e `shadow-card` já
+ *    nem existe em tailwind.config.js, que guarda só `pop`, para o que de fato
+ *    flutua. Viraram seções separadas por fio, e as listas de conta,
+ *    empreendimento e categoria viraram `Lista`.
+ *
+ * Também sumiu a barra de acento colorida da conta (`a.color` pintando um
+ * traço vertical de 6px): o sistema visual tem duas matizes, a da marca, e
+ * nenhuma informação pode depender de uma cor arbitrária guardada no cadastro.
+ * O valor continua sendo gravado como sempre — só deixou de virar tinta.
+ *
+ * O comportamento de salvar não mudou em nenhum dos cinco formulários.
+ */
 export function Config() {
   const [aba, setAba] = useState<Aba>('contas')
 
   return (
-    <div className="animate-fade-in space-y-4">
-      <h1 className="text-xl font-bold text-content">Configurações</h1>
+    <div className="animate-fade-in">
+      <h1 className="text-lg font-semibold text-content">Configurações</h1>
+      <p className="mt-1 max-w-[42rem] text-base text-content-muted">
+        Contas, empreendimentos, categorias e imposto. O que se muda aqui vale para os lançamentos
+        daqui para frente — nada do que já está gravado é reescrito.
+      </p>
 
-      <Segmented
-        ariaLabel="Seção"
-        value={aba}
-        onChange={setAba}
-        options={[
-          { value: 'contas', label: 'Contas' },
-          { value: 'empreendimentos', label: 'Empreendimentos' },
-          { value: 'categorias', label: 'Categorias' },
-          { value: 'imposto', label: 'Imposto' },
-          { value: 'conta', label: 'Minha conta' },
-        ]}
-      />
+      {/*
+       * Cinco abas não cabem lado a lado num celular sem espremer
+       * "Empreendimentos" até quebrar. Então a régua tem largura mínima e quem
+       * rola é a própria régua, nunca a página.
+       */}
+      <div className="mt-4 overflow-x-auto pb-1">
+        <Segmented
+          ariaLabel="Seção"
+          className="min-w-[40rem]"
+          value={aba}
+          onChange={setAba}
+          options={[
+            { value: 'contas', label: 'Contas' },
+            { value: 'empreendimentos', label: 'Empreendimentos' },
+            { value: 'categorias', label: 'Categorias' },
+            { value: 'imposto', label: 'Imposto' },
+            { value: 'conta', label: 'Minha conta' },
+          ]}
+        />
+      </div>
 
-      {aba === 'contas' && <Contas />}
-      {aba === 'empreendimentos' && <Empreendimentos />}
-      {aba === 'categorias' && <Categorias />}
-      {aba === 'imposto' && <Imposto />}
-      {aba === 'conta' && <MinhaConta />}
+      <div className="mt-6">
+        {aba === 'contas' && <Contas />}
+        {aba === 'empreendimentos' && <Empreendimentos />}
+        {aba === 'categorias' && <Categorias />}
+        {aba === 'imposto' && <Imposto />}
+        {aba === 'conta' && <MinhaConta />}
+      </div>
     </div>
   )
 }
@@ -53,57 +97,61 @@ function Contas() {
   const { showToast } = useToast()
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-content-muted">Onde o dinheiro da imobiliária entra e sai.</p>
-        <Button size="sm" onClick={() => setEditando('nova')}>
-          <Plus className="h-4 w-4" />
-          Nova conta
-        </Button>
-      </div>
-
-      {accounts.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-line bg-surface/50 p-6 text-center text-sm text-content-muted">
-          Nenhuma conta cadastrada. Sem conta, a baixa fica sem destino e o saldo não fecha com o
-          extrato do banco.
+    <>
+      <Secao
+        titulo="Contas"
+        acao={
+          <Button onClick={() => setEditando('nova')}>
+            <Plus className="h-4 w-4" />
+            Nova conta
+          </Button>
+        }
+      >
+        <p className="mb-1 max-w-[42rem] text-base text-content-muted">
+          Onde o dinheiro da imobiliária entra e sai. O saldo ao lado é o de hoje, já com as
+          transferências entre contas.
         </p>
-      ) : (
-        <ul className="space-y-2">
-          {accounts.map((a) => {
-            const saldo = accountBalance(a, transactions, transfers)
-            return (
-              <li
-                key={a.id}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-4 shadow-card"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="h-8 w-1.5 rounded-full" style={{ backgroundColor: a.color }} aria-hidden />
-                  <div>
-                    <p className="text-sm font-semibold text-content">
-                      {a.name}
-                      {!a.is_active && <span className="ml-1.5 text-xs text-content-faint">(inativa)</span>}
-                    </p>
-                    <p className="text-xs text-content-faint">
-                      {ACCOUNT_TYPE_LABEL[a.type]}
-                      {a.bank ? ` · ${a.bank}` : ''} · desde {formatDate(a.opening_date)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={cn('tnum text-sm font-bold', saldo.balance < 0 ? 'text-expense' : 'text-content')}
-                  >
-                    {formatCurrency(saldo.balance)}
-                  </span>
-                  <Button variant="secondary" size="sm" onClick={() => setEditando(a)}>
-                    Editar
-                  </Button>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+
+        {accounts.length === 0 ? (
+          <EmptyState
+            title="Nenhuma conta cadastrada"
+            description="Sem conta, a baixa fica sem destino e o saldo não fecha com o extrato do banco."
+            action={<Button onClick={() => setEditando('nova')}>Cadastrar a primeira conta</Button>}
+          />
+        ) : (
+          /*
+           * A linha inteira abre o cadastro — 56px de alvo em vez do botão
+           * "Editar" de 36px que ficava no canto direito, abaixo do piso de
+           * toque de 44px do sistema.
+           */
+          <Lista>
+            {accounts.map((a) => {
+              const saldo = accountBalance(a, transactions, transfers)
+              return (
+                <Linha
+                  key={a.id}
+                  titulo={a.is_active ? a.name : `${a.name} (inativa)`}
+                  meta={[
+                    ACCOUNT_TYPE_LABEL[a.type],
+                    a.bank,
+                    `aberta em ${formatDate(a.opening_date)}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  valor={
+                    <Valor
+                      valor={saldo.balance}
+                      posto="linha"
+                      tinta={saldo.balance < 0 ? 'text-expense' : undefined}
+                    />
+                  }
+                  aoClicar={() => setEditando(a)}
+                />
+              )
+            })}
+          </Lista>
+        )}
+      </Secao>
 
       <FormConta
         alvo={editando}
@@ -114,7 +162,7 @@ function Contas() {
           setEditando(null)
         }}
       />
-    </div>
+    </>
   )
 }
 
@@ -181,9 +229,15 @@ function FormConta({
     >
       <div className="space-y-4">
         <FormField label="Nome" htmlFor="ct-nome">
-          <Input id="ct-nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Bradesco PJ" autoFocus />
+          <Input
+            id="ct-nome"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            placeholder="Ex.: Bradesco PJ"
+            autoFocus
+          />
         </FormField>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <FormField label="Tipo" htmlFor="ct-tipo">
             <Select id="ct-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as Account['type'])}>
               {Object.entries(ACCOUNT_TYPE_LABEL).map(([k, v]) => (
@@ -197,7 +251,7 @@ function FormConta({
             <Input id="ct-banco" value={banco} onChange={(e) => setBanco(e.target.value)} />
           </FormField>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <FormField label="Saldo inicial" htmlFor="ct-saldo" hint="o do extrato na data abaixo">
             <CurrencyInput id="ct-saldo" value={saldo} onChange={setSaldo} />
           </FormField>
@@ -205,10 +259,7 @@ function FormConta({
             <Input id="ct-data" type="date" value={data} onChange={(e) => setData(e.target.value)} />
           </FormField>
         </div>
-        <label className="flex cursor-pointer items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3">
-          <span className="text-sm text-content">Conta ativa</span>
-          <input type="checkbox" checked={ativa} onChange={(e) => setAtiva(e.target.checked)} />
-        </label>
+        <Chave rotulo="Conta ativa" marcado={ativa} aoMudar={setAtiva} />
         {erro && (
           <p className="text-sm text-expense" role="alert">
             {erro}
@@ -225,49 +276,57 @@ function Empreendimentos() {
   const { showToast } = useToast()
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-content-muted">
-          Cada empreendimento guarda a construtora e se ela retém ISS.
+    <>
+      <Secao
+        titulo="Empreendimentos"
+        acao={
+          <Button onClick={() => setEditando('novo')}>
+            <Plus className="h-4 w-4" />
+            Novo
+          </Button>
+        }
+      >
+        <p className="mb-1 max-w-[42rem] text-base text-content-muted">
+          Cada empreendimento guarda a construtora e se ela retém ISS. É daqui que a venda nasce
+          sabendo quanto de imposto sai antes de o dinheiro chegar.
         </p>
-        <Button size="sm" onClick={() => setEditando('novo')}>
-          <Plus className="h-4 w-4" />
-          Novo
-        </Button>
-      </div>
 
-      <ul className="space-y-2">
-        {costCenters.map((c) => {
-          const cc = c as CostCenter & { retains_iss?: boolean; iss_pct?: number; default_commission_pct?: number | null }
-          const qtd = vendas.filter((v) => v.cost_center_id === c.id).length
-          return (
-            <li
-              key={c.id}
-              className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-4 shadow-card"
-            >
-              <div>
-                <p className="text-sm font-semibold text-content">
-                  {c.name}
-                  {!c.is_active && <span className="ml-1.5 text-xs text-content-faint">(inativo)</span>}
-                </p>
-                <p className="text-xs text-content-faint">
-                  {[
+        {costCenters.length === 0 ? (
+          <EmptyState
+            title="Nenhum empreendimento cadastrado"
+            description="Sem empreendimento a venda não sabe se a construtora retém ISS, e a comissão líquida sai errada."
+            action={<Button onClick={() => setEditando('novo')}>Cadastrar o primeiro</Button>}
+          />
+        ) : (
+          <Lista>
+            {costCenters.map((c) => {
+              const cc = c as CostCenter & {
+                retains_iss?: boolean
+                iss_pct?: number
+                default_commission_pct?: number | null
+              }
+              const qtd = vendas.filter((v) => v.cost_center_id === c.id).length
+              return (
+                <Linha
+                  key={c.id}
+                  titulo={c.is_active ? c.name : `${c.name} (inativo)`}
+                  meta={[
                     c.developer,
                     `${qtd} venda${qtd === 1 ? '' : 's'}`,
                     cc.retains_iss ? `retém ISS ${cc.iss_pct ?? 0}%` : 'sem retenção de ISS',
-                    cc.default_commission_pct != null ? `comissão padrão ${cc.default_commission_pct}%` : null,
+                    cc.default_commission_pct != null
+                      ? `comissão padrão ${cc.default_commission_pct}%`
+                      : null,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
-                </p>
-              </div>
-              <Button variant="secondary" size="sm" onClick={() => setEditando(c)}>
-                Editar
-              </Button>
-            </li>
-          )
-        })}
-      </ul>
+                  aoClicar={() => setEditando(c)}
+                />
+              )
+            })}
+          </Lista>
+        )}
+      </Secao>
 
       <FormEmpreendimento
         alvo={editando}
@@ -278,7 +337,7 @@ function Empreendimentos() {
           setEditando(null)
         }}
       />
-    </div>
+    </>
   )
 }
 
@@ -348,12 +407,18 @@ function FormEmpreendimento({
     >
       <div className="space-y-4">
         <FormField label="Nome" htmlFor="ep-nome">
-          <Input id="ep-nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: PortoVelas" autoFocus />
+          <Input
+            id="ep-nome"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            placeholder="Ex.: PortoVelas"
+            autoFocus
+          />
         </FormField>
         <FormField label="Construtora" htmlFor="ep-const" hint="quem paga a comissão">
           <Input id="ep-const" value={construtora} onChange={(e) => setConstrutora(e.target.value)} />
         </FormField>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <FormField label="Retém ISS?" htmlFor="ep-iss" hint="desconta no pagamento">
             <Segmented
               ariaLabel="Retém ISS"
@@ -374,10 +439,7 @@ function FormEmpreendimento({
         <FormField label="% de comissão habitual" htmlFor="ep-com" hint="opcional; preenche a venda">
           <PercentInput id="ep-com" value={pctComissao} onChange={setPctComissao} />
         </FormField>
-        <label className="flex cursor-pointer items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3">
-          <span className="text-sm text-content">Ativo</span>
-          <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />
-        </label>
+        <Chave rotulo="Ativo" marcado={ativo} aoMudar={setAtivo} />
         {erro && (
           <p className="text-sm text-expense" role="alert">
             {erro}
@@ -403,31 +465,37 @@ function Categorias() {
   for (const t of transactions) usoPorCategoria.set(t.category, (usoPorCategoria.get(t.category) ?? 0) + 1)
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-content-muted">Como as despesas são classificadas.</p>
-        <Button size="sm" onClick={() => setNova(true)}>
-          <Plus className="h-4 w-4" />
-          Nova
-        </Button>
-      </div>
+    <>
+      <Secao
+        titulo="Categorias"
+        acao={
+          <Button onClick={() => setNova(true)}>
+            <Plus className="h-4 w-4" />
+            Nova
+          </Button>
+        }
+      >
+        <p className="mb-1 max-w-[42rem] text-base text-content-muted">
+          Como as despesas são classificadas. As duas categorias de comissão ficam fora desta lista
+          de propósito: elas não se configuram, nascem do cadastro da venda.
+        </p>
 
-      <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
-        {minhas.map((c) => (
-          <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-            <div className="flex items-center gap-2">
-              <Tag className="h-3.5 w-3.5 text-content-faint" />
-              <span className="text-sm text-content">{c.name}</span>
-              <span className="text-[10px] uppercase tracking-wide text-content-faint">
-                {c.kind === 'income' ? 'entrada' : 'saída'}
-              </span>
-            </div>
-            <span className="text-xs text-content-faint">
-              {usoPorCategoria.get(c.name) ?? 0} uso(s)
-            </span>
-          </li>
-        ))}
-      </ul>
+        <Lista>
+          {minhas.map((c) => {
+            const usos = usoPorCategoria.get(c.name) ?? 0
+            return (
+              <Linha
+                key={c.id}
+                titulo={c.name}
+                meta={[
+                  c.kind === 'income' ? 'entrada' : 'saída',
+                  `${usos} ${usos === 1 ? 'lançamento' : 'lançamentos'}`,
+                ].join(' · ')}
+              />
+            )
+          })}
+        </Lista>
+      </Secao>
 
       <Modal
         open={nova}
@@ -478,7 +546,7 @@ function Categorias() {
           </FormField>
         </div>
       </Modal>
-    </div>
+    </>
   )
 }
 
@@ -490,20 +558,20 @@ function Imposto() {
   const { showToast } = useToast()
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-        <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-content">
-          <Receipt className="h-4 w-4 text-content-muted" />
-          Enquadramento
-        </h2>
-        <p className="mb-4 text-xs text-content-muted">
+    <>
+      <Secao titulo="Enquadramento">
+        <p className="mb-3 max-w-[42rem] text-base text-content-muted">
           A alíquota aqui é só o padrão que o formulário de venda sugere. O que vale no resultado é o
           imposto lançado em cada parcela — é assim que a guia do DAS aparece em A pagar na data
           certa.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label="Regime" htmlFor="im-regime">
-            <Select id="im-regime" value={regime ?? 'simples'} onChange={(e) => setRegime(e.target.value as typeof regime)}>
+            <Select
+              id="im-regime"
+              value={regime ?? 'simples'}
+              onChange={(e) => setRegime(e.target.value as typeof regime)}
+            >
               <option value="simples">Simples Nacional</option>
               <option value="presumido">Lucro Presumido</option>
               <option value="real">Lucro Real</option>
@@ -529,23 +597,16 @@ function Imposto() {
         >
           {salvando ? <Spinner className="h-5 w-5" /> : 'Salvar'}
         </Button>
-      </div>
+      </Secao>
 
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-        <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-content">
-          <Landmark className="h-4 w-4 text-content-muted" />
-          Sobre a empresa
-        </h2>
-        <p className="text-sm text-content-muted">
-          {company?.name ?? '—'}
-        </p>
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-content-faint">
-          <Building className="h-3.5 w-3.5" />
+      <Secao titulo="A empresa">
+        <p className="text-base text-content">{company?.name ?? '—'}</p>
+        <p className="mt-2 max-w-[42rem] text-sm text-content-muted">
           Este sistema atende só a imobiliária. O financeiro pessoal e as outras empresas saíram do
           uso e estão preservados no arquivo do banco.
         </p>
-      </div>
-    </div>
+      </Secao>
+    </>
   )
 }
 
@@ -559,29 +620,53 @@ function MinhaConta() {
   const [trocando, setTrocando] = useState(false)
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-        <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-content">
-          <KeyRound className="h-4 w-4 text-content-muted" />
-          Seu acesso
-        </h2>
-        <p className="text-sm text-content-muted">{profile?.name ?? 'Administrador'}</p>
-        <p className="text-xs text-content-faint">{email}</p>
+    <>
+      <Secao titulo="Seu acesso">
+        <p className="text-base text-content">{profile?.name ?? 'Administrador'}</p>
+        <p className="mt-0.5 text-sm text-content-muted">{email}</p>
         <Button className="mt-4" onClick={() => setTrocando(true)}>
           Trocar minha senha
         </Button>
-      </div>
+      </Secao>
 
-      <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-        <h2 className="mb-1 text-sm font-semibold text-content">Senha de um corretor</h2>
-        <p className="text-sm text-content-muted">
+      <Secao titulo="Senha de um corretor">
+        <p className="max-w-[42rem] text-base text-content-muted">
           O corretor troca a própria senha no menu do perfil dele. Se esquecer, a redefinição é feita
           no painel do Supabase, em Authentication → Users → o usuário → Reset password. Trocar a
           senha de outra pessoa exige a chave de administração, que não pode ficar no navegador.
         </p>
-      </div>
+      </Secao>
 
       <TrocarSenha aberto={trocando} onFechar={() => setTrocando(false)} />
-    </div>
+    </>
+  )
+}
+
+/**
+ * Ligar/desligar dentro de um formulário.
+ *
+ * A caixa de seleção nativa é bem menor que o piso de toque do sistema, então
+ * quem recebe o toque é o rótulo inteiro, com 44px de altura: ligar ou desligar
+ * uma conta não pode exigir mira.
+ */
+function Chave({
+  rotulo,
+  marcado,
+  aoMudar,
+}: {
+  rotulo: string
+  marcado: boolean
+  aoMudar: (v: boolean) => void
+}) {
+  return (
+    <label className="flex min-h-toque cursor-pointer items-center justify-between gap-3 rounded-lg border border-line bg-surface-2 px-3.5 py-2">
+      <span className="text-base text-content">{rotulo}</span>
+      <input
+        type="checkbox"
+        checked={marcado}
+        onChange={(e) => aoMudar(e.target.checked)}
+        className="h-5 w-5 accent-action"
+      />
+    </label>
   )
 }

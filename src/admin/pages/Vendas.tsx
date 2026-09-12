@@ -1,48 +1,94 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { AlertTriangle, Ban, Calendar, Handshake, Search, User } from 'lucide-react'
+import { Handshake, Search } from 'lucide-react'
 import { useAdmin } from '../AdminData'
-import { Input, Select } from '@/components/ui/Field'
+import { useComposicao } from '@/components/composicao/Composicao'
+import { Heroi } from '@/components/ui/Assinatura'
+import { Secao, SubtotalDuplo } from '@/components/ui/Secao'
+import { Lista, Linha } from '@/components/ui/Lista'
+import { Valor, ValorComOrigem } from '@/components/ui/Valor'
+import { ChipSituacao } from '@/components/ui/Situacao'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { Progress } from '@/components/ui/Progress'
+import { Input } from '@/components/ui/Field'
 import { Segmented } from '@/components/ui/Segmented'
-import { formatCurrency, formatDate, formatDateShort } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatCurrency, formatDateShort } from '@/lib/format'
+import type { Situacao } from '@/lib/situacao'
+import type { SaleView } from '@/lib/sales'
 
-/** A carteira: cada venda com o que falta receber e o que falta pagar. */
+/*
+ * A CARTEIRA DE VENDAS.
+ *
+ * A tela anterior tinha quatro defeitos, e três deles eram de estrutura:
+ *
+ * 1. Quatro indicadores no topo (comissão contratada, já recebido, ainda a
+ *    receber e comissão a pagar) somavam a lista filtrada — e NENHUM deles era
+ *    o número que o cartão destacava, que era o líquido da venda
+ *    (`cascade.net`, escrito "Fica limpo"). A tela somava quatro grandezas e
+ *    destacava uma quinta. A grade de quatro indicadores é vetada por escrito
+ *    (docs/sistema-visual.md §10): um herói, e o resto em linhas.
+ *
+ * 2. Quatro filtros para uma carteira pequena, e dois deles — corretor e
+ *    empreendimento — filtravam por id exatamente o que a busca já cobria por
+ *    texto. Sobraram dois controles: a busca, que passou a incluir o nome do
+ *    corretor, e a situação em três opções ("Canceladas" sumiu como opção
+ *    própria porque "Todas" já as mostra, e elas chegam riscadas).
+ *
+ * 3. Cada venda era um cartão com sombra, borda que acendia em `brandblue` no
+ *    hover, selos com cor em alpha (`bg-critical/12`) e rótulo de 10 e 11px.
+ *    Nada disso existe mais: sem cartão, sem sombra, chip com par tinta+fundo
+ *    declarado e piso de 12px.
+ *
+ * 4. A `Progress` de cada cartão vinha com `color="#059669"` cravado em
+ *    hexadecimal — o esmeralda, fora de qualquer token. Vinte barras numa
+ *    lista não se comparam entre si; o progresso passa a ser escrito, e a
+ *    barra fica só onde ela é a conta inteira de uma venda só: na ficha.
+ *
+ * O herói é "Comissão em carteira": a comissão contratada que ainda não
+ * entrou, somando as parcelas previstas de todas as vendas não canceladas.
+ * Ele não segue o filtro de propósito — o filtro muda a lista, não o tamanho
+ * da carteira —, e o subtotal do grupo, esse sim, acompanha a lista, sempre em
+ * duas parcelas: o que já entrou e o que ainda é promessa da construtora.
+ */
 export function Vendas() {
-  const { vendas, contacts, costCenters } = useAdmin()
+  const { vendas } = useAdmin()
+  const { abrir } = useComposicao()
   const [busca, setBusca] = useState('')
-  const [situacao, setSituacao] = useState<'andamento' | 'concluidas' | 'canceladas' | 'todas'>('andamento')
-  const [corretor, setCorretor] = useState('')
-  const [empreendimento, setEmpreendimento] = useState('')
+  const [situacao, setSituacao] = useState<'andamento' | 'concluidas' | 'todas'>('andamento')
+
+  /** Venda cancelada não é carteira: o que sobrou dela já foi cancelado no banco. */
+  const ativas = useMemo(() => vendas.filter((v) => v.status !== 'cancelada'), [vendas])
+
+  /*
+   * O número herói. `toReceive` é a soma das parcelas ainda previstas, gravada
+   * parcela a parcela pela migração 009 — esta tela não recalcula comissão
+   * nenhuma, só soma o que já está gravado.
+   */
+  const emCarteira = useMemo(() => soma(ativas.map((v) => v.toReceive)), [ativas])
 
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase()
     return vendas.filter((v) => {
       if (situacao === 'andamento' && v.status !== 'ativa') return false
       if (situacao === 'concluidas' && v.status !== 'concluida') return false
-      if (situacao === 'canceladas' && v.status !== 'cancelada') return false
-      if (corretor && v.broker_id !== corretor) return false
-      if (empreendimento && v.cost_center_id !== empreendimento) return false
-      if (q && !`${v.title} ${v.client_name ?? ''} ${v.development ?? ''}`.toLowerCase().includes(q)) return false
+      if (
+        q &&
+        !`${v.title} ${v.client_name ?? ''} ${v.development ?? ''} ${v.brokerName ?? ''}`
+          .toLowerCase()
+          .includes(q)
+      )
+        return false
       return true
     })
-  }, [vendas, busca, situacao, corretor, empreendimento])
+  }, [vendas, busca, situacao])
 
-  const totais = useMemo(
-    () =>
-      filtradas.reduce(
-        (a, v) => ({
-          comissao: a.comissao + v.cascade.commission,
-          recebido: a.recebido + v.received,
-          aReceber: a.aReceber + v.toReceive,
-          comissaoAPagar: a.comissaoAPagar + v.brokerToPay,
-        }),
-        { comissao: 0, recebido: 0, aReceber: 0, comissaoAPagar: 0 },
-      ),
-    [filtradas],
-  )
+  /*
+   * O subtotal do grupo, nas duas parcelas que o sistema exige: o que já
+   * entrou e o que depende da construtora. Somar os dois num número só seria
+   * misturar o que a imobiliária tem com o que ela espera — e as duas metades
+   * somam exatamente a coluna de valores ao lado, porque `received` e
+   * `toReceive` são as duas partes da mesma comissão contratada.
+   */
+  const jaEntrou = useMemo(() => soma(filtradas.map((v) => v.received)), [filtradas])
+  const aReceber = useMemo(() => soma(filtradas.map((v) => v.toReceive)), [filtradas])
 
   if (vendas.length === 0) {
     return (
@@ -55,175 +101,168 @@ export function Vendas() {
   }
 
   return (
-    <div className="animate-fade-in space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-content">Vendas</h1>
-        <p className="text-sm text-content-faint">
-          {filtradas.length} de {vendas.length}
-        </p>
-      </div>
+    <div className="animate-fade-in">
+      <h1 className="text-lg font-semibold tracking-[-0.005em] text-content">Vendas</h1>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Total rotulo="Comissão contratada" valor={totais.comissao} />
-        <Total rotulo="Já recebido" valor={totais.recebido} tom="text-income" />
-        <Total rotulo="Ainda a receber" valor={totais.aReceber} tom="text-pending" />
-        <Total rotulo="Comissão a pagar" valor={totais.comissaoAPagar} tom="text-expense" />
-      </div>
-
-      <div className="space-y-2">
-        <Segmented
-          ariaLabel="Situação"
-          value={situacao}
-          onChange={setSituacao}
-          options={[
-            { value: 'andamento', label: 'Em andamento' },
-            { value: 'concluidas', label: 'Concluídas' },
-            { value: 'canceladas', label: 'Canceladas' },
-            { value: 'todas', label: 'Todas' },
-          ]}
+      <Heroi
+        rotulo="Comissão em carteira"
+        contexto="Comissão já contratada que ainda não entrou, somando as parcelas previstas de todas as vendas ativas. Não é dinheiro em conta, e não muda com o filtro abaixo."
+      >
+        <ValorComOrigem
+          valor={emCarteira}
+          posto="heroi"
+          rotuloAcessivel="Ver de quais vendas vem a comissão em carteira"
+          aoAbrir={() =>
+            abrir({
+              rotulo: 'Em carteira',
+              titulo: 'De quais vendas vem',
+              explica:
+                'O que cada venda ainda tem para receber. A data de cada parcela depende da construtora pagar — por isso nada aqui é dívida de ninguém hoje.',
+              total: emCarteira,
+              itens: ativas
+                .filter((v) => v.toReceive > 0)
+                .map((v) => ({
+                  id: v.id,
+                  titulo: v.title,
+                  meta: [
+                    v.development,
+                    v.nextDate
+                      ? v.hasOverdue
+                        ? `a construtora atrasou a parcela de ${formatDateShort(v.nextDate)}`
+                        : `próxima em ${formatDateShort(v.nextDate)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · '),
+                  valor: v.toReceive,
+                  // Parcela que a construtora não pagou é espera, não atraso:
+                  // "prevista" mesmo quando a data já passou.
+                  situacao: 'prevista' as const,
+                  para: `/vendas/${v.id}`,
+                })),
+              vazio: 'Nenhuma venda com parcela em aberto.',
+            })
+          }
         />
-        <div className="flex flex-col gap-2 sm:flex-row">
+      </Heroi>
+
+      <Secao
+        titulo="Cada venda"
+        subtotal={
+          <SubtotalDuplo
+            rotuloAgora="já entrou"
+            agora={<span className="cifra">{formatCurrency(jaEntrou)}</span>}
+            previsto={<span className="cifra">{formatCurrency(aReceber)}</span>}
+          />
+        }
+      >
+        {/*
+         * Dois controles, não quatro. A busca cobre unidade, comprador,
+         * empreendimento e corretor — os mesmos alvos dos dois selects que
+         * saíram, num campo só.
+         */}
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-faint" />
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-faint"
+              aria-hidden
+            />
             <Input
               className="pl-9"
-              placeholder="Buscar por unidade, comprador ou empreendimento"
+              placeholder="Buscar por unidade, comprador, empreendimento ou corretor"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
+              aria-label="Buscar venda"
             />
           </div>
-          <Select
-            value={corretor}
-            onChange={(e) => setCorretor(e.target.value)}
-            aria-label="Filtrar por corretor"
-            className="sm:w-44"
-          >
-            <option value="">Todos os corretores</option>
-            {contacts
-              .filter((c) => c.type === 'broker')
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-          </Select>
-          <Select
-            value={empreendimento}
-            onChange={(e) => setEmpreendimento(e.target.value)}
-            aria-label="Filtrar por empreendimento"
-            className="sm:w-44"
-          >
-            <option value="">Todos os empreendimentos</option>
-            {costCenters.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
+          <Segmented
+            ariaLabel="Situação da venda"
+            value={situacao}
+            onChange={setSituacao}
+            options={[
+              { value: 'andamento', label: 'Em andamento' },
+              { value: 'concluidas', label: 'Concluídas' },
+              { value: 'todas', label: 'Todas' },
+            ]}
+            className="sm:w-80"
+          />
         </div>
-      </div>
 
-      {filtradas.length === 0 ? (
-        <EmptyState title="Nada com esse filtro" description="Ajuste a busca ou troque a situação." />
-      ) : (
-        <ul className="space-y-3">
-          {filtradas.map((v) => (
-            <li key={v.id}>
-              <Link
-                to={`/vendas/${v.id}`}
-                className="block overflow-hidden rounded-2xl border border-line bg-surface shadow-card transition-colors hover:border-brandblue/40"
-              >
-                <div className="flex items-start gap-3 p-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-[15px] font-bold text-content">{v.title}</h2>
-                      {v.status === 'cancelada' && (
-                        <Selo tom="neutro" icone={<Ban className="h-2.5 w-2.5" />}>
-                          cancelada
-                        </Selo>
-                      )}
-                      {v.status !== 'cancelada' && v.hasOverdue && (
-                        <Selo tom="critico" icone={<AlertTriangle className="h-2.5 w-2.5" />}>
-                          vencida
-                        </Selo>
-                      )}
-                      {v.status === 'concluida' && <Selo tom="ok">recebida</Selo>}
-                      {v.brokerReleased > 0 && <Selo tom="alerta">comissão liberada</Selo>}
-                    </div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-content-faint">
-                      {v.client_name && (
-                        <span className="inline-flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {v.client_name}
-                        </span>
-                      )}
-                      <span className="inline-flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(v.sale_date)}
-                      </span>
-                      {v.brokerName && <span>{v.brokerName}</span>}
-                      {v.nextDate && v.status !== 'cancelada' && (
-                        <span>próxima {formatDateShort(v.nextDate)}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-[11px] uppercase tracking-wide text-content-faint">Fica limpo</p>
-                    <p className="tnum text-lg font-bold text-income">{formatCurrency(v.cascade.net)}</p>
-                  </div>
-                </div>
-
-                {v.status !== 'cancelada' && (
-                  <div className="px-4 pb-3">
-                    <div className="mb-1 flex justify-between text-[11px] text-content-faint">
-                      <span>Recebido {formatCurrency(v.received)}</span>
-                      <span>de {formatCurrency(v.cascade.commission)}</span>
-                    </div>
-                    <Progress value={v.progress} color="#059669" />
-                  </div>
-                )}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+        {filtradas.length === 0 ? (
+          <EmptyState title="Nada com esse filtro" description="Ajuste a busca ou troque a situação." />
+        ) : (
+          <>
+            <Lista>
+              {filtradas.map((v) => {
+                const s = situacaoDaVenda(v)
+                return (
+                  <Linha
+                    key={v.id}
+                    titulo={v.title}
+                    meta={metaDaVenda(v)}
+                    situacao={<ChipSituacao situacao={s} />}
+                    /*
+                     * O valor que se compara entre vendas é a comissão
+                     * contratada — e as duas metades dela estão escritas no
+                     * metadado, do mesmo jeito que o subtotal do grupo separa
+                     * o que entrou do que é promessa. Sem cor tônica: parte
+                     * deste número ainda não é dinheiro.
+                     */
+                    valor={
+                      <Valor
+                        valor={v.cascade.commission}
+                        posto="linha"
+                        tinta={s === 'cancelada' ? 'text-content-faint line-through' : undefined}
+                      />
+                    }
+                    para={`/vendas/${v.id}`}
+                  />
+                )
+              })}
+            </Lista>
+            <p className="mt-2 text-sm text-content-faint">
+              {filtradas.length === vendas.length
+                ? `${vendas.length} ${vendas.length === 1 ? 'venda' : 'vendas'} registradas`
+                : `${filtradas.length} de ${vendas.length} ${vendas.length === 1 ? 'venda' : 'vendas'}`}
+              . O valor à direita é a comissão contratada da imobiliária.
+            </p>
+          </>
+        )}
+      </Secao>
     </div>
   )
 }
 
-function Total({ rotulo, valor, tom = 'text-content' }: { rotulo: string; valor: number; tom?: string }) {
-  return (
-    <div className="rounded-2xl border border-line bg-surface p-4 shadow-card">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-content-faint">{rotulo}</p>
-      <p className={cn('tnum mt-1 text-lg font-bold', tom)}>{formatCurrency(valor)}</p>
-    </div>
-  )
+const soma = (l: number[]) => Math.round(l.reduce((s, v) => s + v, 0) * 100) / 100
+
+/**
+ * A situação de uma VENDA — que não é a situação de uma parcela.
+ *
+ * Aqui mora a regra de negócio mais importante do sistema, na forma do que
+ * esta função NÃO devolve: `hasOverdue` (parcela prevista com data passada)
+ * nunca vira "Vencida". Vencido é só o que a imobiliária já recebeu e não
+ * pagou; quando a construtora atrasa, a venda continua "Prevista" e o atraso é
+ * dito com todas as letras no metadado. O selo vermelho que a tela antiga
+ * punha nesse caso inventava uma dívida que não existe.
+ */
+function situacaoDaVenda(v: SaleView): Situacao {
+  if (v.status === 'cancelada') return 'cancelada'
+  if (v.status === 'concluida') return 'recebida'
+  return 'prevista'
 }
 
-function Selo({
-  children,
-  tom,
-  icone,
-}: {
-  children: React.ReactNode
-  tom: 'critico' | 'alerta' | 'ok' | 'neutro'
-  icone?: React.ReactNode
-}) {
-  const cores = {
-    critico: 'bg-critical/12 text-critical',
-    alerta: 'bg-pending/15 text-pending',
-    ok: 'bg-income/12 text-income',
-    neutro: 'bg-surface-3 text-content-muted',
+/** Empreendimento, progresso escrito e — quando é o caso — o atraso da construtora. */
+function metaDaVenda(v: SaleView): string {
+  const partes: (string | null)[] = [v.development ?? 'sem empreendimento']
+  if (v.status === 'cancelada') {
+    partes.push('cancelada')
+  } else if (v.toReceive === 0) {
+    partes.push('comissão recebida por inteiro')
+  } else {
+    partes.push(`recebido ${formatCurrency(v.received)} · falta ${formatCurrency(v.toReceive)}`)
+    if (v.hasOverdue && v.nextDate) {
+      partes.push(`a construtora atrasou a parcela de ${formatDateShort(v.nextDate)}`)
+    }
   }
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
-        cores[tom],
-      )}
-    >
-      {icone}
-      {children}
-    </span>
-  )
+  return partes.filter(Boolean).join(' · ')
 }

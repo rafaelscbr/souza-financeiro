@@ -5,12 +5,28 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#1E3A8A" />
+    <meta name="theme-color" content="#FFFFFF" />
     <meta name="description" content="Vendas, comissões e financeiro da Souza Imobiliária." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Souza Imobiliária" />
-    <title>Souza Imobiliária</title>
+    <title>Souza Imobiliária · Financeiro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Três famílias, cada uma com um trabalho, e nenhuma weight a mais:
+        Inter      — texto de interface (rebaixada: não é mais a fonte dos números)
+        Archivo    — dinheiro e número-herói, com figura tabular de verdade.
+                     É a letra do wordmark SOUZA (haste de 24,3% da caixa alta).
+        Roboto Slab — só o rótulo assinatura. É a letra do descritor
+                     IMOBILIÁRIA, que medi como slab de barra 2,71× a haste.
+      Carregadas por <link> com preconnect, não por @import no CSS: o corretor
+      abre isto em 4G entre duas visitas.
+    -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Archivo:wght@600;700&family=Roboto+Slab:wght@500&display=swap"
+    />
     <script>
       // Aplica o tema antes do render para não piscar branco ao abrir no escuro.
       (function () {
@@ -21,7 +37,7 @@
           }
           document.documentElement.setAttribute('data-theme', t)
           if (t === 'dark') {
-            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0B1220')
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0A1020')
           }
         } catch (e) {}
       })()

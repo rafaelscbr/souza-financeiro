@@ -194,18 +194,13 @@ export function useCorretor() {
   return ctx
 }
 
-/** O rótulo que o corretor entende, com a explicação de cada situação. */
-export const SITUACAO: Record<BrokerStatus, { rotulo: string; explica: string; cor: string }> = {
-  prevista: {
-    rotulo: 'Prevista',
-    explica: 'A imobiliária ainda não recebeu essa parcela.',
-    cor: 'text-content-muted',
-  },
-  liberada: {
-    rotulo: 'A receber',
-    explica: 'A imobiliária já recebeu. Sua comissão está liberada para pagamento.',
-    cor: 'text-pending',
-  },
-  recebida: { rotulo: 'Recebida', explica: 'Já foi paga a você.', cor: 'text-income' },
-  cancelada: { rotulo: 'Cancelada', explica: 'A venda foi cancelada.', cor: 'text-content-faint' },
-}
+/*
+ * O mapa SITUACAO foi apagado.
+ *
+ * Ele dizia rótulo, explicação e cor de cada situação — e era a QUARTA cópia
+ * da mesma informação no app. A fonte única agora é src/lib/situacao.ts, que
+ * carrega os quatro sinais redundantes (forma do marcador, preenchimento do
+ * selo, a palavra e a frase de tempo) e a regra de negócio de que atraso é só
+ * o que a imobiliária já recebeu e não pagou. A cor que este mapa usava
+ * (`text-pending`) já não existe.
+ */

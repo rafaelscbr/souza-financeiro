@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  Building2, Home, Handshake, ArrowDownCircle, ArrowUpCircle, Receipt, Users,
+  Home, Handshake, ArrowDownCircle, ArrowUpCircle, Receipt, Users,
   PieChart, Settings, MoreHorizontal, Plus, LogOut, ChevronLeft, ChevronRight, X,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { useAdmin } from './AdminData'
 import { RegistrarVenda } from './RegistrarVenda'
 import { LancarDespesa } from './LancarDespesa'
+import { Simbolo } from '@/components/marca/Marca'
+import { ComposicaoProvider } from '@/components/composicao/Composicao'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { Button } from '@/components/ui/Button'
 import { FullPageLoader } from '@/components/ui/Spinner'
@@ -21,6 +23,10 @@ import { cn } from '@/lib/utils'
  * Oito itens no computador, cinco no polegar. Não há seletor de empresa, nem
  * de espaço pessoal, nem chave caixa/competência — as três coisas que faziam o
  * app antigo parecer um painel de controle de avião.
+ *
+ * A marca aqui é o símbolo de verdade: moldura de traço fino com o "S", no
+ * raio percentual de 24%, que é o único jeito de ele parecer o mesmo objeto a
+ * 32px e a 80px. No lugar dele havia um ícone de prédio de biblioteca.
  */
 const MENU = [
   { to: '/', label: 'Início', icon: Home, end: true },
@@ -34,6 +40,19 @@ const MENU = [
 ]
 const NO_POLEGAR = ['/', '/vendas', '/receber', '/pagar']
 
+/** Marca + nome, como aparece no topo. */
+function Marcador({ compacto }: { compacto?: boolean }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2.5">
+      <Simbolo className={cn('shrink-0 text-content', compacto ? 'h-7 w-7' : 'h-9 w-9')} />
+      <div className="min-w-0 leading-tight">
+        <p className="truncate text-base font-semibold text-content">Souza Imobiliária</p>
+        {!compacto && <p className="assinatura sem-ponto mt-0.5">Financeiro</p>}
+      </div>
+    </div>
+  )
+}
+
 export function AdminShell() {
   const { sair, profile } = useAuth()
   const { carregando, erro, recarregar, mes, mesAnterior, mesSeguinte, irParaMes, receber, pagar, atencao } = useAdmin()
@@ -43,185 +62,221 @@ export function AdminShell() {
   const [novaVenda, setNovaVenda] = useState(false)
   const [novaDespesa, setNovaDespesa] = useState(false)
 
-  const contadores: Record<string, number> = {
-    '/receber': receber.filter((i) => i.overdue).length,
-    '/pagar': pagar.filter((i) => i.overdue || (i.kind === 'comissao' && i.released)).length,
-  }
+  /*
+   * Dois contadores com significados diferentes, e por isso duas cores
+   * diferentes: vencido é promessa quebrada (crítico), comissão liberada é
+   * trabalho esperando um humano (o ouro da marca). Antes os dois eram âmbar,
+   * o que fazia "alguém está esperando" parecer "algo deu errado".
+   */
+  const vencidos = receber.filter((i) => i.overdue).length
+  const esperando = pagar.filter((i) => i.overdue || (i.kind === 'comissao' && i.released)).length
 
   return (
-    <div className="min-h-screen bg-base lg:flex">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-surface px-3 py-5 lg:flex">
-        <div className="mb-7 flex items-center gap-2.5 px-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-imobiliaria">
-            <Building2 className="h-5 w-5 text-brand-imobiliaria-accent" />
+    <ComposicaoProvider>
+      <div className="min-h-screen bg-papel lg:flex">
+        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-surface px-3 py-5 lg:flex">
+          <div className="mb-7 px-2">
+            <Marcador />
           </div>
-          <div className="leading-tight">
-            <p className="text-sm font-bold text-content">Souza Imobiliária</p>
-            <p className="text-xs text-content-faint">Vendas e financeiro</p>
+
+          <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto" aria-label="Navegação principal">
+            {MENU.map((item) => (
+              <ItemMenu
+                key={item.to}
+                {...item}
+                badge={item.to === '/receber' ? vencidos : item.to === '/pagar' ? esperando : undefined}
+                tom={item.to === '/receber' ? 'critico' : 'ouro'}
+              />
+            ))}
+          </nav>
+
+          <div className="mt-2 flex items-center gap-1">
+            <button
+              onClick={() => sair()}
+              className="flex min-h-toque flex-1 items-center gap-2.5 rounded-lg px-3 text-base font-medium text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
+            >
+              <LogOut className="h-4 w-4" />
+              Sair
+            </button>
+            <ThemeToggle />
           </div>
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-30 border-b border-line bg-surface pt-safe">
+            <div className="flex items-center justify-between gap-3 px-5 py-2.5">
+              <div className="lg:hidden">
+                <Marcador compacto />
+              </div>
+
+              <div className="ml-auto flex items-center gap-2">
+                {/* Setas de 44px. Eram 28px — abaixo do piso de toque. */}
+                <div className="flex items-center rounded-lg border border-line">
+                  <button
+                    onClick={mesAnterior}
+                    className="flex h-toque w-10 items-center justify-center rounded-l-lg text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
+                    aria-label="Mês anterior"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => irParaMes(new Date())}
+                    className="min-w-[8rem] px-1 text-base font-semibold text-content"
+                    title="Voltar para o mês atual"
+                  >
+                    {formatMonthYear(mes)}
+                  </button>
+                  <button
+                    onClick={mesSeguinte}
+                    className="flex h-toque w-10 items-center justify-center rounded-r-lg text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
+                    aria-label="Mês seguinte"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="lg:hidden">
+                  <ThemeToggle />
+                </div>
+                <Button size="sm" className="hidden lg:inline-flex" onClick={() => setNovaVenda(true)}>
+                  <Plus className="h-4 w-4" />
+                  Registrar venda
+                </Button>
+              </div>
+            </div>
+          </header>
+
+          <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-5 pb-28 lg:px-8 lg:pb-10">
+            {carregando ? (
+              <FullPageLoader label="Carregando a imobiliária…" />
+            ) : erro ? (
+              <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
+                <p className="max-w-md text-base text-content-muted">{erro}</p>
+                <Button variant="secondary" onClick={() => recarregar()}>
+                  Tentar de novo
+                </Button>
+              </div>
+            ) : (
+              <ErrorBoundary resetKey={pathname}>
+                <Outlet />
+              </ErrorBoundary>
+            )}
+          </main>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto" aria-label="Navegação principal">
-          {MENU.map((item) => (
-            <ItemMenu key={item.to} {...item} badge={contadores[item.to]} />
+        {/* Barra do polegar */}
+        <nav
+          className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface pb-safe lg:hidden"
+          aria-label="Navegação principal"
+        >
+          {MENU.filter((m) => NO_POLEGAR.includes(m.to)).map((item) => (
+            <ItemBarra
+              key={item.to}
+              {...item}
+              badge={item.to === '/receber' ? vencidos : item.to === '/pagar' ? esperando : undefined}
+              tom={item.to === '/receber' ? 'critico' : 'ouro'}
+            />
           ))}
+          <button
+            onClick={() => setMais(true)}
+            className="flex min-h-toque flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium text-content-faint"
+          >
+            <MoreHorizontal className="h-5 w-5" />
+            Mais
+          </button>
         </nav>
 
-        <div className="mt-2 flex items-center gap-1">
-          <button
-            onClick={() => sair()}
-            className="flex flex-1 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
-          >
-            <LogOut className="h-4 w-4" />
-            Sair
-          </button>
-          <ThemeToggle />
-        </div>
-      </aside>
+        {/* A ação principal do celular. Uma só: registrar venda. */}
+        {!carregando && !erro && (
+          <div className="fixed bottom-24 right-5 z-30 flex flex-col items-end gap-2 lg:hidden">
+            <button
+              onClick={() => setNovaDespesa(true)}
+              className="flex h-toque items-center gap-1.5 rounded-lg border border-rule bg-surface px-4 text-base font-semibold text-content shadow-pop"
+            >
+              <Receipt className="h-4 w-4" />
+              Despesa
+            </button>
+            <button
+              onClick={() => setNovaVenda(true)}
+              className="flex h-14 items-center gap-2 rounded-lg bg-action px-5 text-base font-bold text-action-ink shadow-pop"
+            >
+              <Plus className="h-5 w-5" strokeWidth={2.5} />
+              Venda
+            </button>
+          </div>
+        )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur-md pt-safe">
-          <div className="flex items-center justify-between gap-3 px-4 py-3">
-            <div className="flex items-center gap-2 lg:hidden">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-imobiliaria">
-                <Building2 className="h-4 w-4 text-brand-imobiliaria-accent" />
-              </div>
-              <span className="text-sm font-bold text-content">Souza Imobiliária</span>
-            </div>
-
-            <div className="ml-auto flex items-center gap-2">
-              <div className="flex items-center gap-0.5 rounded-xl border border-line bg-surface-2 p-0.5">
+        {mais && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="absolute inset-0 bg-marca-navy/60" onClick={() => setMais(false)} />
+            <div className="absolute inset-x-0 bottom-0 animate-slide-up rounded-t-3xl bg-surface p-5 pb-safe">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-lg font-semibold text-content">Mais</p>
                 <button
-                  onClick={mesAnterior}
-                  className="rounded-lg p-1.5 text-content-muted transition-colors hover:bg-surface hover:text-content"
-                  aria-label="Mês anterior"
+                  onClick={() => setMais(false)}
+                  className="-mr-2 flex h-toque w-toque items-center justify-center rounded-lg text-content-muted"
+                  aria-label="Fechar"
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => irParaMes(new Date())}
-                  className="min-w-[7.5rem] px-1 text-sm font-semibold text-content"
-                >
-                  {formatMonthYear(mes)}
-                </button>
-                <button
-                  onClick={mesSeguinte}
-                  className="rounded-lg p-1.5 text-content-muted transition-colors hover:bg-surface hover:text-content"
-                  aria-label="Mês seguinte"
-                >
-                  <ChevronRight className="h-4 w-4" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="lg:hidden">
-                <ThemeToggle />
-              </div>
-              <Button size="sm" className="hidden lg:inline-flex" onClick={() => setNovaVenda(true)}>
-                <Plus className="h-4 w-4" />
-                Registrar venda
-              </Button>
+              <ul className="divide-y divide-line">
+                {MENU.filter((m) => !NO_POLEGAR.includes(m.to)).map((item) => (
+                  <li key={item.to}>
+                    <button
+                      onClick={() => {
+                        setMais(false)
+                        navigate(item.to)
+                      }}
+                      className="flex min-h-toque w-full items-center gap-3 py-2.5 text-left text-base font-medium text-content"
+                    >
+                      <item.icon className="h-5 w-5 text-content-muted" />
+                      {item.label}
+                    </button>
+                  </li>
+                ))}
+                <li>
+                  <button
+                    onClick={() => sair()}
+                    className="flex min-h-toque w-full items-center gap-3 py-2.5 text-left text-base font-medium text-content-muted"
+                  >
+                    <LogOut className="h-5 w-5" />
+                    Sair{profile?.name ? ` · ${profile.name}` : ''}
+                  </button>
+                </li>
+              </ul>
+              {atencao.length > 0 && (
+                <p className="mt-3 border-t border-rule pt-3 text-sm text-content-muted">
+                  {atencao.length === 1
+                    ? '1 item precisando de atenção no Início.'
+                    : `${atencao.length} itens precisando de atenção no Início.`}
+                </p>
+              )}
             </div>
           </div>
-        </header>
+        )}
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 pb-28 lg:pb-8">
-          {carregando ? (
-            <FullPageLoader label="Carregando a imobiliária…" />
-          ) : erro ? (
-            <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
-              <p className="max-w-md text-content-muted">{erro}</p>
-              <Button variant="secondary" onClick={() => recarregar()}>
-                Tentar de novo
-              </Button>
-            </div>
-          ) : (
-            <ErrorBoundary resetKey={pathname}>
-              <Outlet />
-            </ErrorBoundary>
-          )}
-        </main>
+        <RegistrarVenda aberto={novaVenda} onFechar={() => setNovaVenda(false)} />
+        <LancarDespesa aberto={novaDespesa} onFechar={() => setNovaDespesa(false)} />
       </div>
+    </ComposicaoProvider>
+  )
+}
 
-      {/* Barra do polegar */}
-      <nav
-        className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface/95 backdrop-blur-md pb-safe lg:hidden"
-        aria-label="Navegação principal"
-      >
-        {MENU.filter((m) => NO_POLEGAR.includes(m.to)).map((item) => (
-          <ItemBarra key={item.to} {...item} badge={contadores[item.to]} />
-        ))}
-        <button
-          onClick={() => setMais(true)}
-          className="flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium text-content-faint"
-        >
-          <MoreHorizontal className="h-5 w-5" />
-          Mais
-        </button>
-      </nav>
-
-      {/* Ações principais no celular */}
-      {!carregando && !erro && (
-        <div className="fixed bottom-20 right-4 z-30 flex flex-col items-end gap-2 lg:hidden">
-          <button
-            onClick={() => setNovaDespesa(true)}
-            className="flex h-11 items-center gap-1.5 rounded-full border border-line bg-surface px-4 text-sm font-semibold text-content shadow-pop"
-          >
-            <Receipt className="h-4 w-4" />
-            Despesa
-          </button>
-          <button
-            onClick={() => setNovaVenda(true)}
-            className="flex h-14 items-center gap-2 rounded-full bg-brand-imobiliaria px-5 text-sm font-bold text-white shadow-pop transition-transform active:scale-95"
-          >
-            <Plus className="h-5 w-5" strokeWidth={2.5} />
-            Venda
-          </button>
-        </div>
+/*
+ * O contador é um NÚMERO com rótulo acessível, não um pontinho.
+ * "3 itens vencidos" é o que um leitor de tela deve ouvir; um disco de 8px
+ * sem texto não diz nada a ninguém que não esteja vendo a tela.
+ */
+function Contador({ n, tom }: { n: number; tom: 'critico' | 'ouro' }) {
+  return (
+    <span
+      className={cn(
+        'cifra min-w-5 rounded-full px-1.5 text-center text-xs font-bold',
+        tom === 'critico' ? 'bg-critical-field text-critical-ink' : 'bg-seal text-seal-ink',
       )}
-
-      {mais && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMais(false)} />
-          <div className="absolute inset-x-0 bottom-0 animate-slide-up rounded-t-2xl bg-surface p-4 pb-safe">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-semibold text-content">Mais</p>
-              <button onClick={() => setMais(false)} className="rounded-lg p-2 text-content-muted" aria-label="Fechar">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {MENU.filter((m) => !NO_POLEGAR.includes(m.to)).map((item) => (
-                <button
-                  key={item.to}
-                  onClick={() => {
-                    setMais(false)
-                    navigate(item.to)
-                  }}
-                  className="flex items-center gap-2.5 rounded-xl border border-line bg-surface-2 px-4 py-3 text-left text-sm font-medium text-content"
-                >
-                  <item.icon className="h-5 w-5 text-content-muted" />
-                  {item.label}
-                </button>
-              ))}
-              <button
-                onClick={() => sair()}
-                className="col-span-2 flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium text-content-muted"
-              >
-                <LogOut className="h-5 w-5" />
-                Sair{profile?.name ? ` (${profile.name})` : ''}
-              </button>
-            </div>
-            {atencao.length > 0 && (
-              <p className="mt-2 px-1 text-xs text-content-faint">
-                {atencao.length} item(ns) precisando de atenção no Início.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      <RegistrarVenda aberto={novaVenda} onFechar={() => setNovaVenda(false)} />
-      <LancarDespesa aberto={novaDespesa} onFechar={() => setNovaDespesa(false)} />
-    </div>
+    >
+      {n}
+    </span>
   )
 }
 
@@ -231,12 +286,14 @@ function ItemMenu({
   icon: Icon,
   end,
   badge,
+  tom = 'ouro',
 }: {
   to: string
   label: string
   icon: typeof Home
   end?: boolean
   badge?: number
+  tom?: 'critico' | 'ouro'
 }) {
   return (
     <NavLink
@@ -244,9 +301,9 @@ function ItemMenu({
       end={end}
       className={({ isActive }) =>
         cn(
-          'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+          'flex min-h-toque items-center gap-2.5 rounded-lg px-3 text-base font-medium transition-colors',
           isActive
-            ? 'bg-brandblue-soft text-brandblue'
+            ? 'bg-action-soft font-semibold text-action-soft-ink'
             : 'text-content-muted hover:bg-surface-2 hover:text-content',
         )
       }
@@ -254,9 +311,14 @@ function ItemMenu({
       <Icon className="h-5 w-5" />
       <span className="flex-1">{label}</span>
       {badge ? (
-        <span className="tnum rounded-full bg-pending/15 px-1.5 py-0.5 text-[10px] font-bold text-pending">
-          {badge}
-        </span>
+        <>
+          <Contador n={badge} tom={tom} />
+          <span className="sr-only">
+            {tom === 'critico'
+              ? `${badge} ${badge === 1 ? 'item vencido' : 'itens vencidos'}`
+              : `${badge} ${badge === 1 ? 'item esperando' : 'itens esperando'}`}
+          </span>
+        </>
       ) : null}
     </NavLink>
   )
@@ -268,12 +330,14 @@ function ItemBarra({
   icon: Icon,
   end,
   badge,
+  tom = 'ouro',
 }: {
   to: string
   label: string
   icon: typeof Home
   end?: boolean
   badge?: number
+  tom?: 'critico' | 'ouro'
 }) {
   return (
     <NavLink
@@ -281,15 +345,24 @@ function ItemBarra({
       end={end}
       className={({ isActive }) =>
         cn(
-          'relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors',
-          isActive ? 'text-brandblue' : 'text-content-faint',
+          'relative flex min-h-toque flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-colors',
+          isActive ? 'font-semibold text-action-soft-ink' : 'text-content-faint',
         )
       }
     >
       <Icon className="h-5 w-5" />
       {label}
       {badge ? (
-        <span className="absolute right-[22%] top-1.5 h-2 w-2 rounded-full bg-pending" aria-hidden />
+        <>
+          <span className="absolute right-[16%] top-1">
+            <Contador n={badge} tom={tom} />
+          </span>
+          <span className="sr-only">
+            {tom === 'critico'
+              ? `${badge} ${badge === 1 ? 'item vencido' : 'itens vencidos'}`
+              : `${badge} ${badge === 1 ? 'item esperando' : 'itens esperando'}`}
+          </span>
+        </>
       ) : null}
     </NavLink>
   )

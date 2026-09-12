@@ -17,14 +17,24 @@ export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElem
   )
 }
 
+/*
+ * A borda do campo é o fio ESTRUTURAL (3,54:1 no claro, 3,74:1 no escuro), não
+ * o fio decorativo. O preenchimento do campo difere do papel por apenas
+ * 1,09:1 — sozinho ele não delimita nada, e a WCAG 1.4.11 pede 3:1 para o
+ * contorno de um componente. Com `border-line` (1,24:1) a caixa de digitar
+ * simplesmente não tinha limite visível no tema claro.
+ *
+ * Altura 44px (piso de toque) e raio de 10px, que é 24% de 44 — a mesma
+ * proporção da moldura da marca.
+ */
 const fieldBase =
-  'w-full rounded-xl border border-line bg-surface-2 px-3.5 text-content placeholder:text-content-faint ' +
-  'transition-colors focus:border-emerald focus:outline-none focus:ring-2 focus:ring-emerald/40 ' +
+  'w-full rounded-lg border border-rule bg-surface-2 px-3.5 text-content placeholder:text-content-faint ' +
+  'transition-colors focus:border-content focus:outline-none focus:ring-2 focus:ring-content focus:ring-offset-2 focus:ring-offset-papel ' +
   'disabled:opacity-50'
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
-    <input ref={ref} className={cn(fieldBase, 'h-11', className)} {...props} />
+    <input ref={ref} className={cn(fieldBase, 'h-toque', className)} {...props} />
   ),
 )
 Input.displayName = 'Input'
@@ -41,7 +51,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
     <div className="relative">
       <select
         ref={ref}
-        className={cn(fieldBase, 'h-11 appearance-none pr-9', className)}
+        className={cn(fieldBase, 'h-toque appearance-none pr-9', className)}
         {...props}
       >
         {children}

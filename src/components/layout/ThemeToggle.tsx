@@ -11,7 +11,7 @@ export function ThemeToggle({ className }: { className?: string }) {
     <button
       onClick={toggle}
       className={cn(
-        'flex items-center justify-center rounded-lg p-2 text-content-muted transition-colors hover:bg-surface-2 hover:text-content',
+        'flex h-toque w-toque items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-surface-2 hover:text-content',
         className,
       )}
       aria-label={dark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}

@@ -25,7 +25,7 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className={cn('grid gap-1 rounded-xl border border-line bg-surface-2 p-1', className)}
+      className={cn('grid gap-1 rounded-lg border border-line bg-surface-2 p-1', className)}
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
     >
       {options.map((opt) => {
@@ -38,9 +38,9 @@ export function Segmented<T extends string>({
             aria-checked={active}
             onClick={() => onChange(opt.value)}
             className={cn(
-              'h-9 rounded-lg text-sm font-medium transition-colors',
+              'h-9 rounded-md text-base font-medium transition-colors',
               active
-                ? opt.activeClass ?? 'bg-surface text-content shadow-sm'
+                ? opt.activeClass ?? 'bg-action text-action-ink font-semibold'
                 : 'text-content-muted hover:text-content',
             )}
           >

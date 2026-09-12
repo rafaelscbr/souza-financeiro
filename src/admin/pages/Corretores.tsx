@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react'
 import { KeyRound, Plus, ShieldCheck, UserPlus, Users } from 'lucide-react'
 import { useAdmin } from '../AdminData'
+import { useComposicao, type ItemComposicao } from '@/components/composicao/Composicao'
+import { Heroi } from '@/components/ui/Assinatura'
+import { Secao } from '@/components/ui/Secao'
+import { Lista, Linha } from '@/components/ui/Lista'
+import { Valor, ValorComOrigem } from '@/components/ui/Valor'
+import { Trilha, LegendaTrilha } from '@/components/ui/Trilha'
+import { ChipSituacao } from '@/components/ui/Situacao'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { FormField, Input, Select } from '@/components/ui/Field'
@@ -8,24 +15,50 @@ import { PercentInput } from '@/components/ui/MoneyInput'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Spinner } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/Toast'
-import { brokerProduction } from '@/lib/sales'
+import { brokerProduction, brokerStatusOf } from '@/lib/sales'
+import { situacaoDeTela, fraseDeTempo } from '@/lib/situacao'
 import { formatCurrency } from '@/lib/format'
-import { cn } from '@/lib/utils'
 import type { Contact } from '@/types'
 
-/**
- * Quem vende, quanto produz e quem tem acesso ao próprio painel.
+/*
+ * CORRETORES — quem vende, quanto a imobiliária deve a cada um, e quem tem
+ * acesso ao próprio painel.
+ *
+ * A tela antiga respondia à pergunta errada. Cada corretor era um CARTÃO com
+ * quatro mini-indicadores lado a lado — "Comissão total", "Já paga",
+ * "Liberada", "Prevista" — todos no mesmo `text-sm font-bold`, com rótulos em
+ * `text-[10px]`. Quatro números do mesmo tamanho não têm hierarquia: o maior
+ * deles ("Comissão total") era justamente o que a imobiliária NÃO precisa
+ * pagar agora, porque soma o que já foi pago com o que ainda depende de a
+ * construtora pagar. E nenhum deles abria em nada.
+ *
+ * A tela passa a responder à pergunta que o dono faz aqui: **quanto eu devo de
+ * comissão hoje.** O herói é só o LIBERADO — parcela que a imobiliária já
+ * recebeu e ainda não repassou. A previsão continua na tela, porque esconder
+ * informação não é honestidade, mas em linha própria, sem cor tônica e com a
+ * palavra "depende". Nunca somada ao devido.
+ *
+ * E o valor de cada corretor ABRE: de quais vendas e de quais parcelas ele vem,
+ * com um toque para a ficha da venda. Esse caminho é o pedido central do
+ * cliente — "de onde vem esse número" era uma conta feita à mão, venda por
+ * venda, fora do sistema.
+ *
+ * O drill-down percorre EXATAMENTE o mesmo conjunto que `brokerProduction`:
+ * vendas não canceladas do corretor, parcelas vivas com comissão maior que
+ * zero, situação pela mesma `brokerStatusOf` do banco. Não há segunda conta —
+ * é por isso que a soma dos itens da folha fecha com o número da linha, e a
+ * soma das linhas fecha com o herói.
  *
  * O acesso do corretor é ligado aqui, mas o convite em si sai do painel do
  * Supabase: criar usuário pede chave de administração, que não pode viver no
  * navegador. O caminho está escrito na tela para não depender de memória.
  */
 export function Corretores() {
-  const { vendas, contacts, usuarios, contatosComAcesso, salvarContato, salvarAcesso } = useAdmin()
+  const { vendas, contacts, transactions, usuarios, contatosComAcesso, hoje, salvarContato, salvarAcesso } = useAdmin()
   const { showToast } = useToast()
+  const { abrir } = useComposicao()
   const [editando, setEditando] = useState<Contact | 'novo' | null>(null)
   const [vinculando, setVinculando] = useState(false)
-
 
   const producao = useMemo(
     () => brokerProduction({ vendas, contacts, comAcesso: contatosComAcesso, year: null }),
@@ -33,96 +66,316 @@ export function Corretores() {
   )
   const semVinculo = usuarios.filter((u) => u.role === 'corretor' && !u.contact_id)
 
+  /*
+   * As parcelas de comissão de cada corretor, prontas para a folha.
+   *
+   * Separadas em duas pilhas porque elas nunca podem ser somadas: LIBERADA é
+   * dinheiro que a imobiliária já tem na mão e deve; PREVISTA depende de a
+   * construtora pagar primeiro, e chamar isso de dívida inventaria uma
+   * obrigação que não existe hoje.
+   */
+  const porCorretor = useMemo(() => {
+    const statusPorTx = new Map(transactions.map((t) => [t.id, t.status] as const))
+    const mapa = new Map<string, { liberadas: ItemComposicao[]; previstas: ItemComposicao[] }>()
+
+    for (const v of vendas) {
+      if (v.status === 'cancelada' || !v.broker_id) continue
+      const grupo = mapa.get(v.broker_id) ?? { liberadas: [], previstas: [] }
+      for (const i of v.installments) {
+        if (i.status === 'cancelada' || i.broker_amount <= 0) continue
+        const bs = brokerStatusOf(i, statusPorTx)
+        if (bs !== 'liberada' && bs !== 'prevista') continue
+        // `situacaoDeTela` é quem decide o que é atraso: uma comissão liberada
+        // cuja data já passou vira 'vencida'; uma prevista nunca vira, porque
+        // a construtora atrasar não é a imobiliária dever.
+        const s = situacaoDeTela(bs, i.expected_date, hoje)
+        const item: ItemComposicao = {
+          id: i.id,
+          titulo: v.title,
+          meta: [v.development, fraseDeTempo(s, { prevista: i.expected_date, liberada: i.received_date }, hoje)]
+            .filter(Boolean)
+            .join(' · '),
+          valor: i.broker_amount,
+          situacao: s,
+          idx: i.idx,
+          count: i.count,
+          para: `/vendas/${v.id}`,
+        }
+        if (bs === 'liberada') grupo.liberadas.push(item)
+        else grupo.previstas.push(item)
+      }
+      mapa.set(v.broker_id, grupo)
+    }
+    return mapa
+  }, [vendas, transactions, hoje])
+
+  const SEM_PARCELA: { liberadas: ItemComposicao[]; previstas: ItemComposicao[] } = {
+    liberadas: [],
+    previstas: [],
+  }
+  const doCorretor = (id: string) => porCorretor.get(id) ?? SEM_PARCELA
+  const soma = (l: ItemComposicao[]) => Math.round(l.reduce((s, i) => s + i.valor, 0) * 100) / 100
+
+  /** Na folha geral o nome do corretor entra no metadado: sem ele, 12 parcelas
+   * de vendas diferentes não dizem para quem é cada uma. */
+  const comNome = (nome: string, itens: ItemComposicao[]) =>
+    itens.map((i) => ({ ...i, meta: [nome, i.meta].filter(Boolean).join(' · ') }))
+
+  const liberadasTodas = producao.flatMap((p) => comNome(p.contact.name, doCorretor(p.contact.id).liberadas))
+  const previstasTodas = producao.flatMap((p) => comNome(p.contact.name, doCorretor(p.contact.id).previstas))
+  const aPagar = soma(liberadasTodas)
+  const previsto = soma(previstasTodas)
+
   return (
-    <div className="animate-fade-in space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-content">Corretores</h1>
-          <p className="text-sm text-content-faint">{producao.length} cadastrado(s)</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setVinculando(true)}>
-            <KeyRound className="h-3.5 w-3.5" />
-            Acessos
-          </Button>
-          <Button size="sm" onClick={() => setEditando('novo')}>
-            <Plus className="h-4 w-4" />
-            Novo corretor
-          </Button>
-        </div>
-      </div>
+    <div className="animate-fade-in">
+      {/* O nome da tela já está na navegação; o rótulo assinatura do herói é o
+       * que declara a pergunta. O h1 fica para quem lê com leitor de tela. */}
+      <h1 className="sr-only">Corretores</h1>
+
+      <Heroi
+        rotulo="Comissão a pagar"
+        contexto="Só a parcela que a imobiliária já recebeu da construtora e ainda não repassou. É o que é dívida hoje — previsão não entra nesta conta."
+        acao={
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setVinculando(true)}>
+              <KeyRound className="h-4 w-4" />
+              Acessos
+            </Button>
+            <Button onClick={() => setEditando('novo')}>
+              <Plus className="h-4 w-4" />
+              Novo corretor
+            </Button>
+          </div>
+        }
+      >
+        {liberadasTodas.length > 0 ? (
+          <ValorComOrigem
+            valor={aPagar}
+            posto="heroi"
+            rotuloAcessivel="Ver de quais vendas e parcelas vem a comissão a pagar"
+            aoAbrir={() =>
+              abrir({
+                rotulo: 'Comissão a pagar',
+                titulo: 'De quais vendas vem',
+                explica:
+                  'Cada parcela que a imobiliária já recebeu e ainda não repassou ao corretor. Toque em uma para abrir a venda.',
+                total: aPagar,
+                itens: liberadasTodas,
+                nota:
+                  previsto > 0
+                    ? `Fora disto, ${formatCurrency(previsto)} de comissão dependem de a construtora pagar. Não é dívida hoje.`
+                    : undefined,
+              })
+            }
+          />
+        ) : (
+          <Valor valor={0} posto="heroi" tinta="text-content-muted" />
+        )}
+      </Heroi>
+
+      {/*
+       * A previsão aparece, mas em linha própria, sem cor tônica e com a
+       * palavra "depende" no metadado. É o que impede que ela volte a ser
+       * somada ao que a imobiliária deve de verdade.
+       */}
+      <Secao titulo="Ainda não liberado">
+        <Lista>
+          <Linha
+            titulo="Previsto, depende do recebimento"
+            meta="comissão de parcela que a construtora ainda não pagou à imobiliária"
+            situacao={<ChipSituacao situacao="prevista" />}
+            valor={
+              previstasTodas.length > 0 ? (
+                <ValorComOrigem
+                  valor={previsto}
+                  tinta="text-content-muted"
+                  rotuloAcessivel="Ver quais parcelas ainda dependem do recebimento"
+                  aoAbrir={() =>
+                    abrir({
+                      rotulo: 'Previsto',
+                      titulo: 'Previsão, não dívida',
+                      explica:
+                        'Estas comissões só passam a ser devidas quando a construtora pagar a parcela. Até lá não são obrigação e não entram em nenhum total de dívida.',
+                      total: previsto,
+                      itens: previstasTodas,
+                    })
+                  }
+                />
+              ) : (
+                <Valor valor={0} tinta="text-content-muted" />
+              )
+            }
+          />
+        </Lista>
+      </Secao>
 
       {semVinculo.length > 0 && (
-        <div className="rounded-2xl border border-pending/30 bg-pending/8 p-4">
-          <p className="text-sm font-semibold text-content">
-            {semVinculo.length} login sem corretor vinculado
+        <Secao titulo="Logins sem corretor vinculado">
+          <p className="py-2 text-base text-content-muted">
+            {semVinculo.length === 1
+              ? '1 pessoa entra e vê "acesso ainda não liberado".'
+              : `${semVinculo.length} pessoas entram e veem "acesso ainda não liberado".`}{' '}
+            Ligue cada login a um corretor em Acessos.
           </p>
-          <p className="mt-0.5 text-xs text-content-muted">
-            Essas pessoas entram e veem "acesso ainda não liberado". Ligue cada uma a um corretor em
-            Acessos.
-          </p>
-        </div>
+          <Button variant="secondary" onClick={() => setVinculando(true)}>
+            <KeyRound className="h-4 w-4" />
+            Abrir Acessos
+          </Button>
+        </Secao>
       )}
 
-      {producao.length === 0 ? (
-        <EmptyState
-          icon={<Users className="h-8 w-8" />}
-          title="Nenhum corretor cadastrado"
-          description="Cadastre quem vende para poder registrar a comissão e, se quiser, dar acesso ao painel dele."
-          action={
-            <Button onClick={() => setEditando('novo')}>
-              <UserPlus className="h-4 w-4" />
-              Cadastrar corretor
-            </Button>
-          }
-        />
-      ) : (
-        <ul className="space-y-3">
-          {producao.map((p) => (
-            <li key={p.contact.id} className="rounded-2xl border border-line bg-surface p-4 shadow-card">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-[15px] font-bold text-content">{p.contact.name}</h2>
-                    {p.hasAccess && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-income/12 px-1.5 py-0.5 text-[10px] font-semibold text-income">
-                        <ShieldCheck className="h-2.5 w-2.5" />
-                        com acesso
+      <Secao titulo="Por corretor">
+        {producao.length === 0 ? (
+          <EmptyState
+            icon={<Users className="h-8 w-8" />}
+            title="Nenhum corretor cadastrado"
+            description="Cadastre quem vende para poder registrar a comissão e, se quiser, dar acesso ao painel dele."
+            action={
+              <Button onClick={() => setEditando('novo')}>
+                <UserPlus className="h-4 w-4" />
+                Cadastrar corretor
+              </Button>
+            }
+          />
+        ) : (
+          <Lista>
+            {producao.map((p) => {
+              const g = doCorretor(p.contact.id)
+              const liberado = soma(g.liberadas)
+              const dele = soma(g.previstas)
+              const ehVoce = (p.contact as Contact & { is_owner?: boolean }).is_owner === true
+              return (
+                <Linha
+                  key={p.contact.id}
+                  titulo={
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate">{p.contact.name}</span>
+                      {p.hasAccess && (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-action-soft px-1.5 py-0.5 text-xs font-medium text-action-soft-ink">
+                          <ShieldCheck className="h-3 w-3" aria-hidden />
+                          com acesso
+                        </span>
+                      )}
+                      {ehVoce && (
+                        <span className="shrink-0 rounded-md bg-surface-3 px-1.5 py-0.5 text-xs font-medium text-content-muted">
+                          você
+                        </span>
+                      )}
+                    </span>
+                  }
+                  meta={
+                    <span className="flex flex-wrap items-baseline gap-x-1.5">
+                      previsto
+                      <Valor valor={dele} posto="fato" tinta="text-content-muted" />
+                      <span aria-hidden className="text-content-faint">
+                        ·
                       </span>
-                    )}
-                    {(p.contact as Contact & { is_owner?: boolean }).is_owner && (
-                      <span className="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] font-semibold text-content-muted">
-                        você
+                      depende do recebimento
+                    </span>
+                  }
+                  valor={
+                    <ValorComOrigem
+                      valor={liberado}
+                      tinta={liberado > 0 ? undefined : 'text-content-muted'}
+                      rotuloAcessivel={`Ver de quais vendas vem a comissão de ${p.contact.name}`}
+                      aoAbrir={() =>
+                        abrir({
+                          rotulo: p.contact.name,
+                          titulo: `Comissão a pagar para ${p.contact.name}`,
+                          explica:
+                            'Cada parcela que a imobiliária já recebeu e ainda não repassou a ele. Toque em uma para abrir a venda.',
+                          total: liberado,
+                          itens: g.liberadas,
+                          nota:
+                            dele > 0
+                              ? `Além disso, ${formatCurrency(dele)} dependem de a construtora pagar. Não é dívida hoje.`
+                              : undefined,
+                          vazio:
+                            'Nada liberado para ele agora. O que ele tem a receber ainda depende de a construtora pagar.',
+                        })
+                      }
+                    />
+                  }
+                  acao={
+                    <Button variant="secondary" onClick={() => setEditando(p.contact)}>
+                      Editar
+                    </Button>
+                  }
+                />
+              )
+            })}
+          </Lista>
+        )}
+      </Secao>
+
+      {producao.length > 0 && (
+        <Secao titulo="Produção">
+          {/*
+           * A trilha renderiza na largura final, sem crescer, e o número vem
+           * escrito ao lado: a barra é reforço, nunca a única fonte. Os três
+           * segmentos são os três estados da comissão dele — e o segmento ouro
+           * é o mesmo valor da linha acima, vindo do mesmo conjunto.
+           */}
+          <Lista>
+            {producao.map((p) => {
+              const g = doCorretor(p.contact.id)
+              const liberado = soma(g.liberadas)
+              const dele = soma(g.previstas)
+              const padrao = (p.contact as Contact & { default_broker_pct?: number | null }).default_broker_pct
+              const semVgv = p.sales > 0 && p.salesWithoutVgv === p.sales
+              return (
+                <li key={p.contact.id} className="py-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
+                    <p className="min-w-0 truncate text-base font-medium text-content">{p.contact.name}</p>
+                    <p className="flex flex-wrap items-baseline gap-x-1.5 text-sm text-content-faint">
+                      <span>
+                        {p.sales} {p.sales === 1 ? 'venda' : 'vendas'}
                       </span>
-                    )}
+                      <span aria-hidden>·</span>
+                      {/* Quando o sistema não sabe, ele diz em texto, não em zero. */}
+                      {semVgv ? (
+                        <span>VGV não informado</span>
+                      ) : (
+                        <>
+                          <span>VGV</span>
+                          <Valor valor={p.vgv} posto="fato" tinta="text-content-faint" />
+                          {p.salesWithoutVgv > 0 && (
+                            <span>
+                              ({p.salesWithoutVgv}{' '}
+                              {p.salesWithoutVgv === 1 ? 'venda sem valor' : 'vendas sem valor'} informado)
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {padrao != null && (
+                        <>
+                          <span aria-hidden>·</span>
+                          <span>padrão {padrao}%</span>
+                        </>
+                      )}
+                    </p>
                   </div>
-                  <p className="mt-0.5 text-xs text-content-faint">
-                    {p.sales} venda{p.sales === 1 ? '' : 's'} · VGV {formatCurrency(p.vgv)}
-                    {p.salesWithoutVgv > 0 ? ` (${p.salesWithoutVgv} sem valor informado)` : ''}
-                    {(p.contact as Contact & { default_broker_pct?: number | null }).default_broker_pct != null
-                      ? ` · padrão ${(p.contact as Contact & { default_broker_pct?: number | null }).default_broker_pct}%`
-                      : ''}
-                  </p>
-                </div>
-                <Button variant="secondary" size="sm" onClick={() => setEditando(p.contact)}>
-                  Editar
-                </Button>
-              </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-                <Mini rotulo="Comissão total" valor={p.commissionTotal} />
-                <Mini rotulo="Já paga" valor={p.paid} tom="text-content-muted" />
-                <Mini rotulo="Liberada" valor={p.released} tom={p.released > 0 ? 'text-pending' : undefined} />
-                <Mini rotulo="Prevista" valor={p.expected} tom="text-content-muted" />
-              </div>
-            </li>
-          ))}
-        </ul>
+                  <div className="mt-2">
+                    <Trilha
+                      recebido={p.paid}
+                      liberado={liberado}
+                      previsto={dele}
+                      rotuloAcessivel={`${p.contact.name}: ${formatCurrency(p.paid)} já pagos a ele, ${formatCurrency(liberado)} liberados a pagar e ${formatCurrency(dele)} dependendo da construtora.`}
+                    />
+                  </div>
+                </li>
+              )
+            })}
+          </Lista>
+          <div className="mt-3">
+            <LegendaTrilha />
+          </div>
+        </Secao>
       )}
 
-      <p className="px-1 text-xs text-content-faint">
-        Produção considera todas as vendas não canceladas, de qualquer ano. O corretor vê os números
-        dele por ano no painel próprio.
+      <p className="mt-8 border-t border-rule pt-3 text-sm text-content-muted">
+        A produção considera todas as vendas não canceladas, de qualquer ano. O corretor vê os
+        números dele por ano, no painel próprio.
       </p>
 
       <EditarCorretor
@@ -229,8 +482,10 @@ function EditarCorretor({
         >
           <PercentInput id="c-pct" value={pct} onChange={setPct} />
         </FormField>
+        {/* Erro é `critical`, não `expense`: vermelho de despesa fala de
+         * dinheiro que saiu, e aqui nada saiu — só não deu para salvar. */}
         {erro && (
-          <p className="text-sm text-expense" role="alert">
+          <p className="text-base text-critical" role="alert">
             {erro}
           </p>
         )}
@@ -266,37 +521,43 @@ function GerenciarAcessos({
       description="Quem entra e o que cada um vê"
       className="sm:max-w-xl"
     >
-      <div className="space-y-4">
-        <div className="rounded-xl border border-line bg-surface-2/60 p-3.5 text-xs text-content-muted">
-          <p className="mb-1 font-semibold text-content">Como dar acesso a um corretor</p>
-          <ol className="list-decimal space-y-0.5 pl-4">
+      <div className="space-y-5">
+        {/* Instrução em fio, não em caixa: dentro de uma folha que já flutua,
+         * um segundo recuo com borda vira cartão dentro de cartão. */}
+        <div className="border-b border-line pb-4">
+          <p className="text-base font-semibold text-content">Como dar acesso a um corretor</p>
+          <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-base text-content-muted">
             <li>No painel do Supabase: Authentication → Users → Invite user, com o e-mail dele.</li>
             <li>Ele recebe o convite e cria a senha.</li>
             <li>Volte aqui e ligue o login ao corretor na lista abaixo.</li>
           </ol>
-          <p className="mt-1.5">
+          <p className="mt-1.5 text-sm text-content-faint">
             Criar usuário exige chave de administração, que não pode ficar no navegador — por isso
             essa parte é no painel.
           </p>
         </div>
 
         {usuarios.length === 0 ? (
-          <p className="text-sm text-content-muted">Nenhum usuário além de você.</p>
+          <p className="text-base text-content-muted">Nenhum usuário além de você.</p>
         ) : (
-          <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line">
+          <Lista>
             {usuarios.map((u) => (
-              <li key={u.id} className="space-y-2 px-3.5 py-3">
+              <li key={u.id} className="space-y-2 py-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-content">
+                    <p className="truncate text-base font-medium text-content">
                       {u.name ?? u.email ?? u.id.slice(0, 8)}
                     </p>
-                    <p className="text-xs text-content-faint">
+                    <p className="text-sm text-content-faint">
                       {u.role === 'admin' ? 'administrador' : 'corretor'}
                       {u.is_active ? '' : ' · desativado'}
                     </p>
                   </div>
-                  <button
+                  {/* Alvo de 44px: eram 30px de altura, num controle que liga e
+                   * desliga o acesso de uma pessoa ao sistema. */}
+                  <Button
+                    variant={u.is_active ? 'danger' : 'secondary'}
+                    className="shrink-0"
                     onClick={async () => {
                       setOcupado(u.id)
                       try {
@@ -312,15 +573,9 @@ function GerenciarAcessos({
                       }
                     }}
                     disabled={ocupado === u.id}
-                    className={cn(
-                      'shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors',
-                      u.is_active
-                        ? 'text-expense hover:bg-expense/10'
-                        : 'text-income hover:bg-income/10',
-                    )}
                   >
-                    {ocupado === u.id ? '…' : u.is_active ? 'Desativar' : 'Ativar'}
-                  </button>
+                    {ocupado === u.id ? <Spinner className="h-5 w-5" /> : u.is_active ? 'Desativar' : 'Ativar'}
+                  </Button>
                 </div>
                 {u.role === 'corretor' && (
                   <Select
@@ -351,18 +606,9 @@ function GerenciarAcessos({
                 )}
               </li>
             ))}
-          </ul>
+          </Lista>
         )}
       </div>
     </Modal>
-  )
-}
-
-function Mini({ rotulo, valor, tom = 'text-content' }: { rotulo: string; valor: number; tom?: string }) {
-  return (
-    <div className="rounded-xl border border-line bg-surface-2/60 p-2.5">
-      <p className="text-[10px] uppercase tracking-wide text-content-faint">{rotulo}</p>
-      <p className={cn('tnum text-sm font-bold', tom)}>{formatCurrency(valor)}</p>
-    </div>
   )
 }

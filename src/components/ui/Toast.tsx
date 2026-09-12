@@ -107,7 +107,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={toast.id}
               className={cn(
-                'pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-2xl border px-4 py-3 shadow-pop animate-slide-up',
+                'pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-xl border px-4 py-3 shadow-pop animate-slide-up',
                 isError
                   ? 'border-expense/30 bg-surface text-content'
                   : 'border-line bg-surface text-content',
@@ -129,7 +129,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   onClick={handleAction}
                   disabled={acting}
                   aria-label={`${toast.actionLabel}: ${toast.message}`}
-                  className="shrink-0 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-emerald transition-colors hover:bg-emerald-soft focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-50"
+                  className="-my-1.5 flex h-toque shrink-0 items-center rounded-lg px-3 text-base font-semibold text-action-soft-ink transition-colors hover:bg-action-soft disabled:opacity-50"
                 >
                   {acting ? '…' : toast.actionLabel}
                 </button>

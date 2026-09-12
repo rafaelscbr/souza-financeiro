@@ -46,7 +46,7 @@ export class ErrorBoundary extends Component<Props, State> {
       )
       return (
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-critical/10">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-critical-field">
             <AlertTriangle className="h-6 w-6 text-critical" />
           </div>
           <div className="max-w-md">
@@ -62,7 +62,7 @@ export class ErrorBoundary extends Component<Props, State> {
           {versaoVelha ? (
             <button
               onClick={forcarAtualizacao}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-white transition-transform active:scale-95"
+              className="inline-flex items-center gap-2 rounded-lg bg-action px-4 py-2.5 text-base font-semibold text-action-ink transition-transform active:scale-95"
             >
               <DownloadCloud className="h-4 w-4" />
               Atualizar agora
@@ -70,7 +70,7 @@ export class ErrorBoundary extends Component<Props, State> {
           ) : (
             <button
               onClick={() => this.setState({ error: null })}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald px-4 py-2.5 text-sm font-semibold text-white transition-transform active:scale-95"
+              className="inline-flex items-center gap-2 rounded-lg bg-action px-4 py-2.5 text-base font-semibold text-action-ink transition-transform active:scale-95"
             >
               <RotateCcw className="h-4 w-4" />
               Tentar novamente
@@ -78,7 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
           )}
           <details className="mt-1 max-w-md text-left">
             <summary className="cursor-pointer text-xs text-content-faint">Detalhes técnicos</summary>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-surface-2 p-3 text-[11px] text-content-muted">
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-surface-2 p-3 text-xs text-content-muted">
               {this.state.error.message}
             </pre>
           </details>
