@@ -122,6 +122,9 @@ export interface Transaction {
    * o histórico). `null` = lançamento fora de cartão. (migração 005)
    */
   card_cycle_month: string | null
+  /** Venda que originou o lançamento (migração 008). Substitui o vínculo por texto. */
+  sale_id?: string | null
+  sale_installment_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -298,3 +301,112 @@ export type PersonalAssetInput = Omit<PersonalAsset, 'id' | 'created_at'>
 export type ContactInput = Omit<Contact, 'id' | 'created_at'>
 
 export type HealthStatus = 'healthy' | 'warning' | 'critical'
+
+// ---------------------------------------------------------------------------
+// Sistema da imobiliária (migrações 007-011)
+// ---------------------------------------------------------------------------
+
+export type Role = 'admin' | 'corretor'
+
+/** Papel de um usuário do Auth. Sem perfil, o acesso não foi liberado. */
+export interface Profile {
+  id: string
+  role: Role
+  /** Contato (corretor) que este login representa. `null` no administrador. */
+  contact_id: string | null
+  name: string | null
+  is_active: boolean
+}
+
+export type SaleStatus = 'ativa' | 'concluida' | 'cancelada'
+export type InstallmentStatus = 'prevista' | 'recebida' | 'cancelada'
+/** Situação da comissão no vocabulário do corretor. */
+export type BrokerStatus = 'prevista' | 'liberada' | 'recebida' | 'cancelada'
+
+export interface Sale {
+  id: string
+  company_id: string
+  title: string
+  cost_center_id: string | null
+  unit: string | null
+  client_name: string | null
+  sale_date: string
+  /** Valor do imóvel (VGV). `null` = não informado; nunca inventar. */
+  property_value: number | null
+  commission_pct: number | null
+  /** Comissão que a imobiliária tem direito a receber (só a parte dela). */
+  commission_total: number
+  partner_name: string | null
+  partner_share_pct: number | null
+  /** Sem nota não há Simples (caso da parceria Rogga). */
+  issues_invoice: boolean
+  simples_pct: number
+  /** A construtora retém ISS no ato do pagamento? */
+  retains_iss: boolean
+  iss_pct: number
+  broker_id: string | null
+  broker_pct: number | null
+  owner_profit_pct: number | null
+  status: SaleStatus
+  notes: string | null
+  legacy_group_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SaleInstallment {
+  id: string
+  sale_id: string
+  idx: number
+  count: number
+  expected_date: string
+  /** Parcela bruta da comissão. */
+  amount: number
+  iss_amount: number
+  simples_amount: number
+  broker_amount: number
+  /** Desconto combinado com o corretor, se houve. */
+  broker_adjustment: number
+  owner_amount: number
+  net_amount: number
+  status: InstallmentStatus
+  received_date: string | null
+  /** Quanto caiu na conta (parcela menos o que foi retido). */
+  received_amount: number | null
+  account_id: string | null
+  notes: string | null
+  revenue_tx_id: string | null
+  iss_tx_id: string | null
+  simples_tx_id: string | null
+  broker_tx_id: string | null
+  owner_tx_id: string | null
+  other_tx_id: string | null
+}
+
+/** Uma parcela a registrar em `register_sale`. */
+export interface NewInstallment {
+  idx: number
+  expected_date: string
+  amount: number
+}
+
+export interface NewSale {
+  title: string
+  cost_center_id: string | null
+  unit: string | null
+  client_name: string | null
+  sale_date: string
+  property_value: number | null
+  commission_pct: number | null
+  commission_total: number
+  partner_name: string | null
+  partner_share_pct: number | null
+  issues_invoice: boolean
+  simples_pct: number
+  retains_iss: boolean
+  iss_pct: number
+  broker_id: string | null
+  broker_pct: number | null
+  notes: string | null
+  installments: NewInstallment[]
+}
