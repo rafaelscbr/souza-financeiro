@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Building2, CalendarDays, Handshake, Home, LogOut, User, X } from 'lucide-react'
+import { Building2, CalendarDays, Handshake, Home, KeyRound, LogOut, User, X } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
+import { TrocarSenha } from '@/auth/TrocarSenha'
 import { useCorretor } from './CorretorData'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { Button } from '@/components/ui/Button'
@@ -28,6 +29,7 @@ export function CorretorShell() {
   const { carregando, erro, recarregar, ano, anosDisponiveis, setAno } = useCorretor()
   const { pathname } = useLocation()
   const [perfil, setPerfil] = useState(false)
+  const [trocandoSenha, setTrocandoSenha] = useState(false)
 
   const primeiroNome = (profile?.name ?? '').split(' ')[0]
 
@@ -147,8 +149,19 @@ export function CorretorShell() {
               <span className="text-sm text-content-muted">Tema</span>
               <ThemeToggle />
             </div>
-            <p className="mt-3 text-xs text-content-faint">
-              Para trocar a senha, saia e use "Esqueci minha senha" na tela de entrada.
+            <Button
+              variant="secondary"
+              className="mt-3 w-full"
+              onClick={() => {
+                setPerfil(false)
+                setTrocandoSenha(true)
+              }}
+            >
+              <KeyRound className="h-4 w-4" />
+              Trocar minha senha
+            </Button>
+            <p className="mt-2 text-xs text-content-faint">
+              Esqueceu? A imobiliária redefine para você.
             </p>
             <Button variant="secondary" className="mt-3 w-full" onClick={() => sair()}>
               <LogOut className="h-4 w-4" />
@@ -157,6 +170,8 @@ export function CorretorShell() {
           </div>
         </div>
       )}
+
+      <TrocarSenha aberto={trocandoSenha} onFechar={() => setTrocandoSenha(false)} />
     </div>
   )
 }

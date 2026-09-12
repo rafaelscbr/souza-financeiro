@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Building, Landmark, Plus, Receipt, Tag } from 'lucide-react'
+import { Building, KeyRound, Landmark, Plus, Receipt, Tag } from 'lucide-react'
+import { useAuth } from '@/auth/AuthContext'
+import { TrocarSenha } from '@/auth/TrocarSenha'
 import { useAdmin } from '../AdminData'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -13,7 +15,7 @@ import { formatCurrency, formatDate, toDateOnly } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { Account, CostCenter } from '@/types'
 
-type Aba = 'contas' | 'empreendimentos' | 'categorias' | 'imposto'
+type Aba = 'contas' | 'empreendimentos' | 'categorias' | 'imposto' | 'conta'
 
 /** Cadastros e regras. O que se configura uma vez e some do caminho. */
 export function Config() {
@@ -32,6 +34,7 @@ export function Config() {
           { value: 'empreendimentos', label: 'Empreendimentos' },
           { value: 'categorias', label: 'Categorias' },
           { value: 'imposto', label: 'Imposto' },
+          { value: 'conta', label: 'Minha conta' },
         ]}
       />
 
@@ -39,6 +42,7 @@ export function Config() {
       {aba === 'empreendimentos' && <Empreendimentos />}
       {aba === 'categorias' && <Categorias />}
       {aba === 'imposto' && <Imposto />}
+      {aba === 'conta' && <MinhaConta />}
     </div>
   )
 }
@@ -541,6 +545,43 @@ function Imposto() {
           uso e estão preservados no arquivo do banco.
         </p>
       </div>
+    </div>
+  )
+}
+
+/**
+ * A própria conta do administrador. A troca de senha vive aqui porque o acesso
+ * do corretor foi criado sem e-mail, e um sistema em que a senha só se troca
+ * por link de e-mail não serve para quem não tem caixa de e-mail.
+ */
+function MinhaConta() {
+  const { email, profile } = useAuth()
+  const [trocando, setTrocando] = useState(false)
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+        <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-content">
+          <KeyRound className="h-4 w-4 text-content-muted" />
+          Seu acesso
+        </h2>
+        <p className="text-sm text-content-muted">{profile?.name ?? 'Administrador'}</p>
+        <p className="text-xs text-content-faint">{email}</p>
+        <Button className="mt-4" onClick={() => setTrocando(true)}>
+          Trocar minha senha
+        </Button>
+      </div>
+
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+        <h2 className="mb-1 text-sm font-semibold text-content">Senha de um corretor</h2>
+        <p className="text-sm text-content-muted">
+          O corretor troca a própria senha no menu do perfil dele. Se esquecer, a redefinição é feita
+          no painel do Supabase, em Authentication → Users → o usuário → Reset password. Trocar a
+          senha de outra pessoa exige a chave de administração, que não pode ficar no navegador.
+        </p>
+      </div>
+
+      <TrocarSenha aberto={trocando} onFechar={() => setTrocando(false)} />
     </div>
   )
 }
