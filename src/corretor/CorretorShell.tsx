@@ -85,7 +85,7 @@ export function CorretorShell() {
                 end={item.end}
                 className={({ isActive }) =>
                   cn(
-                    'flex min-h-toque items-center gap-2 rounded-lg px-3 text-base font-medium transition-colors',
+                    'flex min-h-toque items-center gap-2 rounded-xl px-3 text-base font-medium transition-colors',
                     isActive
                       ? 'bg-action-soft font-semibold text-action-soft-ink'
                       : 'text-content-muted hover:bg-surface-2 hover:text-content',
@@ -127,7 +127,7 @@ export function CorretorShell() {
               end={item.end}
               className={({ isActive }) =>
                 cn(
-                  'flex min-h-toque flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-colors',
+                  'flex min-h-toque flex-1 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors',
                   isActive ? 'font-semibold text-action-soft-ink' : 'text-content-faint',
                 )
               }

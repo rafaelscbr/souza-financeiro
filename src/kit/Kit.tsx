@@ -101,8 +101,22 @@ export function Kit() {
         <Secao titulo="O número herói" variante="simples">
           <Heroi
             rotulo="A receber agora"
-            contexto="A imobiliária já recebeu estas parcelas. É dinheiro seu, esperando o repasse."
+            tom="ouro"
             acao={<Button>Pagar comissão</Button>}
+            apoio={
+              <>
+                <span className="cifra text-lg font-bold text-action">R$ 18.402,10</span>
+                <span className="text-base text-content-muted">já pago no ano</span>
+                <ChipSituacao situacao="liberada" />
+              </>
+            }
+            contexto="A imobiliária já recebeu estas parcelas. É dinheiro seu, esperando o repasse."
+            rodape={
+              <div className="space-y-2">
+                <Trilha recebido={18402} liberado={24044} previsto={9800} />
+                <LegendaTrilha />
+              </div>
+            }
           >
             <Valor valor={24044.58} posto="heroi" />
           </Heroi>
@@ -129,7 +143,7 @@ export function Kit() {
           </div>
         </Secao>
 
-        <Secao titulo="As cinco situações">
+        <Secao titulo="As cinco situações" tom="ouro">
           <div className="space-y-3 py-2">
             {(Object.keys(VOCABULARIO) as Situacao[]).map((s) => (
               <div key={s} className="flex flex-wrap items-center gap-3">
@@ -150,6 +164,7 @@ export function Kit() {
         </Secao>
 
         <Secao
+          tom="critico"
           titulo="A lista, com a linha de hoje"
           subtotal={
             <SubtotalDuplo
@@ -189,7 +204,7 @@ export function Kit() {
           </Lista>
         </Secao>
 
-        <Secao titulo="Nenhum número sem origem">
+        <Secao titulo="Nenhum número sem origem" tom="ouro">
           <Lista>
             <Linha
               titulo="Comissão a pagar"
@@ -205,7 +220,7 @@ export function Kit() {
           </Lista>
         </Secao>
 
-        <Secao titulo="A cascata — a conta da comissão">
+        <Secao titulo="A cascata — a conta da comissão" tom="verde">
           <div className="py-2">
             <Cascata>
               <LinhaCascata rotulo="Parcela da comissão" valor={4489.14} />

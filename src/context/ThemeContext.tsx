@@ -10,7 +10,14 @@ import {
 export type Theme = 'light' | 'dark'
 const KEY = 'sgf.theme'
 
-/** Preferência salva; se não houver, segue o sistema operacional. */
+/**
+ * Preferência salva; se não houver, ESCURO.
+ *
+ * Não segue o sistema operacional de propósito. O escuro é a identidade deste
+ * produto — é o tema do CRM que a imobiliária já usa todo dia — e abrir claro
+ * num Mac configurado em claro faria o financeiro parecer outro sistema. Quem
+ * preferir claro troca no menu, e a escolha fica salva no aparelho.
+ */
 function initialTheme(): Theme {
   try {
     const saved = localStorage.getItem(KEY)
@@ -18,7 +25,7 @@ function initialTheme(): Theme {
   } catch {
     /* sem localStorage */
   }
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return 'dark'
 }
 
 interface ThemeValue {
@@ -38,7 +45,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // A barra do navegador/PWA acompanha o tema.
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'dark' ? '#0A1020' : '#FFFFFF')
+      ?.setAttribute('content', theme === 'dark' ? '#070B1A' : '#EBEFF6')
     try {
       localStorage.setItem(KEY, theme)
     } catch {

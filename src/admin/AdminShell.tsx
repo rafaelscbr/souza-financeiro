@@ -345,7 +345,7 @@ function ItemBarra({
       end={end}
       className={({ isActive }) =>
         cn(
-          'relative flex min-h-toque flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-colors',
+          'relative flex min-h-toque flex-1 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors',
           isActive ? 'font-semibold text-action-soft-ink' : 'text-content-faint',
         )
       }

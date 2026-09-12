@@ -47,9 +47,10 @@ export const VOCABULARIO: Record<Situacao, Vocabulario> = {
     palavra: 'Prevista',
     palavraCorretor: 'Prevista',
     explica: 'A construtora ainda não pagou esta parcela. Não é dívida hoje.',
-    // Sem preenchimento: é o único estado sem fundo, e é assim que se
-    // reconhece. Borda sólida a 3,54:1 — não tracejada, que a 1px desaparece
-    // no celular a meio brilho sob sol.
+    // O ÚNICO estado sem preenchimento, e é assim que se reconhece. Borda
+    // sólida — não tracejada, que a 1px desaparece no celular sob sol.
+    // Previsto não recebe cor tônica nem numa casa que usa ouro à vontade:
+    // pintá-lo de ouro o faria parecer dinheiro que já existe.
     selo: 'border border-forecast-border text-forecast-ink',
     tinta: 'text-content-muted',
   },
@@ -58,11 +59,9 @@ export const VOCABULARIO: Record<Situacao, Vocabulario> = {
     palavra: 'Liberada',
     palavraCorretor: 'A receber',
     explica: 'A imobiliária já recebeu. Esta comissão está a pagar.',
-    // O ÚNICO par invariante de tema do sistema: ouro da marca com tinta navy,
-    // 9,05:1 no claro e no escuro. É o único estado que veste o acento da
-    // identidade, porque é o que espera um humano — e é a única coisa que o
-    // corretor abre o app para ver.
-    selo: 'bg-seal text-seal-ink',
+    // Pílula de ouro: campo sólido com tinta de ouro e borda tônica, no
+    // desenho dos chips do CRM. 7,73:1 no escuro, 5,70:1 no claro.
+    selo: 'bg-action-soft border border-action/40 text-action-soft-ink',
     tinta: 'text-content',
   },
   vencida: {
@@ -70,7 +69,7 @@ export const VOCABULARIO: Record<Situacao, Vocabulario> = {
     palavra: 'Vencida',
     palavraCorretor: 'Atrasada',
     explica: 'A imobiliária recebeu e ainda não repassou. Vale um lembrete.',
-    selo: 'bg-critical-field text-critical-ink',
+    selo: 'bg-critical-field border border-critical/40 text-critical-ink',
     tinta: 'text-critical',
   },
   recebida: {
@@ -78,7 +77,7 @@ export const VOCABULARIO: Record<Situacao, Vocabulario> = {
     palavra: 'Recebida',
     palavraCorretor: 'Recebida',
     explica: 'O dinheiro entrou.',
-    selo: 'bg-income-field text-income-ink',
+    selo: 'bg-income-field border border-income/40 text-income-ink',
     tinta: 'text-income',
   },
   cancelada: {

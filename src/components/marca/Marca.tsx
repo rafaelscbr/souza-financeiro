@@ -79,3 +79,20 @@ export function Lockup({
     </svg>
   )
 }
+
+/**
+ * A MARCA D'ÁGUA — só o "S", sem a moldura.
+ *
+ * O glifo mede 108x128 dentro do símbolo de 272x272, a partir de (81, 71).
+ * A viewBox aqui é justamente essa caixa, para o S encher o elemento e poder
+ * sangrar pela borda sem arrastar junto um retângulo arredondado gigante.
+ *
+ * É decorativo: `aria-hidden` sempre, e a opacidade fica com quem usa.
+ */
+export function MarcaDagua({ className }: { className?: string }) {
+  return (
+    <svg viewBox="81 71 108 128" className={className} fill="none" aria-hidden>
+      <path d={S_PATH} fill="currentColor" fillRule="evenodd" />
+    </svg>
+  )
+}

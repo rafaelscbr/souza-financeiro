@@ -31,12 +31,18 @@ export function Trilha({
   const { digitos } = partesDoValor(recebido)
   return (
     <div
-      className="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-3"
+      className="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-3 ring-1 ring-inset ring-line"
       role="img"
       aria-label={rotuloAcessivel ?? `recebido R$ ${digitos} de um total de ${total.toFixed(2)}`}
     >
       {recebido > 0 && <span className="h-full bg-income" style={{ width: `${p(recebido)}%` }} />}
-      {liberado > 0 && <span className="h-full bg-seal" style={{ width: `${p(liberado)}%` }} />}
+      {/* Ouro em gradiente, como a barra de meta do CRM. */}
+      {liberado > 0 && (
+        <span
+          className="h-full"
+          style={{ width: `${p(liberado)}%`, backgroundImage: 'var(--grad-action)' }}
+        />
+      )}
       {previsto > 0 && (
         <span
           className="h-full border-y border-r border-dashed border-rule"
@@ -61,7 +67,7 @@ export function LegendaTrilha() {
         recebido
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="h-2 w-4 rounded-full bg-seal" aria-hidden />
+        <span className="h-2 w-4 rounded-full" style={{ backgroundImage: 'var(--grad-action)' }} aria-hidden />
         liberado, a pagar
       </span>
       <span className="flex items-center gap-1.5">
