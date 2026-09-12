@@ -8,8 +8,11 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
+    "backup": "node --env-file=.env scripts/backup.mjs",
+    "verifica-backup": "node --env-file=.env scripts/verifica-backup.mjs",
     "auditoria": "esbuild scripts/auditoria.ts --bundle --platform=node --format=esm --target=node18 --outfile=node_modules/.cache/auditoria.mjs --alias:@=./src --log-level=warning && node --env-file=.env node_modules/.cache/auditoria.mjs",
-    "briefing": "esbuild scripts/briefing.ts --bundle --platform=node --format=esm --target=node18 --outfile=node_modules/.cache/briefing.mjs --alias:@=./src --log-level=warning && node --env-file=.env node_modules/.cache/briefing.mjs"
+    "briefing": "esbuild scripts/briefing.ts --bundle --platform=node --format=esm --target=node18 --outfile=node_modules/.cache/briefing.mjs --alias:@=./src --log-level=warning && node --env-file=.env node_modules/.cache/briefing.mjs",
+    "teste-restauracao": "node scripts/teste-restauracao.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
@@ -23,6 +26,7 @@
     "tailwind-merge": "^2.5.2"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

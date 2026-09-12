@@ -21,5 +21,8 @@ dist-ssr
 # Vercel
 .vercel
 
+# Supabase CLI (cache local, não é configuração do projeto)
+supabase/.temp
+
 # Artefatos de build do TypeScript
 *.tsbuildinfo
