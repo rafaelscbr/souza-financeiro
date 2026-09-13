@@ -14,31 +14,36 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!--
-      Três famílias, cada uma com um trabalho, e nenhuma weight a mais:
-        Inter      — texto de interface (rebaixada: não é mais a fonte dos números)
-        Archivo    — dinheiro e número-herói, com figura tabular de verdade.
-                     É a letra do wordmark SOUZA (haste de 24,3% da caixa alta).
-        Roboto Slab — só o rótulo assinatura. É a letra do descritor
-                     IMOBILIÁRIA, que medi como slab de barra 2,71× a haste.
-      Carregadas por <link> com preconnect, não por @import no CSS: o corretor
-      abre isto em 4G entre duas visitas.
+      As fontes do Souza OS, e mais nenhuma:
+        Sora  400–800 — título e número (font-heading)
+        Inter 300–800 — rótulo e corpo (font-label, font-sans)
+      O guia carrega por @import no CSS. Aqui vai por <link> com preconnect: é
+      o mesmo arquivo do Google Fonts, com o mesmo resultado, mas o navegador
+      começa a baixar a letra enquanto lê o HTML, sem esperar o CSS chegar.
+      A pintura com a letra certa sai mais cedo, e o corretor abre isto em 4G.
     -->
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Archivo:wght@600;700&family=Roboto+Slab:wght@500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap"
     />
     <script>
-      // O ESCURO É O PADRÃO, e não a preferência do sistema operacional: é a
-      // identidade do produto, a mesma do CRM que a imobiliária já usa. Quem
-      // preferir claro escolhe, e a escolha fica salva.
+      // ANTI-FLASH. Roda antes de qualquer pintura, para a tela não piscar no
+      // tema errado enquanto o React carrega.
+      //
+      // O ESCURO É O PADRÃO DA CASA (o mesmo do iCRM), não a preferência do
+      // sistema operacional. Só 'light' salvo põe a classe html.light; qualquer
+      // outro valor, ou nada salvo, fica escuro. A densidade segue a mesma
+      // regra: só 'compacta' salvo põe html.compacta.
       (function () {
+        var html = document.documentElement
         try {
-          var t = localStorage.getItem('sgf.theme')
-          if (t !== 'light') t = 'dark'
-          document.documentElement.setAttribute('data-theme', t)
-          document
-            .querySelector('meta[name="theme-color"]')
-            .setAttribute('content', t === 'light' ? '#EBEFF6' : '#070B1A')
+          var claro = localStorage.getItem('sgf.theme') === 'light'
+          if (claro) html.classList.add('light')
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', claro ? '#F6F3EC' : '#070B1A')
+        } catch (e) {}
+        try {
+          if (localStorage.getItem('sgf.densidade') === 'compacta') html.classList.add('compacta')
         } catch (e) {}
       })()
     </script>

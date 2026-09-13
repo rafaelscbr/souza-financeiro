@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
+import { BadgePercent, Calculator, HandCoins, Wallet } from 'lucide-react'
 import { useAdmin } from './AdminData'
-import { Modal } from '@/components/ui/Modal'
+import { SidePanel } from '@/components/ui/SidePanel'
 import { Button } from '@/components/ui/Button'
 import { FormField, Input, Select } from '@/components/ui/Field'
 import { CurrencyInput } from '@/components/ui/MoneyInput'
-import { Spinner } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/Toast'
 import { Cascata, LinhaCascata, TotalCascata } from '@/components/ui/Cascata'
-import { Lista, Linha } from '@/components/ui/Lista'
+import { Linha } from '@/components/ui/Lista'
 import { Selo } from '@/components/ui/Selo'
 import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
 import { Valor } from '@/components/ui/Valor'
+import { Dica } from '@/components/ui/Dica'
 import { formatCurrency, toDateOnly } from '@/lib/format'
 import { situacaoDeTela } from '@/lib/situacao'
+import { BlocoDaFolha, ListaNaFolha, QuadroDaConta, RodapeDaFolha } from './FolhaDeLancamento'
 
 export interface ComissaoAPagar {
   installmentId: string
@@ -27,11 +29,11 @@ export interface ComissaoAPagar {
  * O ordinal real da parcela, extraído do rótulo que a tela de A pagar monta
  * ("parcela 3/9").
  *
- * O selo da marca existe para carregar o ORDINAL — o "3" de 3/9 — e é isso que
+ * O selo existe para carregar o ORDINAL — o "3" de 3/9 — e é isso que
  * transforma uma lista de seis linhas parecidas em seis linhas reconhecíveis.
  * O número já viaja até aqui, só que dentro de uma frase; lê-lo de volta é
  * apresentação. Passar `idx`/`count` no contrato seria melhor, mas isso é
- * mudança em `src/admin/pages/Pagar.tsx`, que não faz parte desta conversão.
+ * mudança em `src/admin/pages/Pagar.tsx`, fora desta folha.
  */
 function ordinal(rotulo: string): { idx?: number; count?: number } {
   const m = /(\d+)\s*\/\s*(\d+)/.exec(rotulo)
@@ -44,8 +46,9 @@ function ordinal(rotulo: string): { idx?: number; count?: number } {
  *
  * "Liberada" tem um significado exato neste sistema: a imobiliária JÁ recebeu
  * a parcela da construtora, então o dinheiro do corretor existe e está apenas
- * esperando um humano. É o único estado que veste o ouro da marca — e é a
- * única coisa que o corretor abre o app para ver.
+ * esperando um humano. Liberada que passou da data é atraso de verdade — a
+ * imobiliária recebeu e não repassou — e por isso a situação passa por
+ * `situacaoDeTela`, que é quem decide entre "Liberada" e "Vencida".
  *
  * A folha aceita várias parcelas do mesmo corretor de uma vez, porque é assim
  * que acontece na prática. O desconto combinado só é oferecido quando há uma
@@ -53,21 +56,10 @@ function ordinal(rotulo: string): { idx?: number; count?: number } {
  * desconto desses (a cesta de R$ 399,44 na 414-D) que já ficou registrado
  * apenas na descrição do lançamento, sem campo próprio.
  *
- * O que mudou na apresentação:
- *
- * 1. As parcelas viraram `Lista`/`Linha` com o SELO carregando o ordinal real.
- *    Antes eram uma caixa com borda — um cartão dentro da folha — onde cada
- *    parcela dizia "parcela 3/9" em 12px de texto corrido e o valor vinha em
- *    13px, abaixo do degrau de comparação. Pagar três parcelas de valores
- *    próximos exigia ler; agora exige olhar.
- *
- * 2. O total virou cascata, com a ORIGEM escrita: de quais vendas ele vem.
- *    Um total de lote sem origem é um número que só pode ser aceito, nunca
- *    conferido.
- *
- * 3. A data de liberação passa por `situacaoDeTela` e `FraseDeTempo`. Parcela
- *    liberada que passou da data é atraso de verdade — a imobiliária recebeu e
- *    não repassou — e a frase diz há quantos dias o corretor está esperando.
+ * Abre no painel lateral (princípio 10), com a lista de A pagar visível atrás.
+ * Três blocos com nome — as parcelas, o pagamento, o total — e a ação no
+ * rodapé fixo dizendo quanto vai sair. O painel só fecha depois que o banco
+ * confirma; em falha, data, conta e desconto continuam como foram digitados.
  *
  * O RPC continua sendo `pagarComissoes`, com o mesmo payload.
  */
@@ -116,6 +108,10 @@ export function PagarComissao({
       ? `${itens.length} ${itens.length === 1 ? 'parcela' : 'parcelas'} de ${vendas[0]}`
       : `${itens.length} parcelas de ${vendas.length} vendas: ${vendas.join(' · ')}`
 
+  function fechar() {
+    if (!salvando) onFechar()
+  }
+
   async function confirmar() {
     setErro(null)
     if (aPagar < 0)
@@ -149,62 +145,67 @@ export function PagarComissao({
   }
 
   return (
-    <Modal
-      open={!!itens}
-      onClose={onFechar}
-      title="Pagar comissão"
-      description={corretor}
-      footer={
+    <SidePanel
+      aberto={!!itens}
+      aoFechar={fechar}
+      titulo="Pagar comissão"
+      subtitulo={`${corretor} · ${itens.length === 1 ? '1 parcela' : `${itens.length} parcelas`}`}
+      rodape={
         /* UMA ação primária, e ela diz quanto vai sair. */
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={onFechar} disabled={salvando}>
+        <RodapeDaFolha erro={erro} tituloDoErro="Pagamento não gravado">
+          <Button variant="ghost" size="lg" onClick={fechar} disabled={salvando}>
             Cancelar
           </Button>
-          <Button className="flex-1" onClick={confirmar} disabled={salvando}>
-            {salvando ? <Spinner className="h-5 w-5" /> : `Pagar ${formatCurrency(aPagar)}`}
+          <Button size="lg" className="flex-1" onClick={confirmar} carregando={salvando}>
+            Pagar {formatCurrency(aPagar)}
           </Button>
-        </div>
+        </RodapeDaFolha>
       }
     >
-      <div className="space-y-5">
+      <div className="space-y-6">
         {/*
-         * Uma linha por parcela, o valor de todas no MESMO degrau e numa borda
-         * direita só: é assim que dois valores próximos passam a ser comparados
-         * por contagem de dígitos, sem leitura.
+         * Uma linha por parcela, o valor de todas na MESMA coluna à direita:
+         * é assim que dois valores próximos se comparam por contagem de
+         * dígitos, sem leitura.
          */}
-        <Lista>
-          {itens.map((i) => {
-            const { idx, count } = ordinal(i.parcela)
-            const situacao = situacaoDeTela('liberada', i.dueDate, hoje)
-            return (
-              <Linha
-                key={i.installmentId}
-                selo={<Selo situacao={situacao} idx={idx} count={count} />}
-                titulo={i.saleTitle}
-                meta={
-                  <FraseDeTempo situacao={situacao} prevista={i.dueDate} liberada={i.dueDate} />
-                }
-                situacao={<ChipSituacao situacao={situacao} />}
-                valor={<Valor valor={i.amount} posto="linha" />}
-              />
-            )
-          })}
-        </Lista>
+        <BlocoDaFolha titulo="Parcelas a repassar" icone={HandCoins}>
+          <ListaNaFolha>
+            {itens.map((i) => {
+              const { idx, count } = ordinal(i.parcela)
+              const situacao = situacaoDeTela('liberada', i.dueDate, hoje)
+              return (
+                <Linha
+                  key={i.installmentId}
+                  selo={<Selo situacao={situacao} idx={idx} count={count} />}
+                  titulo={i.saleTitle}
+                  meta={<FraseDeTempo situacao={situacao} prevista={i.dueDate} liberada={i.dueDate} />}
+                  situacao={<ChipSituacao situacao={situacao} />}
+                  valor={<Valor valor={i.amount} posto="linha" />}
+                />
+              )
+            })}
+          </ListaNaFolha>
+        </BlocoDaFolha>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <FormField label="Data do pagamento" htmlFor="p-data">
+        <BlocoDaFolha titulo="O pagamento" icone={Wallet}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Data do pagamento" htmlFor="p-data" hint="o dia em que o dinheiro saiu">
               <Input id="p-data" type="date" value={data} onChange={(e) => setData(e.target.value)} />
             </FormField>
-            <p className="mt-1.5 text-sm text-content-faint">o dia em que o dinheiro saiu</p>
-          </div>
-          <div>
             {/*
              * O foco inicial mora aqui, e não na data: o valor já vem da
              * parcela e a data já vem com hoje. A única coisa que de fato muda
              * de um pagamento para o outro é de qual conta ele sai.
              */}
-            <FormField label="Conta" htmlFor="p-conta">
+            <FormField
+              label="Conta"
+              htmlFor="p-conta"
+              hint={
+                contas.length === 0
+                  ? 'Nenhuma conta cadastrada ainda. Cadastre em Ajustes › Contas para o saldo bater.'
+                  : 'de onde o dinheiro saiu'
+              }
+            >
               <Select
                 id="p-conta"
                 data-foco-inicial
@@ -220,70 +221,59 @@ export function PagarComissao({
                 ))}
               </Select>
             </FormField>
-            <p className="mt-1.5 text-sm text-content-faint">
-              {contas.length === 0
-                ? 'Nenhuma conta cadastrada ainda. Cadastre em Ajustes › Contas para o saldo bater.'
-                : 'de onde o dinheiro saiu'}
-            </p>
           </div>
-        </div>
+          {!unica && (
+            <Dica>
+              Desconto só em pagamento de uma parcela por vez: sobre um lote não dá para saber de qual
+              venda ele saiu.
+            </Dica>
+          )}
+        </BlocoDaFolha>
 
-        {unica ? (
-          <div className="space-y-4">
-            <div>
-              <FormField label="Desconto combinado" htmlFor="p-desc">
-                <CurrencyInput id="p-desc" value={desconto} onChange={setDesconto} />
-              </FormField>
-              <p className="mt-1.5 text-sm text-content-faint">
-                Em reais, e opcional. Sai do valor pago e fica registrado como desconto — não como
-                comissão menor.
-              </p>
-            </div>
+        {unica && (
+          <BlocoDaFolha titulo="Desconto combinado" icone={BadgePercent} descricao="opcional">
+            <FormField
+              label="Valor do desconto"
+              htmlFor="p-desc"
+              hint="Em reais. Sai do valor pago e fica registrado como desconto — não como comissão menor."
+            >
+              <CurrencyInput id="p-desc" value={desconto} onChange={setDesconto} />
+            </FormField>
             {(desconto ?? 0) > 0 && (
-              <div>
-                <FormField label="Do que foi o desconto" htmlFor="p-nota">
-                  <Input
-                    id="p-nota"
-                    value={nota}
-                    onChange={(e) => setNota(e.target.value)}
-                    placeholder="Ex.: cesta de Natal"
-                  />
-                </FormField>
-                <p className="mt-1.5 text-sm text-content-faint">
-                  Sem esta frase o desconto vira um valor sem motivo daqui a seis meses.
-                </p>
-              </div>
+              <FormField
+                label="Do que foi o desconto"
+                htmlFor="p-nota"
+                hint="Sem esta frase o desconto vira um valor sem motivo daqui a seis meses."
+              >
+                <Input
+                  id="p-nota"
+                  value={nota}
+                  onChange={(e) => setNota(e.target.value)}
+                  placeholder="Ex.: cesta de Natal"
+                />
+              </FormField>
             )}
-          </div>
-        ) : (
-          <p className="text-sm text-content-muted">
-            Desconto só em pagamento de uma parcela por vez: sobre um lote não dá para saber de
-            qual venda ele saiu.
-          </p>
+          </BlocoDaFolha>
         )}
 
         {/* O total, com a origem escrita embaixo. */}
-        <div className="border-t border-rule pt-4">
-          <Cascata>
-            <LinhaCascata rotulo="Comissão liberada" valor={total} />
-            {(desconto ?? 0) > 0 && unica && (
-              <LinhaCascata
-                subtracao
-                rotulo="Desconto combinado"
-                detalhe={nota || undefined}
-                valor={desconto ?? 0}
-              />
-            )}
-            <TotalCascata rotulo="A pagar agora" valor={aPagar} nota={origem} />
-          </Cascata>
-        </div>
-
-        {erro && (
-          <p className="border-t border-line pt-4 text-base text-critical" role="alert">
-            {erro}
-          </p>
-        )}
+        <BlocoDaFolha titulo="O total" icone={Calculator}>
+          <QuadroDaConta>
+            <Cascata>
+              <LinhaCascata rotulo="Comissão liberada" valor={total} />
+              {(desconto ?? 0) > 0 && unica && (
+                <LinhaCascata
+                  subtracao
+                  rotulo="Desconto combinado"
+                  detalhe={nota || undefined}
+                  valor={desconto ?? 0}
+                />
+              )}
+              <TotalCascata rotulo="A pagar agora" valor={aPagar} nota={origem} />
+            </Cascata>
+          </QuadroDaConta>
+        </BlocoDaFolha>
       </div>
-    </Modal>
+    </SidePanel>
   )
 }

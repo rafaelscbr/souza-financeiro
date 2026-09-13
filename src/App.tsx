@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/auth/AuthContext'
 import { LoginPage, NovaSenhaPage, SemAcessoPage } from '@/auth/LoginPage'
 import { ThemeProvider } from '@/context/ThemeContext'
+import { DensidadeProvider } from '@/context/DensidadeContext'
 import { ToastProvider } from '@/components/ui/Toast'
 import { FullPageLoader } from '@/components/ui/Spinner'
 import { carregarComRecuperacao } from '@/lib/chunkRecovery'
@@ -63,9 +64,13 @@ const CorretorDataProvider = pagina(() =>
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <Portao />
-      </AuthProvider>
+      {/* Aparência e densidade são preferências do aparelho, então valem antes
+          do login: a tela de entrada já abre no tema e no ar escolhidos. */}
+      <DensidadeProvider>
+        <AuthProvider>
+          <Portao />
+        </AuthProvider>
+      </DensidadeProvider>
     </ThemeProvider>
   )
 }

@@ -1,15 +1,32 @@
+import { Ban, CalendarClock, CircleCheck, Clock, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { VOCABULARIO, fraseDeTempo, type Situacao } from '@/lib/situacao'
-import { Marcador } from './Selo'
+import { Chip } from './Chip'
+import { TOM_DA_SITUACAO } from './tom'
 import { cn } from '@/lib/utils'
 
 /*
- * O chip de situação. Quatro sinais redundantes, e a cor é o quarto:
- * forma do marcador + preenchimento do selo + a palavra + a frase de tempo.
+ * O ícone de cada situação. Cor sozinha nunca comunica status (princípio 3):
+ * em escala de cinza, no sol ou impresso, o ícone e a palavra seguem dizendo
+ * o que o dinheiro é.
  *
- * O par tinta+fundo de cada estado é declarado explicitamente em
- * src/lib/situacao.ts — nunca uma cor com alpha. Era assim que os selos
- * antigos ficavam presos em 2,71:1: `bg-pending/12 text-pending` parece
- * elegante e produz um contraste que ninguém calculou.
+ *   prevista   calendário ... tem data, ainda não é dinheiro
+ *   liberada   relógio ...... é dinheiro, esperando um humano
+ *   vencida    alerta ....... o mesmo dinheiro, esperando demais
+ *   recebida   check ........ o dinheiro se moveu
+ *   cancelada  proibido ..... registro risca, não apaga
+ */
+export const ICONE_DA_SITUACAO: Record<Situacao, LucideIcon> = {
+  prevista: CalendarClock,
+  liberada: Clock,
+  vencida: TriangleAlert,
+  recebida: CircleCheck,
+  cancelada: Ban,
+}
+
+/*
+ * O chip de situação. O tom sai do mapeamento único (TOM_DA_SITUACAO): prevista
+ * é informação, liberada é atenção, vencida é risco, recebida é sucesso e
+ * cancelada é neutro. As PALAVRAS continuam as de src/lib/situacao.ts.
  */
 export function ChipSituacao({
   situacao,
@@ -24,23 +41,20 @@ export function ChipSituacao({
   const v = VOCABULARIO[situacao]
   const palavra = perfil === 'corretor' ? v.palavraCorretor : v.palavra
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold',
-        v.selo,
-        className,
-      )}
+    <Chip
+      tom={TOM_DA_SITUACAO[situacao]}
+      icone={ICONE_DA_SITUACAO[situacao]}
+      className={cn(situacao === 'cancelada' && 'line-through', className)}
     >
-      <Marcador situacao={situacao} />
       {palavra}
-    </span>
+    </Chip>
   )
 }
 
 /**
  * A frase de tempo, sozinha. Data nunca aparece sem verbo neste sistema:
- * em 13px a 5,90:1 (contra os 11px a 2,56:1 de antes), e sempre dizendo o que
- * aconteceu — "liberada em 02/09 · 10 dias esperando".
+ * sempre dizendo o que aconteceu — "liberada em 02/09 · 10 dias esperando".
+ * É contexto, então é texto e não pílula (seção 9).
  */
 export function FraseDeTempo({
   situacao,
@@ -56,7 +70,7 @@ export function FraseDeTempo({
   className?: string
 }) {
   return (
-    <span className={cn('text-sm text-content-faint', className)}>
+    <span className={cn('text-xs text-t3', className)}>
       {fraseDeTempo(situacao, { prevista, liberada, recebida })}
     </span>
   )

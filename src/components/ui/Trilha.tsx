@@ -1,19 +1,21 @@
-import { partesDoValor } from '@/lib/format'
+import { formatCurrency } from '@/lib/format'
+import { TOM } from './tom'
 
 /*
- * A TRILHA de progresso — três estados numa barra, legível em escala de cinza.
+ * A TRILHA de progresso — três estados numa barra.
  *
- * A barra antiga tinha um segmento só e crescia com animação. Duas coisas
- * erradas: ela não distinguia o que já entrou do que está liberado do que é
- * promessa, e uma barra que enche enquanto o usuário olha sugere que a
- * comissão do ano está sendo preenchida agora.
+ *   sucesso (verde) ........ recebida: o dinheiro se moveu
+ *   atenção (âmbar) ........ liberada: é dinheiro, esperando o repasse
+ *   info (azul-petróleo) ... prevista: depende da construtora, não é dívida
  *
- *   preenchimento sólido verde .... recebida (o dinheiro se moveu)
- *   preenchimento sólido ouro ..... liberada (é dinheiro, esperando)
- *   contorno tracejado ............ prevista (ainda não é dinheiro)
+ * Trilho `bg-s3` de 6px (seção 5). Nenhum segmento é ouro, então nenhum tem
+ * halo: ouro com halo é só do tom marca, e esta barra não mede meta. Os
+ * segmentos têm 2px de folga entre si para que a divisão continue legível em
+ * escala de cinza, onde verde, âmbar e azul viram cinzas parecidos.
  *
- * Renderiza na largura final, sem crescer. E o número vem escrito ao lado
- * sempre: a barra é reforço, nunca a única fonte.
+ * Renderiza na largura final, sem crescer: uma barra que enche enquanto a
+ * pessoa olha sugere que a comissão do ano está sendo preenchida agora. E o
+ * número vem escrito ao lado sempre; a barra é reforço, nunca a única fonte.
  */
 export function Trilha({
   recebido,
@@ -28,50 +30,45 @@ export function Trilha({
 }) {
   const total = recebido + liberado + previsto
   const p = (v: number) => (total > 0 ? (v / total) * 100 : 0)
-  const { digitos } = partesDoValor(recebido)
   return (
     <div
-      className="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-3 ring-1 ring-inset ring-line"
+      className="flex h-1.5 w-full gap-[2px] overflow-hidden rounded-full bg-s3"
       role="img"
-      aria-label={rotuloAcessivel ?? `recebido R$ ${digitos} de um total de ${total.toFixed(2)}`}
+      aria-label={
+        rotuloAcessivel ??
+        `recebido ${formatCurrency(recebido)}, liberado ${formatCurrency(liberado)}, previsto ${formatCurrency(previsto)}`
+      }
     >
-      {recebido > 0 && <span className="h-full bg-income" style={{ width: `${p(recebido)}%` }} />}
-      {/* Ouro em gradiente, como a barra de meta do CRM. */}
+      {recebido > 0 && (
+        <span className="h-full rounded-full" style={{ width: `${p(recebido)}%`, backgroundColor: TOM.sucesso.solido }} />
+      )}
       {liberado > 0 && (
-        <span
-          className="h-full"
-          style={{ width: `${p(liberado)}%`, backgroundImage: 'var(--grad-action)' }}
-        />
+        <span className="h-full rounded-full" style={{ width: `${p(liberado)}%`, backgroundColor: TOM.atencao.solido }} />
       )}
       {previsto > 0 && (
-        <span
-          className="h-full border-y border-r border-dashed border-rule"
-          style={{ width: `${p(previsto)}%` }}
-        />
+        <span className="h-full rounded-full" style={{ width: `${p(previsto)}%`, backgroundColor: TOM.info.solido }} />
       )}
     </div>
   )
 }
 
 /**
- * A legenda da gramática. Uma linha, uma vez por tela onde a trilha aparece.
- *
- * Qualquer sistema que troca cor por forma precisa ensinar a forma uma vez, ou
- * a régua fica bonita e muda.
+ * A legenda da trilha. Uma linha, uma vez por tela onde a trilha aparece:
+ * quem troca número por cor precisa ensinar a cor uma vez.
  */
 export function LegendaTrilha() {
   return (
-    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-content-faint">
+    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-t3">
       <span className="flex items-center gap-1.5">
-        <span className="h-2 w-4 rounded-full bg-income" aria-hidden />
+        <span className={`h-1.5 w-4 rounded-full ${TOM.sucesso.ponto}`} aria-hidden />
         recebido
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="h-2 w-4 rounded-full" style={{ backgroundImage: 'var(--grad-action)' }} aria-hidden />
+        <span className={`h-1.5 w-4 rounded-full ${TOM.atencao.ponto}`} aria-hidden />
         liberado, a pagar
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="h-2 w-4 rounded-full border border-dashed border-rule" aria-hidden />
+        <span className={`h-1.5 w-4 rounded-full ${TOM.info.ponto}`} aria-hidden />
         depende da construtora
       </span>
     </p>

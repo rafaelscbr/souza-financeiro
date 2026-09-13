@@ -1,5 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { AlertTriangle, RotateCcw, DownloadCloud } from 'lucide-react'
+import { CloudDownload } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { EstadoErro } from '@/components/ui/Estados'
+import { IconeTom } from '@/components/ui/IconeTom'
 import { forcarAtualizacao } from '@/lib/chunkRecovery'
 
 interface Props {
@@ -40,47 +43,40 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.error) {
       // "Failed to fetch dynamically imported module" não é erro da tela: é
       // versão em cache apontando para arquivo que já não existe. Merece uma
-      // saída própria, porque "tentar novamente" não resolve.
+      // saída própria, porque "tentar de novo" não resolve. E não é risco, é
+      // informação: nada quebrou, só falta baixar a versão nova.
       const versaoVelha = /dynamically imported module|Importing a module script failed|Failed to fetch/i.test(
         this.state.error.message,
       )
       return (
-        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-critical-field">
-            <AlertTriangle className="h-6 w-6 text-critical" />
-          </div>
-          <div className="max-w-md">
-            <h2 className="text-lg font-bold text-content">
-              {versaoVelha ? 'Saiu uma versão nova do sistema' : 'Algo nesta tela deu erro'}
-            </h2>
-            <p className="mt-1 text-sm text-content-muted">
-              {versaoVelha
-                ? 'Seu aparelho está com a versão anterior guardada. Toque abaixo para baixar a atualização — leva um segundo e você não perde nada.'
-                : 'O resto do sistema continua funcionando. Você pode tentar de novo ou ir para outra parte pelo menu. Se persistir, me avise com o que estava fazendo.'}
-            </p>
-          </div>
+        <div className="flex min-h-[50vh] flex-col items-center justify-center px-4">
           {versaoVelha ? (
-            <button
-              onClick={forcarAtualizacao}
-              className="inline-flex items-center gap-2 rounded-lg bg-action px-4 py-2.5 text-base font-semibold text-action-ink transition-transform active:scale-95"
-            >
-              <DownloadCloud className="h-4 w-4" />
-              Atualizar agora
-            </button>
+            <div role="alert" className="flex flex-col items-center px-6 py-12 text-center">
+              <IconeTom icone={CloudDownload} tom="info" tamanho="lg" />
+              <h2 className="mt-4 font-heading text-base font-bold tracking-[-0.015em] text-t1">
+                Saiu uma versão nova do sistema
+              </h2>
+              <p className="mt-1 max-w-sm text-[13px] text-t3">
+                Seu aparelho está com a versão anterior guardada. Toque abaixo para baixar a atualização — leva um
+                segundo e você não perde nada.
+              </p>
+              <div className="mt-5">
+                <Button type="button" onClick={forcarAtualizacao}>
+                  <CloudDownload size={15} strokeWidth={1.6} aria-hidden />
+                  Atualizar agora
+                </Button>
+              </div>
+            </div>
           ) : (
-            <button
-              onClick={() => this.setState({ error: null })}
-              className="inline-flex items-center gap-2 rounded-lg bg-action px-4 py-2.5 text-base font-semibold text-action-ink transition-transform active:scale-95"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Tentar novamente
-            </button>
+            <EstadoErro
+              titulo="Algo nesta tela deu erro"
+              motivo="O resto do sistema continua funcionando. Você pode tentar de novo ou ir para outra parte pelo menu. Se persistir, me avise com o que estava fazendo."
+              aoTentarDeNovo={() => this.setState({ error: null })}
+            />
           )}
-          <details className="mt-1 max-w-md text-left">
-            <summary className="cursor-pointer text-xs text-content-faint">Detalhes técnicos</summary>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-surface-2 p-3 text-xs text-content-muted">
-              {this.state.error.message}
-            </pre>
+          <details className="-mt-6 w-full max-w-md text-left">
+            <summary className="cursor-pointer text-center text-xs text-t4">Detalhes técnicos</summary>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-s2 p-3 text-xs text-t3">{this.state.error.message}</pre>
           </details>
         </div>
       )

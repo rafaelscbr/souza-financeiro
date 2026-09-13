@@ -1,5 +1,15 @@
-import { type ReactNode } from 'react'
+import { isValidElement, type ReactNode } from 'react'
+import { Inbox, type LucideIcon } from 'lucide-react'
+import { EstadoVazio } from './Estados'
 
+/*
+ * Invólucro DEPRECADO de EstadoVazio, para as telas que ainda não migraram.
+ *
+ * As telas passam o ícone como elemento pronto (`<Handshake className="h-8
+ * w-8" />`). O EstadoVazio quer o componente, para desenhar no tamanho e no
+ * traço do guia e dentro do bloco tonalizado; então o componente é tirado do
+ * elemento e o tamanho que a tela escolheu é descartado de propósito.
+ */
 export function EmptyState({
   icon,
   title,
@@ -11,14 +21,6 @@ export function EmptyState({
   description?: string
   action?: ReactNode
 }) {
-  return (
-    <div className="flex flex-col items-center justify-center border-t border-line px-6 py-12 text-center">
-      {icon && <div className="mb-3 text-content-faint">{icon}</div>}
-      <h3 className="text-base font-semibold text-content">{title}</h3>
-      {description && (
-        <p className="mt-1 max-w-sm text-base text-content-muted">{description}</p>
-      )}
-      {action && <div className="mt-5">{action}</div>}
-    </div>
-  )
+  const icone = isValidElement(icon) && typeof icon.type !== 'string' ? (icon.type as LucideIcon) : Inbox
+  return <EstadoVazio icone={icone} titulo={title} descricao={description} acao={action} />
 }

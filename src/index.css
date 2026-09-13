@@ -1,324 +1,427 @@
+/*
+ * FONTES. O guia (docs/souza-os.md, seção 3) abre este arquivo com um @import
+ * do Google Fonts. Aqui elas chegam por <link> com preconnect no index.html e
+ * no kit.html: é o MESMO arquivo, com as mesmas famílias e pesos (Sora 400–800
+ * e Inter 300–800, e mais nenhuma), só que o navegador começa a baixar a letra
+ * enquanto ainda lê o HTML, em vez de esperar este CSS chegar para descobrir
+ * que precisa dela. O corretor abre isto em 4G entre duas visitas; a primeira
+ * pintura com a letra certa sai mais cedo. Não reponha o @import: seriam duas
+ * requisições para a mesma coisa.
+ */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /*
  * ---------------------------------------------------------------------------
- * A tinta da casa — medida em dois lugares, e os dois disseram a mesma coisa.
+ * SOUZA OS — os tokens da casa, os mesmos do iCRM.
  * ---------------------------------------------------------------------------
  *
- * 1) O LOGOTIPO. src/assets/logo-imobiliaria.png tem 60.634 pixels opacos:
- *      #0F1730 → 98,97% de toda a tinta (o navy)
- *      #E4B23C →  0,15% (89 px: o ponto final de "IMOBILIÁRIA")
+ * A lei é docs/souza-os.md. O bloco abaixo é a seção 3 copiada VERBATIM: não
+ * ajuste um valor aqui "porque ficou melhor". Se o financeiro divergir do iCRM
+ * num hex, a imobiliária passa a ter dois sistemas com a mesma cara quase igual,
+ * que é pior do que duas caras diferentes.
  *
- * 2) O CRM QUE O RAFAEL JÁ USA. Decodifiquei o print dele pixel a pixel:
- *      #070B1A → 22,4% de todos os pixels (o fundo)
- *      #141C34 → a superfície do card
- *      #E4B23C → o acento. EXATAMENTE o mesmo ouro do logotipo.
- *      #34C88A → o verde de "está no ritmo"
- *      #F6F3EC → o texto, creme quente, NÃO branco puro
- *      #8A90A6 → o texto secundário
+ * `:root` é o ESCURO, padrão da casa. `html.light` é o claro, completo, com
+ * valor próprio para cada receita (claro não é escuro invertido). Quem liga e
+ * desliga a classe é src/context/ThemeContext.tsx e o script anti-flash do
+ * index.html.
  *
- * O ouro do CRM e o ouro da marca são o mesmo hex, byte por byte. E o navy do
- * CRM está na mesma família de matiz do navy do logotipo (H225-227 contra
- * H225,5). O CRM já é a marca aplicada em tema escuro.
- *
- * A primeira versão deste arquivo acertou a marca e errou a casa: foi para o
- * claro e racionou o ouro num disco de 5px por tela. O Rafael reprovou com
- * razão — o produto dele é escuro e usa ouro à vontade. Então:
- *
- *   • O ESCURO É O PADRÃO. Não é uma preferência do sistema operacional: é a
- *     identidade do produto. O claro continua existindo, como contraparte.
- *   • O OURO É A COR DE AÇÃO E O ACENTO. Botão primário, navegação ativa,
- *     progresso, a barra do rótulo de seção. Sem racionamento.
- *   • VERDE é dinheiro que se moveu. Nunca ação, nunca previsão.
- *
- * O que NÃO mudou, porque não é questão de gosto: todo par abaixo foi
- * calculado pela fórmula WCAG, e nenhum reprova. Dinheiro nunca abrevia.
- * Previsão nunca usa a cor de dinheiro que existe.
+ * Fica FORA de @layer de propósito: o Tailwind descarta regra de camada cujo
+ * seletor tem uma classe que ele não achou no código, e o tema claro inteiro
+ * depende do seletor `html.light`. Variável CSS não disputa com utilitário,
+ * então não há ordem de cascata a proteger aqui.
  */
 
+:root { /* ESCURO — padrão */
+  --brand:#E4B23C; --brand-dark:#C2922A; --brand-tint:rgba(228,178,60,.14);
+  --brand-text:#F0CC78; --brand-shadow:rgba(228,178,60,.30); --brand-btn-text:#0F1730;
+  --brand-fill:#E4B23C; --brand-fill-hover:#F0CC78; --brand-fill-deep:#C2922A; --brand-fill-text:#0F1730;
+  --grad-brand:linear-gradient(158deg,#F0CC78 0%,#E4B23C 62%); --grad-brand-text:#0F1730;
+
+  --page-bg:#070B1A; --surface:#0F1730; --surface-2:#18224A; --surface-3:#1F2A55;
+
+  --nav-bg:#070B1A; --nav-text:rgba(246,243,236,.78); --nav-muted:rgba(246,243,236,.40);
+  --nav-active-text:#F6F3EC; --nav-active-bg:rgba(255,255,255,.075);
+  --nav-hover-bg:rgba(255,255,255,.05); --nav-line:rgba(255,255,255,.08);
+  --nav-logo:#F6F3EC; --nav-elev:#101935;
+  --nav-rail-sheen:linear-gradient(158deg,rgba(255,255,255,.05) 0%,rgba(255,255,255,0) 46%);
+
+  --t1:#F6F3EC; --t2:#CFC9BC; --t3:#8A90A6; --t4:#7A829B; --t5:#5F6880;
+  --line:rgba(255,255,255,.10); --line-strong:rgba(255,255,255,.18); --line-input:rgba(255,255,255,.14);
+
+  --success:#34C88A; --success-bg:rgba(52,200,138,.10); --success-line:rgba(52,200,138,.28);
+  --warning:#E0A030; --warning-bg:rgba(224,160,48,.10); --warning-line:rgba(224,160,48,.28);
+  --error:#E5717A;   --error-bg:rgba(229,113,122,.10);  --error-line:rgba(229,113,122,.28);
+  --info:#5FB3BA;    --info-bg:rgba(95,179,186,.10);    --info-line:rgba(95,179,186,.28);
+
+  --shadow-card:0 1px 3px rgba(0,0,0,.65),0 1px 2px rgba(0,0,0,.45);
+  --shadow-modal:0 25px 50px rgba(0,0,0,.80),0 10px 20px rgba(0,0,0,.55);
+  --shadow-dropdown:0 10px 30px rgba(0,0,0,.65),0 4px 10px rgba(0,0,0,.50);
+
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.06'/%3E%3C/svg%3E");
+  --surface-sheen:linear-gradient(158deg,rgba(255,255,255,.055) 0%,rgba(255,255,255,0) 58%);
+  --sheen-start:var(--surface-2);
+  --aurora-a:rgba(228,178,60,.14); --aurora-b:rgba(228,178,60,.09);
+}
+
+html.light { /* CLARO — Papel */
+  --brand:#A8791A; --brand-dark:#8A6210; --brand-tint:rgba(228,178,60,.16);
+  --brand-text:#8A6210; --brand-shadow:rgba(228,178,60,.30); --brand-btn-text:#0F1730;
+  --brand-fill:#E4B23C; --brand-fill-hover:#D9A62F; --brand-fill-deep:#C2922A; --brand-fill-text:#0F1730;
+  --grad-brand:linear-gradient(158deg,#F0CC78 0%,#E4B23C 62%); --grad-brand-text:#0F1730;
+
+  --page-bg:#F6F3EC; --surface:#FFFFFF; --surface-2:#F1EEE6; --surface-3:#E6E2D8;
+
+  --nav-bg:#FBF9F3; --nav-text:#2A3660; --nav-muted:#5A6480; --nav-active-text:#0F1730;
+  --nav-active-bg:rgba(15,23,48,.062); --nav-hover-bg:rgba(15,23,48,.035);
+  --nav-line:rgba(15,23,48,.10); --nav-logo:#0F1730; --nav-elev:#FFFFFF;
+  --nav-rail-sheen:linear-gradient(158deg,rgba(255,255,255,.85) 0%,rgba(255,255,255,0) 46%);
+
+  --t1:#0F1730; --t2:#2A3660; --t3:#4A5573; --t4:#5A6480; --t5:#9AA0AE;
+  --line:rgba(15,23,48,.10); --line-strong:rgba(15,23,48,.18); --line-input:rgba(15,23,48,.15);
+
+  --success:#1F8A62; --success-bg:#E7F5ED; --success-line:#A8DCC4;
+  --warning:#BD7A12; --warning-bg:#FBF0DC; --warning-line:#E8C88A;
+  --error:#C7474F;   --error-bg:#FBEAEB;   --error-line:#EFB3B7;
+  --info:#236B73;    --info-bg:#E7F2F2;    --info-line:#A9CFD2;
+
+  --shadow-card:0 1px 4px rgba(15,23,48,.08),0 1px 2px rgba(15,23,48,.05);
+  --shadow-modal:0 25px 50px rgba(15,23,48,.18),0 10px 20px rgba(15,23,48,.10);
+  --shadow-dropdown:0 10px 30px rgba(15,23,48,.12),0 4px 10px rgba(15,23,48,.08);
+
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.025'/%3E%3C/svg%3E");
+  --surface-sheen:linear-gradient(158deg,rgba(255,255,255,0) 45%,rgba(15,23,48,.030) 100%);
+  --sheen-start:color-mix(in srgb,var(--surface-2) 50%,var(--surface));
+  --aurora-a:rgba(228,178,60,.055); --aurora-b:rgba(196,146,42,.035);
+}
+
+/*
+ * O que a seção 3 não lista, mas outras seções pedem. Separado do bloco
+ * verbatim para que a cópia do guia continue conferível linha a linha.
+ */
+:root {
+  /* Controles nativos (select, date, a barra de rolagem do Firefox) seguem o tema. */
+  color-scheme: dark;
+
+  /*
+   * Marinho da paleta (seção 2). O mesmo nos dois temas: é cor da marca, não
+   * receita de tema. Existe para o alias `marca-navy` (o véu atrás do modal).
+   */
+  --marinho: #0F1730;
+
+  /* Barra de rolagem fina (seção 12): 4px, thumb próprio por tema. */
+  --scrollbar-thumb: #4A5573;
+}
+
+html.light {
+  color-scheme: light;
+  --scrollbar-thumb: rgba(15, 23, 48, 0.18);
+}
+
+/*
+ * DEPRECADO — variável da paleta anterior, ainda lida por
+ * src/components/ui/Trilha.tsx num style inline. Aponta para o degradê da
+ * marca para a trilha não perder o preenchimento durante a migração.
+ * A verificação apaga junto com o bloco DEPRECADO de classes lá embaixo.
+ */
+:root {
+  --grad-action: var(--grad-brand);
+}
+
 @layer base {
-  /* =========================== TEMA ESCURO (padrão) =========================== */
-  :root {
-    color-scheme: dark;
-
-    --c-base: 7 11 26; /* #070B1A — o fundo do CRM */
-    --c-surface: 20 28 52; /* #141C34 — o card */
-    --c-surface-2: 30 41 71; /* #1E2947 — campo, card dentro de card */
-    --c-surface-3: 39 51 90; /* #27335A */
-
-    --c-line: 35 44 74; /* fio decorativo entre linhas */
-    --c-rule: 102 117 176; /* #6675B0 — fio que carrega leitura, 3,80:1 no card */
-
-    --c-content: 246 243 236; /* #F6F3EC creme · 15,22:1 no card · 17,68:1 no fundo */
-    --c-content-muted: 154 161 184; /* #9AA1B8 ·  6,56:1 no card */
-    --c-content-faint: 142 150 176; /* #8E96B0 ·  5,73:1 no card */
-
-    /* AÇÃO — o ouro da marca. Preenchimento sólido com tinta escura: 9,51:1. */
-    --c-action: 228 178 60; /* #E4B23C */
-    --c-action-ink: 11 18 38; /* #0B1226 sobre o ouro */
-    --c-action-hi: 240 204 120; /* #F0CC78 — o stop claro do gradiente */
-    --c-action-soft: 42 38 23; /* campo de nav ativa: ouro a 14% sobre o fundo */
-    --c-action-soft-ink: 228 178 60; /* 7,73:1 dentro dele */
-
-    /* O ouro como TEXTO já é legítimo aqui: 8,62:1 no card. */
-    --c-seal: 228 178 60;
-    --c-seal-ink: 11 18 38;
-    --c-seal-dot: 228 178 60;
-
-    /* Dinheiro que se moveu. */
-    --c-income: 52 200 138; /* #34C88A · 7,85:1 no card */
-    --c-income-field: 21 52 40; /* #153428 */
-    --c-income-ink: 52 200 138; /* 6,29:1 no campo */
-
-    /* Promessa quebrada. */
-    --c-critical: 255 107 107; /* #FF6B6B · 6,08:1 no card */
-    --c-critical-field: 52 30 38; /* #341E26 */
-    --c-critical-ink: 255 107 107; /* 5,57:1 no campo */
-    --c-expense: 255 107 107;
-
-    /*
-     * Previsto continua sem cor tônica. Esta é a única regra que a pegada do
-     * CRM não pode dobrar: lá, previsão de VGV é oportunidade e pode brilhar;
-     * aqui, previsão é dinheiro que a construtora ainda não pagou, e pintá-la
-     * de ouro ou de verde a faria parecer caixa.
-     */
-    --c-forecast-ink: 142 150 176;
-    --c-forecast-border: 102 117 176;
-
-    /* Gradientes. Sutis: o card do CRM varia ~2 níveis por canal do topo à base. */
-    --grad-surface: linear-gradient(180deg, rgb(23 31 58) 0%, rgb(19 27 50) 100%);
-    --grad-action: linear-gradient(180deg, rgb(240 204 120) 0%, rgb(224 173 52) 100%);
-    --grad-glow: radial-gradient(120% 80% at 85% 0%, rgb(228 178 60 / 0.1) 0%, transparent 60%);
-
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
-    --shadow-pop: 0 24px 60px -16px rgb(0 0 0 / 0.75);
-    /* Brilho interno no topo do card: o que dá a sensação de vidro. */
-    --realce-topo: inset 0 1px 0 rgb(255 255 255 / 0.06);
-  }
-
-  /* =========================== TEMA CLARO =========================== */
-  :root[data-theme='light'] {
-    color-scheme: light;
-
-    --c-base: 235 239 246;
-    --c-surface: 255 255 255;
-    --c-surface-2: 240 243 249;
-    --c-surface-3: 225 231 242;
-
-    --c-line: 225 231 240;
-    --c-rule: 122 136 171; /* 3,54:1 no card */
-
-    --c-content: 20 28 52; /* 16,86:1 */
-    --c-content-muted: 90 96 118; /*  6,23:1 */
-    --c-content-faint: 94 100 120; /*  5,88:1 · 4,74:1 no recuo-2 */
-
-    /* O botão de ouro funciona no claro também: tinta navy sobre ouro = 8,62:1. */
-    --c-action: 228 178 60;
-    --c-action-ink: 20 28 52;
-    --c-action-hi: 240 204 120;
-    --c-action-soft: 250 242 220;
-    --c-action-soft-ink: 122 90 14; /* #7A5A0E · 5,70:1 dentro do campo */
-
-    /* O ouro PURO reprova como texto no claro (1,96:1 sobre branco). A tinta
-       da família do ouro é outra, e por isso o token de tinta é separado. */
-    --c-seal: 228 178 60;
-    --c-seal-ink: 20 28 52;
-    --c-seal-dot: 172 127 21;
-
-    --c-income: 11 122 82; /* #0B7A52 · 5,36:1 */
-    --c-income-field: 226 244 236;
-    --c-income-ink: 11 122 82;
-
-    --c-critical: 194 43 43; /* #C22B2B · 5,72:1 */
-    --c-critical-field: 252 233 233;
-    --c-critical-ink: 194 43 43;
-    --c-expense: 194 43 43;
-
-    --c-forecast-ink: 90 96 118;
-    --c-forecast-border: 122 136 171;
-
-    --grad-surface: linear-gradient(180deg, rgb(255 255 255) 0%, rgb(250 251 253) 100%);
-    --grad-action: linear-gradient(180deg, rgb(240 204 120) 0%, rgb(224 173 52) 100%);
-    --grad-glow: radial-gradient(120% 80% at 85% 0%, rgb(228 178 60 / 0.12) 0%, transparent 60%);
-
-    --shadow-card: 0 1px 2px rgb(15 23 48 / 0.05), 0 2px 6px -1px rgb(15 23 48 / 0.07);
-    --shadow-pop: 0 12px 40px -12px rgb(15 23 48 / 0.22);
-    --realce-topo: inset 0 1px 0 rgb(255 255 255 / 0.8);
-  }
-
-  * {
-    @apply border-line;
-  }
-
   html,
   body,
   #root {
     height: 100%;
   }
 
+  /*
+   * Corpo: Inter (vem de fontFamily.sans pelo preflight), entrelinha 1.6 e
+   * suavização (seção 4). A cor padrão é --t2, o papel "corpo" da seção 3:
+   * título pede text-t1 de propósito, e o que não pediu nada lê como texto
+   * operacional, não como manchete.
+   */
   body {
-    @apply bg-papel text-content font-sans antialiased;
+    background-color: var(--page-bg);
+    color: var(--t2);
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
+  /* Areia a 35% com o texto em --t1: a seleção é da marca e continua legível. */
+  ::selection {
+    background-color: rgba(228, 178, 60, 0.35);
+    color: var(--t1);
+  }
+
+  /* Seção 12, literal. Contorno e não ring: não depende de o componente lembrar. */
+  *:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
   /*
-   * Foco: contorno sólido de 2px no OURO, com afastamento. No escuro dá
-   * 10,01:1 sobre o fundo; no claro o anel usa a tinta, porque ouro sobre
-   * branco é invisível. O anel esmeralda anterior dava 1,46:1 dentro do campo
-   * de login — ou seja, nada.
+   * Barra de rolagem de 4px. Chrome e Safari leem ::-webkit-scrollbar; o
+   * Firefox só entende scrollbar-width/scrollbar-color. As duas não podem
+   * valer juntas: no Chrome 121+, declarar scrollbar-color desliga o
+   * ::-webkit-scrollbar e a barra volta a ter 11px. Por isso o @supports.
    */
-  :focus-visible {
-    @apply outline-none ring-2 ring-action ring-offset-2 ring-offset-papel;
-  }
-
-  :root[data-theme='light'] :focus-visible {
-    @apply ring-content;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      animation-delay: 0ms !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
-  }
-
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 4px;
+    height: 4px;
   }
   ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-surface-3;
-    border: 2px solid transparent;
-    background-clip: content-box;
+    background-color: var(--scrollbar-thumb);
+    border-radius: 9999px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
+  }
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * Receitas das seções 5, 7 e 9.
+ * ---------------------------------------------------------------------------
+ * Em @layer components para que um utilitário vença a receita quando o
+ * componente precisa: `card-surface border-line-strong` troca a borda sem
+ * !important. A contrapartida é o Tailwind só emitir a receita que alguém
+ * usa, o que é o que queremos.
+ */
 @layer components {
   /*
-   * O CARD. Gradiente vertical curtíssimo, fio de 1px e um realce de 1px no
-   * topo. É o que separa "bloco de cor chapada" de "superfície".
+   * AJUSTES DO RAFAEL (12/09/2026), acima do guia — ver o topo de
+   * docs/souza-os.md. Ele reprovou as barras e o degradê da primeira versão:
+   * superfície é cor lisa (o grão fica), botão primário é Areia chapado, sem
+   * aurora, sem filete de ouro, sem brilho no canto, sem filete em rótulo. As
+   * classes continuam existindo com o mesmo nome para nada quebrar; só pintam
+   * liso. Os tokens verbatim lá em cima ficam como o guia escreveu.
    */
-  .superficie {
-    background-image: var(--grad-surface);
-    box-shadow: var(--shadow-card), var(--realce-topo);
+
+  /* ------------------------------ Superfícies ------------------------------ */
+
+  .texture-grain {
+    background-image: var(--grain);
   }
 
-  /* O brilho de ouro do canto superior, para a dobra da tela. */
-  .brilho-ouro::before {
-    content: '';
+  .surface-premium {
+    background-color: var(--surface);
+    background-image: var(--grain);
+  }
+
+  .card-surface {
+    background-color: var(--surface);
+    background-image: var(--grain);
+    border-color: var(--line);
+    box-shadow: var(--shadow-card);
+  }
+
+  .modal-surface {
+    background-color: var(--surface);
+    background-image: var(--grain);
+    border: 1px solid var(--line);
+  }
+
+  .nav-bg-blur {
+    background-color: var(--nav-bg);
+    backdrop-filter: blur(16px);
+  }
+  html.light .nav-bg-blur {
+    background-color: var(--page-bg);
+  }
+
+  /* Trilho lateral (seção 6): grão + o brilho próprio do trilho. */
+  .nav-rail {
+    background-color: var(--nav-bg);
+    background-image: var(--grain);
+  }
+
+  .grad-brand {
+    background-color: var(--brand-fill);
+    color: var(--brand-fill-text);
+  }
+  .grad-brand:hover:not(:disabled) {
+    background-color: var(--brand-fill-hover);
+  }
+
+  /* No máximo 1 por tela. */
+  .grad-brand-glow {
+    box-shadow: none;
+  }
+
+  /*
+   * Ouro — USO RESTRITO: só dinheiro, meta e marca. Um bloco dourado por tela
+   * (princípio 2). O host precisa de position:relative.
+   *
+   * O guia escreve gold-edge-short como variação de gold-edge. Aqui a
+   * geometria do filete vale para as duas, então `gold-edge-short` sozinho
+   * também desenha, e `gold-edge gold-edge-short` junto dá o curto, porque a
+   * regra do curto vem depois com a mesma especificidade.
+   */
+  .gold-edge,
+  .gold-edge-short {
+    border-color: color-mix(in srgb, var(--brand) 38%, transparent);
+  }
+
+  .gold-glow-tl {
+    isolation: isolate;
+  }
+
+  /* ---------------------------------- Lista --------------------------------- */
+
+  .list-surface {
+    background-color: var(--surface-2);
+    background-image: var(--grain);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--shadow-card);
+  }
+  html.light .list-surface {
+    background-color: var(--surface);
+    background-image: var(--grain);
+    box-shadow: var(--shadow-card);
+  }
+
+  /*
+   * Densidade (seção 9): muda só o ar da linha, nunca esconde informação.
+   * `html.compacta .lista-linha` pesa (0,2,1) e vence o `py-3.5` da linha sem
+   * !important. A classe vem de src/context/DensidadeContext.tsx.
+   */
+  html.compacta .lista-linha {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  /*
+   * Barra de progresso de dinheiro e meta (seção 5). Só o tom marca tem
+   * degradê e halo; barra de outro tom é chapada na cor do tom.
+   */
+  .barra-marca {
+    background-color: var(--brand-fill);
+  }
+
+  /* --------------------------------- Aurora --------------------------------- */
+
+  /*
+   * Fundo vivo de toda tela. 48s e 67s não são múltiplos de propósito: as duas
+   * manchas nunca voltam juntas ao mesmo lugar, e o fundo não parece um laço.
+   * Anima só transform, nunca background-position.
+   */
+  .aurora {
+    display: none;
     position: absolute;
     inset: 0;
-    background-image: var(--grad-glow);
+    overflow: hidden;
     pointer-events: none;
+    z-index: 0;
   }
-
-  /*
-   * A BARRA DO RÓTULO — o gesto mais reconhecível do CRM.
-   *
-   * Um traço vertical curto e colorido antes do rótulo em caixa alta. A COR
-   * DIZ O ASSUNTO: ouro para o que espera uma ação, verde para o que já é
-   * fato, vermelho para o que quebrou, neutro para o que é só contexto.
-   * Substituiu o disco de ouro racionado a um por tela — que era a regra
-   * errada para uma casa que usa ouro à vontade.
-   */
-  .rotulo {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.625rem;
-    font-size: 0.75rem; /* 12px — piso absoluto do sistema */
-    line-height: 1rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: rgb(var(--c-content-muted));
-  }
-
-  .rotulo::before {
+  .aurora::before,
+  .aurora::after {
     content: '';
-    width: 3px;
-    height: 0.875rem;
-    border-radius: 9999px;
-    background: currentColor;
-    flex: none;
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    will-change: transform;
+  }
+  .aurora::before {
+    width: 46vw;
+    height: 46vw;
+    top: -14vw;
+    left: -8vw;
+    background: radial-gradient(circle, var(--aurora-a) 0%, transparent 70%);
+    animation: auroraA 48s ease-in-out infinite alternate;
+  }
+  .aurora::after {
+    width: 38vw;
+    height: 38vw;
+    bottom: -12vw;
+    right: -6vw;
+    background: radial-gradient(circle, var(--aurora-b) 0%, transparent 70%);
+    animation: auroraB 67s ease-in-out infinite alternate;
+  }
+  .aurora-host {
+    position: relative;
+  }
+  .aurora-host > *:not(.aurora) {
+    position: relative;
+    z-index: 1;
   }
 
-  .rotulo-ouro::before {
-    background: rgb(var(--c-action));
-  }
-  .rotulo-verde::before {
-    background: rgb(var(--c-income));
-  }
-  .rotulo-critico::before {
-    background: rgb(var(--c-critical));
-  }
+  /* ------------------------------- Movimento -------------------------------- */
 
-  /* O botão primário: ouro em gradiente, tinta escura. É o "+ Novo" do CRM. */
-  .acao-ouro {
-    background-image: var(--grad-action);
-    color: rgb(var(--c-action-ink));
+  /*
+   * Entrada em escada: 50ms por filho até o 8º, uma vez. Do 9º em diante o
+   * atraso fica parado em 350ms. Sem esse teto o 9º filho entraria em 0ms,
+   * ANTES do 8º, e a escada viraria ruído no fim de toda lista longa.
+   */
+  .stagger-children > * {
+    animation: slideUp 240ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
-  .acao-ouro:hover {
-    background-image: linear-gradient(180deg, rgb(245 214 141) 0%, rgb(233 186 70) 100%);
+  .stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+  .stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+  .stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+  .stagger-children > *:nth-child(n + 8) { animation-delay: 350ms; }
+
+  .entrada {
+    animation: slideUp 320ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
 
   /*
-   * Dinheiro. Figura tabular de verdade, sempre.
-   * O SOUZA do logotipo é grotesca pesada — haste de 27px sobre caixa alta de
-   * 111px, 24,3%, território Archivo 700. Os números herdam a letra do
-   * wordmark.
+   * Entrada de PÁGINA (seção 7: "fade + 5px, 200ms"). O guia dá esse número
+   * no texto e dá `.entrada` com 320ms e 10px no código; as duas coisas
+   * existem para trabalhos diferentes. `.entrada` fica como o guia escreveu,
+   * para bloco que aparece; esta é a do quadro da tela inteira.
    */
-  .cifra {
-    font-family: 'Archivo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' 1;
-    letter-spacing: -0.015em;
+  .entrada-pagina {
+    animation: entradaPagina 200ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
 
-  .tnum {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' 1;
+  /* Halo vermelho que pulsa 3 vezes e para. Atenção tem cota. */
+  .atencao-pulse {
+    animation: atencaoPulse 2.2s ease-in-out 3;
+  }
+
+  /* Barra lateral crítica: pisca 4 vezes e para. */
+  .barra-atencao {
+    animation: barraAtencao 1.6s ease-in-out 4;
+  }
+
+  /* O ponto do sino salta quando a contagem muda. Único bounce do sistema. */
+  .badge-bounce {
+    animation: badgeBounce 500ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
   }
 
   /*
-   * A assinatura em slab — a letra do descritor "IMOBILIÁRIA", que medi como
-   * slab serif de barra 2,71× a haste, entreletra de ~0,38em. Continua
-   * existindo, mas só no lockup e no login: dentro do app quem manda é a
-   * barra do rótulo.
+   * Painel lateral (seção 7): desliza da direita, 280ms; no celular sobe.
+   * O véu atrás entra em 220ms. Só transform e opacity.
    */
-  .assinatura {
-    font-family: 'Roboto Slab', ui-serif, Georgia, serif;
-    font-weight: 500;
-    font-size: 0.75rem;
-    line-height: 1rem;
-    letter-spacing: 0.34em;
-    text-transform: uppercase;
-    color: rgb(var(--c-content-muted));
+  .painel-entra {
+    animation: painelDireita 280ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
-
-  .assinatura::after {
-    content: '';
-    display: inline-block;
-    width: 5px;
-    height: 5px;
-    margin-left: 0.1em;
-    border-radius: 9999px;
-    background: rgb(var(--c-seal-dot));
-    vertical-align: baseline;
+  @media (max-width: 639px) {
+    .painel-entra {
+      animation-name: painelSobe;
+    }
   }
-
-  .assinatura.sem-ponto::after {
-    content: none;
+  .overlay-entra {
+    animation: overlayEntra 220ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
 }
 
@@ -331,14 +434,125 @@
   }
 }
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+/*
+ * ---------------------------------------------------------------------------
+ * DEPRECADO — classes da paleta anterior, reimplementadas com os tokens novos.
+ * ---------------------------------------------------------------------------
+ * Existem só para as telas que ainda não migraram continuarem pintando certo.
+ * Nenhum componente novo usa estas classes. A verificação final apaga o bloco
+ * inteiro, junto com os aliases deprecados do tailwind.config.js e a variável
+ * --grad-action lá em cima.
+ */
+@layer components {
+  /* Número: Sora com figura tabular, como o título e número do guia. */
+  .cifra {
+    font-family: 'Sora', system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+    letter-spacing: -0.015em;
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /*
+   * Era a slab do descritor IMOBILIÁRIA, com um ponto de ouro no fim. Vira o
+   * rótulo do guia em Inter, e o ponto sai: o ponto final em Areia pertence
+   * ao lockup, não a todo rótulo. `.sem-ponto` fica sem efeito.
+   */
+  .assinatura {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--t4);
+  }
+
+  .superficie {
+    background-color: var(--surface);
+    background-image: var(--grain);
+    border-color: var(--line);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* O rótulo com filete: `w-1 h-3.5 rounded-full` na cor do tom (seção 6). */
+  .rotulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--t4);
+  }
+  .rotulo::before {
+    content: none;
+    flex: none;
+    width: 0.25rem;
+    height: 0.875rem;
+    border-radius: 9999px;
+    background-color: var(--t4);
+  }
+  .rotulo-ouro::before {
+    background-color: var(--brand);
+  }
+  .rotulo-verde::before {
+    background-color: var(--success);
+  }
+  .rotulo-critico::before {
+    background-color: var(--error);
+  }
+
+  .acao-ouro {
+    background-color: var(--brand-fill);
+    color: var(--brand-fill-text);
+  }
+  .acao-ouro:hover {
+    background-color: var(--brand-fill-hover);
+  }
+
+  .brilho-ouro {
+    isolation: isolate;
+  }
+  .brilho-ouro::after {
+    content: none;
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(70% 60% at 6% -10%, rgba(228, 178, 60, 0.13), transparent 60%);
+  }
+  html.light .brilho-ouro::after {
+    background: radial-gradient(70% 60% at 6% -10%, rgba(228, 178, 60, 0.16), transparent 60%);
+  }
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Keyframes (seção 7). Fora de camada: keyframe não disputa cascata, e assim
+ * sai sempre, mesmo quando a classe que o chama está num arquivo novo.
+ * ---------------------------------------------------------------------------
+ */
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes entradaPagina { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes auroraA { 0% { transform: translate3d(0, 0, 0) scale(1); } 50% { transform: translate3d(12vw, 6vh, 0) scale(1.18); } 100% { transform: translate3d(4vw, 14vh, 0) scale(1.05); } }
+@keyframes auroraB { 0% { transform: translate3d(0, 0, 0) scale(1.1); } 50% { transform: translate3d(-14vw, -8vh, 0) scale(1); } 100% { transform: translate3d(-5vw, -16vh, 0) scale(1.22); } }
+@keyframes atencaoPulse {
+  0%, 100% { box-shadow: var(--shadow-card); }
+  50% { box-shadow: 0 0 0 4px var(--error-bg), 0 10px 28px rgba(229, 113, 122, 0.28); }
+}
+@keyframes barraAtencao { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes badgeBounce { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.3); } 60% { transform: scale(0.92); } 80% { transform: scale(1.08); } }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes painelDireita { from { opacity: 0; transform: translateX(2rem); } to { opacity: 1; transform: translateX(0); } }
+@keyframes painelSobe { from { opacity: 0; transform: translateY(1.5rem); } to { opacity: 1; transform: translateY(0); } }
+@keyframes overlayEntra { from { opacity: 0; } to { opacity: 1; } }
+
+/* Movimento é ambiente, não evento: quem pediu menos movimento não recebe nenhum. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

@@ -1,369 +1,261 @@
-import { useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import {
-  Home, Handshake, ArrowDownCircle, ArrowUpCircle, Receipt, Users,
-  PieChart, Settings, MoreHorizontal, Plus, LogOut, ChevronLeft, ChevronRight, X,
-} from 'lucide-react'
+import { Suspense, useCallback, useMemo, useState } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Handshake, Plus, Receipt, UserRound } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
+import { TrocarSenha } from '@/auth/TrocarSenha'
 import { useAdmin } from './AdminData'
-import { RegistrarVenda } from './RegistrarVenda'
-import { LancarDespesa } from './LancarDespesa'
-import { Simbolo } from '@/components/marca/Marca'
+import { AcoesAdminProvider, useAcoesAdmin } from './AcoesAdmin'
+import { SeletorMes } from './SeletorMes'
 import { ComposicaoProvider } from '@/components/composicao/Composicao'
-import { ThemeToggle } from '@/components/layout/ThemeToggle'
-import { Button } from '@/components/ui/Button'
-import { FullPageLoader } from '@/components/ui/Spinner'
+import { NavRail, type UsuarioDaCasca } from '@/components/layout/NavRail'
+import { BottomNav } from '@/components/layout/BottomNav'
+import { POLEGAR_ADMIN, itensDe, navAdmin, separarPolegar } from '@/components/layout/navegacao'
+import {
+  AreaDaTela,
+  BarraDeTransicao,
+  CascaContext,
+  QuadroCarregando,
+  QuadroErro,
+  useQuadrosDaCasca,
+  useValorDaCasca,
+} from '@/components/layout/PageLayout'
+import { PaletaDeBusca, useAtalhoBusca, type GrupoBusca } from '@/components/shared/PaletaDeBusca'
+import type { Aviso } from '@/components/shared/PopoverAvisos'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { formatMonthYear } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatCurrency } from '@/lib/format'
+import type { AttentionItem, MoneyItem } from '@/lib/sales'
 
 /**
- * A casca do administrador.
+ * A casca do administrador (docs/souza-os.md, seção 6).
  *
- * Oito itens no computador, cinco no polegar. Não há seletor de empresa, nem
- * de espaço pessoal, nem chave caixa/competência — as três coisas que faziam o
- * app antigo parecer um painel de controle de avião.
+ * Trilho à esquerda no computador, barra do polegar no celular, as duas
+ * alimentadas pela mesma lista (navegacao.ts). A casca não desenha cabeçalho
+ * de tela: cada tela traz o próprio PageLayout, com o ícone da área, o resumo
+ * vivo e o CTA. O navegador de mês virou peça (SeletorMes) que só as telas que
+ * dependem do mês põem no cabeçalho.
  *
- * A marca aqui é o símbolo de verdade: moldura de traço fino com o "S", no
- * raio percentual de 24%, que é o único jeito de ele parecer o mesmo objeto a
- * 32px e a 80px. No lugar dele havia um ícone de prédio de biblioteca.
+ * O que continua sendo da casca: os painéis de registrar venda e lançar
+ * despesa (AcoesAdmin), a busca ⌘K, o sino e o menu da conta. E, enquanto
+ * houver tela antiga, a barra de transição com o mês e a ação principal.
  */
-const MENU = [
-  { to: '/', label: 'Início', icon: Home, end: true },
-  { to: '/vendas', label: 'Vendas', icon: Handshake },
-  { to: '/receber', label: 'Receber', icon: ArrowDownCircle },
-  { to: '/pagar', label: 'Pagar', icon: ArrowUpCircle },
-  { to: '/despesas', label: 'Despesas', icon: Receipt },
-  { to: '/corretores', label: 'Corretores', icon: Users },
-  { to: '/relatorios', label: 'Relatórios', icon: PieChart },
-  { to: '/config', label: 'Configurações', icon: Settings },
-]
-const NO_POLEGAR = ['/', '/vendas', '/receber', '/pagar']
-
-/** Marca + nome, como aparece no topo. */
-function Marcador({ compacto }: { compacto?: boolean }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2.5">
-      <Simbolo className={cn('shrink-0 text-content', compacto ? 'h-7 w-7' : 'h-9 w-9')} />
-      <div className="min-w-0 leading-tight">
-        <p className="truncate text-base font-semibold text-content">Souza Imobiliária</p>
-        {!compacto && <p className="assinatura sem-ponto mt-0.5">Financeiro</p>}
-      </div>
-    </div>
-  )
-}
-
 export function AdminShell() {
-  const { sair, profile } = useAuth()
-  const { carregando, erro, recarregar, mes, mesAnterior, mesSeguinte, irParaMes, receber, pagar, atencao } = useAdmin()
-  const { pathname } = useLocation()
-  const navigate = useNavigate()
-  const [mais, setMais] = useState(false)
-  const [novaVenda, setNovaVenda] = useState(false)
-  const [novaDespesa, setNovaDespesa] = useState(false)
-
-  /*
-   * Dois contadores com significados diferentes, e por isso duas cores
-   * diferentes: vencido é promessa quebrada (crítico), comissão liberada é
-   * trabalho esperando um humano (o ouro da marca). Antes os dois eram âmbar,
-   * o que fazia "alguém está esperando" parecer "algo deu errado".
-   */
-  const vencidos = receber.filter((i) => i.overdue).length
-  const esperando = pagar.filter((i) => i.overdue || (i.kind === 'comissao' && i.released)).length
-
   return (
     <ComposicaoProvider>
-      <div className="min-h-screen bg-papel lg:flex">
-        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-surface px-3 py-5 lg:flex">
-          <div className="mb-7 px-2">
-            <Marcador />
-          </div>
-
-          <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto" aria-label="Navegação principal">
-            {MENU.map((item) => (
-              <ItemMenu
-                key={item.to}
-                {...item}
-                badge={item.to === '/receber' ? vencidos : item.to === '/pagar' ? esperando : undefined}
-                tom={item.to === '/receber' ? 'critico' : 'ouro'}
-              />
-            ))}
-          </nav>
-
-          <div className="mt-2 flex items-center gap-1">
-            <button
-              onClick={() => sair()}
-              className="flex min-h-toque flex-1 items-center gap-2.5 rounded-lg px-3 text-base font-medium text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
-            >
-              <LogOut className="h-4 w-4" />
-              Sair
-            </button>
-            <ThemeToggle />
-          </div>
-        </aside>
-
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 border-b border-line bg-surface pt-safe">
-            <div className="flex items-center justify-between gap-3 px-5 py-2.5">
-              <div className="lg:hidden">
-                <Marcador compacto />
-              </div>
-
-              <div className="ml-auto flex items-center gap-2">
-                {/* Setas de 44px. Eram 28px — abaixo do piso de toque. */}
-                <div className="flex items-center rounded-lg border border-line">
-                  <button
-                    onClick={mesAnterior}
-                    className="flex h-toque w-10 items-center justify-center rounded-l-lg text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
-                    aria-label="Mês anterior"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => irParaMes(new Date())}
-                    className="min-w-[8rem] px-1 text-base font-semibold text-content"
-                    title="Voltar para o mês atual"
-                  >
-                    {formatMonthYear(mes)}
-                  </button>
-                  <button
-                    onClick={mesSeguinte}
-                    className="flex h-toque w-10 items-center justify-center rounded-r-lg text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
-                    aria-label="Mês seguinte"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="lg:hidden">
-                  <ThemeToggle />
-                </div>
-                <Button size="sm" className="hidden lg:inline-flex" onClick={() => setNovaVenda(true)}>
-                  <Plus className="h-4 w-4" />
-                  Registrar venda
-                </Button>
-              </div>
-            </div>
-          </header>
-
-          <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-5 pb-28 lg:px-8 lg:pb-10">
-            {carregando ? (
-              <FullPageLoader label="Carregando a imobiliária…" />
-            ) : erro ? (
-              <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
-                <p className="max-w-md text-base text-content-muted">{erro}</p>
-                <Button variant="secondary" onClick={() => recarregar()}>
-                  Tentar de novo
-                </Button>
-              </div>
-            ) : (
-              <ErrorBoundary resetKey={pathname}>
-                <Outlet />
-              </ErrorBoundary>
-            )}
-          </main>
-        </div>
-
-        {/* Barra do polegar */}
-        <nav
-          className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface pb-safe lg:hidden"
-          aria-label="Navegação principal"
-        >
-          {MENU.filter((m) => NO_POLEGAR.includes(m.to)).map((item) => (
-            <ItemBarra
-              key={item.to}
-              {...item}
-              badge={item.to === '/receber' ? vencidos : item.to === '/pagar' ? esperando : undefined}
-              tom={item.to === '/receber' ? 'critico' : 'ouro'}
-            />
-          ))}
-          <button
-            onClick={() => setMais(true)}
-            className="flex min-h-toque flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium text-content-faint"
-          >
-            <MoreHorizontal className="h-5 w-5" />
-            Mais
-          </button>
-        </nav>
-
-        {/* A ação principal do celular. Uma só: registrar venda. */}
-        {!carregando && !erro && (
-          <div className="fixed bottom-24 right-5 z-30 flex flex-col items-end gap-2 lg:hidden">
-            <button
-              onClick={() => setNovaDespesa(true)}
-              className="flex h-toque items-center gap-1.5 rounded-lg border border-rule bg-surface px-4 text-base font-semibold text-content shadow-pop"
-            >
-              <Receipt className="h-4 w-4" />
-              Despesa
-            </button>
-            <button
-              onClick={() => setNovaVenda(true)}
-              className="flex h-14 items-center gap-2 rounded-lg bg-action px-5 text-base font-bold text-action-ink shadow-pop"
-            >
-              <Plus className="h-5 w-5" strokeWidth={2.5} />
-              Venda
-            </button>
-          </div>
-        )}
-
-        {mais && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <div className="absolute inset-0 bg-marca-navy/60" onClick={() => setMais(false)} />
-            <div className="absolute inset-x-0 bottom-0 animate-slide-up rounded-t-3xl bg-surface p-5 pb-safe">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-lg font-semibold text-content">Mais</p>
-                <button
-                  onClick={() => setMais(false)}
-                  className="-mr-2 flex h-toque w-toque items-center justify-center rounded-lg text-content-muted"
-                  aria-label="Fechar"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <ul className="divide-y divide-line">
-                {MENU.filter((m) => !NO_POLEGAR.includes(m.to)).map((item) => (
-                  <li key={item.to}>
-                    <button
-                      onClick={() => {
-                        setMais(false)
-                        navigate(item.to)
-                      }}
-                      className="flex min-h-toque w-full items-center gap-3 py-2.5 text-left text-base font-medium text-content"
-                    >
-                      <item.icon className="h-5 w-5 text-content-muted" />
-                      {item.label}
-                    </button>
-                  </li>
-                ))}
-                <li>
-                  <button
-                    onClick={() => sair()}
-                    className="flex min-h-toque w-full items-center gap-3 py-2.5 text-left text-base font-medium text-content-muted"
-                  >
-                    <LogOut className="h-5 w-5" />
-                    Sair{profile?.name ? ` · ${profile.name}` : ''}
-                  </button>
-                </li>
-              </ul>
-              {atencao.length > 0 && (
-                <p className="mt-3 border-t border-rule pt-3 text-sm text-content-muted">
-                  {atencao.length === 1
-                    ? '1 item precisando de atenção no Início.'
-                    : `${atencao.length} itens precisando de atenção no Início.`}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        <RegistrarVenda aberto={novaVenda} onFechar={() => setNovaVenda(false)} />
-        <LancarDespesa aberto={novaDespesa} onFechar={() => setNovaDespesa(false)} />
-      </div>
+      <AcoesAdminProvider>
+        <CascaDoAdmin />
+      </AcoesAdminProvider>
     </ComposicaoProvider>
   )
 }
 
+const TOM_DO_ALERTA = { critical: 'risco', warning: 'atencao', info: 'info' } as const
+const centavos = (v: number) => Math.round(v * 100) / 100
+
 /*
- * O contador é um NÚMERO com rótulo acessível, não um pontinho.
- * "3 itens vencidos" é o que um leitor de tela deve ouvir; um disco de 8px
- * sem texto não diz nada a ninguém que não esteja vendo a tela.
+ * O sino lê a mesma lista `atencao` do Início, e agrupa.
+ *
+ * `attentionOf` põe as quatro primeiras parcelas vencidas uma a uma e o resto
+ * num "mais N". No sino isso vira UM aviso com a contagem inteira, lida da
+ * mesma regra que alimenta o contador de Receber (`overdue`), para o número do
+ * sino e o do menu nunca discordarem. Comissão liberada vem uma por corretor, e
+ * o popover as soma sob o mesmo título. Imposto e despesa vencida passam como
+ * estão, com o valor por extenso.
  */
-function Contador({ n, tom }: { n: number; tom: 'critico' | 'ouro' }) {
-  return (
-    <span
-      className={cn(
-        'cifra min-w-5 rounded-full px-1.5 text-center text-xs font-bold',
-        tom === 'critico' ? 'bg-critical-field text-critical-ink' : 'bg-seal text-seal-ink',
-      )}
-    >
-      {n}
-    </span>
-  )
+function avisosDoAdmin(atencao: AttentionItem[], receber: MoneyItem[]): Aviso[] {
+  const avisos: Aviso[] = []
+
+  if (atencao.some((a) => a.id.startsWith('receber-'))) {
+    const vencidas = receber.filter((i) => i.overdue)
+    if (vencidas.length > 0) {
+      const total = centavos(vencidas.reduce((s, i) => s + i.amount, 0))
+      avisos.push({
+        id: 'receber-vencidas',
+        tom: 'risco',
+        titulo: vencidas.length === 1 ? 'Parcela vencida a receber' : 'Parcelas vencidas a receber',
+        detalhe: `${formatCurrency(total)} no total`,
+        quantidade: vencidas.length,
+        para: '/receber',
+      })
+    }
+  }
+
+  for (const a of atencao) {
+    if (a.id.startsWith('receber-')) continue
+    if (a.id.startsWith('comissao-')) {
+      const nome = a.title.replace(/: comissão liberada$/, '')
+      avisos.push({
+        id: a.id,
+        tom: 'atencao',
+        titulo: 'Corretores com comissão liberada',
+        detalhe: `${nome} · ${formatCurrency(a.amount)}`,
+        para: a.to,
+      })
+      continue
+    }
+    avisos.push({
+      id: a.id,
+      tom: TOM_DO_ALERTA[a.tone],
+      titulo: a.title,
+      detalhe: `${a.detail} · ${formatCurrency(a.amount)}`,
+      para: a.to,
+    })
+  }
+
+  return avisos
 }
 
-function ItemMenu({
-  to,
-  label,
-  icon: Icon,
-  end,
-  badge,
-  tom = 'ouro',
-}: {
-  to: string
-  label: string
-  icon: typeof Home
-  end?: boolean
-  badge?: number
-  tom?: 'critico' | 'ouro'
-}) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      className={({ isActive }) =>
-        cn(
-          'flex min-h-toque items-center gap-2.5 rounded-lg px-3 text-base font-medium transition-colors',
-          isActive
-            ? 'bg-action-soft font-semibold text-action-soft-ink'
-            : 'text-content-muted hover:bg-surface-2 hover:text-content',
-        )
-      }
-    >
-      <Icon className="h-5 w-5" />
-      <span className="flex-1">{label}</span>
-      {badge ? (
-        <>
-          <Contador n={badge} tom={tom} />
-          <span className="sr-only">
-            {tom === 'critico'
-              ? `${badge} ${badge === 1 ? 'item vencido' : 'itens vencidos'}`
-              : `${badge} ${badge === 1 ? 'item esperando' : 'itens esperando'}`}
-          </span>
-        </>
-      ) : null}
-    </NavLink>
-  )
-}
+function CascaDoAdmin() {
+  const { sair, profile, email } = useAuth()
+  const { carregando, erro, recarregar, receber, pagar, atencao, vendas, contacts } = useAdmin()
+  const { registrarVenda, lancarDespesa } = useAcoesAdmin()
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const [buscando, setBuscando] = useState(false)
+  const [trocandoSenha, setTrocandoSenha] = useState(false)
+  const [quadros, registrarQuadro] = useQuadrosDaCasca()
 
-function ItemBarra({
-  to,
-  label,
-  icon: Icon,
-  end,
-  badge,
-  tom = 'ouro',
-}: {
-  to: string
-  label: string
-  icon: typeof Home
-  end?: boolean
-  badge?: number
-  tom?: 'critico' | 'ouro'
-}) {
+  const abrirBusca = useCallback(() => setBuscando(true), [])
+  useAtalhoBusca(abrirBusca)
+
+  /*
+   * As duas contas de sempre, sem mudança: vencido em Receber, e em Pagar o
+   * que venceu mais a comissão que a imobiliária já recebeu e ainda não
+   * repassou. Mudou só a cor: risco e atenção.
+   */
+  const vencidos = receber.filter((i) => i.overdue).length
+  const esperando = pagar.filter((i) => i.overdue || (i.kind === 'comissao' && i.released)).length
+
+  const secoes = useMemo(() => navAdmin({ vencidos, esperando }), [vencidos, esperando])
+  const { destinos, mais } = useMemo(() => separarPolegar(secoes, POLEGAR_ADMIN), [secoes])
+  const avisos = useMemo(() => avisosDoAdmin(atencao, receber), [atencao, receber])
+  const casca = useValorDaCasca(avisos, registrarQuadro)
+
+  const usuario: UsuarioDaCasca = {
+    nome: profile?.name?.trim() || 'Administrador',
+    papel: 'Administrador',
+    email,
+  }
+
+  const grupos = useMemo<GrupoBusca[]>(
+    () => [
+      {
+        rotulo: 'Ações',
+        itens: [
+          {
+            id: 'acao-venda',
+            titulo: 'Registrar venda',
+            descricao: 'Parcelas, imposto e comissão do corretor de uma vez',
+            icone: Plus,
+            aoEscolher: registrarVenda,
+          },
+          {
+            id: 'acao-despesa',
+            titulo: 'Lançar despesa',
+            descricao: 'Conta a pagar ou já paga',
+            icone: Receipt,
+            aoEscolher: lancarDespesa,
+          },
+        ],
+      },
+      {
+        rotulo: 'Telas',
+        itens: itensDe(secoes).map((i) => ({
+          id: `tela-${i.para}`,
+          titulo: i.rotulo,
+          descricao: i.contador ? i.leituraContador : undefined,
+          icone: i.icone,
+          aoEscolher: () => navigate(i.para),
+        })),
+      },
+      {
+        rotulo: 'Vendas',
+        itens: vendas.map((v) => ({
+          id: `venda-${v.id}`,
+          titulo: v.title,
+          descricao:
+            [
+              v.unit && !v.title.includes(v.unit) ? v.unit : null,
+              v.client_name,
+              v.development,
+              v.brokerName,
+              v.status === 'cancelada' ? 'cancelada' : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || undefined,
+          icone: Handshake,
+          aoEscolher: () => navigate(`/vendas/${v.id}`),
+        })),
+      },
+      {
+        rotulo: 'Corretores',
+        itens: contacts
+          .filter((c) => c.type === 'broker')
+          .map((c) => ({
+            id: `corretor-${c.id}`,
+            titulo: c.name,
+            descricao: c.is_active ? 'Corretor' : 'Corretor inativo',
+            icone: UserRound,
+            aoEscolher: () => navigate('/corretores'),
+          })),
+      },
+    ],
+    [secoes, vendas, contacts, navigate, registrarVenda, lancarDespesa],
+  )
+
+  const sairDoSistema = () => {
+    void sair()
+  }
+
   return (
-    <NavLink
-      to={to}
-      end={end}
-      className={({ isActive }) =>
-        cn(
-          'relative flex min-h-toque flex-1 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors',
-          isActive ? 'font-semibold text-action-soft-ink' : 'text-content-faint',
-        )
-      }
-    >
-      <Icon className="h-5 w-5" />
-      {label}
-      {badge ? (
-        <>
-          <span className="absolute right-[16%] top-1">
-            <Contador n={badge} tom={tom} />
-          </span>
-          <span className="sr-only">
-            {tom === 'critico'
-              ? `${badge} ${badge === 1 ? 'item vencido' : 'itens vencidos'}`
-              : `${badge} ${badge === 1 ? 'item esperando' : 'itens esperando'}`}
-          </span>
-        </>
-      ) : null}
-    </NavLink>
+    <CascaContext.Provider value={casca}>
+      <div className="flex min-h-screen bg-page">
+        <NavRail
+          secoes={secoes}
+          avisos={avisos}
+          usuario={usuario}
+          aoBuscar={abrirBusca}
+          aoTrocarSenha={() => setTrocandoSenha(true)}
+          aoSair={sairDoSistema}
+        />
+
+        {/* Abaixo de lg, o respiro de baixo é a altura da barra do polegar mais a área segura. */}
+        <div className="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
+          {carregando ? (
+            <QuadroCarregando rotulo="Carregando a imobiliária…" />
+          ) : erro ? (
+            <QuadroErro motivo={erro} aoTentarDeNovo={() => void recarregar()} />
+          ) : (
+            <AreaDaTela
+              quadros={quadros}
+              barra={
+                <BarraDeTransicao
+                  acoes={<SeletorMes className="flex-1 sm:flex-none" />}
+                  cta={{ rotulo: 'Registrar venda', rotuloCurto: 'Venda', aoClicar: registrarVenda }}
+                />
+              }
+            >
+              <ErrorBoundary resetKey={pathname}>
+                {/* A tela carrega por partes; o trilho fica de pé enquanto isso. */}
+                <Suspense fallback={<QuadroCarregando rotulo="Abrindo a tela…" />}>
+                  <Outlet />
+                </Suspense>
+              </ErrorBoundary>
+            </AreaDaTela>
+          )}
+        </div>
+
+        <BottomNav
+          destinos={destinos}
+          mais={mais}
+          usuario={usuario}
+          aoBuscar={abrirBusca}
+          aoTrocarSenha={() => setTrocandoSenha(true)}
+          aoSair={sairDoSistema}
+        />
+      </div>
+
+      <PaletaDeBusca aberto={buscando} aoFechar={() => setBuscando(false)} grupos={grupos} />
+      <TrocarSenha aberto={trocandoSenha} onFechar={() => setTrocandoSenha(false)} />
+    </CascaContext.Provider>
   )
 }

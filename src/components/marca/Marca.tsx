@@ -96,3 +96,34 @@ export function MarcaDagua({ className }: { className?: string }) {
     </svg>
   )
 }
+
+/**
+ * O "S" da casca: Marinho num quadrado Areia com raio de 25% (docs/souza-os.md,
+ * seções 2 e 6). É o ícone do app no trilho, o mesmo do iCRM.
+ *
+ * O "S" é o contorno traçado de verdade (S_PATH), não uma letra digitada nem um
+ * ícone de biblioteca: em Sora, um "S" de 20px vira outra marca. A viewBox
+ * interna é a caixa do glifo (81 71 108 128), a mesma da marca d'água, e ele
+ * ocupa 64% da altura do quadrado. Na moldura do símbolo ele ocupa 47%, que é
+ * a proporção certa a 80px e some a 28px.
+ *
+ * As cores vêm dos tokens --brand-fill e --brand-fill-text, que valem o mesmo
+ * nos dois temas: a marca não troca de cor quando a tela troca de tema.
+ */
+export function MarcaS({ className, title }: { className?: string; title?: string }) {
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      className={className}
+      role={title ? 'img' : undefined}
+      aria-hidden={title ? undefined : true}
+      aria-label={title}
+    >
+      {title && <title>{title}</title>}
+      <rect width="100" height="100" rx="25" style={{ fill: 'var(--brand-fill)' }} />
+      <svg x="23" y="18" width="54" height="64" viewBox="81 71 108 128">
+        <path d={S_PATH} fillRule="evenodd" style={{ fill: 'var(--brand-fill-text)' }} />
+      </svg>
+    </svg>
+  )
+}

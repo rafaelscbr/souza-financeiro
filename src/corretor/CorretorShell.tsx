@@ -1,190 +1,220 @@
-import { useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { CalendarDays, Handshake, Home, KeyRound, LogOut, User, X } from 'lucide-react'
+import { Suspense, useCallback, useMemo, useState } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Handshake } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { TrocarSenha } from '@/auth/TrocarSenha'
-import { useCorretor } from './CorretorData'
-import { Simbolo } from '@/components/marca/Marca'
+import { useCorretor, type CorretorParcela } from './CorretorData'
 import { ComposicaoProvider } from '@/components/composicao/Composicao'
-import { ThemeToggle } from '@/components/layout/ThemeToggle'
-import { Button } from '@/components/ui/Button'
-import { FullPageLoader } from '@/components/ui/Spinner'
-import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { NavRail, type UsuarioDaCasca } from '@/components/layout/NavRail'
+import { BottomNav } from '@/components/layout/BottomNav'
+import { POLEGAR_CORRETOR, itensDe, navCorretor, separarPolegar } from '@/components/layout/navegacao'
+import {
+  AreaDaTela,
+  BarraDeTransicao,
+  CascaContext,
+  QuadroCarregando,
+  QuadroErro,
+  useQuadrosDaCasca,
+  useValorDaCasca,
+} from '@/components/layout/PageLayout'
+import { PaletaDeBusca, useAtalhoBusca, type GrupoBusca } from '@/components/shared/PaletaDeBusca'
+import type { Aviso } from '@/components/shared/PopoverAvisos'
 import { Select } from '@/components/ui/Field'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { formatCurrency } from '@/lib/format'
+import { situacaoDeTela } from '@/lib/situacao'
 import { cn } from '@/lib/utils'
 
 /**
  * A casca do corretor: três destinos, nada para criar.
  *
- * Pensada para o celular primeiro — é de onde ele vai olhar, geralmente entre
- * uma visita e outra, muitas vezes no sol. Daí o piso de 12px em tudo, alvos de
- * 44px e estado dito por forma antes de cor.
+ * A mesma casa do administrador (trilho, polegar, sino, busca e menu da conta),
+ * com menos coisa dentro. Pensada para o celular primeiro, que é de onde ele
+ * olha, entre uma visita e outra: por isso a barra do polegar tem só os três
+ * destinos e o "Mais", e os alvos têm pelo menos 40px.
  *
- * Sem navegador de mês no topo: o que ele quer saber é "quanto tenho a
- * receber", não "como foi maio".
+ * Sem navegador de mês: o que ele quer saber é "quanto tenho a receber", não
+ * "como foi maio". O ano continua existindo para quem tem mais de um.
  */
-const MENU = [
-  { to: '/', label: 'Início', icon: Home, end: true },
-  { to: '/minhas-vendas', label: 'Vendas', icon: Handshake },
-  { to: '/recebimentos', label: 'Recebimentos', icon: CalendarDays },
-]
-
 export function CorretorShell() {
-  const { sair, profile, email } = useAuth()
-  const { carregando, erro, recarregar, ano, anosDisponiveis, setAno } = useCorretor()
-  const { pathname } = useLocation()
-  const [perfil, setPerfil] = useState(false)
-  const [trocandoSenha, setTrocandoSenha] = useState(false)
-
-  const primeiroNome = (profile?.name ?? '').split(' ')[0]
-
   return (
     <ComposicaoProvider>
-      <div className="min-h-screen bg-papel">
-        <header className="sticky top-0 z-30 border-b border-line bg-surface pt-safe">
-          <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-5 py-2.5">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <Simbolo className="h-8 w-8 shrink-0 text-content" />
-              <div className="min-w-0 leading-tight">
-                <p className="truncate text-base font-semibold text-content">
-                  {primeiroNome ? `Olá, ${primeiroNome}` : 'Suas comissões'}
-                </p>
-                <p className="assinatura sem-ponto mt-0.5">Souza Imobiliária</p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              {anosDisponiveis.length > 1 && (
-                <Select
-                  aria-label="Ano"
-                  value={String(ano)}
-                  onChange={(e) => setAno(Number(e.target.value))}
-                  className="h-toque w-24 text-base"
-                >
-                  {anosDisponiveis.map((a) => (
-                    <option key={a} value={a}>
-                      {a}
-                    </option>
-                  ))}
-                </Select>
-              )}
-              <button
-                onClick={() => setPerfil(true)}
-                className="flex h-toque w-toque items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
-                aria-label="Seu perfil"
-              >
-                <User className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          <nav className="mx-auto hidden max-w-2xl gap-1 px-5 pb-2 sm:flex" aria-label="Navegação">
-            {MENU.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  cn(
-                    'flex min-h-toque items-center gap-2 rounded-xl px-3 text-base font-medium transition-colors',
-                    isActive
-                      ? 'bg-action-soft font-semibold text-action-soft-ink'
-                      : 'text-content-muted hover:bg-surface-2 hover:text-content',
-                  )
-                }
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </header>
-
-        <main className="mx-auto w-full max-w-2xl px-5 py-5 pb-28 sm:pb-10">
-          {carregando ? (
-            <FullPageLoader label="Carregando suas vendas…" />
-          ) : erro ? (
-            <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
-              <p className="max-w-sm text-base text-content-muted">{erro}</p>
-              <Button variant="secondary" onClick={() => recarregar()}>
-                Tentar de novo
-              </Button>
-            </div>
-          ) : (
-            <ErrorBoundary resetKey={pathname}>
-              <Outlet />
-            </ErrorBoundary>
-          )}
-        </main>
-
-        <nav
-          className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface pb-safe sm:hidden"
-          aria-label="Navegação principal"
-        >
-          {MENU.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                cn(
-                  'flex min-h-toque flex-1 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors',
-                  isActive ? 'font-semibold text-action-soft-ink' : 'text-content-faint',
-                )
-              }
-            >
-              <item.icon className="h-5 w-5" />
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {perfil && (
-          <div className="fixed inset-0 z-50">
-            <div className="absolute inset-0 bg-marca-navy/60" onClick={() => setPerfil(false)} />
-            <div className="absolute inset-x-0 bottom-0 animate-slide-up rounded-t-3xl bg-surface p-5 pb-safe sm:inset-x-auto sm:right-5 sm:top-16 sm:w-80 sm:rounded-3xl">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-base font-semibold text-content">
-                    {profile?.name ?? 'Corretor'}
-                  </p>
-                  <p className="truncate text-sm text-content-faint">{email}</p>
-                </div>
-                <button
-                  onClick={() => setPerfil(false)}
-                  className="-mr-2 -mt-1.5 flex h-toque w-toque shrink-0 items-center justify-center rounded-lg text-content-muted"
-                  aria-label="Fechar"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="flex min-h-toque items-center justify-between rounded-lg bg-surface-2 px-3.5">
-                <span className="text-base text-content-muted">Tema</span>
-                <ThemeToggle />
-              </div>
-              <Button
-                variant="secondary"
-                className="mt-3 w-full"
-                onClick={() => {
-                  setPerfil(false)
-                  setTrocandoSenha(true)
-                }}
-              >
-                <KeyRound className="h-4 w-4" />
-                Trocar minha senha
-              </Button>
-              <p className="mt-2 text-sm text-content-faint">
-                Esqueceu? A imobiliária redefine para você.
-              </p>
-              <Button variant="secondary" className="mt-3 w-full" onClick={() => sair()}>
-                <LogOut className="h-4 w-4" />
-                Sair
-              </Button>
-            </div>
-          </div>
-        )}
-
-        <TrocarSenha aberto={trocandoSenha} onFechar={() => setTrocandoSenha(false)} />
-      </div>
+      <CascaDoCorretor />
     </ComposicaoProvider>
+  )
+}
+
+/**
+ * O seletor de ano do corretor, para a tela pôr nas ações do PageLayout. Só
+ * aparece com mais de um ano: um seletor com uma opção é um rótulo que parece
+ * botão.
+ */
+export function SeletorAno({ className }: { className?: string }) {
+  const { ano, anosDisponiveis, setAno } = useCorretor()
+  if (anosDisponiveis.length <= 1) return null
+  return (
+    <Select
+      aria-label="Ano"
+      value={String(ano)}
+      onChange={(e) => setAno(Number(e.target.value))}
+      className={cn('h-10 min-h-0 w-[6.5rem] tabular-nums', className)}
+    >
+      {anosDisponiveis.map((a) => (
+        <option key={a} value={a}>
+          {a}
+        </option>
+      ))}
+    </Select>
+  )
+}
+
+const centavos = (v: number) => Math.round(v * 100) / 100
+
+/*
+ * O sino do corretor: as parcelas dele que pedem atenção, agrupadas. A
+ * situação vem de situacaoDeTela(), a mesma de toda tela, e com ela a regra
+ * que importa aqui: ATRASADA é só o que a imobiliária já recebeu e não
+ * repassou. Parcela que a construtora ainda não pagou é espera e não entra no
+ * sino. O valor é a comissão DELE (bruto menos ajuste), o mesmo de
+ * Recebimentos; nada da imobiliária aparece.
+ */
+function avisosDoCorretor(parcelas: CorretorParcela[]): Aviso[] {
+  const atrasadas = { n: 0, total: 0 }
+  const aReceber = { n: 0, total: 0 }
+  for (const p of parcelas) {
+    const s = situacaoDeTela(p.status, p.expected_date)
+    const valor = p.broker_amount - p.broker_adjustment
+    if (s === 'vencida') {
+      atrasadas.n += 1
+      atrasadas.total += valor
+    } else if (s === 'liberada') {
+      aReceber.n += 1
+      aReceber.total += valor
+    }
+  }
+
+  const avisos: Aviso[] = []
+  if (atrasadas.n > 0) {
+    avisos.push({
+      id: 'comissoes-atrasadas',
+      tom: 'risco',
+      titulo: atrasadas.n === 1 ? 'Comissão atrasada' : 'Comissões atrasadas',
+      detalhe: `${formatCurrency(centavos(atrasadas.total))} já recebidos pela imobiliária`,
+      quantidade: atrasadas.n,
+      para: '/recebimentos',
+    })
+  }
+  if (aReceber.n > 0) {
+    avisos.push({
+      id: 'comissoes-a-receber',
+      tom: 'atencao',
+      titulo: aReceber.n === 1 ? 'Comissão a receber' : 'Comissões a receber',
+      detalhe: `${formatCurrency(centavos(aReceber.total))} no total`,
+      quantidade: aReceber.n,
+      para: '/recebimentos',
+    })
+  }
+  return avisos
+}
+
+function CascaDoCorretor() {
+  const { sair, profile, email } = useAuth()
+  const { carregando, erro, recarregar, vendas, parcelas, anosDisponiveis } = useCorretor()
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const [buscando, setBuscando] = useState(false)
+  const [trocandoSenha, setTrocandoSenha] = useState(false)
+  const [quadros, registrarQuadro] = useQuadrosDaCasca()
+
+  const abrirBusca = useCallback(() => setBuscando(true), [])
+  useAtalhoBusca(abrirBusca)
+
+  const secoes = useMemo(() => navCorretor(), [])
+  const { destinos, mais } = useMemo(() => separarPolegar(secoes, POLEGAR_CORRETOR), [secoes])
+  const avisos = useMemo(() => avisosDoCorretor(parcelas), [parcelas])
+  const casca = useValorDaCasca(avisos, registrarQuadro)
+
+  const usuario: UsuarioDaCasca = {
+    nome: profile?.name?.trim() || 'Corretor',
+    papel: 'Corretor',
+    email,
+  }
+
+  const grupos = useMemo<GrupoBusca[]>(
+    () => [
+      {
+        rotulo: 'Telas',
+        itens: itensDe(secoes).map((i) => ({
+          id: `tela-${i.para}`,
+          titulo: i.rotulo,
+          icone: i.icone,
+          aoEscolher: () => navigate(i.para),
+        })),
+      },
+      {
+        rotulo: 'Suas vendas',
+        itens: vendas.map((v) => ({
+          id: `venda-${v.id}`,
+          titulo: v.title,
+          descricao:
+            [v.unit && !v.title.includes(v.unit) ? v.unit : null, v.client_name, v.development]
+              .filter(Boolean)
+              .join(' · ') || undefined,
+          icone: Handshake,
+          aoEscolher: () => navigate(`/minhas-vendas?venda=${v.id}`),
+        })),
+      },
+    ],
+    [secoes, vendas, navigate],
+  )
+
+  const sairDoSistema = () => {
+    void sair()
+  }
+
+  return (
+    <CascaContext.Provider value={casca}>
+      <div className="flex min-h-screen bg-page">
+        <NavRail
+          secoes={secoes}
+          avisos={avisos}
+          usuario={usuario}
+          aoBuscar={abrirBusca}
+          aoTrocarSenha={() => setTrocandoSenha(true)}
+          aoSair={sairDoSistema}
+        />
+
+        <div className="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
+          {carregando ? (
+            <QuadroCarregando rotulo="Carregando suas vendas…" />
+          ) : erro ? (
+            <QuadroErro motivo={erro} aoTentarDeNovo={() => void recarregar()} />
+          ) : (
+            <AreaDaTela
+              quadros={quadros}
+              barra={<BarraDeTransicao acoes={anosDisponiveis.length > 1 ? <SeletorAno /> : undefined} />}
+            >
+              <ErrorBoundary resetKey={pathname}>
+                <Suspense fallback={<QuadroCarregando rotulo="Abrindo a tela…" />}>
+                  <Outlet />
+                </Suspense>
+              </ErrorBoundary>
+            </AreaDaTela>
+          )}
+        </div>
+
+        <BottomNav
+          destinos={destinos}
+          mais={mais}
+          usuario={usuario}
+          aoBuscar={abrirBusca}
+          aoTrocarSenha={() => setTrocandoSenha(true)}
+          aoSair={sairDoSistema}
+        />
+      </div>
+
+      <PaletaDeBusca aberto={buscando} aoFechar={() => setBuscando(false)} grupos={grupos} />
+      <TrocarSenha aberto={trocandoSenha} onFechar={() => setTrocandoSenha(false)} />
+    </CascaContext.Provider>
   )
 }

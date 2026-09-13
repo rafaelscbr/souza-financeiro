@@ -1,33 +1,46 @@
 import { cn } from '@/lib/utils'
 
 /*
- * Carregando.
+ * Carregando (seção 8): blocos `shimmer` com a FORMA REAL do conteúdo.
  *
- * Sem brilho deslizante e sem pulsação: brilho sobre um valor que ainda não
- * carregou sugere atividade financeira que não existe, e nesta gramática
- * "tracejado" já significa "isto ainda não é um fato" — o carregando não pode
- * dividir desenho com um estado real, ou uma previsão passa a ser lida como
- * "espere, o número certo ainda vem".
- *
- * Então carregar é um fio estático no lugar da linha. Nada se move.
+ * O esqueleto antigo era um fio estático, com o argumento de que brilho sugere
+ * atividade financeira. O guia da casa resolve a mesma preocupação por outro
+ * caminho: o esqueleto tem a forma da linha que vai chegar (selo, título,
+ * contexto, valor), então ninguém confunde carregando com um valor real, e
+ * nunca há spinner solto. Com prefers-reduced-motion o brilho para.
  */
 export function Esqueleto({ className }: { className?: string }) {
-  return <span className={cn('block h-px w-full bg-line', className)} aria-hidden />
+  return <span className={cn('shimmer block h-3 w-full rounded-md', className)} aria-hidden />
 }
 
+/**
+ * Uma linha de lista carregando: selo, título, contexto, coluna do meio e o
+ * valor alinhado à direita, na mesma geometria da `Linha`.
+ */
+export function LinhaEsqueleto({ recuo = 'px-4 sm:px-5' }: { recuo?: string }) {
+  return (
+    <li className={cn('flex items-center gap-3 border-b border-line py-3.5 last:border-0 sm:gap-4', recuo)} aria-hidden>
+      <Esqueleto className="h-7 w-7 shrink-0 rounded-[9px]" />
+      <span className="flex min-w-0 flex-1 flex-col gap-2">
+        <Esqueleto className="h-3 max-w-[14rem]" />
+        <Esqueleto className="h-2.5 max-w-[8rem]" />
+      </span>
+      <Esqueleto className="hidden h-5 w-20 shrink-0 rounded-lg md:block" />
+      <Esqueleto className="h-3.5 w-20 shrink-0" />
+    </li>
+  )
+}
+
+/*
+ * Linhas carregando SEM superfície própria, para caber dentro de um painel ou
+ * seção que já é a superfície. Solta na página, use EsqueletoLista.
+ */
 export function ListaCarregando({ linhas = 4 }: { linhas?: number }) {
   return (
-    <ul className="divide-y divide-line" aria-busy="true" aria-live="polite">
+    <ul aria-busy="true" aria-live="polite">
       <li className="sr-only">Carregando…</li>
       {Array.from({ length: linhas }).map((_, i) => (
-        <li key={i} className="flex min-h-[3.5rem] items-center gap-3 py-2.5">
-          <span className="h-6 w-6 shrink-0 rounded-marca border border-line" aria-hidden />
-          <span className="flex-1 space-y-2">
-            <Esqueleto className="max-w-[14rem]" />
-            <Esqueleto className="max-w-[8rem]" />
-          </span>
-          <Esqueleto className="w-16 shrink-0" />
-        </li>
+        <LinhaEsqueleto key={i} />
       ))}
     </ul>
   )

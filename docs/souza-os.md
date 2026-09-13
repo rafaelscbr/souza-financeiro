@@ -8,6 +8,25 @@
 > que previsão não é dívida, o vocabulário de situação, o drill-down até a
 > parcela, e a cascata da comissão).
 
+> ### Ajustes do Rafael em 12/09/2026 — valem ACIMA deste guia
+>
+> Ao ver a primeira versão aplicada, o Rafael reprovou as barras e o degradê.
+> Onde o texto abaixo pedir filete, sheen a 158°, aurora, `gold-edge`, brilho
+> no canto ou degradê, vale isto:
+>
+> 1. **Sem barra decorativa.** Nada de filete vertical em rótulo, título de
+>    painel, título de seção ou item ativo do menu, e nada de barra lateral de
+>    3px em linha crítica. Estado se diz com ícone, chip e palavra. Barra de
+>    progresso de dado real continua, com cor lisa.
+> 2. **Sem degradê dentro do app.** Superfície é cor lisa (o grão pode ficar).
+>    Sem sheen, sem aurora, sem filete de ouro no topo, sem brilho no canto.
+>    O botão primário é Areia chapado, sem halo: a classe `grad-brand` continua
+>    existindo e agora pinta liso. Degradê só no painel de marca do login.
+> 3. **Todo ícone significa algo.** Nada de glifo de enchimento (traço,
+>    quadrado vazio) na goteira da linha.
+> 4. **O bloco dourado continua único por tela**, e se distingue pela borda
+>    Areia e pelo número em ouro, não por brilho.
+
 Este guia é o sistema de design do iCRM da Souza Imobiliária. O novo sistema
 financeiro deve ter a mesma cara, a mesma linguagem e as mesmas regras.
 Siga à risca. Quando algo não estiver coberto, escolha o que for mais

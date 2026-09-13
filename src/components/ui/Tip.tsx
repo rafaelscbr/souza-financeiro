@@ -5,6 +5,10 @@ import { cn } from '@/lib/utils'
 /**
  * Explicação curta ancorada a um indicador ou campo.
  * Abre no clique (funciona no toque) e também no hover do desktop.
+ *
+ * Para a regra que a tela inteira precisa mostrar escrita, o componente é a
+ * `Dica` (caixa com Lightbulb, seção 8). O Tip é o "o que é isso?" de UM número,
+ * que só aparece para quem pergunta.
  */
 export function Tip({
   children,
@@ -48,15 +52,19 @@ export function Tip({
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
+      {/*
+       * O ícone desenhado tem 14px, mas o alvo tem 40px (seção 12). A margem
+       * negativa devolve o espaço, para o gatilho não empurrar o rótulo ao lado.
+       */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={label}
         aria-expanded={open}
         aria-describedby={open ? id : undefined}
-        className="-m-2.5 inline-flex h-toque w-toque items-center justify-center rounded-lg text-content-faint transition-colors hover:bg-surface-2 hover:text-content-muted"
+        className="-m-3 inline-flex h-10 w-10 items-center justify-center rounded-lg text-t4 transition-colors duration-150 hover:bg-s3/50 hover:text-t2"
       >
-        <HelpCircle className="h-3.5 w-3.5" />
+        <HelpCircle aria-hidden strokeWidth={1.6} className="h-3.5 w-3.5" />
       </button>
 
       {open && (
@@ -64,7 +72,7 @@ export function Tip({
           id={id}
           role="tooltip"
           className={cn(
-            'absolute top-full z-50 mt-1.5 w-64 animate-scale-in rounded-lg border border-rule bg-surface p-3 text-left text-sm font-normal leading-relaxed text-content-muted shadow-pop',
+            'overlay-entra absolute top-full z-50 mt-1.5 w-64 max-w-[calc(100vw-2rem)] rounded-[14px] p-3 text-left text-[13px] font-normal normal-case leading-relaxed tracking-normal text-t3 shadow-dropdown modal-surface',
             align === 'end' ? 'right-0' : 'left-0',
           )}
         >

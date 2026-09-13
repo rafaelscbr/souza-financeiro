@@ -5,11 +5,8 @@ import { cn } from '@/lib/utils'
 /*
  * A CASCATA — a conta da comissão, como documento.
  *
- * Comissão é uma conta que precisa ser mostrada INTEIRA para ser aceita. Antes
- * ela era desenhada de cinco formas em cinco arquivos, com ordem, peso e
- * alinhamento diferentes em cada uma; e o líquido aparecia escondido num texto
- * de 11px. A conta já era única em src/lib/sales.ts — agora a apresentação
- * também é.
+ * Comissão é uma conta que precisa ser mostrada INTEIRA para ser aceita. A
+ * conta é única em src/lib/sales.ts, e a apresentação também é, aqui.
  *
  * A ordem é fixa e é a que já estava correta no banco (migração 009):
  *   parcela da comissão
@@ -58,14 +55,15 @@ export function LinhaCascata({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <dt className="min-w-0 text-base text-content-muted">
+      <dt className="min-w-0 text-sm text-t3">
         {subtracao && (
-          <span className="mr-1 text-content-faint" aria-label="menos">
+          // O "(−)" é informação da conta, então fica em t4 e não no t5 decorativo.
+          <span className="mr-1 text-t4" aria-label="menos">
             (&#8722;)
           </span>
         )}
         {rotulo}
-        {detalhe && <span className="ml-1.5 text-sm text-content-faint">{detalhe}</span>}
+        {detalhe && <span className="ml-1.5 text-xs text-t4">{detalhe}</span>}
       </dt>
       <dd className="shrink-0">
         <Valor valor={subtracao ? -Math.abs(valor) : valor} posto="fato" />
@@ -75,8 +73,9 @@ export function LinhaCascata({
 }
 
 /**
- * O total. Fio ESTRUTURAL acima (3,54:1 — carrega leitura, então não pode ser
- * o fio decorativo de 1,24:1), e o rótulo em degrau de comparação.
+ * O total. Fio forte acima (`line-strong`), porque ele carrega leitura: separa
+ * a conta do resultado. O rótulo sobe para o corpo de título e o valor para o
+ * degrau de comparação.
  */
 export function TotalCascata({
   rotulo,
@@ -90,14 +89,14 @@ export function TotalCascata({
   nota?: string
 }) {
   return (
-    <div className="mt-1 border-t border-rule pt-2">
+    <div className="mt-1 border-t border-line-strong pt-2">
       <div className="flex items-baseline justify-between gap-4">
-        <dt className="text-base font-semibold text-content">{rotulo}</dt>
+        <dt className="text-sm font-semibold text-t1">{rotulo}</dt>
         <dd className="shrink-0">
           <Valor valor={valor} posto="linha" tinta={tinta} />
         </dd>
       </div>
-      {nota && <p className="mt-1 text-sm text-content-faint">{nota}</p>}
+      {nota && <p className="mt-1 text-xs text-t4">{nota}</p>}
     </div>
   )
 }
