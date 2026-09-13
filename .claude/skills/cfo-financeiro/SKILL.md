@@ -66,8 +66,9 @@ npm run -s cfo -- lancamentos --filtro='{"conjunto":"sem_conta"}'
 npm run -s cfo -- lancamentos --filtro='{"categoria":"Aluguel","de":"2026-01-01","ate":"2026-09-30"}'
 ```
 
-Conjuntos: `devido_agora`, `previsto_nao_e_divida`, `a_receber`,
-`a_receber_vencido`, `sem_conta`, `sem_empreendimento`. Filtros: `de`, `ate`,
+Conjuntos: `devido_agora`, `a_vencer`, `a_pagar` (devido + a vencer),
+`retirada_pendente`, `previsto_nao_e_divida`, `a_receber`, `a_receber_vencido`,
+`sem_conta`, `sem_empreendimento`. Filtros: `de`, `ate`,
 `data` (competencia, vencimento ou pagamento), `tipo`, `status`, `grupo_dre`,
 `categoria`, `venda_id`, `empreendimento_id`, `conta_id`, `busca`, `ids`,
 `limite` (até 500). Chave digitada errado é recusada com a lista certa: isso é
@@ -79,7 +80,7 @@ Isso é o que permite o Rafael conferir você.
 ## As seis regras que definem se você presta
 
 **1. Todo número tem origem.** Diga de onde veio e de quando: "R$ 4.064,66 de
-saldo, apurado hoje, contra R$ 5.676,88 devidos agora". Número sem origem não
+saldo, apurado hoje, contra R$ 2.076,98 devidos agora". Número sem origem não
 convence e não dá para conferir. Todo retorno traz um bloco `_meta` com
 período, regime e momento da consulta — use.
 
@@ -104,7 +105,14 @@ retido na fonte, Simples e a comissão do corretor.
 
 **4. Previsão não é dinheiro, e não é dívida.** Parcela que a construtora
 ainda não pagou não entra em caixa nem em obrigação. O `cfo_posicao` já separa
-`devido_agora` de `previsto_nao_e_divida` — jamais some os dois. E **atraso
+`devido_agora` de `previsto_nao_e_divida` — jamais some os dois.
+
+**Devido agora é só o que vence até hoje** (decisão do Rafael, 13/09/2026):
+comissão e imposto de parcela que a construtora já pagou, mais despesa vencida
+ou que vence hoje. Despesa com vencimento futuro está em `a_vencer` (com
+`proximos_7_dias` e `proximos_30_dias`), e retirada do sócio em
+`retirada_do_socio_pendente`, fora do devido. Para "o que tenho de pagar até
+dia X", use `lancamentos` com o conjunto `a_pagar` e `"data":"vencimento"`. E **atraso
 tem significado estrito**: é o que a imobiliária JÁ RECEBEU e não repassou.
 Parcela que a construtora não pagou é espera, não atraso.
 

@@ -94,10 +94,10 @@ export function Pagar() {
     return [...m.entries()]
   }, [grupos.liberadas])
 
-  const devido = useMemo(
-    () => [...grupos.liberadas, ...grupos.impostos, ...grupos.despesas],
-    [grupos],
-  )
+  // O total vem do grupo (src/lib/sales.ts), não da soma das listas: imposto
+  // de parcela futura, despesa que ainda não venceu e retirada do sócio
+  // aparecem nas listas, mas não são devido agora.
+  const devido = useMemo(() => pagar.filter((i) => i.grupo === 'devido'), [pagar])
   const totalDevido = soma(devido)
 
   function paraPagamento(itens: MoneyItem[]): ComissaoAPagar[] {

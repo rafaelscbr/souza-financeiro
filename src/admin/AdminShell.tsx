@@ -123,7 +123,7 @@ function CascaDoAdmin() {
    * repassou. Mudou só a cor: risco e atenção.
    */
   const vencidos = receber.filter((i) => i.overdue).length
-  const esperando = pagar.filter((i) => i.overdue || (i.kind === 'comissao' && i.released)).length
+  const esperando = pagar.filter((i) => i.grupo === 'devido' && (i.overdue || i.kind === 'comissao')).length
 
   const secoes = useMemo(() => navAdmin({ vencidos, esperando }), [vencidos, esperando])
   const { destinos, mais } = useMemo(() => separarPolegar(secoes, POLEGAR_ADMIN), [secoes])

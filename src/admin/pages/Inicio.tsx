@@ -78,12 +78,13 @@ export function Inicio() {
   const vencido = useMemo(() => aReceber.filter((i) => i.overdue), [aReceber])
 
   /*
-   * A definição de Pagar, copiada dela: devido agora é comissão LIBERADA (a
-   * imobiliária já recebeu a parcela), imposto de parcela recebida e despesa.
-   * Previsão fica de fora do total e aparece em número próprio, ao lado.
+   * A definição de src/lib/sales.ts (grupo), a mesma de Pagar e do CFO: devido
+   * agora é comissão e imposto de parcela já recebida e despesa vencida ou que
+   * vence hoje. Previsão fica de fora e aparece em número próprio; despesa
+   * futura e retirada do sócio não entram em nenhum dos dois.
    */
-  const devido = useMemo(() => pagar.filter((i) => i.released), [pagar])
-  const previsto = useMemo(() => pagar.filter((i) => !i.released), [pagar])
+  const devido = useMemo(() => pagar.filter((i) => i.grupo === 'devido'), [pagar])
+  const previsto = useMemo(() => pagar.filter((i) => i.grupo === 'previsto'), [pagar])
 
   const soma = (l: MoneyItem[]) => Math.round(l.reduce((s, i) => s + i.amount, 0) * 100) / 100
 
