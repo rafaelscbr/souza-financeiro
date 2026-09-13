@@ -27,6 +27,14 @@
 > 4. **O bloco dourado continua único por tela**, e se distingue pela borda
 >    Areia e pelo número em ouro, não por brilho.
 
+> ### Fundamentos de 12/09/2026: a lei de espaço, superfície, tipografia, componentes e movimento
+>
+> Depois da crítica "elementos sem bordas, sem margens, sem respiro", o
+> `docs/souza-os-fundamentos.md` passou a ser a lei em **espaço, grade,
+> superfície, raio, tipografia, anatomia de componente, movimento e plantas de
+> tela**, e vale acima deste guia nesses assuntos. Este guia continua valendo
+> nos tokens de cor e tema, nas fontes, nos Ajustes acima e nas regras de dado.
+
 Este guia é o sistema de design do iCRM da Souza Imobiliária. O novo sistema
 financeiro deve ter a mesma cara, a mesma linguagem e as mesmas regras.
 Siga à risca. Quando algo não estiver coberto, escolha o que for mais
