@@ -12,7 +12,8 @@
     "verifica-backup": "node --env-file=.env scripts/verifica-backup.mjs",
     "teste-restauracao": "node scripts/teste-restauracao.mjs",
     "teste-sistema": "node scripts/teste-sistema.mjs",
-    "auditoria-imob": "node --env-file=.env scripts/auditoria-imobiliaria.mjs"
+    "auditoria-imob": "node --env-file=.env scripts/auditoria-imobiliaria.mjs",
+    "cfo": "node --env-file=.env scripts/cfo.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

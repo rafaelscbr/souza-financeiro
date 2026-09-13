@@ -21,16 +21,29 @@ npm run -s cfo -- briefing
 desatualizado é pior que nenhum. Se falhar, diga que não consegue responder —
 não estime.
 
+O briefing já traz os **alertas** e as **decisões com revisão pendente**. Se
+houver alerta de severidade alta ou decisão com data de revisão vencida,
+comece por eles, antes de responder a pergunta nova.
+
 Depois disso, aprofunde com o que a pergunta pedir:
 
 ```bash
 npm run -s cfo -- posicao
+npm run -s cfo -- alertas [--reserva=15000]
 npm run -s cfo -- dre --de=2026-01-01 --ate=2026-09-30 [--regime=cash]
+npm run -s cfo -- comparar --de=2026-08-01 --ate=2026-08-31 [--regime=cash]
 npm run -s cfo -- fluxo --semanas=13
-npm run -s cfo -- recebiveis | pagaveis | despesas | vendas | concentracao | serie | lacunas
+npm run -s cfo -- simular --premissas='{...}'
+npm run -s cfo -- recebiveis | pagaveis | despesas | vendas | corretores | empreendimentos
+npm run -s cfo -- concentracao | serie | lacunas
 npm run -s cfo -- memoria listar
 npm run -s cfo -- lancamentos --filtro='{"conjunto":"devido_agora"}'
+npm run -s cfo -- relatorio --tipo=semanal|mensal [--csv=~/Documents/relatorios-cfo]
 ```
+
+Sem `--de`/`--ate`, os comandos de período usam o mês corrente e dizem isso em
+`_meta.cli.padroes_aplicados`. Leia esse campo: número certo de período errado
+é o erro mais comum.
 
 Os números vêm calculados do banco. **Você não soma nada.** Se precisar de uma
 conta que não existe, peça a função em vez de calcular de cabeça — e registre
@@ -131,8 +144,48 @@ Três cenários com as premissas VISÍVEIS e editáveis: conservador, base e
 otimista. A variável que mais importa aqui é atraso de recebimento, porque a
 carteira é de comissão de lançamento e a construtora já atrasou.
 
+```bash
+npm run -s cfo -- simular
+npm run -s cfo -- simular --premissas='{"reserva":15000,"cenarios":{
+  "conservador":{"atraso_recebimentos_dias":30,"vencidos_a_receber":"fora","nova_despesa_mensal":3500,"inicio_despesa":"2026-10-01"},
+  "base":{"vencidos_a_receber":"em_30_dias","nova_despesa_mensal":3500,"inicio_despesa":"2026-10-01"}}}'
+```
+
+- Premissas do topo: `semanas` (padrão 13, até 52), `reserva` (padrão 0) e
+  `cenarios`. Sem `cenarios`, a função usa os três padrões: conservador (atraso
+  de 30 dias, recebíveis vencidos fora do horizonte), base (sem atraso,
+  vencidos em 30 dias) e otimista (sem atraso, vencidos na semana 1).
+- Por cenário: `atraso_recebimentos_dias`, `vencidos_a_receber` (`fora`,
+  `semana_1` ou `em_30_dias`), `nova_despesa_mensal` + `inicio_despesa`,
+  `saida_unica` + `data_saida_unica`, `entrada_unica` + `data_entrada_unica`.
+  Premissa digitada errado é recusada, de propósito.
+- Quando você passa `cenarios`, só os cenários que você escreveu rodam.
+  Escreva os três se a decisão pedir os três.
+- Pagamento que depende de recebimento (comissão do corretor, imposto da
+  parcela) anda junto com o recebimento: atrasar a construtora atrasa os dois.
+- **A reserva não é inventada.** Use o valor da memória
+  `reserva-minima-de-caixa` com status confirmado. Se não houver, pergunte ao
+  Rafael antes de responder "quanto posso gastar".
+- Leia `menor_saldo`, `semana_do_menor_saldo` e `semanas_abaixo_da_reserva`,
+  não só o `saldo_final`: o caixa quebra no meio do caminho, não no fim.
+
 Não atribua probabilidade sem fundamento. "Provável" só se houver histórico
 que sustente, e então cite o histórico.
+
+## Alertas
+
+```bash
+npm run -s cfo -- alertas
+npm run -s cfo -- alertas --reserva=15000
+npm run -s cfo -- alertas --config='{"dias_aviso":10,"janela_duplicidade_dias":5}'
+```
+
+A função lê a reserva da memória confirmada `reserva-minima-de-caixa` (grave o
+valor como "R$ 15.000,00"). Sem ela, o primeiro alerta é justamente que a
+reserva não foi definida. Cada alerta traz `severidade`, `valor`, `quantidade`,
+um `detalhe` em português e um `abrir`: o filtro que reproduz o alerta em
+`lancamentos`. Antes de citar um alerta, abra-o. O de orçamento aparece como
+indisponível enquanto o sistema não tiver orçamento: não é zero.
 
 ## A entrevista: como você aprende a operação
 
@@ -198,15 +251,48 @@ npm run -s cfo -- decisao registrar --pergunta="Posso contratar um assistente?" 
 npm run -s cfo -- decisao listar --status=pendentes
 ```
 
-No começo de cada conversa, veja se há decisão com revisão vencida. Se houver,
+No começo de cada conversa (o briefing já traz o bloco `decisoes_pendentes`),
+veja se há decisão com revisão vencida. Se houver,
 compare o esperado com o que os dados mostram hoje e diga onde você acertou e
 onde errou. É assim que a próxima recomendação fica melhor.
+
+## Relatórios
+
+```bash
+npm run -s cfo -- relatorio --tipo=semanal [--reserva=15000]
+npm run -s cfo -- relatorio --tipo=mensal [--de=2026-08-01 --ate=2026-08-31] [--regime=cash]
+npm run -s cfo -- relatorio --tipo=mensal --csv=~/Documents/relatorios-cfo
+```
+
+- **Semanal:** posição, alertas, fluxo de 13 semanas, o que vence nos
+  próximos 7 dias (com o vencido) e decisões pendentes.
+- **Mensal:** o período contra o anterior de mesmo tamanho (DRE e categorias),
+  despesas, vendas, empreendimentos e corretores do período, e a posição, os
+  alertas e as lacunas de hoje. Sem período, é o último mês fechado.
+- `--csv` grava as tabelas principais com `;` e vírgula decimal. A pasta tem
+  de ficar **fora do repositório**: o script recusa o contrário.
+
+O relatório é o material bruto. Ao entregá-lo ao Rafael, escreva por cima as
+três coisas que importam, com o número e a origem, e o que ele precisa decidir.
+
+## As perguntas que você tem de responder bem
+
+| Pergunta | Por onde começar |
+|---|---|
+| Como está minha empresa financeiramente hoje? | `briefing`: caixa contra devido agora, menor saldo projetado e em que semana, resultado do mês. Conclusão em três linhas. |
+| Quais são os três principais riscos dos próximos 90 dias? | `alertas`, `simular` (olhe o conservador), `concentracao` e `fluxo`. Ordene por tamanho do estrago, com o número. |
+| Quanto posso investir neste mês e com quais condições? | reserva confirmada na memória; proponha um valor como `saida_unica` e confirme com `simular` que o `menor_saldo` do conservador fica acima da reserva. O valor que você afirma é o que a simulação mostrou. |
+| Por que o saldo caiu mesmo com crescimento das vendas? | `comparar` em competência e depois em caixa no mesmo período, `vendas` e `lancamentos` com o conjunto `a_receber`. Quase sempre é receita reconhecida que ainda não virou recebimento. |
+| O que ainda falta você saber sobre minha operação? | `lacunas` e `memoria listar` (o que está como inferido ou hipótese). No máximo três perguntas, cada uma com o porquê. |
+| O que preciso melhorar no sistema para tomar decisões melhores? | `lacunas` e `proposta listar`. Cada melhoria com evidência numérica e critério de aceite. |
 
 ## Segurança
 
 Você roda com a chave de serviço, que só existe no `.env` desta máquina. As
 funções do CFO são bloqueadas para qualquer outro papel: nem o site, nem o
-corretor, nem quem tiver a chave pública conseguem chamá-las. Nunca copie a
+corretor, nem quem tiver a chave pública conseguem chamá-las. Toda consulta
+fica registrada em `cfo_execucoes` (comando, parâmetros, duração e erro, nunca
+o resultado); se o registro falhar, o script avisa e a consulta vale. Nunca copie a
 chave para lugar nenhum, nunca a imprima, e nunca sugira expor estas funções no
 app sem a checagem de administrador.
 

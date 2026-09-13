@@ -24,10 +24,20 @@
  *   de ambiente é reportada pelo NOME da variável.
  * · Dinheiro em markdown sai em pt-BR com centavos e sem abreviação. "R$ 1,2 M"
  *   não serve para conferir nada.
+ * · Toda consulta fica registrada em `cfo_execucoes` (comando, parâmetros,
+ *   duração, erro — nunca o resultado). Se o registro falhar, a consulta vale
+ *   e um aviso sai no stderr: auditoria não pode derrubar a resposta.
+ * · Arquivo local só com `relatorio --csv`, e nunca dentro do repositório: o
+ *   relatório tem os números da imobiliária e não pode acabar num commit.
  *
  * Rodar:  npm run cfo -- briefing --md
  *         node --env-file=.env scripts/cfo.mjs posicao
+ *         npm run -s cfo -- relatorio --tipo=mensal --csv=~/Documents/relatorios-cfo
  */
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { isAbsolute, join, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 
 // ---------------------------------------------------------------- ambiente
@@ -164,6 +174,38 @@ const COMANDOS = {
     params: (o, _p, cli) => ({ p_meses: inteiro(o.meses, 12, 1, 120, 'meses', cli) }),
   },
   lacunas: { rpc: 'cfo_lacunas', opcoes: [...COMUNS], params: () => ({}) },
+  comparar: {
+    rpc: 'cfo_comparar_periodos',
+    opcoes: [...COMUNS, ...PERIODO, 'regime'],
+    periodo: true,
+    params: (o, p) => ({ p_de: p.de, p_ate: p.ate, p_regime: regime(o) }),
+  },
+  simular: {
+    rpc: 'cfo_simular',
+    opcoes: [...COMUNS, 'premissas'],
+    params: (o, _p, cli) => {
+      if (o.premissas === undefined) {
+        cli.padroes_aplicados.push('premissas={} (os três cenários padrão da função)')
+        return { p_premissas: {} }
+      }
+      return { p_premissas: json(o.premissas, 'premissas') }
+    },
+  },
+  alertas: {
+    rpc: 'cfo_alertas',
+    opcoes: [...COMUNS, 'config', 'reserva'],
+    params: (o) => {
+      const config = o.config === undefined ? {} : json(o.config, 'config')
+      const reserva = reservaDe(o)
+      if (reserva !== undefined) {
+        if (config.reserva !== undefined) morre('Informe a reserva em --reserva OU dentro de --config, não nos dois.')
+        config.reserva = reserva
+      }
+      return { p_config: config }
+    },
+  },
+  // Composto, como o briefing: várias funções, um documento.
+  relatorio: { opcoes: [...COMUNS, 'tipo', ...PERIODO, 'regime', 'reserva', 'csv'] },
   lancamentos: {
     rpc: 'cfo_lancamentos',
     opcoes: [...COMUNS, 'filtro'],
@@ -318,6 +360,18 @@ function json(texto, nome) {
   return v
 }
 
+/**
+ * Reserva em reais, sem separador de milhar ("15000" ou "15000.50"). "15.000"
+ * seria lido como quinze reais em metade das convenções: melhor recusar.
+ */
+function reservaDe(o) {
+  if (o.reserva === undefined) return undefined
+  if (!/^\d+(\.\d{1,2})?$/.test(o.reserva)) {
+    morre(`--reserva inválida: "${o.reserva}". Use reais sem separador de milhar, ex.: --reserva=15000 ou --reserva=15000.50.`)
+  }
+  return Number(o.reserva)
+}
+
 function exigir(o, campos, comando) {
   const faltando = campos.filter((c) => o[c] === undefined || o[c] === '')
   if (faltando.length) morre(`${comando} exige: ${faltando.map((c) => '--' + c.replace(/_/g, '-')).join(', ')}`)
@@ -329,8 +383,9 @@ const AJUDA = `CFO virtual da Souza Imobiliária — porta única de dados (some
 
   node --env-file=.env scripts/cfo.mjs <comando> [opções]
 
-  briefing                    TUDO de uma vez: posição, lacunas, fluxo de 13 semanas,
-                              DRE do mês, recebíveis, pagáveis e memória. Sai em markdown.
+  briefing                    TUDO de uma vez: posição, alertas, lacunas, fluxo de 13 semanas,
+                              DRE do mês, recebíveis, pagáveis, decisões pendentes e memória.
+                              Sai em markdown.
   posicao                     posição de hoje: caixa, a receber, devido agora, previsto, carteira
   dre        --de=YYYY-MM-DD --ate=YYYY-MM-DD [--regime=accrual|cash]
   fluxo      [--semanas=13]
@@ -344,6 +399,15 @@ const AJUDA = `CFO virtual da Souza Imobiliária — porta única de dados (some
   serie      [--meses=12]
   lacunas
   lancamentos --filtro='{"categoria":"Marketing"}'
+  comparar   --de= --ate= [--regime=]   o período contra o anterior de mesmo tamanho
+  simular    [--premissas=JSON]         conservador, base e otimista sobre o fluxo
+  alertas    [--reserva=15000] [--config=JSON]
+
+  relatorio --tipo=semanal [--reserva=] [--csv=PASTA]
+  relatorio --tipo=mensal [--de= --ate=] [--regime=] [--csv=PASTA]
+                              mensal sem período = último mês fechado. --csv grava as
+                              tabelas principais (separador ;, vírgula decimal) numa
+                              pasta FORA do repositório.
 
   memoria listar [--tipo=]
   memoria gravar --tipo= --chave= --valor= [--status=confirmado|inferido|hipotese] [--origem=]
@@ -418,6 +482,34 @@ function descreveErro(nome, error) {
       : (error.hint ?? null),
     codigo: error.code ?? null,
   }
+}
+
+/**
+ * Registro da consulta em cfo_execucoes. Melhor esforço: se falhar, avisa no
+ * stderr e segue. Comando que escreve registra só os NOMES dos campos, porque
+ * o valor de uma memória ou decisão é conversa do Rafael, não trilha técnica.
+ */
+async function auditar(db, comando, parametros, inicio, erro, escreve) {
+  const r = await rpc(db, 'cfo_execucao_registrar', {
+    p_comando: comando,
+    p_parametros: escreve ? { campos_enviados: Object.keys(parametros ?? {}) } : resumir(parametros ?? {}),
+    p_duracao_ms: Math.round(performance.now() - inicio),
+    p_erro: erro ? String(erro).slice(0, 500) : null,
+  })
+  if (!r.ok) console.error(`AVISO: a consulta não ficou registrada na auditoria (${r.erro.mensagem}).`)
+}
+
+function resumir(v, nivel = 0) {
+  if (typeof v === 'string') return v.length > 120 ? `${v.slice(0, 120)}…` : v
+  if (Array.isArray(v)) {
+    const corte = v.slice(0, 20).map((x) => resumir(x, nivel + 1))
+    return v.length > 20 ? [...corte, `(+${v.length - 20})`] : corte
+  }
+  if (v && typeof v === 'object') {
+    if (nivel > 3) return '(…)'
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, resumir(x, nivel + 1)]))
+  }
+  return v
 }
 
 function imprimeErro(erro) {
@@ -577,6 +669,7 @@ function rodape(meta) {
       linhas.push(`- janela de ${bloco}: ${janela}`)
     }
     for (const p of meta.cli.padroes_aplicados ?? []) linhas.push(`- padrão aplicado: ${p}`)
+    for (const a of meta.cli.arquivos ?? []) linhas.push(`- arquivo gravado: ${a}`)
     for (const t of meta.cli.truncado ?? []) {
       linhas.push(`- TRUNCADO em ${t.caminho}: mostrando ${t.mostrando} de ${t.total} linhas (use --limite)`)
     }
@@ -596,15 +689,62 @@ function saida(resultado, formatoMd, tituloDoc) {
   console.log(linhas.join('\n'))
 }
 
-// ------------------------------------------------------------- briefing
+// ------------------------------------------------------------- compostos
+//
+// Briefing e relatório são vários blocos, cada um com o seu próprio _meta. Se
+// algum bloco falhar, ele aparece como falha explícita e o código de saída é 1.
+// Documento com buraco calado é o jeito mais fácil de um CFO aconselhar sobre
+// uma empresa que ele não enxergou inteira.
 
-/**
- * O comando de abertura. Sete blocos, cada um com o seu próprio _meta.
- *
- * Se algum bloco falhar, ele aparece na saída como falha explícita e o código
- * de saída é 1. Briefing com buraco calado é o jeito mais fácil de um CFO
- * aconselhar sobre uma empresa que ele não enxergou inteira.
- */
+const RAIZ_REPO = resolve(fileURLToPath(new URL('..', import.meta.url)))
+
+async function executarBlocos(db, blocos, cli, limite) {
+  cli.funcoes = blocos.map(([, f]) => f)
+  cli.parametros = Object.fromEntries(blocos.map(([nome, , p]) => [nome, p]))
+  const resultados = await Promise.all(blocos.map(([, funcao, params]) => rpc(db, funcao, params)))
+  const montado = {}
+  const falhas = []
+  const registroTrunc = []
+  blocos.forEach(([nome], i) => {
+    const r = resultados[i]
+    if (r.ok) montado[nome] = truncar(r.dados, limite, nome, registroTrunc)
+    else falhas.push({ bloco: nome, ...r.erro })
+  })
+  if (registroTrunc.length) cli.truncado = registroTrunc
+  if (falhas.length) cli.blocos_que_falharam = falhas.map((f) => f.bloco)
+  return { montado, falhas }
+}
+
+const empresaDe = (montado) => Object.values(montado).find((b) => b?._meta?.empresa)?._meta.empresa ?? null
+
+function imprimirComposto({ tituloDoc, referencia, blocos, montado, falhas, meta, opcoes }) {
+  const resultado = { ...montado, ...(falhas.length ? { nao_foi_possivel_ler: falhas } : {}), _meta: meta }
+  // Markdown é o padrão dos compostos: eles existem para ser lidos. JSON só com --json.
+  if (opcoes.json === true) {
+    console.log(JSON.stringify(resultado, null, 2))
+    return
+  }
+  const linhas = [`# ${tituloDoc}`, '', `Referência: ${referencia}`, '']
+  if (falhas.length) {
+    linhas.push(`> ATENÇÃO: ${falhas.length} de ${blocos.length} blocos NÃO puderam ser lidos. Este documento está incompleto.`, '')
+  }
+  for (const [nome] of blocos) {
+    if (!montado[nome]) continue
+    linhas.push(`## ${titulo(nome)}`, '')
+    linhas.push(...renderiza(montado[nome], 3))
+    const m = momento(montado[nome]._meta)
+    if (m) linhas.push(`_${montado[nome]._meta.funcao ?? nome} · consultado em ${m}_`, '')
+  }
+  if (falhas.length) {
+    linhas.push('## Não foi possível ler', '')
+    for (const f of falhas) linhas.push(`- **${f.bloco}** (${f.funcao}): ${f.mensagem}${f.dica ? ` — ${f.dica}` : ''}`)
+    linhas.push('')
+  }
+  linhas.push(...rodape(meta))
+  console.log(linhas.join('\n'))
+}
+
+/** O comando de abertura. Devolve true se algum bloco falhou. */
 async function briefing(db, opcoes, cli, limite) {
   const hoje = hojeISO()
   const mes = mesDe(hoje)
@@ -616,76 +756,172 @@ async function briefing(db, opcoes, cli, limite) {
 
   const blocos = [
     ['posicao', 'cfo_posicao', {}],
+    ['alertas', 'cfo_alertas', { p_config: {} }],
     ['lacunas', 'cfo_lacunas', {}],
     ['fluxo_13_semanas', 'cfo_fluxo_semanal', { p_semanas: 13 }],
     ['dre_do_mes', 'cfo_dre', { p_de: mes.de, p_ate: mes.ate, p_regime: 'accrual' }],
     ['recebiveis', 'cfo_recebiveis', { p_de: de, p_ate: ate }],
     ['pagaveis', 'cfo_pagaveis', { p_de: de, p_ate: ate }],
+    // Decisão com revisão vencida é cobrança: aparece antes de qualquer conselho novo.
+    ['decisoes_pendentes', 'cfo_decisoes_listar', { p_status: 'pendentes' }],
     ['memoria', 'cfo_memoria_listar', { p_tipo: null }],
   ]
-
-  cli.funcoes = blocos.map(([, f]) => f)
-  cli.parametros = Object.fromEntries(blocos.map(([nome, , p]) => [nome, p]))
   cli.janelas = {
     dre_do_mes: `${mes.de} a ${mes.ate} (mês corrente, padrão)`,
     recebiveis_pagaveis: `${de} a ${ate} (90 dias para trás e para a frente, padrão)`,
   }
 
-  const resultados = await Promise.all(blocos.map(([, funcao, params]) => rpc(db, funcao, params)))
-
-  const montado = {}
-  const falhas = []
-  const registroTrunc = []
-  blocos.forEach(([nome, funcao], i) => {
-    const r = resultados[i]
-    if (r.ok) montado[nome] = truncar(r.dados, limite, nome, registroTrunc)
-    else falhas.push({ bloco: nome, ...r.erro })
+  const { montado, falhas } = await executarBlocos(db, blocos, cli, limite)
+  const empresa = empresaDe(montado)
+  imprimirComposto({
+    tituloDoc: `Briefing do CFO — ${empresa ?? 'Souza Imobiliária'}`,
+    referencia: hoje,
+    blocos,
+    montado,
+    falhas,
+    meta: { funcao: 'briefing (composto)', empresa, data_de_referencia: hoje, consultado_em: new Date().toISOString(), cli },
+    opcoes,
   })
-  if (registroTrunc.length) cli.truncado = registroTrunc
-  if (falhas.length) cli.blocos_que_falharam = falhas.map((f) => f.bloco)
+  return falhas.length > 0
+}
 
-  const resultado = {
-    ...montado,
-    ...(falhas.length ? { nao_foi_possivel_ler: falhas } : {}),
-    _meta: {
-      funcao: 'briefing (composto)',
-      empresa: montado.posicao?._meta?.empresa ?? null,
-      data_de_referencia: hoje,
-      consultado_em: new Date().toISOString(),
-      cli,
-    },
-  }
+/**
+ * Relatório semanal (o que vence e o que está em risco a partir de hoje) ou
+ * mensal (um período fechado contra o anterior). Devolve true se algum bloco
+ * falhou. Tudo o que é validável é validado ANTES de consultar o banco.
+ */
+async function relatorio(db, opcoes, cli, limite) {
+  const tipo = opcoes.tipo
+  if (!['semanal', 'mensal'].includes(tipo)) morre('relatorio exige --tipo=semanal ou --tipo=mensal.')
+  const pastaCsv = opcoes.csv === undefined ? null : resolverPastaCsv(opcoes.csv)
+  const hoje = hojeISO()
 
-  // Único comando cujo padrão é markdown; só sai em JSON se pedirem --json.
-  if (opcoes.json === true) {
-    console.log(JSON.stringify(resultado, null, 2))
+  let blocos, referencia, prefixo, tabelasCsv
+  if (tipo === 'semanal') {
+    for (const c of ['de', 'ate', 'regime']) {
+      if (opcoes[c] !== undefined) morre(`--${c} não se aplica ao relatório semanal: ele parte sempre de hoje.`)
+    }
+    const reserva = reservaDe(opcoes)
+    const de = somaDias(hoje, -60)
+    const ate = somaDias(hoje, 7)
+    blocos = [
+      ['posicao', 'cfo_posicao', {}],
+      ['alertas', 'cfo_alertas', { p_config: reserva === undefined ? {} : { reserva } }],
+      ['fluxo_13_semanas', 'cfo_fluxo_semanal', { p_semanas: 13 }],
+      ['recebiveis_ate_7_dias', 'cfo_recebiveis', { p_de: de, p_ate: ate }],
+      ['pagaveis_ate_7_dias', 'cfo_pagaveis', { p_de: de, p_ate: ate }],
+      ['decisoes_pendentes', 'cfo_decisoes_listar', { p_status: 'pendentes' }],
+    ]
+    cli.janelas = { recebiveis_pagaveis: `${de} a ${ate} (60 dias para trás, para pegar o vencido, e 7 para a frente)` }
+    referencia = `semana de ${hoje} a ${somaDias(hoje, 6)}`
+    prefixo = `relatorio-semanal-${hoje}`
+    tabelasCsv = [
+      ['fluxo-13-semanas', (m) => m.fluxo_13_semanas?.semanas],
+      ['alertas', (m) => m.alertas?.alertas],
+    ]
   } else {
-    // Markdown é o padrão aqui: o briefing existe para ser lido.
-    const linhas = [`# Briefing do CFO — ${resultado._meta.empresa ?? 'Souza Imobiliária'}`, '', `Referência: ${hoje}`, '']
-    if (falhas.length) {
-      linhas.push(
-        `> ATENÇÃO: ${falhas.length} de ${blocos.length} blocos NÃO puderam ser lidos. Este briefing está incompleto.`,
-        '',
-      )
+    if (opcoes.reserva !== undefined) morre('--reserva só se aplica ao relatório semanal.')
+    let de = opcoes.de
+    let ate = opcoes.ate
+    if (de === undefined && ate === undefined) {
+      const fechado = mesDe(somaDias(mesDe(hoje).de, -1))
+      de = fechado.de
+      ate = fechado.ate
+      cli.padroes_aplicados.push(`período=${de} a ${ate} (último mês fechado, não informado)`)
+    } else if (de === undefined || ate === undefined) {
+      morre('relatorio mensal: informe --de e --ate juntos, ou nenhum dos dois para o último mês fechado.')
+    } else {
+      if (!dataValida(de)) morre(`--de inválida: "${de}". Use YYYY-MM-DD.`)
+      if (!dataValida(ate)) morre(`--ate inválida: "${ate}". Use YYYY-MM-DD.`)
+      if (de > ate) morre(`Período invertido: --de=${de} é depois de --ate=${ate}.`)
     }
-    for (const [nome] of blocos) {
-      if (!montado[nome]) continue
-      linhas.push(`## ${titulo(nome)}`, '')
-      linhas.push(...renderiza(montado[nome], 3))
-      const m = momento(montado[nome]._meta)
-      if (m) linhas.push(`_${montado[nome]._meta.funcao ?? nome} · consultado em ${m}_`, '')
-    }
-    if (falhas.length) {
-      linhas.push('## Não foi possível ler', '')
-      for (const f of falhas) linhas.push(`- **${f.bloco}** (${f.funcao}): ${f.mensagem}${f.dica ? ` — ${f.dica}` : ''}`)
-      linhas.push('')
-    }
-    linhas.push(...rodape(resultado._meta))
-    console.log(linhas.join('\n'))
+    const reg = regime(opcoes)
+    if (opcoes.regime === undefined) cli.padroes_aplicados.push('regime=accrual (competência, não informado)')
+    blocos = [
+      ['comparacao_com_periodo_anterior', 'cfo_comparar_periodos', { p_de: de, p_ate: ate, p_regime: reg }],
+      ['despesas', 'cfo_despesas', { p_de: de, p_ate: ate }],
+      ['vendas', 'cfo_vendas', { p_de: de, p_ate: ate }],
+      ['empreendimentos', 'cfo_empreendimentos', { p_de: de, p_ate: ate }],
+      ['corretores', 'cfo_corretores', { p_de: de, p_ate: ate }],
+      // Os quatro abaixo são de HOJE, não do período: o nome do bloco diz isso.
+      ['posicao_hoje', 'cfo_posicao', {}],
+      ['alertas_hoje', 'cfo_alertas', { p_config: {} }],
+      ['lacunas_hoje', 'cfo_lacunas', {}],
+      ['decisoes_pendentes', 'cfo_decisoes_listar', { p_status: 'pendentes' }],
+    ]
+    referencia = `${de} a ${ate}, regime de ${reg === 'cash' ? 'caixa' : 'competência'}`
+    prefixo = `relatorio-mensal-${de}_a_${ate}`
+    tabelasCsv = [
+      ['dre-comparado', (m) => m.comparacao_com_periodo_anterior?.linhas],
+      ['categorias-comparadas', (m) => m.comparacao_com_periodo_anterior?.por_categoria],
+    ]
   }
 
-  // Erro é erro, mesmo quando o resto do briefing saiu.
-  if (falhas.length) process.exit(1)
+  const { montado, falhas } = await executarBlocos(db, blocos, cli, limite)
+  if (pastaCsv) cli.arquivos = gravarCsvs(pastaCsv, prefixo, tabelasCsv, montado)
+  const empresa = empresaDe(montado)
+  imprimirComposto({
+    tituloDoc: `Relatório ${tipo} do CFO — ${empresa ?? 'Souza Imobiliária'}`,
+    referencia,
+    blocos,
+    montado,
+    falhas,
+    meta: { funcao: `relatorio ${tipo} (composto)`, empresa, data_de_referencia: hoje, consultado_em: new Date().toISOString(), cli },
+    opcoes,
+  })
+  return falhas.length > 0
+}
+
+// ----------------------------------------------------------------- csv
+
+function resolverPastaCsv(destino) {
+  if (!destino) morre('--csv exige uma pasta.')
+  const pasta = resolve(destino.replace(/^~(?=$|\/)/, homedir()))
+  const rel = relative(RAIZ_REPO, pasta)
+  if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) {
+    morre(
+      'RECUSADO: --csv aponta para dentro do repositório.',
+      'O relatório tem os números da imobiliária e não pode acabar num commit.\n' +
+        'Use uma pasta fora do projeto, ex.: --csv=~/Documents/relatorios-cfo',
+    )
+  }
+  return pasta
+}
+
+/** Uma tabela por arquivo. Bloco que falhou não gera arquivo (a falha já está no documento). */
+function gravarCsvs(pasta, prefixo, tabelas, montado) {
+  mkdirSync(pasta, { recursive: true })
+  const escritos = []
+  for (const [nome, pega] of tabelas) {
+    const lista = pega(montado)
+    if (!Array.isArray(lista)) continue
+    const arquivo = join(pasta, `${prefixo}-${nome}.csv`)
+    // BOM + ; + vírgula decimal: é o que o Excel em português abre sem assistente.
+    writeFileSync(arquivo, '﻿' + csv(lista), 'utf8')
+    escritos.push(arquivo)
+  }
+  return escritos
+}
+
+function csv(lista) {
+  const colunas = []
+  for (const l of lista) {
+    for (const [k, v] of Object.entries(l)) if (!colunas.includes(k) && (v === null || typeof v !== 'object')) colunas.push(k)
+  }
+  // O jsonb devolve as chaves em ordem de tamanho. Texto antes de número deixa a
+  // planilha legível: o nome da linha primeiro, os valores depois.
+  const ehTexto = (c) => lista.some((l) => typeof l[c] === 'string')
+  colunas.sort((x, y) => Number(!ehTexto(x)) - Number(!ehTexto(y)))
+  const celula = (v) => {
+    if (v === null || v === undefined) return ''
+    // Número sai como veio do banco, só trocando o ponto: nada de arredondar aqui.
+    if (typeof v === 'number') return String(v).replace('.', ',')
+    let t = String(v)
+    // Texto de lançamento começando com = + - @ vira fórmula no Excel. É dado, não conta.
+    if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`
+    return /[;"\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t
+  }
+  return [colunas.join(';'), ...lista.map((l) => colunas.map((c) => celula(l[c])).join(';'))].join('\r\n') + '\r\n'
 }
 
 // ------------------------------------------------------------------ main
@@ -762,10 +998,13 @@ const limite = (() => {
 cli.limite_de_linhas = limite
 
 const db = cliente()
+const inicio = performance.now()
 
-if (comando === 'briefing') {
-  await briefing(db, opcoes, cli, limite)
-  process.exit(0)
+if (comando === 'briefing' || comando === 'relatorio') {
+  const falhou = comando === 'briefing' ? await briefing(db, opcoes, cli, limite) : await relatorio(db, opcoes, cli, limite)
+  const erro = falhou ? `blocos que falharam: ${cli.blocos_que_falharam.join(', ')}` : null
+  await auditar(db, nomeCompleto, cli.parametros, inicio, erro, false)
+  process.exit(falhou ? 1 : 0)
 }
 
 // Período: obrigatório para as funções que o pedem. Sem --de/--ate, o mês
@@ -795,6 +1034,7 @@ cli.parametros = params
 const r = await rpc(db, spec.rpc, params)
 if (!r.ok) {
   imprimeErro(r.erro)
+  await auditar(db, nomeCompleto, params, inicio, r.erro.mensagem, spec.escreve === true)
   process.exit(1)
 }
 
@@ -811,4 +1051,5 @@ if (registroTrunc.length && opcoes.md !== true) {
     console.error(`AVISO: ${t.caminho} truncado — mostrando ${t.mostrando} de ${t.total} linhas (use --limite).`)
   }
 }
+await auditar(db, nomeCompleto, params, inicio, null, spec.escreve === true)
 process.exit(0)
