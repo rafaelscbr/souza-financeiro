@@ -89,6 +89,8 @@ export function Inicio() {
   const soma = (l: MoneyItem[]) => Math.round(l.reduce((s, i) => s + i.amount, 0) * 100) / 100
 
   const vendasAtivas = vendas.filter((v) => v.status !== 'cancelada')
+  // Só parcela de venda: outra entrada pendente não é "comissão contratada".
+  const comissaoAReceber = useMemo(() => receber.filter((i) => i.kind === 'comissao_venda'), [receber])
 
   /** Transforma uma lista de lançamentos na composição que a folha exibe. */
   const comp = (l: MoneyItem[]) =>
@@ -265,12 +267,12 @@ export function Inicio() {
           <Linha
             titulo="Vendas em carteira"
             meta={`${vendasAtivas.length} ${vendasAtivas.length === 1 ? 'venda ativa' : 'vendas ativas'}`}
-            valor={<Valor valor={soma(receber)} posto="linha" tinta="text-content-muted" />}
+            valor={<Valor valor={soma(comissaoAReceber)} posto="linha" tinta="text-content-muted" />}
             para="/vendas"
           />
         </Lista>
         <p className="mt-2 text-sm text-content-faint">
-          {formatCurrency(soma(receber))} é toda a comissão contratada que ainda não entrou, somando
+          {formatCurrency(soma(comissaoAReceber))} é toda a comissão contratada que ainda não entrou, somando
           todos os meses.
         </p>
       </Secao>
