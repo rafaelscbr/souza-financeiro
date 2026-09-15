@@ -514,7 +514,7 @@ export function Relatorios() {
         <Secao titulo="Por corretor">
           <p className="mb-1 text-sm text-content-muted">Produção e comissão, todas as vendas.</p>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[46rem]">
+            <table className="w-full min-w-[40rem]">
               <thead>
                 <tr className="border-b border-b-line text-xs font-medium uppercase tracking-wide text-content-muted">
                   <th scope="col" className="py-2 text-left">
@@ -530,10 +530,7 @@ export function Relatorios() {
                     Comissão
                   </th>
                   <th scope="col" className="py-2 text-right">
-                    A pagar agora
-                  </th>
-                  <th scope="col" className="py-2 text-right">
-                    Previsto
+                    A pagar
                   </th>
                 </tr>
               </thead>
@@ -563,12 +560,8 @@ export function Relatorios() {
                         aoAbrir={() => abrirCorretor(p)}
                       />
                     </Cel>
-                    {/* Liberado e previsto em colunas próprias: somados, o previsto virava dívida. */}
                     <Cel>
-                      <Dinheiro valor={p.released} className="font-semibold" />
-                    </Cel>
-                    <Cel>
-                      <Dinheiro valor={p.expected} className="text-content-muted" />
+                      <Dinheiro valor={p.released + p.expected} className="font-semibold" />
                     </Cel>
                   </tr>
                 ))}

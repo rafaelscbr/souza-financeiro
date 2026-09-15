@@ -215,18 +215,7 @@ export interface MoneyItem {
   installment: SaleInstallment | null
   overdue: boolean
   kind: PayableKind | 'comissao_venda' | 'outra_entrada'
-  /**
-   * Em que conta de dinheiro a linha entra. Decisão do Rafael (13/09/2026), a
-   * mesma de cfo_posicao no banco:
-   *   devido    comissão ou imposto de parcela que a construtora JÁ pagou, e
-   *             despesa vencida ou que vence hoje;
-   *   a_vencer  despesa com vencimento depois de hoje;
-   *   previsto  depende de a construtora pagar a parcela (não é dívida);
-   *   socio     retirada do sócio (nunca entra no devido);
-   *   entrada   dinheiro a receber.
-   */
-  grupo: 'devido' | 'a_vencer' | 'previsto' | 'socio' | 'entrada'
-  /** Entra em "Devido agora". É exatamente `grupo === 'devido'`. */
+  /** Comissão liberada = a imobiliária já recebeu a parcela. */
   released: boolean
 }
 
@@ -265,7 +254,6 @@ export function receivablesOf(
         installment: parcela,
         overdue: date < hoje,
         kind: venda ? ('comissao_venda' as const) : ('outra_entrada' as const),
-        grupo: 'entrada' as const,
         released: false,
       }
     })
@@ -293,19 +281,6 @@ export function payablesOf(
             : t.kind === 'withdrawal'
               ? 'socio'
               : 'despesa'
-      // O que é de parcela só é devido quando a construtora já pagou a parcela
-      // (antes, o imposto de parcela futura entrava no devido: R$ 3.686,81 a
-      // mais em 12/09/2026). O resto só é devido quando vence.
-      const grupo: MoneyItem['grupo'] =
-        kind === 'socio'
-          ? 'socio'
-          : t.sale_installment_id
-            ? parcela?.status === 'recebida'
-              ? 'devido'
-              : 'previsto'
-            : date <= hoje
-              ? 'devido'
-              : 'a_vencer'
       return {
         tx: t,
         date,
@@ -315,8 +290,8 @@ export function payablesOf(
         installment: parcela,
         overdue: date < hoje,
         kind,
-        grupo,
-        released: grupo === 'devido',
+        // Comissão só é devida de verdade quando a parcela foi recebida.
+        released: kind === 'comissao' ? parcela?.status === 'recebida' : true,
       }
     })
     .sort((a, b) => (a.date < b.date ? -1 : 1))

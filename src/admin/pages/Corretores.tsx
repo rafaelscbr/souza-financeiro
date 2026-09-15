@@ -88,9 +88,7 @@ export function Corretores() {
         // `situacaoDeTela` é quem decide o que é atraso: uma comissão liberada
         // cuja data já passou vira 'vencida'; uma prevista nunca vira, porque
         // a construtora atrasar não é a imobiliária dever.
-        // A mesma data da Venda: o atraso do corretor conta de quando a imobiliária
-        // recebeu a parcela, não de quando a construtora devia pagar.
-        const s = situacaoDeTela(bs, i.received_date ?? i.expected_date, hoje)
+        const s = situacaoDeTela(bs, i.expected_date, hoje)
         const item: ItemComposicao = {
           id: i.id,
           titulo: v.title,

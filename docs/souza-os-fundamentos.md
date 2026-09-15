@@ -20,6 +20,11 @@
 >   pt-BR; VGV não é receita; o corretor nunca vê o líquido da imobiliária;
 >   o banco é a única fonte de verdade (nada de atualização otimista).
 >
+> **Nenhuma regra financeira muda neste redesenho** (seção 10, Fase 0): totais,
+> critérios, filtros e palavras de situação ficam como o app mostra hoje até o
+> Rafael decidir. Onde uma planta sugerir outra conta ou outra palavra, vale a
+> de hoje.
+>
 > Nenhum hex do guia muda. Todo token novo aqui é **derivado** (por
 > `color-mix` ou `var()`) de um token do guia, com a razão escrita ao lado.
 >
@@ -1652,32 +1657,41 @@ formulário abaixo em px-6 pt-8; botão lg largura total; nada fixo no rodapé.
 
 ## 10. Mapa de implementação
 
-### Fase 0: decisões e dados (antes de pintar)
+### Fase 0: regras financeiras — PENDENTES, decisão do Rafael
 
-Não são de design, mas sem elas o sistema novo desenha números errados com mais
-clareza. Conferir no banco e corrigir antes da Fase 5:
-\1**[feito em c377fc4]** \2 soma `released + expected`: separar
-   em A pagar agora e Previsto.
-2. **"Vencida" aplicada a atraso da construtora** (Início, contador do menu,
-   filtro e subtotal de Receber): passa a "Sem baixa" (7.3.3), conferido contra
-   `situacaoDeTela()`.\1**[feito em d1a78cd, decisão do Rafael de 13/09/2026]** "Devido agora" = comissão e imposto de
-   parcela JÁ RECEBIDA + despesa vencida ou que vence hoje; despesa futura é
-   "A vencer"; retirada do sócio fica fora. App e CFO batem ao centavo. O app
-   expõe `MoneyItem.grupo` (`devido`, `a_vencer`, `previsto`, `socio`,
-   `entrada`) em `src/lib/sales.ts`: **toda tela decide total e seção pelo
-   `grupo`**, nunca por `released` ou `kind`. Pagar mostra "A vencer" no
-   cartão "Vence nos próximos 30 dias" (9.7).
-4. **Corretor:** uma definição de "A receber agora" nas três telas.\1**[feito em c377fc4]** \2 decidir "vencida" pela data de recebimento (`received_date`),
-   como Venda e Vendas.
-6. **Receber:** herói não depende do filtro.\1**[feito em c377fc4]** \2 não soma entradas fora de venda.
-8. **[decidido pelo Rafael em 13/09/2026] Herói previsto:** previsão pode ser o
-   número herói, rotulada "previsto" e nunca em ouro (7.5). Vendas e Receber
-   usam a variante `previsto`; as plantas 9.5 e 9.7 já estão assim.\110. **[decidido em 13/09/2026] Despesa e imposto vencidos:** conta com
-   vencimento passado e sem baixa é chip **"Vencida"**, tom risco, ícone
-   `CalendarX2`, meta "venceu em 05/09 · ou foi paga sem baixa". "Vencida" em
-   comissão continua sendo só repasse que a imobiliária recebeu e não fez;
-   parcela da construtora com data passada é **"Sem baixa"** (7.3.3), nunca
-   "vencida".
+**O redesenho não muda nenhuma regra financeira.** Nenhum total, critério de
+soma, filtro, situação ou palavra de estado muda na migração: cada tela mostra
+os mesmos números e as mesmas palavras que mostra hoje, só com a apresentação
+nova. Onde uma planta deste documento sugere outra coisa (colunas separadas,
+"Sem baixa", "A vencer", o herói de Pagar), **vale o que o app faz hoje** até o
+Rafael decidir. Em 13/09/2026 algumas destas mudanças foram aplicadas sem
+decisão dele e desfeitas em 14/09/2026 (migração 022 no banco, revert no app).
+
+A auditoria encontrou estes pontos. Cada um é uma pergunta para o Rafael, não
+uma tarefa:
+
+1. **"Devido agora"** soma toda despesa lançada (mesmo a que vence daqui a
+   meses) e a retirada do sócio. No app, soma também o imposto de parcela que a
+   construtora ainda não pagou: por isso o app mostra R$ 9.363,69 e o CFO
+   R$ 5.676,88 (diferença de R$ 3.686,81). Opções levantadas: só o que vence
+   até hoje (daria R$ 2.076,98, com R$ 3.599,90 "a vencer"); tudo lançado; até
+   hoje + 7 dias.
+2. **Relatórios › Por corretor › "A pagar"** soma liberado com previsto.
+3. **"Vencida" para parcela que a construtora atrasou** (Início, contador do
+   menu, filtro e subtotal de Receber), enquanto Vendas chama a mesma coisa de
+   "Parcela sem baixa" e `situacaoDeTela()` diz que não é atraso.
+4. **Corretor:** "A receber agora" tem três definições nas três telas.
+5. **Corretores** decide "vencida" pela data prevista; Venda e Vendas usam a
+   data em que a imobiliária recebeu.
+6. **Receber:** o herói muda com o filtro.
+7. **Início › "Vendas em carteira"** soma qualquer entrada pendente com o
+   rótulo "comissão contratada" (hoje dá o mesmo valor).
+8. **Despesa e imposto vencidos:** que palavra e cor usar.
+9. **Venda ignora `?parcela=`** (não é regra financeira: é um caminho de
+   clique quebrado e pode ser religado na migração da Venda).
+
+Única decisão já tomada pelo Rafael (13/09/2026): **herói previsto** — previsão
+pode ser o número herói, rotulada "previsto" e nunca em ouro (7.5).
 
 ### Fase 1: trava
 
@@ -1876,7 +1890,7 @@ violação devolve lista vazia.
 
 ### Superfície e cor
 16. **Borda de caixa:** todo `[data-caixa]` com `border-width` 1px nos 4 lados e
-    cor = `--fio-caixa` \1 sem `data-previsto`\2; no claro,
+    cor = `--fio-caixa` (exceto `[data-heroi]` sem `data-previsto` = `--borda-ouro`); no claro,
     `box-shadow` ≠ `none`. Nenhum `[data-caixa]` com ancestral `[data-caixa]`;
     nenhum `[data-caixa]` dentro de `[role=dialog]`; nenhuma `.lista` dentro de
     `[data-linha]` ou de outra `.lista`. `button`, `input`, `select` e
