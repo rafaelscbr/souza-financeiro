@@ -1,24 +1,29 @@
 import { useMemo, useState } from 'react'
-import { KeyRound, Plus, ShieldCheck, UserPlus, Users } from 'lucide-react'
+import { KeyRound, Plus, ShieldCheck, UserCheck, UserPlus, UserX, Users } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao, type ItemComposicao } from '@/components/composicao/Composicao'
-import { Heroi } from '@/components/ui/Assinatura'
-import { Secao } from '@/components/ui/Secao'
+import { PageLayout } from '@/components/layout/PageLayout'
+import { Heroi } from '@/components/ui/Heroi'
+import { Cartao } from '@/components/ui/Cartao'
 import { Lista, Linha } from '@/components/ui/Lista'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
-import { Trilha, LegendaTrilha } from '@/components/ui/Trilha'
+import { BarraTrilha, LegendaTrilha } from '@/components/ui/Barra'
 import { ChipSituacao } from '@/components/ui/Situacao'
+import { Chip } from '@/components/ui/Chip'
+import { Badge } from '@/components/ui/Badge'
+import { Dica } from '@/components/ui/Dica'
 import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
+import { SidePanel, useParamPainel } from '@/components/ui/SidePanel'
 import { FormField, Input, Select } from '@/components/ui/Field'
 import { PercentInput } from '@/components/ui/MoneyInput'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { Spinner } from '@/components/ui/Spinner'
+import { EstadoVazio } from '@/components/ui/Estados'
 import { useToast } from '@/components/ui/Toast'
-import { brokerProduction, brokerStatusOf } from '@/lib/sales'
+import { brokerProduction, brokerStatusOf, type BrokerProduction } from '@/lib/sales'
 import { situacaoDeTela, fraseDeTempo } from '@/lib/situacao'
 import { formatCurrency } from '@/lib/format'
 import type { Contact } from '@/types'
+
+type Pilhas = { liberadas: ItemComposicao[]; previstas: ItemComposicao[] }
 
 /*
  * CORRETORES — quem vende, quanto a imobiliária deve a cada um, e quem tem
@@ -52,6 +57,16 @@ import type { Contact } from '@/types'
  * O acesso do corretor é ligado aqui, mas o convite em si sai do painel do
  * Supabase: criar usuário pede chave de administração, que não pode viver no
  * navegador. O caminho está escrito na tela para não depender de memória.
+ *
+ * COMPOSIÇÃO (9.7, só apresentação; as contas acima não mudaram):
+ * 1. Herói ouro "Comissão a pagar" com o apoio "Previsto, depende do
+ *    recebimento" (o número do antigo cartão "Ainda não liberado"). Os dois abrem.
+ * 2. Dica dos logins sem corretor vinculado, com "Abrir Acessos".
+ * 3. UMA lista de corretores: nome + acesso | vendas · VGV (contexto, nunca
+ *    receita) · padrão % | a trilha fina | comissão a pagar (abre) com o
+ *    previsto embaixo | Editar. A linha abre o painel do corretor
+ *    (?corretor=id). A seção "Produção" foi absorvida pela linha.
+ * 4. Editar e Acessos em SidePanel. Carregando e erro são da casca.
  */
 export function Corretores() {
   const { vendas, contacts, transactions, usuarios, contatosComAcesso, hoje, salvarContato, salvarAcesso } = useAdmin()
@@ -59,6 +74,7 @@ export function Corretores() {
   const { abrir } = useComposicao()
   const [editando, setEditando] = useState<Contact | 'novo' | null>(null)
   const [vinculando, setVinculando] = useState(false)
+  const [corretorAberto, abrirCorretor, fecharCorretor] = useParamPainel('corretor')
 
   const producao = useMemo(
     () => brokerProduction({ vendas, contacts, comAcesso: contatosComAcesso, year: null }),
@@ -76,7 +92,7 @@ export function Corretores() {
    */
   const porCorretor = useMemo(() => {
     const statusPorTx = new Map(transactions.map((t) => [t.id, t.status] as const))
-    const mapa = new Map<string, { liberadas: ItemComposicao[]; previstas: ItemComposicao[] }>()
+    const mapa = new Map<string, Pilhas>()
 
     for (const v of vendas) {
       if (v.status === 'cancelada' || !v.broker_id) continue
@@ -109,10 +125,7 @@ export function Corretores() {
     return mapa
   }, [vendas, transactions, hoje])
 
-  const SEM_PARCELA: { liberadas: ItemComposicao[]; previstas: ItemComposicao[] } = {
-    liberadas: [],
-    previstas: [],
-  }
+  const SEM_PARCELA: Pilhas = { liberadas: [], previstas: [] }
   const doCorretor = (id: string) => porCorretor.get(id) ?? SEM_PARCELA
   const soma = (l: ItemComposicao[]) => Math.round(l.reduce((s, i) => s + i.valor, 0) * 100) / 100
 
@@ -126,259 +139,196 @@ export function Corretores() {
   const aPagar = soma(liberadasTodas)
   const previsto = soma(previstasTodas)
 
+  const abrirAPagar = () =>
+    abrir({
+      rotulo: 'Comissão a pagar',
+      titulo: 'De quais vendas vem',
+      explica:
+        'Cada parcela que a imobiliária já recebeu e ainda não repassou ao corretor. Toque em uma para abrir a venda.',
+      total: aPagar,
+      itens: liberadasTodas,
+      nota:
+        previsto > 0
+          ? `Fora disto, ${formatCurrency(previsto)} de comissão dependem de a construtora pagar. Não é dívida hoje.`
+          : undefined,
+    })
+
+  const abrirPrevisto = () =>
+    abrir({
+      rotulo: 'Previsto',
+      titulo: 'Previsão, não dívida',
+      explica:
+        'Estas comissões só passam a ser devidas quando a construtora pagar a parcela. Até lá não são obrigação e não entram em nenhum total de dívida.',
+      total: previsto,
+      itens: previstasTodas,
+    })
+
+  const abrirDoCorretor = (p: BrokerProduction) => {
+    const g = doCorretor(p.contact.id)
+    const liberado = soma(g.liberadas)
+    const dele = soma(g.previstas)
+    abrir({
+      rotulo: p.contact.name,
+      titulo: `Comissão a pagar para ${p.contact.name}`,
+      explica: 'Cada parcela que a imobiliária já recebeu e ainda não repassou a ele. Toque em uma para abrir a venda.',
+      total: liberado,
+      itens: g.liberadas,
+      nota: dele > 0 ? `Além disso, ${formatCurrency(dele)} dependem de a construtora pagar. Não é dívida hoje.` : undefined,
+      vazio: 'Nada liberado para ele agora. O que ele tem a receber ainda depende de a construtora pagar.',
+    })
+  }
+
+  const aberto = corretorAberto ? producao.find((p) => p.contact.id === corretorAberto) ?? null : null
+
   return (
-    <div className="animate-fade-in">
-      {/* O nome da tela já está na navegação; o rótulo assinatura do herói é o
-       * que declara a pergunta. O h1 fica para quem lê com leitor de tela. */}
-      <h1 className="sr-only">Corretores</h1>
-
+    <PageLayout
+      subtitulo={`${formatCurrency(aPagar)} de comissão a pagar`}
+      acoes={
+        <>
+          <Button size="sm" variant="secundario" icone={KeyRound} onClick={() => setVinculando(true)}>
+            Acessos
+          </Button>
+          <Button size="sm" variant="secundario" icone={Plus} onClick={() => setEditando('novo')}>
+            Novo corretor
+          </Button>
+        </>
+      }
+    >
       <Heroi
+        variante="ouro"
         rotulo="Comissão a pagar"
-        contexto="Só a parcela que a imobiliária já recebeu da construtora e ainda não repassou. É o que é dívida hoje — previsão não entra nesta conta."
-        acao={
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setVinculando(true)}>
-              <KeyRound className="h-4 w-4" />
-              Acessos
-            </Button>
-            <Button onClick={() => setEditando('novo')}>
-              <Plus className="h-4 w-4" />
-              Novo corretor
-            </Button>
-          </div>
-        }
-      >
-        {liberadasTodas.length > 0 ? (
-          <ValorComOrigem
-            valor={aPagar}
-            posto="heroi"
-            rotuloAcessivel="Ver de quais vendas e parcelas vem a comissão a pagar"
-            aoAbrir={() =>
-              abrir({
-                rotulo: 'Comissão a pagar',
-                titulo: 'De quais vendas vem',
-                explica:
-                  'Cada parcela que a imobiliária já recebeu e ainda não repassou ao corretor. Toque em uma para abrir a venda.',
-                total: aPagar,
-                itens: liberadasTodas,
-                nota:
-                  previsto > 0
-                    ? `Fora disto, ${formatCurrency(previsto)} de comissão dependem de a construtora pagar. Não é dívida hoje.`
-                    : undefined,
-              })
-            }
-          />
-        ) : (
-          <Valor valor={0} posto="heroi" tinta="text-content-muted" />
-        )}
-      </Heroi>
-
-      {/*
-       * A previsão aparece, mas em linha própria, sem cor tônica e com a
-       * palavra "depende" no metadado. É o que impede que ela volte a ser
-       * somada ao que a imobiliária deve de verdade.
-       */}
-      <Secao titulo="Ainda não liberado">
-        <Lista>
-          <Linha
-            titulo="Previsto, depende do recebimento"
-            meta="comissão de parcela que a construtora ainda não pagou à imobiliária"
-            situacao={<ChipSituacao situacao="prevista" />}
-            valor={
-              previstasTodas.length > 0 ? (
-                <ValorComOrigem
-                  valor={previsto}
-                  tinta="text-content-muted"
-                  rotuloAcessivel="Ver quais parcelas ainda dependem do recebimento"
-                  aoAbrir={() =>
-                    abrir({
-                      rotulo: 'Previsto',
-                      titulo: 'Previsão, não dívida',
-                      explica:
-                        'Estas comissões só passam a ser devidas quando a construtora pagar a parcela. Até lá não são obrigação e não entram em nenhum total de dívida.',
-                      total: previsto,
-                      itens: previstasTodas,
-                    })
-                  }
-                />
-              ) : (
-                <Valor valor={0} tinta="text-content-muted" />
-              )
-            }
-          />
-        </Lista>
-      </Secao>
+        valor={aPagar}
+        rotuloAcessivel="Ver de quais vendas e parcelas vem a comissão a pagar"
+        aoAbrir={abrirAPagar}
+        frase="Só a parcela que a imobiliária já recebeu da construtora e ainda não repassou. É o que é dívida hoje — previsão não entra nesta conta."
+        apoios={[
+          {
+            rotulo: 'Previsto, depende do recebimento',
+            valor: previsto,
+            previsto: true,
+            aoAbrir: abrirPrevisto,
+            rotuloAcessivel: 'Ver quais parcelas ainda dependem do recebimento',
+          },
+        ]}
+      />
 
       {semVinculo.length > 0 && (
-        <Secao titulo="Logins sem corretor vinculado">
-          <p className="py-2 text-base text-content-muted">
-            {semVinculo.length === 1
-              ? '1 pessoa entra e vê "acesso ainda não liberado".'
-              : `${semVinculo.length} pessoas entram e veem "acesso ainda não liberado".`}{' '}
-            Ligue cada login a um corretor em Acessos.
-          </p>
-          <Button variant="secondary" onClick={() => setVinculando(true)}>
-            <KeyRound className="h-4 w-4" />
-            Abrir Acessos
-          </Button>
-        </Secao>
+        <Dica tom="atencao">
+          <span className="flex flex-col items-start gap-3">
+            <span>
+              <strong className="font-medium text-t1">Logins sem corretor vinculado.</strong>{' '}
+              {semVinculo.length === 1
+                ? '1 pessoa entra e vê "acesso ainda não liberado".'
+                : `${semVinculo.length} pessoas entram e veem "acesso ainda não liberado".`}{' '}
+              Ligue cada login a um corretor em Acessos.
+            </span>
+            <Button size="sm" variant="secundario" icone={KeyRound} onClick={() => setVinculando(true)}>
+              Abrir Acessos
+            </Button>
+          </span>
+        </Dica>
       )}
 
-      <Secao titulo="Por corretor">
+      <Cartao>
+        <Cartao.Cabecalho
+          titulo="Por corretor"
+          icone={Users}
+          meta={
+            producao.length === 0
+              ? undefined
+              : producao.length === 1
+                ? 'um corretor · de qualquer ano'
+                : `${producao.length} corretores · de qualquer ano`
+          }
+        />
         {producao.length === 0 ? (
-          <EmptyState
-            icon={<Users className="h-8 w-8" />}
-            title="Nenhum corretor cadastrado"
-            description="Cadastre quem vende para poder registrar a comissão e, se quiser, dar acesso ao painel dele."
-            action={
-              <Button onClick={() => setEditando('novo')}>
-                <UserPlus className="h-4 w-4" />
-                Cadastrar corretor
-              </Button>
-            }
-          />
+          <Cartao.Corpo>
+            <EstadoVazio
+              icone={Users}
+              titulo="Nenhum corretor cadastrado"
+              descricao="Cadastre quem vende para poder registrar a comissão e, se quiser, dar acesso ao painel dele."
+              acao={
+                <Button icone={UserPlus} onClick={() => setEditando('novo')}>
+                  Cadastrar corretor
+                </Button>
+              }
+            />
+          </Cartao.Corpo>
         ) : (
-          <Lista>
-            {producao.map((p) => {
-              const g = doCorretor(p.contact.id)
-              const liberado = soma(g.liberadas)
-              const dele = soma(g.previstas)
-              const ehVoce = (p.contact as Contact & { is_owner?: boolean }).is_owner === true
-              return (
-                <Linha
-                  key={p.contact.id}
-                  titulo={
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate">{p.contact.name}</span>
-                      {p.hasAccess && (
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-action-soft px-1.5 py-0.5 text-xs font-medium text-action-soft-ink">
-                          <ShieldCheck className="h-3 w-3" aria-hidden />
-                          com acesso
-                        </span>
-                      )}
-                      {ehVoce && (
-                        <span className="shrink-0 rounded-md bg-surface-3 px-1.5 py-0.5 text-xs font-medium text-content-muted">
-                          você
-                        </span>
-                      )}
-                    </span>
-                  }
-                  meta={
-                    <span className="flex flex-wrap items-baseline gap-x-1.5">
-                      previsto
-                      <Valor valor={dele} posto="fato" tinta="text-content-muted" />
-                      <span aria-hidden className="text-content-faint">
-                        ·
+          <>
+            <Cartao.Lista
+              colunas={{ valor: '11rem', acao: '6rem', fim: true }}
+              rotuloAcessivel="Comissão por corretor"
+            >
+              {producao.map((p) => {
+                const g = doCorretor(p.contact.id)
+                const liberado = soma(g.liberadas)
+                const dele = soma(g.previstas)
+                return (
+                  <Linha
+                    key={p.contact.id}
+                    titulo={<TituloDoCorretor p={p} />}
+                    meta={<MetaDoCorretor p={p} liberado={liberado} previsto={dele} />}
+                    valor={
+                      <ValorComOrigem
+                        posto="linha"
+                        valor={liberado}
+                        rotuloAcessivel={`Ver de quais vendas vem a comissão de ${p.contact.name}`}
+                        aoAbrir={() => abrirDoCorretor(p)}
+                      />
+                    }
+                    metaValor={
+                      <span className="inline-flex items-baseline gap-1">
+                        previsto <Valor posto="fato" previsto valor={dele} />
                       </span>
-                      depende do recebimento
-                    </span>
-                  }
-                  valor={
-                    <ValorComOrigem
-                      valor={liberado}
-                      tinta={liberado > 0 ? undefined : 'text-content-muted'}
-                      rotuloAcessivel={`Ver de quais vendas vem a comissão de ${p.contact.name}`}
-                      aoAbrir={() =>
-                        abrir({
-                          rotulo: p.contact.name,
-                          titulo: `Comissão a pagar para ${p.contact.name}`,
-                          explica:
-                            'Cada parcela que a imobiliária já recebeu e ainda não repassou a ele. Toque em uma para abrir a venda.',
-                          total: liberado,
-                          itens: g.liberadas,
-                          nota:
-                            dele > 0
-                              ? `Além disso, ${formatCurrency(dele)} dependem de a construtora pagar. Não é dívida hoje.`
-                              : undefined,
-                          vazio:
-                            'Nada liberado para ele agora. O que ele tem a receber ainda depende de a construtora pagar.',
-                        })
-                      }
-                    />
-                  }
-                  acao={
-                    <Button variant="secondary" onClick={() => setEditando(p.contact)}>
-                      Editar
-                    </Button>
-                  }
-                />
-              )
-            })}
-          </Lista>
+                    }
+                    aoClicar={() => abrirCorretor(p.contact.id)}
+                    acao={
+                      <Button size="sm" variant="secundario" onClick={() => setEditando(p.contact)}>
+                        Editar
+                      </Button>
+                    }
+                  />
+                )
+              })}
+            </Cartao.Lista>
+            <Cartao.Rodape>
+              <LegendaTrilha />
+              <span>
+                A produção considera todas as vendas não canceladas, de qualquer ano. O corretor vê os números dele
+                por ano, no painel próprio.
+              </span>
+            </Cartao.Rodape>
+          </>
         )}
-      </Secao>
+      </Cartao>
 
-      {producao.length > 0 && (
-        <Secao titulo="Produção">
-          {/*
-           * A trilha renderiza na largura final, sem crescer, e o número vem
-           * escrito ao lado: a barra é reforço, nunca a única fonte. Os três
-           * segmentos são os três estados da comissão dele — e o segmento ouro
-           * é o mesmo valor da linha acima, vindo do mesmo conjunto.
-           */}
-          <Lista>
-            {producao.map((p) => {
-              const g = doCorretor(p.contact.id)
-              const liberado = soma(g.liberadas)
-              const dele = soma(g.previstas)
-              const padrao = (p.contact as Contact & { default_broker_pct?: number | null }).default_broker_pct
-              const semVgv = p.sales > 0 && p.salesWithoutVgv === p.sales
-              return (
-                <li key={p.contact.id} className="py-3">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
-                    <p className="min-w-0 truncate text-base font-medium text-content">{p.contact.name}</p>
-                    <p className="flex flex-wrap items-baseline gap-x-1.5 text-sm text-content-faint">
-                      <span>
-                        {p.sales} {p.sales === 1 ? 'venda' : 'vendas'}
-                      </span>
-                      <span aria-hidden>·</span>
-                      {/* Quando o sistema não sabe, ele diz em texto, não em zero. */}
-                      {semVgv ? (
-                        <span>VGV não informado</span>
-                      ) : (
-                        <>
-                          <span>VGV</span>
-                          <Valor valor={p.vgv} posto="fato" tinta="text-content-faint" />
-                          {p.salesWithoutVgv > 0 && (
-                            <span>
-                              ({p.salesWithoutVgv}{' '}
-                              {p.salesWithoutVgv === 1 ? 'venda sem valor' : 'vendas sem valor'} informado)
-                            </span>
-                          )}
-                        </>
-                      )}
-                      {padrao != null && (
-                        <>
-                          <span aria-hidden>·</span>
-                          <span>padrão {padrao}%</span>
-                        </>
-                      )}
-                    </p>
-                  </div>
-                  <div className="mt-2">
-                    <Trilha
-                      recebido={p.paid}
-                      liberado={liberado}
-                      previsto={dele}
-                      rotuloAcessivel={`${p.contact.name}: ${formatCurrency(p.paid)} já pagos a ele, ${formatCurrency(liberado)} liberados a pagar e ${formatCurrency(dele)} dependendo da construtora.`}
-                    />
-                  </div>
-                </li>
-              )
-            })}
-          </Lista>
-          <div className="mt-3">
-            <LegendaTrilha />
-          </div>
-        </Secao>
-      )}
-
-      <p className="mt-8 border-t border-rule pt-3 text-sm text-content-muted">
-        A produção considera todas as vendas não canceladas, de qualquer ano. O corretor vê os
-        números dele por ano, no painel próprio.
-      </p>
+      <PainelDoCorretor
+        p={aberto}
+        pilhas={aberto ? doCorretor(aberto.contact.id) : SEM_PARCELA}
+        aoFechar={fecharCorretor}
+        aoAbrirComissao={() => aberto && abrirDoCorretor(aberto)}
+        aoAbrirPrevisto={() =>
+          aberto &&
+          abrir({
+            rotulo: aberto.contact.name,
+            titulo: `Comissão prevista de ${aberto.contact.name}`,
+            explica:
+              'Estas comissões só passam a ser devidas quando a construtora pagar a parcela. Até lá não são obrigação e não entram em nenhum total de dívida.',
+            total: soma(doCorretor(aberto.contact.id).previstas),
+            itens: doCorretor(aberto.contact.id).previstas,
+            vazio: 'Nenhuma parcela prevista.',
+          })
+        }
+        aoEditar={() => {
+          if (!aberto) return
+          fecharCorretor()
+          setEditando(aberto.contact)
+        }}
+      />
 
       <EditarCorretor
+        key={editando === null ? 'fechado' : editando === 'novo' ? 'novo' : editando.id}
         alvo={editando}
         onFechar={() => setEditando(null)}
         onSalvar={async (dados) => {
@@ -396,7 +346,174 @@ export function Corretores() {
           showToast({ message: 'Acesso atualizado' })
         }}
       />
-    </div>
+    </PageLayout>
+  )
+}
+
+const padraoDe = (c: Contact) => (c as Contact & { default_broker_pct?: number | null }).default_broker_pct
+const ehDono = (c: Contact) => (c as Contact & { is_owner?: boolean }).is_owner === true
+
+/** Nome + acesso ao painel próprio + "você". */
+function TituloDoCorretor({ p }: { p: BrokerProduction }) {
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-2">
+      <span className="min-w-0 truncate">{p.contact.name}</span>
+      {p.hasAccess && (
+        <Chip tom="sucesso" icone={ShieldCheck}>
+          com acesso
+        </Chip>
+      )}
+      {ehDono(p.contact) && <Badge>você</Badge>}
+    </span>
+  )
+}
+
+/**
+ * Vendas · VGV · padrão, e a trilha fina dos três estados da comissão dele.
+ * VGV é contexto de produção, nunca receita: vem em meta, sem cor. Quando o
+ * sistema não sabe o VGV, diz em texto, não em zero.
+ */
+function MetaDoCorretor({ p, liberado, previsto }: { p: BrokerProduction; liberado: number; previsto: number }) {
+  const padrao = padraoDe(p.contact)
+  const semVgv = p.sales > 0 && p.salesWithoutVgv === p.sales
+  return (
+    <span className="flex flex-col gap-2">
+      <span className="flex flex-wrap items-baseline gap-x-1">
+        <span>
+          {p.sales} {p.sales === 1 ? 'venda' : 'vendas'}
+        </span>
+        <span aria-hidden>·</span>
+        {semVgv ? (
+          <span>VGV não informado</span>
+        ) : (
+          <>
+            <span className="inline-flex items-baseline gap-1 whitespace-nowrap">
+              VGV <Valor valor={p.vgv} posto="fato" />
+            </span>
+            {p.salesWithoutVgv > 0 && (
+              <span>
+                ({p.salesWithoutVgv} {p.salesWithoutVgv === 1 ? 'venda sem valor' : 'vendas sem valor'} informado)
+              </span>
+            )}
+          </>
+        )}
+        {padrao != null && (
+          <>
+            <span aria-hidden>·</span>
+            <span>padrão {padrao}%</span>
+          </>
+        )}
+      </span>
+      <BarraTrilha
+        className="w-full max-w-[20rem]"
+        recebido={p.paid}
+        liberado={liberado}
+        previsto={previsto}
+        rotuloAcessivel={`${p.contact.name}: ${formatCurrency(p.paid)} já pagos a ele, ${formatCurrency(liberado)} liberados a pagar e ${formatCurrency(previsto)} dependendo da construtora.`}
+      />
+    </span>
+  )
+}
+
+/**
+ * O painel do corretor (?corretor=id): dados, percentual, acesso e as parcelas
+ * que formam os números da linha dele. Cada parcela abre a venda. Os totais
+ * são os mesmos da linha (mesmas pilhas, mesma soma).
+ */
+function PainelDoCorretor({
+  p,
+  pilhas,
+  aoFechar,
+  aoAbrirComissao,
+  aoAbrirPrevisto,
+  aoEditar,
+}: {
+  p: BrokerProduction | null
+  pilhas: Pilhas
+  aoFechar: () => void
+  aoAbrirComissao: () => void
+  aoAbrirPrevisto: () => void
+  aoEditar: () => void
+}) {
+  const liberado = soma2(pilhas.liberadas)
+  const dele = soma2(pilhas.previstas)
+  const padrao = p ? padraoDe(p.contact) : null
+  return (
+    <SidePanel
+      aberto={!!p}
+      aoFechar={aoFechar}
+      titulo={p?.contact.name ?? 'Corretor'}
+      subtitulo={p ? (p.hasAccess ? 'com acesso ao painel próprio' : 'sem acesso ao painel próprio') : undefined}
+      rodape={
+        <Button variant="secundario" onClick={aoEditar}>
+          Editar
+        </Button>
+      }
+    >
+      {p && (
+        <div className="flex flex-col gap-8">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-3 text-texto-corrido">
+            <dt className="text-t-meta">Vendas</dt>
+            <dd className="text-t1">
+              <MetaDoCorretor p={p} liberado={liberado} previsto={dele} />
+            </dd>
+            <dt className="text-t-meta">Percentual padrão</dt>
+            <dd className="text-t1">{padrao != null ? `${padrao}%` : 'não informado'}</dd>
+            <dt className="text-t-meta">Telefone</dt>
+            <dd className="min-w-0 truncate text-t1">{p.contact.phone || 'não informado'}</dd>
+            <dt className="text-t-meta">E-mail</dt>
+            <dd className="min-w-0 truncate text-t1">{p.contact.email || 'não informado'}</dd>
+          </dl>
+
+          <section className="flex flex-col gap-3">
+            <div className="flex items-baseline justify-between gap-4">
+              <h3 className="font-heading text-t1 text-titulo-secao">Comissão a pagar</h3>
+              <ValorComOrigem
+                posto="destaque"
+                valor={liberado}
+                rotuloAcessivel={`Ver de quais vendas vem a comissão de ${p.contact.name}`}
+                aoAbrir={aoAbrirComissao}
+              />
+            </div>
+            <ParcelasDoCorretor itens={pilhas.liberadas} vazio="Nada liberado para ele agora." rotulo="Parcelas liberadas" />
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <div className="flex items-baseline justify-between gap-4">
+              <h3 className="font-heading text-t1 text-titulo-secao">Previsto, depende do recebimento</h3>
+              <ValorComOrigem
+                posto="destaque"
+                previsto
+                valor={dele}
+                rotuloAcessivel={`Ver quais parcelas de ${p.contact.name} ainda dependem do recebimento`}
+                aoAbrir={aoAbrirPrevisto}
+              />
+            </div>
+            <ParcelasDoCorretor itens={pilhas.previstas} vazio="Nenhuma parcela prevista." rotulo="Parcelas previstas" />
+          </section>
+        </div>
+      )}
+    </SidePanel>
+  )
+}
+
+const soma2 = (l: ItemComposicao[]) => Math.round(l.reduce((s, i) => s + i.valor, 0) * 100) / 100
+
+function ParcelasDoCorretor({ itens, vazio, rotulo }: { itens: ItemComposicao[]; vazio: string; rotulo: string }) {
+  if (itens.length === 0) return <p className="text-texto-corrido text-t3">{vazio}</p>
+  return (
+    <Lista contexto="sobreposicao" colunas={{ situacao: true, valor: true, fim: true }} rotuloAcessivel={rotulo}>
+      {itens.map((i) => (
+        <Linha
+          key={i.id}
+          titulo={i.idx != null && i.count != null ? `${i.titulo} · parcela ${i.idx}/${i.count}` : i.titulo}
+          meta={i.meta}
+          situacao={i.situacao ? <ChipSituacao situacao={i.situacao} /> : undefined}
+          valor={i.situacao === 'prevista' ? <Valor posto="linha" previsto valor={i.valor} /> : <Valor posto="linha" valor={i.valor} />}
+          para={i.para ? `${i.para}?parcela=${i.id}` : undefined}
+        />
+      ))}
+    </Lista>
   )
 }
 
@@ -414,57 +531,53 @@ function EditarCorretor({
   const [documento, setDocumento] = useState(existente?.document ?? '')
   const [telefone, setTelefone] = useState(existente?.phone ?? '')
   const [email, setEmail] = useState(existente?.email ?? '')
-  const [pct, setPct] = useState<number | null>(
-    (existente as (Contact & { default_broker_pct?: number | null }) | null)?.default_broker_pct ?? null,
-  )
+  const [pct, setPct] = useState<number | null>(existente ? padraoDe(existente) ?? null : null)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
+  const salvar = async () => {
+    setErro(null)
+    if (!nome.trim()) return setErro('Informe o nome.')
+    setSalvando(true)
+    try {
+      await onSalvar({
+        id: existente?.id,
+        type: 'broker',
+        name: nome.trim(),
+        document: documento || null,
+        phone: telefone || null,
+        email: email || null,
+        ...({ default_broker_pct: pct } as Record<string, unknown>),
+      })
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não deu para salvar.')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
   return (
-    <Modal
-      key={existente?.id ?? (alvo === 'novo' ? 'novo' : 'fechado')}
-      open={!!alvo}
-      onClose={onFechar}
-      title={existente ? 'Editar corretor' : 'Novo corretor'}
-      footer={
-        <div className="flex gap-3">
-          <Button variant="secondary" className="flex-1" onClick={onFechar} disabled={salvando}>
+    <SidePanel
+      aberto={!!alvo}
+      aoFechar={onFechar}
+      titulo={existente ? 'Editar corretor' : 'Novo corretor'}
+      largura="lg"
+      rodape={
+        <>
+          <Button variant="secundario" onClick={onFechar} disabled={salvando}>
             Cancelar
           </Button>
-          <Button
-            className="flex-1"
-            disabled={salvando}
-            onClick={async () => {
-              setErro(null)
-              if (!nome.trim()) return setErro('Informe o nome.')
-              setSalvando(true)
-              try {
-                await onSalvar({
-                  id: existente?.id,
-                  type: 'broker',
-                  name: nome.trim(),
-                  document: documento || null,
-                  phone: telefone || null,
-                  email: email || null,
-                  ...({ default_broker_pct: pct } as Record<string, unknown>),
-                })
-              } catch (e) {
-                setErro(e instanceof Error ? e.message : 'Não deu para salvar.')
-              } finally {
-                setSalvando(false)
-              }
-            }}
-          >
-            {salvando ? <Spinner className="h-5 w-5" /> : 'Salvar'}
+          <Button carregando={salvando} onClick={salvar}>
+            Salvar
           </Button>
-        </div>
+        </>
       }
     >
-      <div className="space-y-4">
+      <div className="flex flex-col gap-6">
         <FormField label="Nome" htmlFor="c-nome">
-          <Input id="c-nome" value={nome} onChange={(e) => setNome(e.target.value)} autoFocus />
+          <Input id="c-nome" data-foco-inicial value={nome} onChange={(e) => setNome(e.target.value)} />
         </FormField>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-4">
           <FormField label="CPF" htmlFor="c-doc" hint="opcional">
             <Input id="c-doc" value={documento} onChange={(e) => setDocumento(e.target.value)} />
           </FormField>
@@ -475,22 +588,17 @@ function EditarCorretor({
         <FormField label="E-mail" htmlFor="c-mail" hint="o mesmo que ele vai usar para entrar">
           <Input id="c-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </FormField>
-        <FormField
-          label="Percentual padrão"
-          htmlFor="c-pct"
-          hint="preenche o formulário de venda; dá para mudar em cada venda"
-        >
+        <FormField label="Percentual padrão" htmlFor="c-pct" hint="preenche o formulário de venda; dá para mudar em cada venda">
           <PercentInput id="c-pct" value={pct} onChange={setPct} />
         </FormField>
-        {/* Erro é `critical`, não `expense`: vermelho de despesa fala de
-         * dinheiro que saiu, e aqui nada saiu — só não deu para salvar. */}
+        {/* Erro de salvar, não de dinheiro: tinta de erro, com a palavra. */}
         {erro && (
-          <p className="text-base text-critical" role="alert">
+          <p className="text-texto-corrido text-error-ink" role="alert">
             {erro}
           </p>
         )}
       </div>
-    </Modal>
+    </SidePanel>
   )
 }
 
@@ -514,50 +622,40 @@ function GerenciarAcessos({
   const corretores = contacts.filter((c) => c.type === 'broker')
 
   return (
-    <Modal
-      open={aberto}
-      onClose={onFechar}
-      title="Acessos ao sistema"
-      description="Quem entra e o que cada um vê"
-      className="sm:max-w-xl"
-    >
-      <div className="space-y-5">
-        {/* Instrução em fio, não em caixa: dentro de uma folha que já flutua,
-         * um segundo recuo com borda vira cartão dentro de cartão. */}
-        <div className="border-b border-line pb-4">
-          <p className="text-base font-semibold text-content">Como dar acesso a um corretor</p>
-          <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-base text-content-muted">
-            <li>No painel do Supabase: Authentication → Users → Invite user, com o e-mail dele.</li>
-            <li>Ele recebe o convite e cria a senha.</li>
-            <li>Volte aqui e ligue o login ao corretor na lista abaixo.</li>
-          </ol>
-          <p className="mt-1.5 text-sm text-content-faint">
-            Criar usuário exige chave de administração, que não pode ficar no navegador — por isso
-            essa parte é no painel.
-          </p>
-        </div>
+    <SidePanel aberto={aberto} aoFechar={onFechar} titulo="Acessos ao sistema" subtitulo="Quem entra e o que cada um vê" largura="lg">
+      <div className="flex flex-col gap-6">
+        <Dica>
+          <span className="flex flex-col gap-2">
+            <strong className="font-medium text-t1">Como dar acesso a um corretor</strong>
+            <span>1. No painel do Supabase: Authentication → Users → Invite user, com o e-mail dele.</span>
+            <span>2. Ele recebe o convite e cria a senha.</span>
+            <span>3. Volte aqui e ligue o login ao corretor na lista abaixo.</span>
+            <span className="text-t3">
+              Criar usuário exige chave de administração, que não pode ficar no navegador — por isso essa parte é no
+              painel.
+            </span>
+          </span>
+        </Dica>
 
         {usuarios.length === 0 ? (
-          <p className="text-base text-content-muted">Nenhum usuário além de você.</p>
+          <p className="text-texto-corrido text-t3">Nenhum usuário além de você.</p>
         ) : (
-          <Lista>
+          <div role="list" aria-label="Usuários" className="flex flex-col">
             {usuarios.map((u) => (
-              <li key={u.id} className="space-y-2 py-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-base font-medium text-content">
-                      {u.name ?? u.email ?? u.id.slice(0, 8)}
-                    </p>
-                    <p className="text-sm text-content-faint">
+              <div role="listitem" key={u.id} className="flex flex-col gap-3 border-t border-fio-linha py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <p className="truncate text-texto-titulo text-t1">{u.name ?? u.email ?? u.id.slice(0, 8)}</p>
+                    <p className="text-texto-meta text-t-meta">
                       {u.role === 'admin' ? 'administrador' : 'corretor'}
                       {u.is_active ? '' : ' · desativado'}
                     </p>
                   </div>
-                  {/* Alvo de 44px: eram 30px de altura, num controle que liga e
-                   * desliga o acesso de uma pessoa ao sistema. */}
                   <Button
-                    variant={u.is_active ? 'danger' : 'secondary'}
-                    className="shrink-0"
+                    size="sm"
+                    variant={u.is_active ? 'perigo' : 'secundario'}
+                    icone={u.is_active ? UserX : UserCheck}
+                    carregando={ocupado === u.id}
                     onClick={async () => {
                       setOcupado(u.id)
                       try {
@@ -572,15 +670,15 @@ function GerenciarAcessos({
                         setOcupado(null)
                       }
                     }}
-                    disabled={ocupado === u.id}
                   >
-                    {ocupado === u.id ? <Spinner className="h-5 w-5" /> : u.is_active ? 'Desativar' : 'Ativar'}
+                    {u.is_active ? 'Desativar' : 'Ativar'}
                   </Button>
                 </div>
                 {u.role === 'corretor' && (
                   <Select
                     aria-label={`Corretor de ${u.name ?? u.id}`}
                     value={u.contact_id ?? ''}
+                    disabled={ocupado === u.id}
                     onChange={async (e) => {
                       setOcupado(u.id)
                       try {
@@ -604,11 +702,11 @@ function GerenciarAcessos({
                     ))}
                   </Select>
                 )}
-              </li>
+              </div>
             ))}
-          </Lista>
+          </div>
         )}
       </div>
-    </Modal>
+    </SidePanel>
   )
 }

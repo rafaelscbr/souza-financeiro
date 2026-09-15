@@ -240,6 +240,7 @@ function CabecalhoLista({ colunas, rotulos }: { colunas: ColunasLista; rotulos: 
   return (
     <div
       role="row"
+      data-cabecalho-lista
       className="grid h-10 items-center gap-x-3 border-t border-fio-linha font-label uppercase text-t-meta"
       style={{ paddingInline: 'var(--recuo-linha)', ...indiceEscada(0) }}
     >

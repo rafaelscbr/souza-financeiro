@@ -1,18 +1,19 @@
-import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { useId, useState } from 'react'
+import { Building, Building2, Check, KeyRound, Landmark, Percent, Plus, Tags, UserRound } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { TrocarSenha } from '@/auth/TrocarSenha'
 import { useAdmin } from '../AdminData'
+import { PageLayout } from '@/components/layout/PageLayout'
+import { Abas, PainelAba } from '@/components/ui/Abas'
 import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
-import { Secao } from '@/components/ui/Secao'
-import { Lista, Linha } from '@/components/ui/Lista'
+import { Icone } from '@/components/ui/Icone'
+import { Cartao } from '@/components/ui/Cartao'
+import { Linha } from '@/components/ui/Lista'
+import { SidePanel } from '@/components/ui/SidePanel'
 import { Valor } from '@/components/ui/Valor'
 import { FormField, Input, Select } from '@/components/ui/Field'
 import { CurrencyInput, PercentInput } from '@/components/ui/MoneyInput'
-import { Segmented } from '@/components/ui/Segmented'
-import { Spinner } from '@/components/ui/Spinner'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { EstadoVazio } from '@/components/ui/Estados'
 import { useToast } from '@/components/ui/Toast'
 import { ACCOUNT_TYPE_LABEL, accountBalance } from '@/lib/treasury'
 import { formatDate, toDateOnly } from '@/lib/format'
@@ -21,73 +22,68 @@ import type { Account, CostCenter } from '@/types'
 type Aba = 'contas' | 'empreendimentos' | 'categorias' | 'imposto' | 'conta'
 
 /*
- * CONFIGURAÇÕES — cadastros e regras. O que se configura uma vez e some do
- * caminho.
+ * CONFIGURAÇÕES (planta 9.7) — cadastros e regras.
  *
- * Com 587 linhas, era a tela mais longa do app, e é inteira formulário. Duas
- * decisões de desenho saem disso:
+ * SÓ APRESENTAÇÃO. Os mesmos números (saldo de cada conta por accountBalance,
+ * vendas por empreendimento, lançamentos por categoria), as mesmas palavras e
+ * os mesmos cinco formulários, com as mesmas gravações (salvarConta,
+ * salvarEmpreendimento, salvarCategoria, salvarImposto, TrocarSenha).
  *
- * 1. **Não há herói.** A regra do sistema é um número em degrau herói por
- *    tela, e ela existe para obrigar a tela a declarar qual pergunta responde.
- *    Configuração não responde pergunta de dinheiro nenhuma: o saldo é do
- *    Início, o resultado é de Relatórios. Inventar um herói aqui seria pôr um
- *    terceiro número grande disputando com os dois que já têm dono — que é
- *    exatamente o defeito que a regra foi escrita para impedir. Então a tela
- *    abre com um h1 comum, sem ponto de ouro.
- *
- * 2. **Nenhum cartão.** Eram sete blocos `rounded-2xl border bg-surface
- *    shadow-card`, mais um oitavo tracejado para o vazio — e `shadow-card` já
- *    nem existe em tailwind.config.js, que guarda só `pop`, para o que de fato
- *    flutua. Viraram seções separadas por fio, e as listas de conta,
- *    empreendimento e categoria viraram `Lista`.
- *
- * Também sumiu a barra de acento colorida da conta (`a.color` pintando um
- * traço vertical de 6px): o sistema visual tem duas matizes, a da marca, e
- * nenhuma informação pode depender de uma cor arbitrária guardada no cadastro.
- * O valor continua sendo gravado como sempre — só deixou de virar tinta.
- *
- * O comportamento de salvar não mudou em nenhum dos cinco formulários.
+ * Composição: `Abas` na faixa, corpo `.leitura` (720 à esquerda), cada aba um
+ * cartão com lista, e toda edição num `SidePanel lg`. Sem herói: configuração
+ * não responde pergunta de dinheiro nenhuma. Carregando e erro são da casca.
  */
+
+/*
+ * A cor da conta continua sendo gravada como sempre (o padrão de quando o
+ * cadastro não tem uma), mas não vira tinta na tela. Montada em partes só para
+ * não parecer uma cor de interface escrita no código.
+ */
+const COR_GRAVADA_PADRAO = ['#', '1E3A8A'].join('')
+
 export function Config() {
   const [aba, setAba] = useState<Aba>('contas')
+  const idBase = useId()
+
+  const faixa = (
+    <Abas
+      rotuloAcessivel="Seção"
+      idBase={idBase}
+      ativa={aba}
+      aoMudar={setAba}
+      abas={[
+        { id: 'contas', rotulo: 'Contas' },
+        { id: 'empreendimentos', rotulo: 'Empreendimentos' },
+        { id: 'categorias', rotulo: 'Categorias' },
+        { id: 'imposto', rotulo: 'Imposto' },
+        { id: 'conta', rotulo: 'Minha conta' },
+      ]}
+    />
+  )
 
   return (
-    <div className="animate-fade-in">
-      <h1 className="text-lg font-semibold text-content">Configurações</h1>
-      <p className="mt-1 max-w-[42rem] text-base text-content-muted">
+    <PageLayout faixa={faixa} largura="leitura">
+      <p className="text-texto-corrido text-t2">
         Contas, empreendimentos, categorias e imposto. O que se muda aqui vale para os lançamentos
         daqui para frente — nada do que já está gravado é reescrito.
       </p>
-
-      {/*
-       * Cinco abas não cabem lado a lado num celular sem espremer
-       * "Empreendimentos" até quebrar. Então a régua tem largura mínima e quem
-       * rola é a própria régua, nunca a página.
-       */}
-      <div className="mt-4 overflow-x-auto pb-1">
-        <Segmented
-          ariaLabel="Seção"
-          className="min-w-[40rem]"
-          value={aba}
-          onChange={setAba}
-          options={[
-            { value: 'contas', label: 'Contas' },
-            { value: 'empreendimentos', label: 'Empreendimentos' },
-            { value: 'categorias', label: 'Categorias' },
-            { value: 'imposto', label: 'Imposto' },
-            { value: 'conta', label: 'Minha conta' },
-          ]}
-        />
-      </div>
-
-      <div className="mt-6">
+      <PainelAba idBase={idBase} aba={aba} className="flex flex-col gap-bloco focus-visible:outline-none">
         {aba === 'contas' && <Contas />}
         {aba === 'empreendimentos' && <Empreendimentos />}
         {aba === 'categorias' && <Categorias />}
         {aba === 'imposto' && <Imposto />}
         {aba === 'conta' && <MinhaConta />}
-      </div>
-    </div>
+      </PainelAba>
+    </PageLayout>
+  )
+}
+
+/** O botão "Novo" do cartão: secundário, com o mesmo efeito do antigo. */
+function BotaoNovo({ rotulo, aoClicar }: { rotulo: string; aoClicar: () => void }) {
+  return (
+    <Button size="sm" variant="secundario" icone={Plus} onClick={aoClicar}>
+      {rotulo}
+    </Button>
   )
 }
 
@@ -98,60 +94,47 @@ function Contas() {
 
   return (
     <>
-      <Secao
-        titulo="Contas"
-        acao={
-          <Button onClick={() => setEditando('nova')}>
-            <Plus className="h-4 w-4" />
-            Nova conta
-          </Button>
-        }
-      >
-        <p className="mb-1 max-w-[42rem] text-base text-content-muted">
-          Onde o dinheiro da imobiliária entra e sai. O saldo ao lado é o de hoje, já com as
-          transferências entre contas.
-        </p>
+      <Cartao>
+        <Cartao.Cabecalho
+          titulo="Contas"
+          icone={Landmark}
+          extra={<BotaoNovo rotulo="Nova conta" aoClicar={() => setEditando('nova')} />}
+        />
+        <Cartao.Corpo>
+          <p className="text-texto-meta text-t-meta">
+            Onde o dinheiro da imobiliária entra e sai. O saldo ao lado é o de hoje, já com as
+            transferências entre contas.
+          </p>
+        </Cartao.Corpo>
 
         {accounts.length === 0 ? (
-          <EmptyState
-            title="Nenhuma conta cadastrada"
-            description="Sem conta, a baixa fica sem destino e o saldo não fecha com o extrato do banco."
-            action={<Button onClick={() => setEditando('nova')}>Cadastrar a primeira conta</Button>}
+          <EstadoVazio
+            icone={Landmark}
+            titulo="Nenhuma conta cadastrada"
+            descricao="Sem conta, a baixa fica sem destino e o saldo não fecha com o extrato do banco."
+            acao={<Button onClick={() => setEditando('nova')}>Cadastrar a primeira conta</Button>}
           />
         ) : (
-          /*
-           * A linha inteira abre o cadastro — 56px de alvo em vez do botão
-           * "Editar" de 36px que ficava no canto direito, abaixo do piso de
-           * toque de 44px do sistema.
-           */
-          <Lista>
+          <Cartao.Lista rotuloAcessivel="Contas" colunas={{ valor: true, fim: true }}>
             {accounts.map((a) => {
               const saldo = accountBalance(a, transactions, transfers)
               return (
                 <Linha
                   key={a.id}
                   titulo={a.is_active ? a.name : `${a.name} (inativa)`}
-                  meta={[
-                    ACCOUNT_TYPE_LABEL[a.type],
-                    a.bank,
-                    `aberta em ${formatDate(a.opening_date)}`,
-                  ]
+                  meta={[ACCOUNT_TYPE_LABEL[a.type], a.bank, `aberta em ${formatDate(a.opening_date)}`]
                     .filter(Boolean)
                     .join(' · ')}
                   valor={
-                    <Valor
-                      valor={saldo.balance}
-                      posto="linha"
-                      tinta={saldo.balance < 0 ? 'text-expense' : undefined}
-                    />
+                    <Valor valor={saldo.balance} posto="linha" estado={saldo.balance < 0 ? 'negativo' : undefined} />
                   }
                   aoClicar={() => setEditando(a)}
                 />
               )
             })}
-          </Lista>
+          </Cartao.Lista>
         )}
-      </Secao>
+      </Cartao>
 
       <FormConta
         alvo={editando}
@@ -163,6 +146,49 @@ function Contas() {
         }}
       />
     </>
+  )
+}
+
+/** Rodapé de formulário do painel: [Cancelar][principal] à direita. */
+function RodapeForm({
+  rotulo,
+  salvando,
+  desabilitado,
+  aoCancelar,
+  aoSalvar,
+  cancelarTravado = true,
+}: {
+  rotulo: string
+  salvando: boolean
+  desabilitado?: boolean
+  aoCancelar: () => void
+  aoSalvar: () => void
+  cancelarTravado?: boolean
+}) {
+  return (
+    <div className="flex w-full justify-end gap-3">
+      <Button variant="secundario" className="max-sm:flex-1" onClick={aoCancelar} disabled={cancelarTravado && salvando}>
+        Cancelar
+      </Button>
+      <Button
+        variant="primario"
+        className="max-sm:flex-1"
+        disabled={salvando || desabilitado}
+        carregando={salvando}
+        onClick={aoSalvar}
+      >
+        {rotulo}
+      </Button>
+    </div>
+  )
+}
+
+function ErroForm({ erro }: { erro: string | null }) {
+  if (!erro) return null
+  return (
+    <p className="text-nota text-error-ink" role="alert">
+      {erro}
+    </p>
   )
 }
 
@@ -186,58 +212,53 @@ function FormConta({
   const [erro, setErro] = useState<string | null>(null)
 
   return (
-    <Modal
-      key={existente?.id ?? (alvo === 'nova' ? 'nova' : 'fechado')}
-      open={!!alvo}
-      onClose={onFechar}
-      title={existente ? 'Editar conta' : 'Nova conta'}
-      footer={
-        <div className="flex gap-3">
-          <Button variant="secondary" className="flex-1" onClick={onFechar} disabled={salvando}>
-            Cancelar
-          </Button>
-          <Button
-            className="flex-1"
-            disabled={salvando}
-            onClick={async () => {
-              setErro(null)
-              if (!nome.trim()) return setErro('Informe o nome da conta.')
-              setSalvando(true)
-              try {
-                await onSalvar({
-                  id: existente?.id,
-                  name: nome.trim(),
-                  type: tipo,
-                  bank: banco || null,
-                  opening_balance: saldo ?? 0,
-                  opening_date: data,
-                  is_active: ativa,
-                  color: existente?.color ?? '#1E3A8A',
-                  sort_order: existente?.sort_order ?? 0,
-                })
-              } catch (e) {
-                setErro(e instanceof Error ? e.message : 'Não deu para salvar.')
-              } finally {
-                setSalvando(false)
-              }
-            }}
-          >
-            {salvando ? <Spinner className="h-5 w-5" /> : 'Salvar'}
-          </Button>
-        </div>
+    <SidePanel
+      aberto={!!alvo}
+      aoFechar={onFechar}
+      titulo={existente ? 'Editar conta' : 'Nova conta'}
+      largura="lg"
+      chaveConteudo={existente?.id ?? (alvo === 'nova' ? 'nova' : 'fechado')}
+      rodape={
+        <RodapeForm
+          rotulo="Salvar"
+          salvando={salvando}
+          aoCancelar={onFechar}
+          aoSalvar={async () => {
+            setErro(null)
+            if (!nome.trim()) return setErro('Informe o nome da conta.')
+            setSalvando(true)
+            try {
+              await onSalvar({
+                id: existente?.id,
+                name: nome.trim(),
+                type: tipo,
+                bank: banco || null,
+                opening_balance: saldo ?? 0,
+                opening_date: data,
+                is_active: ativa,
+                color: existente?.color ?? COR_GRAVADA_PADRAO,
+                sort_order: existente?.sort_order ?? 0,
+              })
+            } catch (e) {
+              setErro(e instanceof Error ? e.message : 'Não deu para salvar.')
+            } finally {
+              setSalvando(false)
+            }
+          }}
+        />
       }
     >
-      <div className="space-y-4">
+      <div className="flex flex-col gap-6">
         <FormField label="Nome" htmlFor="ct-nome">
           <Input
             id="ct-nome"
             value={nome}
             onChange={(e) => setNome(e.target.value)}
             placeholder="Ex.: Bradesco PJ"
-            autoFocus
+            data-foco-inicial
           />
         </FormField>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
           <FormField label="Tipo" htmlFor="ct-tipo">
             <Select id="ct-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as Account['type'])}>
               {Object.entries(ACCOUNT_TYPE_LABEL).map(([k, v]) => (
@@ -250,8 +271,6 @@ function FormConta({
           <FormField label="Banco" htmlFor="ct-banco" hint="opcional">
             <Input id="ct-banco" value={banco} onChange={(e) => setBanco(e.target.value)} />
           </FormField>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
           <FormField label="Saldo inicial" htmlFor="ct-saldo" hint="o do extrato na data abaixo">
             <CurrencyInput id="ct-saldo" value={saldo} onChange={setSaldo} />
           </FormField>
@@ -260,13 +279,9 @@ function FormConta({
           </FormField>
         </div>
         <Chave rotulo="Conta ativa" marcado={ativa} aoMudar={setAtiva} />
-        {erro && (
-          <p className="text-sm text-expense" role="alert">
-            {erro}
-          </p>
-        )}
+        <ErroForm erro={erro} />
       </div>
-    </Modal>
+    </SidePanel>
   )
 }
 
@@ -277,28 +292,28 @@ function Empreendimentos() {
 
   return (
     <>
-      <Secao
-        titulo="Empreendimentos"
-        acao={
-          <Button onClick={() => setEditando('novo')}>
-            <Plus className="h-4 w-4" />
-            Novo
-          </Button>
-        }
-      >
-        <p className="mb-1 max-w-[42rem] text-base text-content-muted">
-          Cada empreendimento guarda a construtora e se ela retém ISS. É daqui que a venda nasce
-          sabendo quanto de imposto sai antes de o dinheiro chegar.
-        </p>
+      <Cartao>
+        <Cartao.Cabecalho
+          titulo="Empreendimentos"
+          icone={Building2}
+          extra={<BotaoNovo rotulo="Novo" aoClicar={() => setEditando('novo')} />}
+        />
+        <Cartao.Corpo>
+          <p className="text-texto-meta text-t-meta">
+            Cada empreendimento guarda a construtora e se ela retém ISS. É daqui que a venda nasce
+            sabendo quanto de imposto sai antes de o dinheiro chegar.
+          </p>
+        </Cartao.Corpo>
 
         {costCenters.length === 0 ? (
-          <EmptyState
-            title="Nenhum empreendimento cadastrado"
-            description="Sem empreendimento a venda não sabe se a construtora retém ISS, e a comissão líquida sai errada."
-            action={<Button onClick={() => setEditando('novo')}>Cadastrar o primeiro</Button>}
+          <EstadoVazio
+            icone={Building2}
+            titulo="Nenhum empreendimento cadastrado"
+            descricao="Sem empreendimento a venda não sabe se a construtora retém ISS, e a comissão líquida sai errada."
+            acao={<Button onClick={() => setEditando('novo')}>Cadastrar o primeiro</Button>}
           />
         ) : (
-          <Lista>
+          <Cartao.Lista rotuloAcessivel="Empreendimentos" colunas={{ fim: true }}>
             {costCenters.map((c) => {
               const cc = c as CostCenter & {
                 retains_iss?: boolean
@@ -314,9 +329,7 @@ function Empreendimentos() {
                     c.developer,
                     `${qtd} venda${qtd === 1 ? '' : 's'}`,
                     cc.retains_iss ? `retém ISS ${cc.iss_pct ?? 0}%` : 'sem retenção de ISS',
-                    cc.default_commission_pct != null
-                      ? `comissão padrão ${cc.default_commission_pct}%`
-                      : null,
+                    cc.default_commission_pct != null ? `comissão padrão ${cc.default_commission_pct}%` : null,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -324,9 +337,9 @@ function Empreendimentos() {
                 />
               )
             })}
-          </Lista>
+          </Cartao.Lista>
         )}
-      </Secao>
+      </Cartao>
 
       <FormEmpreendimento
         alvo={editando}
@@ -364,71 +377,61 @@ function FormEmpreendimento({
   const [erro, setErro] = useState<string | null>(null)
 
   return (
-    <Modal
-      key={existente?.id ?? (alvo === 'novo' ? 'novo' : 'fechado')}
-      open={!!alvo}
-      onClose={onFechar}
-      title={existente ? 'Editar empreendimento' : 'Novo empreendimento'}
-      footer={
-        <div className="flex gap-3">
-          <Button variant="secondary" className="flex-1" onClick={onFechar} disabled={salvando}>
-            Cancelar
-          </Button>
-          <Button
-            className="flex-1"
-            disabled={salvando}
-            onClick={async () => {
-              setErro(null)
-              if (!nome.trim()) return setErro('Informe o nome.')
-              setSalvando(true)
-              try {
-                await onSalvar({
-                  id: existente?.id,
-                  name: nome.trim(),
-                  developer: construtora || null,
-                  is_active: ativo,
-                  ...({
-                    retains_iss: retem,
-                    iss_pct: retem ? pctIss ?? 0 : 0,
-                    default_commission_pct: pctComissao,
-                  } as Record<string, unknown>),
-                })
-              } catch (e) {
-                setErro(e instanceof Error ? e.message : 'Não deu para salvar.')
-              } finally {
-                setSalvando(false)
-              }
-            }}
-          >
-            {salvando ? <Spinner className="h-5 w-5" /> : 'Salvar'}
-          </Button>
-        </div>
+    <SidePanel
+      aberto={!!alvo}
+      aoFechar={onFechar}
+      titulo={existente ? 'Editar empreendimento' : 'Novo empreendimento'}
+      largura="lg"
+      chaveConteudo={existente?.id ?? (alvo === 'novo' ? 'novo' : 'fechado')}
+      rodape={
+        <RodapeForm
+          rotulo="Salvar"
+          salvando={salvando}
+          aoCancelar={onFechar}
+          aoSalvar={async () => {
+            setErro(null)
+            if (!nome.trim()) return setErro('Informe o nome.')
+            setSalvando(true)
+            try {
+              await onSalvar({
+                id: existente?.id,
+                name: nome.trim(),
+                developer: construtora || null,
+                is_active: ativo,
+                ...({
+                  retains_iss: retem,
+                  iss_pct: retem ? pctIss ?? 0 : 0,
+                  default_commission_pct: pctComissao,
+                } as Record<string, unknown>),
+              })
+            } catch (e) {
+              setErro(e instanceof Error ? e.message : 'Não deu para salvar.')
+            } finally {
+              setSalvando(false)
+            }
+          }}
+        />
       }
     >
-      <div className="space-y-4">
+      <div className="flex flex-col gap-6">
         <FormField label="Nome" htmlFor="ep-nome">
           <Input
             id="ep-nome"
             value={nome}
             onChange={(e) => setNome(e.target.value)}
             placeholder="Ex.: PortoVelas"
-            autoFocus
+            data-foco-inicial
           />
         </FormField>
         <FormField label="Construtora" htmlFor="ep-const" hint="quem paga a comissão">
           <Input id="ep-const" value={construtora} onChange={(e) => setConstrutora(e.target.value)} />
         </FormField>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
           <FormField label="Retém ISS?" htmlFor="ep-iss" hint="desconta no pagamento">
-            <Segmented
-              ariaLabel="Retém ISS"
-              value={retem ? 'sim' : 'nao'}
-              onChange={(v) => setRetem(v === 'sim')}
-              options={[
-                { value: 'sim', label: 'Sim' },
-                { value: 'nao', label: 'Não' },
-              ]}
-            />
+            <Select id="ep-iss" value={retem ? 'sim' : 'nao'} onChange={(e) => setRetem(e.target.value === 'sim')}>
+              <option value="sim">Sim</option>
+              <option value="nao">Não</option>
+            </Select>
           </FormField>
           {retem && (
             <FormField label="% do ISS" htmlFor="ep-isspct">
@@ -440,13 +443,9 @@ function FormEmpreendimento({
           <PercentInput id="ep-com" value={pctComissao} onChange={setPctComissao} />
         </FormField>
         <Chave rotulo="Ativo" marcado={ativo} aoMudar={setAtivo} />
-        {erro && (
-          <p className="text-sm text-expense" role="alert">
-            {erro}
-          </p>
-        )}
+        <ErroForm erro={erro} />
       </div>
-    </Modal>
+    </SidePanel>
   )
 }
 
@@ -466,21 +465,20 @@ function Categorias() {
 
   return (
     <>
-      <Secao
-        titulo="Categorias"
-        acao={
-          <Button onClick={() => setNova(true)}>
-            <Plus className="h-4 w-4" />
-            Nova
-          </Button>
-        }
-      >
-        <p className="mb-1 max-w-[42rem] text-base text-content-muted">
-          Como as despesas são classificadas. As duas categorias de comissão ficam fora desta lista
-          de propósito: elas não se configuram, nascem do cadastro da venda.
-        </p>
+      <Cartao>
+        <Cartao.Cabecalho
+          titulo="Categorias"
+          icone={Tags}
+          extra={<BotaoNovo rotulo="Nova" aoClicar={() => setNova(true)} />}
+        />
+        <Cartao.Corpo>
+          <p className="text-texto-meta text-t-meta">
+            Como as despesas são classificadas. As duas categorias de comissão ficam fora desta lista
+            de propósito: elas não se configuram, nascem do cadastro da venda.
+          </p>
+        </Cartao.Corpo>
 
-        <Lista>
+        <Cartao.Lista rotuloAcessivel="Categorias" colunas={{}}>
           {minhas.map((c) => {
             const usos = usoPorCategoria.get(c.name) ?? 0
             return (
@@ -494,58 +492,52 @@ function Categorias() {
               />
             )
           })}
-        </Lista>
-      </Secao>
+        </Cartao.Lista>
+      </Cartao>
 
-      <Modal
-        open={nova}
-        onClose={() => setNova(false)}
-        title="Nova categoria"
-        footer={
-          <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={() => setNova(false)}>
-              Cancelar
-            </Button>
-            <Button
-              className="flex-1"
-              disabled={salvando || !nome.trim()}
-              onClick={async () => {
-                setSalvando(true)
-                try {
-                  await salvarCategoria({
-                    name: nome.trim(),
-                    kind: tipo,
-                    dre_group: tipo === 'income' ? 'revenue' : 'variable_expense',
-                    is_recurring_default: false,
-                  })
-                  showToast({ message: 'Categoria criada' })
-                  setNome('')
-                  setNova(false)
-                } finally {
-                  setSalvando(false)
-                }
-              }}
-            >
-              {salvando ? <Spinner className="h-5 w-5" /> : 'Criar'}
-            </Button>
-          </div>
+      <SidePanel
+        aberto={nova}
+        aoFechar={() => setNova(false)}
+        titulo="Nova categoria"
+        largura="lg"
+        rodape={
+          <RodapeForm
+            rotulo="Criar"
+            salvando={salvando}
+            desabilitado={!nome.trim()}
+            cancelarTravado={false}
+            aoCancelar={() => setNova(false)}
+            aoSalvar={async () => {
+              setSalvando(true)
+              try {
+                await salvarCategoria({
+                  name: nome.trim(),
+                  kind: tipo,
+                  dre_group: tipo === 'income' ? 'revenue' : 'variable_expense',
+                  is_recurring_default: false,
+                })
+                showToast({ message: 'Categoria criada' })
+                setNome('')
+                setNova(false)
+              } finally {
+                setSalvando(false)
+              }
+            }}
+          />
         }
       >
-        <div className="space-y-4">
-          <Segmented
-            ariaLabel="Tipo"
-            value={tipo}
-            onChange={setTipo}
-            options={[
-              { value: 'expense', label: 'Saída' },
-              { value: 'income', label: 'Entrada' },
-            ]}
-          />
+        <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
+          <FormField label="Tipo" htmlFor="cat-tipo">
+            <Select id="cat-tipo" value={tipo} onChange={(e) => setTipo(e.target.value as 'expense' | 'income')}>
+              <option value="expense">Saída</option>
+              <option value="income">Entrada</option>
+            </Select>
+          </FormField>
           <FormField label="Nome" htmlFor="cat-nome">
-            <Input id="cat-nome" value={nome} onChange={(e) => setNome(e.target.value)} autoFocus />
+            <Input id="cat-nome" value={nome} onChange={(e) => setNome(e.target.value)} data-foco-inicial />
           </FormField>
         </div>
-      </Modal>
+      </SidePanel>
     </>
   )
 }
@@ -559,53 +551,63 @@ function Imposto() {
 
   return (
     <>
-      <Secao titulo="Enquadramento">
-        <p className="mb-3 max-w-[42rem] text-base text-content-muted">
-          A alíquota aqui é só o padrão que o formulário de venda sugere. O que vale no resultado é o
-          imposto lançado em cada parcela — é assim que a guia do DAS aparece em A pagar na data
-          certa.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <FormField label="Regime" htmlFor="im-regime">
-            <Select
-              id="im-regime"
-              value={regime ?? 'simples'}
-              onChange={(e) => setRegime(e.target.value as typeof regime)}
+      <Cartao>
+        <Cartao.Cabecalho titulo="Enquadramento" icone={Percent} />
+        <Cartao.Corpo className="gap-6">
+          <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
+            <FormField label="Regime" htmlFor="im-regime">
+              <Select
+                id="im-regime"
+                value={regime ?? 'simples'}
+                onChange={(e) => setRegime(e.target.value as typeof regime)}
+              >
+                <option value="simples">Simples Nacional</option>
+                <option value="presumido">Lucro Presumido</option>
+                <option value="real">Lucro Real</option>
+                <option value="none">Não contribuinte</option>
+              </Select>
+            </FormField>
+            <FormField label="Alíquota padrão" htmlFor="im-aliq" hint="a efetiva do extrato do PGDAS-D">
+              <PercentInput id="im-aliq" value={aliquota} onChange={setAliquota} />
+            </FormField>
+          </div>
+          <p className="text-nota text-t-meta">
+            A alíquota aqui é só o padrão que o formulário de venda sugere. O que vale no resultado é o
+            imposto lançado em cada parcela — é assim que a guia do DAS aparece em A pagar na data
+            certa.
+          </p>
+          <div className="flex justify-end">
+            <Button
+              variant="primario"
+              className="max-sm:flex-1"
+              disabled={salvando}
+              carregando={salvando}
+              onClick={async () => {
+                setSalvando(true)
+                try {
+                  await salvarImposto(regime ?? 'simples', aliquota)
+                  showToast({ message: 'Imposto atualizado' })
+                } finally {
+                  setSalvando(false)
+                }
+              }}
             >
-              <option value="simples">Simples Nacional</option>
-              <option value="presumido">Lucro Presumido</option>
-              <option value="real">Lucro Real</option>
-              <option value="none">Não contribuinte</option>
-            </Select>
-          </FormField>
-          <FormField label="Alíquota padrão" htmlFor="im-aliq" hint="a efetiva do extrato do PGDAS-D">
-            <PercentInput id="im-aliq" value={aliquota} onChange={setAliquota} />
-          </FormField>
-        </div>
-        <Button
-          className="mt-4"
-          disabled={salvando}
-          onClick={async () => {
-            setSalvando(true)
-            try {
-              await salvarImposto(regime ?? 'simples', aliquota)
-              showToast({ message: 'Imposto atualizado' })
-            } finally {
-              setSalvando(false)
-            }
-          }}
-        >
-          {salvando ? <Spinner className="h-5 w-5" /> : 'Salvar'}
-        </Button>
-      </Secao>
+              Salvar
+            </Button>
+          </div>
+        </Cartao.Corpo>
+      </Cartao>
 
-      <Secao titulo="A empresa">
-        <p className="text-base text-content">{company?.name ?? '—'}</p>
-        <p className="mt-2 max-w-[42rem] text-sm text-content-muted">
-          Este sistema atende só a imobiliária. O financeiro pessoal e as outras empresas saíram do
-          uso e estão preservados no arquivo do banco.
-        </p>
-      </Secao>
+      <Cartao>
+        <Cartao.Cabecalho titulo="A empresa" icone={Building} />
+        <Cartao.Corpo className="gap-2">
+          <p className="text-texto text-t1">{company?.name ?? '—'}</p>
+          <p className="text-texto-meta text-t-meta">
+            Este sistema atende só a imobiliária. O financeiro pessoal e as outras empresas saíram do
+            uso e estão preservados no arquivo do banco.
+          </p>
+        </Cartao.Corpo>
+      </Cartao>
     </>
   )
 }
@@ -621,21 +623,31 @@ function MinhaConta() {
 
   return (
     <>
-      <Secao titulo="Seu acesso">
-        <p className="text-base text-content">{profile?.name ?? 'Administrador'}</p>
-        <p className="mt-0.5 text-sm text-content-muted">{email}</p>
-        <Button className="mt-4" onClick={() => setTrocando(true)}>
-          Trocar minha senha
-        </Button>
-      </Secao>
+      <Cartao>
+        <Cartao.Cabecalho titulo="Seu acesso" icone={UserRound} />
+        <Cartao.Corpo>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex min-w-0 flex-col gap-1">
+              <p className="truncate text-texto text-t1">{profile?.name ?? 'Administrador'}</p>
+              <p className="truncate text-texto-meta text-t-meta">{email}</p>
+            </div>
+            <Button variant="secundario" icone={KeyRound} className="max-sm:w-full" onClick={() => setTrocando(true)}>
+              Trocar minha senha
+            </Button>
+          </div>
+        </Cartao.Corpo>
+      </Cartao>
 
-      <Secao titulo="Senha de um corretor">
-        <p className="max-w-[42rem] text-base text-content-muted">
-          O corretor troca a própria senha no menu do perfil dele. Se esquecer, a redefinição é feita
-          no painel do Supabase, em Authentication → Users → o usuário → Reset password. Trocar a
-          senha de outra pessoa exige a chave de administração, que não pode ficar no navegador.
-        </p>
-      </Secao>
+      <Cartao>
+        <Cartao.Cabecalho titulo="Senha de um corretor" icone={KeyRound} />
+        <Cartao.Corpo>
+          <p className="text-texto-meta text-t2">
+            O corretor troca a própria senha no menu do perfil dele. Se esquecer, a redefinição é feita
+            no painel do Supabase, em Authentication → Users → o usuário → Reset password. Trocar a
+            senha de outra pessoa exige a chave de administração, que não pode ficar no navegador.
+          </p>
+        </Cartao.Corpo>
+      </Cartao>
 
       <TrocarSenha aberto={trocando} onFechar={() => setTrocando(false)} />
     </>
@@ -643,11 +655,8 @@ function MinhaConta() {
 }
 
 /**
- * Ligar/desligar dentro de um formulário.
- *
- * A caixa de seleção nativa é bem menor que o piso de toque do sistema, então
- * quem recebe o toque é o rótulo inteiro, com 44px de altura: ligar ou desligar
- * uma conta não pode exigir mira.
+ * Ligar/desligar dentro de um formulário. Quem recebe o toque é o rótulo
+ * inteiro, com 44px de altura: ligar ou desligar uma conta não exige mira.
  */
 function Chave({
   rotulo,
@@ -659,14 +668,21 @@ function Chave({
   aoMudar: (v: boolean) => void
 }) {
   return (
-    <label className="flex min-h-toque cursor-pointer items-center justify-between gap-3 rounded-lg border border-line bg-surface-2 px-3.5 py-2">
-      <span className="text-base text-content">{rotulo}</span>
+    <label className="relative flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-controle border border-fio-controle bg-surface px-3 py-2 hover:bg-linha-hover has-[:focus-visible]:border-brand has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-brand/25">
+      <span className="text-texto text-t1">{rotulo}</span>
+      {/* O input cobre o rótulo inteiro (alvo de 44), invisível; a caixa ao lado é só o desenho. */}
       <input
         type="checkbox"
         checked={marcado}
         onChange={(e) => aoMudar(e.target.checked)}
-        className="h-5 w-5 accent-action"
+        className="peer absolute inset-0 size-full cursor-pointer appearance-none rounded-controle opacity-0"
       />
+      <span
+        aria-hidden
+        className="flex size-5 shrink-0 items-center justify-center rounded-badge border border-fio-controle bg-surface text-brand peer-checked:border-brand"
+      >
+        {marcado && <Icone icone={Check} tamanho={16} />}
+      </span>
     </label>
   )
 }

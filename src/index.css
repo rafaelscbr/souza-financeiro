@@ -371,6 +371,10 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
     position: relative;
     white-space: nowrap;
   }
+  /* Frase longa (motivo, explicação) quebra linha em vez de vazar a página. */
+  .meta > [data-longo] {
+    white-space: normal;
+  }
   .meta > * + *::before {
     content: '·';
     position: absolute;
@@ -505,7 +509,7 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
     .linha:not([data-parcela]) > [data-coluna="acao"] > :first-child { flex: 1 1 auto; min-height: 44px; }
     .linha:not([data-parcela]) > [data-coluna="fim"] { display: none; }
     /* O cabeçalho de colunas só existe com o cartão ≥ 40rem. */
-    .lista > [role="row"] { display: none; }
+    .lista > [data-cabecalho-lista] { display: none; }
   }
   @container (min-width: 40rem) {
     .linha {
@@ -513,7 +517,7 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
       grid-template-areas: none;
       grid-template-columns: var(--colunas);
     }
-    .lista > [role="row"] {
+    .lista > [data-cabecalho-lista] {
       column-gap: 16px;
       grid-template-columns: var(--colunas);
     }

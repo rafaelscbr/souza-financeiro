@@ -1,31 +1,35 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Banknote, Calculator, CircleCheck, HandCoins, Landmark, Receipt, Scale } from 'lucide-react'
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import {
+  Banknote,
+  Calculator,
+  CircleAlert,
+  CircleCheck,
+  HandCoins,
+  Landmark,
+  Receipt,
+  Scale,
+  type LucideIcon,
+} from 'lucide-react'
 import { useAdmin } from './AdminData'
 import { SidePanel } from '@/components/ui/SidePanel'
 import { Button } from '@/components/ui/Button'
 import { FormField, Input, Select } from '@/components/ui/Field'
 import { CurrencyInput } from '@/components/ui/MoneyInput'
-import { Segmented } from '@/components/ui/Segmented'
+import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import { useToast } from '@/components/ui/Toast'
-import { Cascata, LinhaCascata, TotalCascata } from '@/components/ui/Cascata'
-import { Linha } from '@/components/ui/Lista'
+import { Demonstrativo } from '@/components/ui/Demonstrativo'
+import { Lista, Linha } from '@/components/ui/Lista'
 import { Selo } from '@/components/ui/Selo'
+import { Icone } from '@/components/ui/Icone'
 import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
 import { Valor } from '@/components/ui/Valor'
 import { Dica } from '@/components/ui/Dica'
 import { formatCurrency, toDateOnly } from '@/lib/format'
 import { situacaoDeTela } from '@/lib/situacao'
 import { previewCascade, type SaleView } from '@/lib/sales'
+import type { LinhaDemonstrativo } from '@/lib/linhasDaVenda'
+import { cn } from '@/lib/utils'
 import type { SaleInstallment } from '@/types'
-import {
-  AoConfirmar,
-  AvisoDaFolha,
-  BlocoDaFolha,
-  EscolhaDaFolha,
-  ListaNaFolha,
-  QuadroDaConta,
-  RodapeDaFolha,
-} from './FolhaDeLancamento'
 
 type Diferenca = 'iss' | 'desconto'
 
@@ -33,34 +37,21 @@ type Diferenca = 'iss' | 'desconto'
 const pct = (n: number) => `${n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`
 
 /*
- * CONFIRMAR QUE O DINHEIRO CAIU.
+ * CONFIRMAR QUE O DINHEIRO CAIU (9.6, 7.9, 7.10).
  *
  * A regra de negócio não mudou e não podia mudar: a tela parte do valor que
- * REALMENTE entrou na conta, não do valor da parcela. É o que a realidade
- * pediu — na venda 414-D a construtora retém 3% de ISS no ato do pagamento,
- * então caiu R$ 16.509,75 de uma parcela de R$ 17.020,36. Sem classificar
- * essa diferença o sistema teria um furo de R$ 510,61 sem nome, e o Simples
- * de 6% seria calculado sobre a base errada.
+ * REALMENTE entrou na conta, não do valor da parcela. Na venda 414-D a
+ * construtora retém 3% de ISS no ato do pagamento; sem classificar essa
+ * diferença o Simples de 6% seria calculado sobre a base errada.
  *
- * O que a folha mostra antes de gravar:
+ * Anatomia: SidePanel md com blocos sem caixa (a parcela como Linha, o que
+ * caiu na conta, a diferença, o que acontece ao confirmar). A conta que vai
+ * ser gravada (Demonstrativo) mora no rodapé fixo a partir de 640px, visível
+ * enquanto se digita; no celular ela desce para o corpo, porque um rodapé de
+ * 300px cobriria o campo que está sendo digitado.
  *
- * 1. A conta como CASCATA, na ordem do banco (migração 009): parcela,
- *    (−) ISS retido, (−) Simples, base, base × % do corretor, total — num
- *    quadro tonalizado, alinhada numa borda direita só, para bater contra o
- *    extrato antes de o lançamento existir.
- *
- * 2. O ISS retido com texto próprio, numa Dica. Ele é a única linha da cascata
- *    que NÃO sai do caixa: a construtora desconta no ato e recolhe no lugar da
- *    imobiliária. Quem não sabe disso lê a dedução como despesa e procura um
- *    pagamento que nunca vai existir.
- *
- * 3. O foco entra no campo do valor (`data-foco-inicial`). Quem abre esta
- *    folha tem o extrato na mão e quer digitar um número; a data já vem com
- *    hoje e a conta já vem com a primeira ativa.
- *
- * Abre no painel lateral (princípio 10), com a venda ou a lista de A receber
- * visível atrás, e o botão que grava fica no rodapé fixo. O painel só fecha
- * depois que o banco confirma; em falha, tudo o que foi digitado continua.
+ * O painel só fecha depois que o banco confirma; em falha, tudo o que foi
+ * digitado continua e o erro aparece no rodapé, junto do botão.
  *
  * O cálculo continua sendo `previewCascade`, e a gravação continua sendo o RPC
  * `receberParcela`. Esta tela não faz conta nenhuma por fora deles.
@@ -76,6 +67,7 @@ export function ReceberParcela({
 }) {
   const { accounts, receberParcela, hoje } = useAdmin()
   const { showToast } = useToast()
+  const idForm = useId()
 
   const [data, setData] = useState(toDateOnly(new Date()))
   const [contaId, setContaId] = useState('')
@@ -167,6 +159,81 @@ export function ReceberParcela({
     }
   }
 
+  /*
+   * A conta, na ordem do banco (migração 009) e a mesma da ficha da venda.
+   * O total não leva tinta verde: aqui nada se moveu ainda.
+   */
+  const linhasDaConta: LinhaDemonstrativo[] = [
+    {
+      chave: 'bruto',
+      rotulo: 'Parcela da comissão',
+      detalhe: parcela.count > 1 ? `${parcela.idx} de ${parcela.count}` : undefined,
+      sinal: '+',
+      valor: parcela.amount,
+    },
+    ...(iss > 0
+      ? [
+          {
+            chave: 'iss' as const,
+            rotulo: 'ISS retido na fonte',
+            detalhe: `${pct(parcela.amount > 0 ? (iss / parcela.amount) * 100 : 0)} retido pela construtora`,
+            sinal: '−' as const,
+            valor: iss,
+          },
+        ]
+      : []),
+    ...(previa.simples > 0
+      ? [
+          {
+            chave: 'simples' as const,
+            rotulo: 'Imposto (Simples)',
+            detalhe: `${pct(venda.simples_pct)} sobre a parcela líquida de ISS`,
+            sinal: '−' as const,
+            valor: previa.simples,
+          },
+        ]
+      : []),
+    { chave: 'base', rotulo: 'Base de cálculo', detalhe: 'o que sobra depois dos impostos', sinal: '=', valor: previa.base },
+    ...(previa.broker > 0
+      ? [
+          {
+            chave: 'corretor' as const,
+            rotulo: `Comissão de ${corretor}`,
+            detalhe: `base × ${pct(venda.broker_pct ?? 0)}`,
+            sinal: '−' as const,
+            valor: previa.broker,
+          },
+        ]
+      : []),
+    ...(outro > 0 ? [{ chave: 'desconto' as const, rotulo: 'Desconto concedido', sinal: '−' as const, valor: outro }] : []),
+    { chave: 'fica', rotulo: 'Fica para a imobiliária', sinal: '=', valor: previa.net - outro },
+  ]
+
+  const contaGravada = <Demonstrativo linhas={linhasDaConta} rotuloAcessivel="A conta que vai ser gravada" />
+
+  const aoConfirmar: { icone: LucideIcon; texto: string }[] = [
+    {
+      icone: CircleCheck,
+      texto: `A receita de ${formatCurrency(parcela.amount)} é liquidada${conta ? ` em ${conta.name}` : ', com a conta a definir'}.`,
+    },
+    ...(previa.simples > 0
+      ? [
+          {
+            icone: Landmark,
+            texto: `O Simples de ${formatCurrency(previa.simples)} entra em A pagar, com guia no dia 20 do mês seguinte.`,
+          },
+        ]
+      : []),
+    ...(previa.broker > 0
+      ? [
+          {
+            icone: HandCoins,
+            texto: `A comissão de ${corretor}, de ${formatCurrency(previa.broker)}, fica liberada para pagamento.`,
+          },
+        ]
+      : []),
+  ]
+
   return (
     <SidePanel
       aberto={!!parcela}
@@ -175,45 +242,71 @@ export function ReceberParcela({
       // Sem repetir o nome da venda: ele já é o título da linha logo abaixo.
       subtitulo={[venda.development, venda.unit].filter(Boolean).join(' · ') || undefined}
       rodape={
-        /*
-         * UMA ação primária. "Cancelar" é fantasma de propósito: dois botões
-         * preenchidos lado a lado fazem a pessoa escolher entre dois destaques
-         * iguais, e só um deles grava.
-         */
-        <RodapeDaFolha erro={erro} tituloDoErro="Recebimento não gravado">
-          <Button variant="ghost" size="lg" onClick={fechar} disabled={salvando}>
-            Cancelar
-          </Button>
-          <Button size="lg" className="flex-1" onClick={confirmar} carregando={salvando}>
-            Confirmar recebimento
-          </Button>
-        </RodapeDaFolha>
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          {/* A partir de 640px a conta fica à vista enquanto se digita. */}
+          <div className="flex flex-col gap-2 max-sm:hidden">
+            <p className="text-texto-meta text-t-meta">
+              A conta que vai ser gravada · na ordem do banco: impostos, base e corretor
+            </p>
+            {contaGravada}
+          </div>
+          {erro && (
+            <Aviso titulo="Recebimento não gravado" papel="alert">
+              {erro}
+            </Aviso>
+          )}
+          {/*
+           * UMA ação primária. "Cancelar" é fantasma de propósito: só um dos
+           * dois botões grava.
+           */}
+          <div className="flex items-center justify-end gap-3">
+            <Button
+              type="button"
+              variant="fantasma"
+              size="lg"
+              className="max-sm:flex-1"
+              onClick={fechar}
+              disabled={salvando}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" form={idForm} size="lg" className="max-sm:flex-1" carregando={salvando}>
+              Confirmar recebimento
+            </Button>
+          </div>
+        </div>
       }
     >
-      <div className="space-y-6">
-        {/*
-         * A parcela como linha de extrato — selo com o ordinal real, frase com
-         * verbo, chip com a situação e o valor na coluna da direita.
-         */}
-        <BlocoDaFolha titulo="A parcela" icone={Receipt}>
-          <ListaNaFolha>
+      <form
+        id={idForm}
+        noValidate
+        className="flex flex-col gap-8"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!salvando) void confirmar()
+        }}
+      >
+        {/* A parcela como linha de extrato: selo com o ordinal real, frase com verbo, chip e valor. */}
+        <Bloco titulo="A parcela" icone={Receipt}>
+          <Lista
+            contexto="sobreposicao"
+            colunas={{ goteira: true, situacao: true, valor: true }}
+            rotuloAcessivel="Parcela a confirmar"
+            semEscada
+          >
             <Linha
-              selo={<Selo situacao={situacao} idx={parcela.idx} count={parcela.count} />}
+              goteira={<Selo situacao={situacao} idx={parcela.idx} count={parcela.count} />}
               titulo={venda.title}
               meta={
-                <FraseDeTempo
-                  situacao={situacao}
-                  prevista={parcela.expected_date}
-                  recebida={parcela.received_date}
-                />
+                <FraseDeTempo situacao={situacao} prevista={parcela.expected_date} recebida={parcela.received_date} />
               }
               situacao={<ChipSituacao situacao={situacao} />}
               valor={<Valor valor={parcela.amount} posto="linha" />}
             />
-          </ListaNaFolha>
-        </BlocoDaFolha>
+          </Lista>
+        </Bloco>
 
-        <BlocoDaFolha titulo="O que caiu na conta" icone={Banknote}>
+        <Bloco titulo="O que caiu na conta" icone={Banknote} separado>
           <FormField
             label="Quanto caiu na conta"
             htmlFor="r-valor"
@@ -222,7 +315,7 @@ export function ReceberParcela({
             <CurrencyInput id="r-valor" value={recebido} onChange={setRecebido} data-foco-inicial />
           </FormField>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
             <FormField label="Data" htmlFor="r-data" hint="o dia em que caiu, não o do vencimento">
               <Input id="r-data" type="date" value={data} onChange={(e) => setData(e.target.value)} />
             </FormField>
@@ -253,34 +346,42 @@ export function ReceberParcela({
 
           {/*
            * Caiu mais do que a parcela: a trava continua dentro de `confirmar`,
-           * mas o aviso aparece já, enquanto se digita, como status e não
-           * como alerta, para não interromper a digitação a cada tecla.
+           * mas o aviso aparece já, como status, para não interromper a digitação.
            */}
           {sobra && (
-            <AvisoDaFolha titulo="Caiu mais do que a parcela" papel="status">
-              A parcela é de {formatCurrency(parcela.amount)}. Deixe aqui o valor da parcela e lance a
+            <Aviso titulo="Caiu mais do que a parcela" papel="status">
+              A parcela é de <Valor valor={parcela.amount} posto="fato" />. Deixe aqui o valor da parcela e lance a
               sobra como entrada avulsa: juros e correção não são comissão e não entram nesta conta.
-            </AvisoDaFolha>
+            </Aviso>
           )}
-        </BlocoDaFolha>
+        </Bloco>
 
         {diferenca > 0.01 && (
-          <BlocoDaFolha
+          <Bloco
             titulo="A diferença"
             icone={Scale}
-            descricao={<>faltaram {formatCurrency(diferenca)} em relação à parcela</>}
+            separado
+            descricao={
+              <>
+                faltaram <Valor valor={diferenca} posto="fato" /> em relação à parcela
+              </>
+            }
           >
-            <EscolhaDaFolha rotulo="O que foi?">
-              <Segmented
-                ariaLabel="Motivo da diferença"
-                value={tipoDiferenca}
-                onChange={setTipoDiferenca}
-                options={[
-                  { value: 'iss', label: 'ISS retido' },
-                  { value: 'desconto', label: 'Desconto' },
+            <div className="flex flex-col gap-2">
+              {/* Rótulo visível; o nome acessível do grupo vem de `rotuloAcessivel`. */}
+              <p aria-hidden className="text-texto-meta font-medium text-t2">
+                O que foi?
+              </p>
+              <FiltrosRapidos
+                rotuloAcessivel="Motivo da diferença"
+                ativo={tipoDiferenca}
+                aoMudar={setTipoDiferenca}
+                filtros={[
+                  { id: 'iss', rotulo: 'ISS retido' },
+                  { id: 'desconto', rotulo: 'Desconto' },
                 ]}
               />
-            </EscolhaDaFolha>
+            </div>
             <Dica>
               {tipoDiferenca === 'iss'
                 ? 'A construtora desconta o ISS no ato do pagamento e recolhe no lugar da imobiliária: esse dinheiro nunca passa pelo caixa. O Simples passa a incidir sobre a parcela já líquida de ISS.'
@@ -294,66 +395,21 @@ export function ReceberParcela({
                 placeholder="Ex.: ISS retido pela construtora"
               />
             </FormField>
-          </BlocoDaFolha>
+          </Bloco>
         )}
 
-        {/*
-         * A CASCATA, antes de gravar.
-         *
-         * Esta é a chance de conferir a conta contra o extrato enquanto ela
-         * ainda não existe. A ordem é a do banco (migração 009) e a mesma da
-         * ficha da venda — mesma ordem, mesmo alinhamento, mesmo peso, para
-         * que os dois números possam ser comparados sem tradução.
-         *
-         * O total NÃO leva tinta verde: verde significa dinheiro que se moveu,
-         * e aqui nada se moveu ainda. Ele só fica verde depois da baixa.
-         */}
-        <BlocoDaFolha
+        {/* No celular a conta desce para o corpo; a partir de 640px ela está no rodapé. */}
+        <Bloco
           titulo="A conta que vai ser gravada"
           icone={Calculator}
+          separado
           descricao="na ordem do banco: impostos, base e corretor"
+          className="sm:hidden"
         >
-          <QuadroDaConta>
-            <Cascata>
-              <LinhaCascata
-                rotulo="Parcela da comissão"
-                detalhe={parcela.count > 1 ? `${parcela.idx} de ${parcela.count}` : undefined}
-                valor={parcela.amount}
-              />
-              {iss > 0 && (
-                <LinhaCascata
-                  subtracao
-                  rotulo="ISS retido na fonte"
-                  detalhe={`${pct(parcela.amount > 0 ? (iss / parcela.amount) * 100 : 0)} retido pela construtora`}
-                  valor={iss}
-                />
-              )}
-              {previa.simples > 0 && (
-                <LinhaCascata
-                  subtracao
-                  rotulo="Imposto (Simples)"
-                  detalhe={`${pct(venda.simples_pct)} sobre a parcela líquida de ISS`}
-                  valor={previa.simples}
-                />
-              )}
-              <LinhaCascata
-                rotulo="Base de cálculo"
-                detalhe="o que sobra depois dos impostos"
-                valor={previa.base}
-              />
-              {previa.broker > 0 && (
-                <LinhaCascata
-                  subtracao
-                  rotulo={`Comissão de ${corretor}`}
-                  detalhe={`base × ${pct(venda.broker_pct ?? 0)}`}
-                  valor={previa.broker}
-                />
-              )}
-              {outro > 0 && <LinhaCascata subtracao rotulo="Desconto concedido" valor={outro} />}
-              <TotalCascata rotulo="Fica para a imobiliária" valor={previa.net - outro} />
-            </Cascata>
-          </QuadroDaConta>
+          {contaGravada}
+        </Bloco>
 
+        <Bloco titulo="Ao confirmar" icone={CircleCheck} separado>
           {iss > 0 && (
             <Dica>
               O ISS retido na fonte não sai do caixa da imobiliária: a construtora já desconta no ato do
@@ -361,33 +417,69 @@ export function ReceberParcela({
               pagar.
             </Dica>
           )}
-
-          <AoConfirmar
-            itens={[
-              {
-                icone: CircleCheck,
-                texto: `A receita de ${formatCurrency(parcela.amount)} é liquidada${conta ? ` em ${conta.name}` : ', com a conta a definir'}.`,
-              },
-              ...(previa.simples > 0
-                ? [
-                    {
-                      icone: Landmark,
-                      texto: `O Simples de ${formatCurrency(previa.simples)} entra em A pagar, com guia no dia 20 do mês seguinte.`,
-                    },
-                  ]
-                : []),
-              ...(previa.broker > 0
-                ? [
-                    {
-                      icone: HandCoins,
-                      texto: `A comissão de ${corretor}, de ${formatCurrency(previa.broker)}, fica liberada para pagamento.`,
-                    },
-                  ]
-                : []),
-            ]}
-          />
-        </BlocoDaFolha>
-      </div>
+          <div className="flex flex-col gap-2">
+            {aoConfirmar.map((item) => (
+              <p key={item.texto} className="flex items-start gap-3 text-texto-corrido text-t2">
+                <span className="flex h-5 shrink-0 items-center text-t3">
+                  <Icone icone={item.icone} tamanho={16} />
+                </span>
+                <span className="min-w-0">{item.texto}</span>
+              </p>
+            ))}
+          </div>
+        </Bloco>
+      </form>
     </SidePanel>
+  )
+}
+
+/** Um bloco com nome dentro do painel: ícone 16 + `titulo-secao`, sem caixa (7.10). */
+function Bloco({
+  titulo,
+  icone,
+  descricao,
+  separado,
+  className,
+  children,
+}: {
+  titulo: ReactNode
+  icone: LucideIcon
+  descricao?: ReactNode
+  /** Fio de linha acima: separa o bloco do anterior (9.6). */
+  separado?: boolean
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <section className={cn('flex flex-col gap-4', separado && 'border-t border-fio-linha pt-8', className)}>
+      <div className="flex min-w-0 items-start gap-2">
+        <span className="flex h-6 shrink-0 items-center text-t3">
+          <Icone icone={icone} tamanho={16} />
+        </span>
+        <div className="flex min-w-0 flex-col gap-1">
+          <h3 className="font-heading text-titulo-secao text-t1">{titulo}</h3>
+          {descricao && <p className="text-texto-meta text-t-meta">{descricao}</p>}
+        </div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+/**
+ * Aviso de risco: ícone e título dizem o estado (cor nunca sozinha, 5.1).
+ * `status` enquanto se digita, `alert` quando a gravação falhou.
+ */
+function Aviso({ titulo, papel, children }: { titulo: string; papel: 'alert' | 'status'; children: ReactNode }) {
+  return (
+    <div role={papel} className="flex items-start gap-3 rounded-caixa border border-error-line bg-error-bg px-4 py-3">
+      <span className="flex h-5 shrink-0 items-center text-error-ink">
+        <Icone icone={CircleAlert} tamanho={16} />
+      </span>
+      <div className="flex min-w-0 flex-col gap-1 text-texto-corrido">
+        <p className="font-medium text-t1">{titulo}</p>
+        <p className="text-t2">{children}</p>
+      </div>
+    </div>
   )
 }

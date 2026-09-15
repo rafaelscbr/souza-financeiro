@@ -85,7 +85,7 @@ export function FilaDeAcao({ itens, titulo = 'Próxima ação', vazio, className
               titulo={item.titulo}
               meta={
                 <span className="meta">
-                  <span>{item.motivo}</span>
+                  <span data-longo>{item.motivo}</span>
                   {item.prazo && <span>{item.prazo}</span>}
                 </span>
               }

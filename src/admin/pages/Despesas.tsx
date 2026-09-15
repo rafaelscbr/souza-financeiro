@@ -1,60 +1,47 @@
 import { useMemo, useState } from 'react'
-import { Download, Plus, Receipt, RotateCcw, Trash2 } from 'lucide-react'
+import { CalendarClock, Download, MoreHorizontal, Receipt, RotateCcw, Trash2 } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { LancarDespesa } from '../LancarDespesa'
 import { BaixarLancamento } from '../BaixarLancamento'
 import { useComposicao } from '@/components/composicao/Composicao'
-import { Heroi } from '@/components/ui/Assinatura'
-import { Secao } from '@/components/ui/Secao'
-import { Lista, Linha } from '@/components/ui/Lista'
-import { Valor, ValorComOrigem } from '@/components/ui/Valor'
+import { PageLayout } from '@/components/layout/PageLayout'
+import { Heroi } from '@/components/ui/Heroi'
+import { Cartao } from '@/components/ui/Cartao'
+import { Linha } from '@/components/ui/Lista'
+import { Valor } from '@/components/ui/Valor'
 import { Selo } from '@/components/ui/Selo'
 import { ChipSituacao } from '@/components/ui/Situacao'
 import { Button } from '@/components/ui/Button'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { EstadoVazio } from '@/components/ui/Estados'
+import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
+import { SidePanel } from '@/components/ui/SidePanel'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { buildRecurringInput, pendingRecurring } from '@/lib/recurring'
 import { situacaoDeTela, type Situacao } from '@/lib/situacao'
 import { formatCurrency, formatDate, formatMonthYear } from '@/lib/format'
-import { cn } from '@/lib/utils'
 import type { Transaction } from '@/types'
 
 /*
- * DESPESAS E OUTRAS ENTRADAS — o razão do dia a dia.
+ * DESPESAS E OUTRAS ENTRADAS — o razão do dia a dia (9.7).
  *
- * O recorte não mudou e continua sendo o certo: comissão, imposto e repasse
- * vivem na ficha da venda, e misturá-los aqui era o que fazia a lista ter 40
- * linhas por venda e virar ilegível.
+ * Comissão, imposto e repasse vivem na ficha da venda; aqui só o que foi
+ * lançado fora de venda. A migração é só de APRESENTAÇÃO: o recorte do mês, o
+ * filtro, os totais, as situações, o CSV e as ações são os de antes.
  *
- * O que mudou é a apresentação, e ela estava fora do sistema em quatro pontos
- * verificáveis:
+ * 1. Cabeçalho da casca com o CTA "Lançar despesa" (o mesmo painel de antes).
+ * 2. Faixa: seletor de mês + filtros Todos / Liquidados / Em aberto.
+ * 3. Herói ouro "Despesa no mês", com "Outras entradas do mês" como apoio
+ *    (não soma). Os dois abrem os lançamentos que os formam.
+ * 4. Cartão das fixas ainda não lançadas, com "Lançar todas em aberto".
+ * 5. Cartão "Lançamentos": Paguei/Recebi (ou Desfazer) sempre visível; o "⋯"
+ *    leva a Excluir, que confirma no ConfirmDialog.
  *
- * 1. Dois CARTÕES com `shadow-card` lado a lado. `--c-base` e `--c-surface` são
- *    o mesmo hex desde a virada do sistema, então o cartão era uma sombra em
- *    volta de nada — e `shadow-card` nem existe mais. Separação é fio.
- *
- * 2. Uma GRADE DE INDICADORES ("Saiu no mês" / "Entrou fora de venda") no lugar
- *    de um herói. A regra de um número em degrau herói por tela é a mesma regra
- *    que obriga a tela a declarar qual pergunta responde. A pergunta desta tela
- *    é "quanto de despesa neste mês": "Saiu" virou o herói, "Entrou" virou uma
- *    linha, e os dois pararam de disputar o mesmo posto.
- *
- * 3. Rótulos em `text-[11px]` — abaixo do piso de 12px — e o dinheiro da lista
- *    em `text-sm`, que é o degrau do metadado, não o de comparação. Conferir 20
- *    lançamentos contra o extrato depende de eles estarem todos no mesmo degrau
- *    (22px) e pousarem na mesma borda direita.
- *
- * 4. O aviso de despesa fixa vinha em `bg-brandblue-soft` com borda colorida —
- *    um azul que nunca existiu na marca e que saiu junto com o token.
- *
- * E o total passa a ter origem: ele abre nos lançamentos que o formam, um a um,
- * e diz quantos deles ainda estão em aberto.
+ * Carregando e erro são da casca (CascaDaPagina); o vazio mora no cartão.
  *
  * DEFEITO CONHECIDO, DEIXADO COMO ESTÁ (esta passagem é só de apresentação):
  * `totais` é somado sobre `doMes`, que já vem filtrado pelo seletor
- * Todos/Liquidados/Em aberto. Trocar o filtro muda o número do herói. A
- * correção mexe no cálculo e no conteúdo do CSV, então ficou relatada em vez de
- * feita aqui.
+ * Todos/Liquidados/Em aberto. Trocar o filtro muda o número do herói.
  */
 
 const FILTROS = [
@@ -72,6 +59,9 @@ export function Despesas() {
   const [nova, setNova] = useState(false)
   const [baixando, setBaixando] = useState<Transaction | null>(null)
   const [gerando, setGerando] = useState(false)
+  const [menuDe, setMenuDe] = useState<Transaction | null>(null)
+  const [excluindo, setExcluindo] = useState<Transaction | null>(null)
+  const [apagando, setApagando] = useState(false)
 
   const chaveMes = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`
 
@@ -187,206 +177,245 @@ export function Despesas() {
     }
   }
 
-  return (
-    <div className="animate-fade-in">
-      {/* O nome da tela já está na navegação e o mês no cabeçalho da casca; o
-       * rótulo assinatura do herói é o que declara a pergunta. O h1 fica para
-       * quem lê com leitor de tela. */}
-      <h1 className="sr-only">Despesas e outras entradas</h1>
+  const nomeDe = (t: Transaction) => t.description || t.category
 
+  /** O lançamento aberto sozinho: o que ele é, na folha de composição. */
+  const abrirLancamento = (t: Transaction) =>
+    abrir({
+      rotulo: t.kind === 'income' ? 'Entrada' : 'Despesa',
+      titulo: nomeDe(t),
+      total: t.amount,
+      itens: [item(t)],
+    })
+
+  const abrirSaidas = () =>
+    abrir({
+      rotulo: 'Despesa no mês',
+      titulo: `Despesas de ${formatMonthYear(mes)}`,
+      explica:
+        'Cada saída lançada fora de venda neste mês, paga ou ainda em aberto. Comissão, imposto e repasse de venda não entram: eles vivem na ficha da venda.',
+      total: totais.saiu,
+      itens: saidas.map(item),
+      nota:
+        saidasEmAberto > 0
+          ? `${saidasEmAberto} de ${saidas.length} ainda estão em aberto — este total soma o que já saiu com o que ainda vai sair.`
+          : undefined,
+      vazio: 'Nenhuma saída neste mês.',
+    })
+
+  const abrirEntradas = () =>
+    abrir({
+      rotulo: 'Entrou, fora de venda',
+      titulo: `Entradas de ${formatMonthYear(mes)}`,
+      explica: 'Receita lançada à mão neste mês. Comissão de venda não entra aqui — ela nasce da ficha da venda.',
+      total: totais.entrou,
+      itens: entradas.map(item),
+      vazio: 'Nenhuma entrada neste mês.',
+    })
+
+  async function confirmarExclusao() {
+    if (!excluindo) return
+    setApagando(true)
+    try {
+      await excluirLancamento(excluindo.id)
+    } finally {
+      setApagando(false)
+      setExcluindo(null)
+    }
+  }
+
+  const faixa = (
+    <FiltrosRapidos
+      rotuloAcessivel="Filtrar lançamentos"
+      ativo={filtro}
+      aoMudar={setFiltro}
+      filtros={FILTROS.map((f) => ({ id: f.valor, rotulo: f.rotulo }))}
+    />
+  )
+
+  return (
+    <PageLayout
+      subtitulo={`${doMes.length === 1 ? '1 lançamento' : `${doMes.length} lançamentos`} fora de venda em ${formatMonthYear(mes)}`}
+      faixa={faixa}
+      cta={{ rotulo: 'Lançar despesa', rotuloCurto: 'Lançar', aoClicar: () => setNova(true) }}
+    >
       <Heroi
+        variante="ouro"
         rotulo="Despesa no mês"
-        contexto={`Tudo que saiu e o que ainda vai sair em ${formatMonthYear(mes)}, fora da venda. Comissão, imposto e repasse não entram aqui: eles vivem na ficha da venda.`}
-        acao={
-          <Button onClick={() => setNova(true)}>
-            <Plus className="h-4 w-4" />
-            Lançar
-          </Button>
-        }
-      >
-        <ValorComOrigem
-          valor={totais.saiu}
-          posto="heroi"
-          rotuloAcessivel="Ver quais lançamentos formam a despesa do mês"
-          aoAbrir={() =>
-            abrir({
-              rotulo: 'Despesa no mês',
-              titulo: `Despesas de ${formatMonthYear(mes)}`,
-              explica:
-                'Cada saída lançada fora de venda neste mês, paga ou ainda em aberto. Comissão, imposto e repasse de venda não entram: eles vivem na ficha da venda.',
-              total: totais.saiu,
-              itens: saidas.map(item),
-              nota:
-                saidasEmAberto > 0
-                  ? `${saidasEmAberto} de ${saidas.length} ainda estão em aberto — este total soma o que já saiu com o que ainda vai sair.`
-                  : undefined,
-              vazio: 'Nenhuma saída neste mês.',
-            })
-          }
-        />
-      </Heroi>
+        valor={totais.saiu}
+        aoAbrir={abrirSaidas}
+        rotuloAcessivel="Ver quais lançamentos formam a despesa do mês"
+        frase={`Tudo que saiu e o que ainda vai sair em ${formatMonthYear(mes)}, fora da venda. Comissão, imposto e repasse não entram aqui: eles vivem na ficha da venda.`}
+        apoios={[
+          {
+            rotulo: 'Outras entradas do mês',
+            valor: totais.entrou,
+            aoAbrir: abrirEntradas,
+            rotuloAcessivel: 'Ver quais entradas formam este total',
+          },
+        ]}
+      />
 
       {fixasPendentes.length > 0 && (
-        <Secao titulo="Despesas fixas ainda não lançadas">
-          <Lista>
-            {fixasPendentes.map((c) => (
-              <Linha
-                key={c.template.id}
-                selo={<Selo situacao="prevista" glifo="traco" />}
-                titulo={c.template.description || c.template.category}
-                meta={`modelo do lançamento de ${c.sourceMonth.slice(5, 7)}/${c.sourceMonth.slice(0, 4)}`}
-                valor={<Valor valor={c.template.amount} posto="linha" tinta="text-content-muted" />}
-              />
-            ))}
-          </Lista>
-          <Button className="mt-3" onClick={gerarFixas} disabled={gerando}>
-            Lançar todas em aberto
-          </Button>
-          <p className="mt-2 text-sm text-content-faint">
-            Nascem em aberto, com o valor do último mês. Dar baixa é que faz o dinheiro sair.
-          </p>
-        </Secao>
-      )}
-
-      <Secao titulo="Entrou, fora de venda">
-        <Lista>
-          <Linha
-            titulo="Outras entradas do mês"
-            meta="receita que não é comissão de venda — reembolso, aluguel, devolução"
-            valor={
-              entradas.length > 0 ? (
-                <ValorComOrigem
-                  valor={totais.entrou}
-                  tinta="text-income"
-                  rotuloAcessivel="Ver quais entradas formam este total"
-                  aoAbrir={() =>
+        <Cartao rotuloAcessivel="Despesas fixas ainda não lançadas">
+          <Cartao.Cabecalho titulo="Despesas fixas ainda não lançadas" icone={CalendarClock} />
+          <Cartao.Lista
+            rotuloAcessivel="Despesas fixas ainda não lançadas"
+            colunas={{ goteira: true, valor: true, fim: true }}
+          >
+            {fixasPendentes.map((c) => {
+              const titulo = c.template.description || c.template.category
+              const meta = `modelo do lançamento de ${c.sourceMonth.slice(5, 7)}/${c.sourceMonth.slice(0, 4)}`
+              return (
+                <Linha
+                  key={c.template.id}
+                  goteira={<Selo situacao="prevista" />}
+                  titulo={titulo}
+                  meta={meta}
+                  valor={<Valor valor={c.template.amount} posto="linha" previsto />}
+                  aoClicar={() =>
                     abrir({
-                      rotulo: 'Entrou, fora de venda',
-                      titulo: `Entradas de ${formatMonthYear(mes)}`,
-                      explica:
-                        'Receita lançada à mão neste mês. Comissão de venda não entra aqui — ela nasce da ficha da venda.',
-                      total: totais.entrou,
-                      itens: entradas.map(item),
+                      rotulo: 'Despesa fixa',
+                      titulo,
+                      explica: 'Ainda não lançada neste mês. Nasce em aberto, com o valor do último mês.',
+                      total: c.template.amount,
+                      itens: [{ id: c.template.id, titulo, meta, valor: c.template.amount, situacao: 'prevista' }],
                     })
                   }
                 />
-              ) : (
-                <Valor valor={0} tinta="text-content-muted" />
               )
-            }
-          />
-        </Lista>
-      </Secao>
+            })}
+          </Cartao.Lista>
+          <Cartao.Rodape>
+            <span className="min-w-0 max-w-[62ch]">
+              Nascem em aberto, com o valor do último mês. Dar baixa é que faz o dinheiro sair.
+            </span>
+            <Button variant="secundario" onClick={gerarFixas} carregando={gerando} disabled={gerando}>
+              Lançar todas em aberto
+            </Button>
+          </Cartao.Rodape>
+        </Cartao>
+      )}
 
-      <Secao
-        titulo="Lançamentos"
-        acao={
-          /* O seletor é escrito aqui, e não com `Segmented`, por um motivo
-           * medido: os botões daquele componente têm `h-9` — 36px, abaixo do
-           * piso de toque de 44px do sistema. */
-          <div role="radiogroup" aria-label="Filtrar lançamentos" className="flex gap-1">
-            {FILTROS.map((f) => (
-              <button
-                key={f.valor}
-                type="button"
-                role="radio"
-                aria-checked={filtro === f.valor}
-                onClick={() => setFiltro(f.valor)}
-                className={cn(
-                  'min-h-toque rounded-lg px-3 text-base transition-colors',
-                  filtro === f.valor
-                    ? 'bg-action font-semibold text-action-ink'
-                    : 'font-medium text-content-muted hover:bg-surface-2 hover:text-content',
-                )}
-              >
-                {f.rotulo}
-              </button>
-            ))}
-          </div>
-        }
-      >
+      <Cartao rotuloAcessivel="Lançamentos">
+        <Cartao.Cabecalho
+          titulo="Lançamentos"
+          icone={Receipt}
+          extra={
+            doMes.length > 0 ? (
+              <Button variant="secundario" size="sm" icone={Download} onClick={exportar}>
+                Baixar CSV do mês
+              </Button>
+            ) : undefined
+          }
+        />
         {doMes.length === 0 ? (
-          <EmptyState
-            icon={<Receipt className="h-8 w-8" />}
-            title={filtro === 'todos' ? 'Nada lançado neste mês' : 'Nada neste filtro'}
-            description="Use o botão Lançar para registrar uma despesa em três toques."
+          <EstadoVazio
+            icone={Receipt}
+            titulo={filtro === 'todos' ? 'Nada lançado neste mês' : 'Nada neste filtro'}
+            descricao="Use o botão Lançar para registrar uma despesa em três toques."
           />
         ) : (
-          <>
-            <Lista>
-              {doMes.map((t) => {
-                const s = situacaoDoLancamento(t)
-                const entrada = t.kind === 'income'
-                return (
-                  <Linha
-                    key={t.id}
-                    selo={<Selo situacao={s} glifo="traco" />}
-                    titulo={t.description || t.category}
-                    meta={[formatDate(dataDe(t)), t.category, t.contact_id ? nomePorContato.get(t.contact_id) : null]
-                      .filter(Boolean)
-                      .join(' · ')}
-                    situacao={<ChipSituacao situacao={s} />}
-                    /* O sinal é o menos de verdade, em calha própria: entrada
-                     * sobe, saída desce, e as duas continuam alinhadas na mesma
-                     * borda direita. */
-                    valor={
-                      <Valor
-                        valor={entrada ? t.amount : -t.amount}
-                        posto="linha"
-                        tinta={entrada ? 'text-income' : undefined}
-                      />
-                    }
-                    acao={
-                      <div className="flex items-center gap-1">
-                        {t.status === 'pending' ? (
-                          <Button variant="secondary" onClick={() => setBaixando(t)}>
-                            {entrada ? 'Recebi' : 'Paguei'}
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => estornarLancamento(t.id, t.settled_date ?? t.competence_date)}
-                            aria-label={`Desfazer baixa de ${t.description || t.category}`}
-                            title="Desfazer baixa"
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (confirm(`Excluir "${t.description || t.category}" de ${formatCurrency(t.amount)}?`)) {
-                              excluirLancamento(t.id)
-                            }
-                          }}
-                          aria-label={`Excluir ${t.description || t.category}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
+          <Cartao.Lista
+            rotuloAcessivel="Lançamentos do mês, do mais recente ao mais antigo"
+            chaveEscada={filtro}
+            colunas={{ goteira: true, situacao: true, valor: true, acao: '9.5rem', fim: true }}
+          >
+            {doMes.map((t) => {
+              const s = situacaoDoLancamento(t)
+              const entrada = t.kind === 'income'
+              return (
+                <Linha
+                  key={t.id}
+                  goteira={<Selo situacao={s} />}
+                  titulo={nomeDe(t)}
+                  meta={[formatDate(dataDe(t)), t.category, t.contact_id ? nomePorContato.get(t.contact_id) : null]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  situacao={<ChipSituacao situacao={s} />}
+                  /* Entrada sobe, saída desce: o sinal é o "−" do próprio Valor. */
+                  valor={
+                    <Valor
+                      valor={entrada ? t.amount : -t.amount}
+                      posto="linha"
+                      estado={entrada ? 'recebido' : undefined}
+                    />
+                  }
+                  aoClicar={() => abrirLancamento(t)}
+                  acao={
+                    <>
+                      {t.status === 'pending' ? (
+                        <Button size="sm" variant="secundario" onClick={() => setBaixando(t)}>
+                          {entrada ? 'Recebi' : 'Paguei'}
                         </Button>
-                      </div>
-                    }
-                  />
-                )
-              })}
-            </Lista>
-            <Button variant="secondary" className="mt-3" onClick={exportar}>
-              <Download className="h-4 w-4" />
-              Baixar CSV do mês
-            </Button>
-          </>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="fantasma"
+                          icone={RotateCcw}
+                          onClick={() => estornarLancamento(t.id, t.settled_date ?? t.competence_date)}
+                          aria-label={`Desfazer baixa de ${nomeDe(t)}`}
+                        >
+                          Desfazer
+                        </Button>
+                      )}
+                      <Button
+                        size="icone"
+                        variant="fantasma"
+                        icone={MoreHorizontal}
+                        aria-label={`Mais ações de ${nomeDe(t)}: excluir`}
+                        onClick={() => setMenuDe(t)}
+                      />
+                    </>
+                  }
+                />
+              )
+            })}
+          </Cartao.Lista>
         )}
-      </Secao>
+        <Cartao.Rodape>
+          <span className="min-w-0 max-w-[80ch]">
+            Esta tela é o razão fora da venda. Comissão de corretor, ISS, Simples e repasse de sócio nascem da ficha
+            da venda e são conferidos lá — é o que mantém esta lista com o tamanho de um mês, e não com o tamanho da
+            carteira.
+          </span>
+        </Cartao.Rodape>
+      </Cartao>
 
-      <p className="mt-8 border-t border-rule pt-3 text-sm text-content-muted">
-        Esta tela é o razão fora da venda. Comissão de corretor, ISS, Simples e repasse de sócio
-        nascem da ficha da venda e são conferidos lá — é o que mantém esta lista com o tamanho de um
-        mês, e não com o tamanho da carteira.
-      </p>
+      {/* O "⋯" do lançamento: excluir sai da linha e passa por confirmação. */}
+      <SidePanel
+        aberto={!!menuDe}
+        aoFechar={() => setMenuDe(null)}
+        titulo="Ações do lançamento"
+        subtitulo={menuDe ? `${nomeDe(menuDe)} · ${formatCurrency(menuDe.amount)}` : undefined}
+        forma="folha"
+      >
+        <div className="flex flex-col gap-3">
+          <Button
+            variant="perigo"
+            size="lg"
+            icone={Trash2}
+            onClick={() => {
+              setExcluindo(menuDe)
+              setMenuDe(null)
+            }}
+          >
+            Excluir lançamento
+          </Button>
+        </div>
+      </SidePanel>
+
+      <ConfirmDialog
+        aberto={!!excluindo}
+        aoFechar={() => setExcluindo(null)}
+        titulo={excluindo ? `Excluir "${nomeDe(excluindo)}" de ${formatCurrency(excluindo.amount)}?` : 'Excluir lançamento?'}
+        rotuloConfirmar="Excluir"
+        aoConfirmar={confirmarExclusao}
+        ocupado={apagando}
+      />
 
       <LancarDespesa aberto={nova} onFechar={() => setNova(false)} />
       <BaixarLancamento tx={baixando} onFechar={() => setBaixando(null)} />
-    </div>
+    </PageLayout>
   )
 }

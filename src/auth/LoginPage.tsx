@@ -1,9 +1,10 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useAuth } from './AuthContext'
+import { CalendarCheck, Calculator, Smartphone, type LucideIcon } from 'lucide-react'
 import { Lockup, MarcaDagua } from '@/components/marca/Marca'
+import { Icone } from '@/components/ui/Icone'
 import { Button } from '@/components/ui/Button'
 import { FormField, Input } from '@/components/ui/Field'
-import { Spinner } from '@/components/ui/Spinner'
 
 /*
  * A PORTA DE ENTRADA.
@@ -26,93 +27,95 @@ import { Spinner } from '@/components/ui/Spinner'
  * O painel é SEMPRE escuro, nos dois temas, porque ele é a capa. O lado do
  * formulário obedece à preferência do usuário.
  *
- * Todos os contrastes do painel foram calculados sobre o ponto MAIS CLARO do
- * gradiente, que é onde eles são piores: creme 13,11:1, secundária 7,83:1,
- * ouro 6,70:1.
+ * Os contrastes do painel são medidos no ponto MAIS CLARO do degradê, que é
+ * onde eles são piores (docs/souza-os-fundamentos.md, 9.9).
  */
 
-const PAINEL = 'linear-gradient(155deg, #101A38 0%, #1C2E5E 48%, #080D1C 100%)'
+/*
+ * O degradê do painel sai de tokens que valem o mesmo nos dois temas
+ * (--brand-fill-text é o Marinho, --brand-fill é a Areia): o painel não troca
+ * de cor quando a tela troca de tema. Os tons de texto são misturas de branco
+ * com essas tintas, medidos no ponto mais claro do degradê (aceite, item 20).
+ */
+const PAINEL =
+  'linear-gradient(158deg, color-mix(in srgb, var(--brand-fill-text) 86%, white) 0%, var(--brand-fill-text) 52%, color-mix(in srgb, var(--brand-fill-text) 52%, black) 100%)'
+const CREME = 'color-mix(in srgb, white 94%, var(--brand-fill))'
+const SECUNDARIA = 'color-mix(in srgb, white 76%, var(--brand-fill-text))'
+const RODAPE = 'color-mix(in srgb, white 64%, var(--brand-fill-text))'
 
-function Prova({ children }: { children: ReactNode }) {
+function Prova({ icone, children }: { icone: LucideIcon; children: ReactNode }) {
   return (
-    <li className="flex items-start gap-3">
-      <span
-        className="mt-[0.45rem] h-1.5 w-1.5 shrink-0 rounded-full"
-        style={{ background: '#E4B23C' }}
-        aria-hidden
-      />
-      <span className="text-base leading-relaxed" style={{ color: '#B9C8EC' }}>
-        {children}
+    <p className="flex items-start gap-3 text-texto-corrido" style={{ color: SECUNDARIA }}>
+      <span className="flex h-5 shrink-0 items-center" style={{ color: 'var(--brand-fill)' }}>
+        <Icone icone={icone} tamanho={16} />
       </span>
-    </li>
+      <span>{children}</span>
+    </p>
   )
 }
 
-/** O painel da marca. Sempre escuro: é a capa do produto. */
+/** O painel da marca. Sempre escuro: é a capa do produto. Não anima. */
 function Painel() {
   return (
-    <aside
-      className="relative isolate overflow-hidden lg:min-h-screen"
+    <div
+      data-painel-marca
+      className="relative isolate flex h-40 flex-col justify-center overflow-hidden px-6 lg:h-auto lg:min-h-dvh lg:justify-start lg:p-12"
       style={{ backgroundImage: PAINEL }}
     >
-      {/*
-       * Marca d'água: só o "S", em tamanho grande, sangrando pela borda de
-       * baixo. Sem a moldura — ela viraria um retângulo arredondado gigante
-       * competindo com o texto.
-       */}
-      <MarcaDagua className="pointer-events-none absolute -bottom-[22%] -left-[8%] h-[86%] w-auto text-white/[0.07] lg:-bottom-[18%] lg:-left-[4%]" />
-      {/* Brilho de ouro no alto, na mesma proporção discreta do logotipo. */}
+      {/* Marca d'água: só o "S", sangrando pela borda de baixo. Decorativa. */}
       <span
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            'radial-gradient(90% 55% at 85% 0%, rgba(228,178,60,0.16) 0%, transparent 62%)',
-        }}
-        aria-hidden
-      />
+        className="pointer-events-none absolute inset-y-0 left-0 flex w-1/2 translate-x-1/2 translate-y-1/4 items-end lg:w-3/4 lg:translate-x-0"
+        style={{ color: CREME }}
+      >
+        <MarcaDagua className="h-full w-auto opacity-[.05]" />
+      </span>
 
-      <div className="relative flex h-full flex-col justify-between gap-10 px-7 py-9 sm:px-10 lg:px-12 lg:py-14">
-        <Lockup className="h-auto w-[11.5rem] lg:w-[14rem]" tema="escuro" />
+      <div className="relative flex flex-col lg:grid lg:h-full lg:grid-rows-[auto_1fr_auto] lg:gap-12" style={{ color: CREME }}>
+        <Lockup className="h-10 w-auto self-start lg:h-12" tema="escuro" />
 
-        <div className="max-w-[30rem]">
-          <h1
-            className="cifra text-3xl font-bold leading-[1.12] tracking-[-0.02em] lg:text-4xl"
-            style={{ color: '#F6F3EC' }}
-          >
+        <div className="hidden max-w-[30rem] flex-col gap-6 self-center lg:flex">
+          <p className="font-heading text-numero-heroi font-bold" style={{ color: CREME }}>
             Da venda ao repasse,
             <br />
             sem planilha.
-          </h1>
-          <p className="mt-4 text-base leading-relaxed" style={{ color: '#B9C8EC' }}>
+          </p>
+          <p className="text-texto-corrido" style={{ color: SECUNDARIA }}>
             Cada parcela da comissão, o que já entrou, o que a construtora ainda deve e quanto fica
             para a Souza.
           </p>
-          <ul className="mt-7 hidden space-y-3 lg:block">
-            <Prova>A comissão do corretor sai calculada no recebimento, não no chute</Prova>
-            <Prova>O corretor acompanha sozinho o que tem a receber, e quando</Prova>
-            <Prova>ISS retido e Simples lançados no mês certo</Prova>
-          </ul>
+          <div className="flex flex-col gap-3">
+            <Prova icone={Calculator}>A comissão do corretor sai calculada no recebimento, não no chute</Prova>
+            <Prova icone={Smartphone}>O corretor acompanha sozinho o que tem a receber, e quando</Prova>
+            <Prova icone={CalendarCheck}>ISS retido e Simples lançados no mês certo</Prova>
+          </div>
         </div>
 
-        <p
-          className="assinatura sem-ponto hidden lg:block"
-          style={{ color: '#93A6D4' }}
-        >
+        <p className="hidden text-nota lg:block" style={{ color: RODAPE }}>
           Financeiro · Itajaí SC
         </p>
       </div>
-    </aside>
+    </div>
   )
 }
 
 /** A moldura: painel à esquerda, trabalho à direita. */
 function Moldura({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-papel lg:grid lg:grid-cols-[1.05fr_1fr]">
+    <div className="min-h-dvh bg-page lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)]">
       <Painel />
-      <main className="flex items-center justify-center px-6 py-12 sm:px-10 lg:py-0">
-        <div className="w-full max-w-[22rem]">{children}</div>
+      <main className="flex justify-center px-6 pb-12 pt-8 lg:items-center lg:px-12 lg:py-12">
+        <div className="entrada-pagina flex w-full max-w-[22rem] flex-col gap-6 lg:gap-8">{children}</div>
       </main>
+    </div>
+  )
+}
+
+/** Título e frase de apoio do formulário: 8px entre os dois. */
+function Abertura({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <h1 className="font-heading text-titulo-pagina-m text-t1 lg:text-titulo-pagina">{titulo}</h1>
+      <div className="flex flex-col gap-3 text-texto-meta text-t2">{children}</div>
     </div>
   )
 }
@@ -145,22 +148,22 @@ export function LoginPage() {
   if (modo === 'enviado') {
     return (
       <Moldura>
-        <h2 className="text-lg font-semibold text-content">Pedido registrado</h2>
         {/*
          * Não afirma que a mensagem chegou. Os acessos deste sistema são
          * criados sem e-mail, num login interno que não recebe mensagem — o
          * texto anterior mandava o corretor esperar num beco sem saída.
          */}
-        <p className="mt-2 text-base text-content-muted">
-          Se <strong className="font-medium text-content">{email}</strong> for uma caixa de e-mail
-          de verdade e existir conta ligada a ela, o link chega em alguns minutos e vale por uma
-          hora.
-        </p>
-        <p className="mt-3 text-base text-content-muted">
-          Se você é corretor, seu acesso não tem e-mail: fale com a imobiliária para redefinir a
-          senha.
-        </p>
-        <Button variant="secondary" className="mt-6 w-full" onClick={() => setModo('entrar')}>
+        <Abertura titulo="Pedido registrado">
+          <p>
+            Se <strong className="font-medium text-t1">{email}</strong> for uma caixa de e-mail de
+            verdade e existir conta ligada a ela, o link chega em alguns minutos e vale por uma hora.
+          </p>
+          <p>
+            Se você é corretor, seu acesso não tem e-mail: fale com a imobiliária para redefinir a
+            senha.
+          </p>
+        </Abertura>
+        <Button variant="secundario" size="lg" className="w-full" onClick={() => setModo('entrar')}>
           Voltar
         </Button>
       </Moldura>
@@ -169,82 +172,85 @@ export function LoginPage() {
 
   return (
     <Moldura>
-      <h2 className="text-lg font-semibold text-content">
-        {modo === 'entrar' ? 'Entrar' : 'Recuperar acesso'}
-      </h2>
-      <p className="mt-1 text-base text-content-muted">
-        {modo === 'entrar'
-          ? 'Use o login que a imobiliária criou para você.'
-          : 'Isto só funciona para acesso criado com caixa de e-mail de verdade.'}
-      </p>
+      <Abertura titulo={modo === 'entrar' ? 'Entrar' : 'Recuperar acesso'}>
+        <p>
+          {modo === 'entrar'
+            ? 'Use o login que a imobiliária criou para você.'
+            : 'Isto só funciona para acesso criado com caixa de e-mail de verdade.'}
+        </p>
+      </Abertura>
 
-      <form onSubmit={enviar} className="mt-6 space-y-4">
-        <FormField label={modo === 'entrar' ? 'Login' : 'E-mail'} htmlFor="email">
-          <Input
-            id="email"
-            data-foco-inicial
-            type={modo === 'entrar' ? 'text' : 'email'}
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            required
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </FormField>
-
-        {modo === 'entrar' && (
-          <FormField label="Senha" htmlFor="senha" error={erro ?? undefined}>
+      <form onSubmit={enviar} className="flex flex-col gap-8">
+        <div className="flex flex-col gap-6">
+          <FormField label={modo === 'entrar' ? 'Login' : 'E-mail'} htmlFor="email">
             <Input
-              id="senha"
-              type="password"
-              autoComplete="current-password"
+              id="email"
+              data-foco-inicial
+              type={modo === 'entrar' ? 'text' : 'email'}
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
               required
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </FormField>
-        )}
 
-        {modo === 'esqueci' && erro && (
-          <p className="text-base text-critical" role="alert">
-            {erro}
-          </p>
-        )}
+          {modo === 'entrar' && (
+            <FormField label="Senha" htmlFor="senha" error={erro ?? undefined}>
+              <Input
+                id="senha"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+              />
+            </FormField>
+          )}
 
-        <Button type="submit" size="lg" className="w-full" disabled={ocupado}>
-          {ocupado ? <Spinner className="h-5 w-5" /> : modo === 'entrar' ? 'Entrar' : 'Enviar link'}
-        </Button>
-
-        {modo === 'entrar' ? (
-          <div className="space-y-1 pt-1">
-            <p className="text-sm text-content-faint">
-              Corretor: sua senha é redefinida pela imobiliária. Fale com o Rafael.
+          {modo === 'esqueci' && erro && (
+            <p className="text-nota font-medium text-error-ink" role="alert">
+              {erro}
             </p>
-            <button
-              type="button"
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <Button type="submit" size="lg" className="w-full" carregando={ocupado}>
+            {modo === 'entrar' ? 'Entrar' : 'Enviar link'}
+          </Button>
+
+          {modo === 'entrar' ? (
+            <>
+              <Button
+                variant="fantasma"
+                className="w-full"
+                onClick={() => {
+                  setErro(null)
+                  setModo('esqueci')
+                }}
+              >
+                Tenho e-mail cadastrado
+              </Button>
+              <p className="text-center text-nota text-t-meta">
+                Corretor: sua senha é redefinida pela imobiliária. Fale com o Rafael.
+              </p>
+            </>
+          ) : (
+            <Button
+              variant="fantasma"
+              className="w-full"
               onClick={() => {
                 setErro(null)
-                setModo('esqueci')
+                setModo('entrar')
               }}
-              className="-mx-2 inline-flex min-h-toque items-center rounded-xl px-2 text-sm font-medium text-action-soft-ink underline decoration-1 underline-offset-2 transition-colors hover:bg-action-soft"
             >
-              Tenho e-mail cadastrado
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              setErro(null)
-              setModo('entrar')
-            }}
-            className="-mx-2 inline-flex min-h-toque items-center rounded-xl px-2 text-sm font-medium text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
-          >
-            Voltar para entrar
-          </button>
-        )}
+              Voltar para entrar
+            </Button>
+          )}
+        </div>
       </form>
     </Moldura>
   )
@@ -274,43 +280,42 @@ export function NovaSenhaPage() {
 
   return (
     <Moldura>
-      <h2 className="text-lg font-semibold text-content">Criar uma senha nova</h2>
-      <p className="mt-1 text-base text-content-muted">
-        Escolha a senha que vai usar de agora em diante.
-      </p>
-      <form onSubmit={enviar} className="mt-6 space-y-4">
-        <FormField label="Nova senha" htmlFor="nova" hint="Pelo menos 8 caracteres">
-          <Input
-            id="nova"
-            data-foco-inicial
-            type="password"
-            autoComplete="new-password"
-            required
-            autoFocus
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-          />
-        </FormField>
-        <FormField label="Repita a senha" htmlFor="repetir" error={erro ?? undefined}>
-          <Input
-            id="repetir"
-            type="password"
-            autoComplete="new-password"
-            required
-            value={repetida}
-            onChange={(e) => setRepetida(e.target.value)}
-          />
-        </FormField>
-        <Button type="submit" size="lg" className="w-full" disabled={ocupado}>
-          {ocupado ? <Spinner className="h-5 w-5" /> : 'Salvar e entrar'}
-        </Button>
-        <button
-          type="button"
-          onClick={() => sair()}
-          className="-mx-2 inline-flex min-h-toque items-center rounded-xl px-2 text-sm font-medium text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
-        >
-          Cancelar
-        </button>
+      <Abertura titulo="Criar uma senha nova">
+        <p>Escolha a senha que vai usar de agora em diante.</p>
+      </Abertura>
+      <form onSubmit={enviar} className="flex flex-col gap-8">
+        <div className="flex flex-col gap-6">
+          <FormField label="Nova senha" htmlFor="nova" hint="Pelo menos 8 caracteres">
+            <Input
+              id="nova"
+              data-foco-inicial
+              type="password"
+              autoComplete="new-password"
+              required
+              autoFocus
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+            />
+          </FormField>
+          <FormField label="Repita a senha" htmlFor="repetir" error={erro ?? undefined}>
+            <Input
+              id="repetir"
+              type="password"
+              autoComplete="new-password"
+              required
+              value={repetida}
+              onChange={(e) => setRepetida(e.target.value)}
+            />
+          </FormField>
+        </div>
+        <div className="flex flex-col gap-4">
+          <Button type="submit" size="lg" className="w-full" carregando={ocupado}>
+            Salvar e entrar
+          </Button>
+          <Button variant="fantasma" className="w-full" onClick={() => sair()}>
+            Cancelar
+          </Button>
+        </div>
       </form>
     </Moldura>
   )
@@ -321,20 +326,20 @@ export function SemAcessoPage() {
   const { email, sair, recarregarPerfil } = useAuth()
   return (
     <Moldura>
-      <h2 className="text-lg font-semibold text-content">Acesso ainda não liberado</h2>
-      <p className="mt-2 text-base text-content-muted">
-        A conta <strong className="font-medium text-content">{email}</strong> existe, mas ainda não
-        está ligada a um corretor. Peça para a imobiliária liberar e tente de novo.
-      </p>
-      <Button variant="secondary" className="mt-6 w-full" onClick={() => recarregarPerfil()}>
-        Já liberaram, verificar
-      </Button>
-      <button
-        onClick={() => sair()}
-        className="-mx-2 mt-2 inline-flex min-h-toque items-center rounded-xl px-2 text-sm font-medium text-content-muted transition-colors hover:bg-surface-2 hover:text-content"
-      >
-        Sair
-      </button>
+      <Abertura titulo="Acesso ainda não liberado">
+        <p>
+          A conta <strong className="font-medium text-t1">{email}</strong> existe, mas ainda não está
+          ligada a um corretor. Peça para a imobiliária liberar e tente de novo.
+        </p>
+      </Abertura>
+      <div className="flex flex-col gap-4">
+        <Button variant="secundario" size="lg" className="w-full" onClick={() => recarregarPerfil()}>
+          Já liberaram, verificar
+        </Button>
+        <Button variant="fantasma" className="w-full" onClick={() => sair()}>
+          Sair
+        </Button>
+      </div>
     </Moldura>
   )
 }

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/Button'
 import { FormField, Input, Select } from '@/components/ui/Field'
 import { useToast } from '@/components/ui/Toast'
 import { Linha } from '@/components/ui/Lista'
-import { Selo } from '@/components/ui/Selo'
 import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
 import { Valor } from '@/components/ui/Valor'
 import { formatCurrency, toDateOnly } from '@/lib/format'
@@ -101,25 +100,25 @@ export function BaixarLancamento({ tx, onFechar }: { tx: Transaction | null; onF
       rodape={
         /* UMA ação primária: a que grava. */
         <RodapeDaFolha erro={erro} tituloDoErro="Baixa não gravada">
-          <Button variant="ghost" size="lg" onClick={fechar} disabled={salvando}>
+          <Button variant="secundario" size="lg" onClick={fechar} disabled={salvando}>
             Cancelar
           </Button>
-          <Button size="lg" className="flex-1" onClick={confirmar} carregando={salvando}>
+          <Button variant="primario" size="lg" onClick={confirmar} carregando={salvando}>
             {entrada ? 'Confirmar recebimento' : 'Confirmar pagamento'}
           </Button>
         </RodapeDaFolha>
       }
     >
-      <div className="space-y-6">
+      <>
         {/*
          * O que está sendo baixado, como linha de extrato: selo e chip com a
          * situação, frase com verbo, valor na coluna da direita. O ícone do
          * bloco diz o sentido do dinheiro, que a linha sozinha não diz.
          */}
         <BlocoDaFolha titulo="O lançamento" icone={entrada ? ArrowDownLeft : ArrowUpRight}>
-          <ListaNaFolha>
+          {/* Sem selo: não há ordinal, e o ícone solto na goteira repetiria o chip. */}
+          <ListaNaFolha rotuloAcessivel="O lançamento" colunas={{ situacao: true, valor: true }}>
             <Linha
-              selo={<Selo situacao={situacao} glifo="traco" />}
               titulo={titulo}
               meta={<FraseDeTempo situacao={situacao} prevista={vencimento} recebida={tx.settled_date} />}
               situacao={<ChipSituacao situacao={situacao} />}
@@ -132,7 +131,7 @@ export function BaixarLancamento({ tx, onFechar }: { tx: Transaction | null; onF
           titulo={entrada ? 'Quando e onde entrou' : 'Quando e de onde saiu'}
           icone={Wallet}
         >
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
             {/*
              * O foco entra na data: o valor já está fechado e a conta já vem
              * com a primeira ativa. A baixa quase sempre é lançada depois do
@@ -182,11 +181,11 @@ export function BaixarLancamento({ tx, onFechar }: { tx: Transaction | null; onF
                 icone: Wallet,
                 texto: conta ? (
                   <>
-                    {formatCurrency(tx.amount)} {entrada ? 'entram em' : 'saem de'} {conta.name}.
+                    <Valor valor={tx.amount} posto="fato" /> {entrada ? 'entram em' : 'saem de'} {conta.name}.
                   </>
                 ) : (
                   <>
-                    {formatCurrency(tx.amount)} {entrada ? 'entram' : 'saem'}, com a conta para definir
+                    <Valor valor={tx.amount} posto="fato" /> {entrada ? 'entram' : 'saem'}, com a conta para definir
                     depois — até lá o saldo não muda.
                   </>
                 ),
@@ -195,7 +194,7 @@ export function BaixarLancamento({ tx, onFechar }: { tx: Transaction | null; onF
             ]}
           />
         </BlocoDaFolha>
-      </div>
+      </>
     </SidePanel>
   )
 }

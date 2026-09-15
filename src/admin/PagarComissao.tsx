@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { BadgePercent, Calculator, HandCoins, Wallet } from 'lucide-react'
 import { useAdmin } from './AdminData'
 import { SidePanel } from '@/components/ui/SidePanel'
@@ -6,13 +7,14 @@ import { Button } from '@/components/ui/Button'
 import { FormField, Input, Select } from '@/components/ui/Field'
 import { CurrencyInput } from '@/components/ui/MoneyInput'
 import { useToast } from '@/components/ui/Toast'
-import { Cascata, LinhaCascata, TotalCascata } from '@/components/ui/Cascata'
+import { Demonstrativo } from '@/components/ui/Demonstrativo'
 import { Linha } from '@/components/ui/Lista'
 import { Selo } from '@/components/ui/Selo'
 import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
-import { Valor } from '@/components/ui/Valor'
+import { Valor, ValorComOrigem } from '@/components/ui/Valor'
 import { Dica } from '@/components/ui/Dica'
 import { formatCurrency, toDateOnly } from '@/lib/format'
+import type { LinhaDemonstrativo } from '@/lib/linhasDaVenda'
 import { situacaoDeTela } from '@/lib/situacao'
 import { BlocoDaFolha, ListaNaFolha, QuadroDaConta, RodapeDaFolha } from './FolhaDeLancamento'
 
@@ -23,6 +25,12 @@ export interface ComissaoAPagar {
   parcela: string
   amount: number
   dueDate: string
+  /**
+   * A venda da parcela. Opcional: quando a tela que abre a folha informa, o
+   * valor da parcela vira link para a parcela na venda (7.10, fim do
+   * drill-down). Sem ele, o valor continua só exibido, como antes.
+   */
+  saleId?: string
 }
 
 /**
@@ -72,6 +80,7 @@ export function PagarComissao({
 }) {
   const { accounts, pagarComissoes, hoje } = useAdmin()
   const { showToast } = useToast()
+  const navigate = useNavigate()
 
   const [data, setData] = useState(toDateOnly(new Date()))
   const [contaId, setContaId] = useState('')
@@ -103,10 +112,23 @@ export function PagarComissao({
    * permite conferir o lote sem abrir a ficha de cada venda.
    */
   const vendas = [...new Set(itens.map((i) => i.saleTitle))]
+  const varias = vendas.length > 1
   const origem =
     vendas.length === 1
       ? `${itens.length} ${itens.length === 1 ? 'parcela' : 'parcelas'} de ${vendas[0]}`
       : `${itens.length} parcelas de ${vendas.length} vendas: ${vendas.join(' · ')}`
+
+  /*
+   * A mesma conta que a cascata antiga desenhava: comissão liberada, menos o
+   * desconto (só com uma parcela e desconto maior que zero), igual a pagar.
+   */
+  const linhasDoTotal: LinhaDemonstrativo[] = [
+    { chave: 'corretor', rotulo: 'Comissão liberada', sinal: '+', valor: total },
+    ...((desconto ?? 0) > 0 && unica
+      ? [{ chave: 'desconto', rotulo: 'Desconto combinado', detalhe: nota || undefined, sinal: '−', valor: desconto ?? 0 } as LinhaDemonstrativo]
+      : []),
+    { chave: 'corretor', rotulo: 'A pagar agora', sinal: '=', valor: aPagar },
+  ]
 
   function fechar() {
     if (!salvando) onFechar()
@@ -153,34 +175,56 @@ export function PagarComissao({
       rodape={
         /* UMA ação primária, e ela diz quanto vai sair. */
         <RodapeDaFolha erro={erro} tituloDoErro="Pagamento não gravado">
-          <Button variant="ghost" size="lg" onClick={fechar} disabled={salvando}>
+          <Button variant="secundario" size="lg" onClick={fechar} disabled={salvando}>
             Cancelar
           </Button>
-          <Button size="lg" className="flex-1" onClick={confirmar} carregando={salvando}>
-            Pagar {formatCurrency(aPagar)}
+          <Button variant="primario" size="lg" onClick={confirmar} carregando={salvando}>
+            Pagar <Valor valor={aPagar} posto="fato" tinta="text-brand-fill-text" />
           </Button>
         </RodapeDaFolha>
       }
     >
-      <div className="space-y-6">
+      <>
         {/*
          * Uma linha por parcela, o valor de todas na MESMA coluna à direita:
          * é assim que dois valores próximos se comparam por contagem de
          * dígitos, sem leitura.
          */}
         <BlocoDaFolha titulo="Parcelas a repassar" icone={HandCoins}>
-          <ListaNaFolha>
+          <ListaNaFolha rotuloAcessivel="Parcelas a repassar">
             {itens.map((i) => {
-              const { idx, count } = ordinal(i.parcela)
+              /*
+               * Parcelas de vendas diferentes não formam uma sequência: o
+               * ordinal sai do selo e vai escrito no título ("· parcela 2/3"),
+               * para os selos não parecerem 2, 2 de uma venda só.
+               */
+              const { idx, count } = varias ? {} : ordinal(i.parcela)
               const situacao = situacaoDeTela('liberada', i.dueDate, hoje)
+              const saleId = i.saleId
               return (
                 <Linha
                   key={i.installmentId}
                   selo={<Selo situacao={situacao} idx={idx} count={count} />}
-                  titulo={i.saleTitle}
+                  titulo={varias ? `${i.saleTitle} · ${i.parcela}` : i.saleTitle}
                   meta={<FraseDeTempo situacao={situacao} prevista={i.dueDate} liberada={i.dueDate} />}
                   situacao={<ChipSituacao situacao={situacao} />}
-                  valor={<Valor valor={i.amount} posto="linha" />}
+                  valor={
+                    saleId ? (
+                      <ValorComOrigem
+                        valor={i.amount}
+                        posto="linha"
+                        chevron="depois"
+                        rotuloAcessivel={`Abrir a ${i.parcela} de ${i.saleTitle}`}
+                        aoAbrir={() => {
+                          if (salvando) return
+                          onFechar()
+                          navigate(`/vendas/${saleId}?parcela=${i.installmentId}`)
+                        }}
+                      />
+                    ) : (
+                      <Valor valor={i.amount} posto="linha" />
+                    )
+                  }
                 />
               )
             })}
@@ -188,7 +232,7 @@ export function PagarComissao({
         </BlocoDaFolha>
 
         <BlocoDaFolha titulo="O pagamento" icone={Wallet}>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
             <FormField label="Data do pagamento" htmlFor="p-data" hint="o dia em que o dinheiro saiu">
               <Input id="p-data" type="date" value={data} onChange={(e) => setData(e.target.value)} />
             </FormField>
@@ -258,22 +302,12 @@ export function PagarComissao({
 
         {/* O total, com a origem escrita embaixo. */}
         <BlocoDaFolha titulo="O total" icone={Calculator}>
-          <QuadroDaConta>
-            <Cascata>
-              <LinhaCascata rotulo="Comissão liberada" valor={total} />
-              {(desconto ?? 0) > 0 && unica && (
-                <LinhaCascata
-                  subtracao
-                  rotulo="Desconto combinado"
-                  detalhe={nota || undefined}
-                  valor={desconto ?? 0}
-                />
-              )}
-              <TotalCascata rotulo="A pagar agora" valor={aPagar} nota={origem} />
-            </Cascata>
+          <QuadroDaConta className="flex flex-col gap-2">
+            <Demonstrativo linhas={linhasDoTotal} rotuloAcessivel="Total do pagamento" />
+            <p className="text-t-meta text-nota">{origem}</p>
           </QuadroDaConta>
         </BlocoDaFolha>
-      </div>
+      </>
     </SidePanel>
   )
 }

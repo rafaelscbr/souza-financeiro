@@ -1,10 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { KeyRound } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { Modal } from '@/components/ui/Modal'
+import { SidePanel } from '@/components/ui/SidePanel'
+import { Dica } from '@/components/ui/Dica'
 import { Button } from '@/components/ui/Button'
 import { FormField, Input } from '@/components/ui/Field'
-import { Spinner } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/Toast'
 
 /**
@@ -49,28 +48,33 @@ export function TrocarSenha({ aberto, onFechar }: { aberto: boolean; onFechar: (
   }
 
   return (
-    <Modal
+    <SidePanel
       key={aberto ? 'aberto' : 'fechado'}
-      open={aberto}
-      onClose={onFechar}
-      title="Trocar minha senha"
-      description="Vale imediatamente, neste aparelho e nos outros."
+      aberto={aberto}
+      aoFechar={onFechar}
+      titulo="Trocar minha senha"
+      subtitulo="Vale imediatamente, neste aparelho e nos outros."
+      rodape={
+        <>
+          <Button type="button" variant="secundario" onClick={onFechar} disabled={salvando}>
+            Cancelar
+          </Button>
+          <Button type="submit" form="trocar-senha" carregando={salvando}>
+            Trocar senha
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={enviar} className="space-y-4">
-        <div className="flex items-start gap-2.5 rounded-xl bg-surface-2 px-3.5 py-3">
-          <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-content-faint" />
-          <p className="text-xs text-content-muted">
-            Se você entrou com uma senha temporária, troque agora por uma que só você saiba.
-          </p>
-        </div>
+      <form id="trocar-senha" onSubmit={enviar} className="flex flex-col gap-6">
+        <Dica>Se você entrou com uma senha temporária, troque agora por uma que só você saiba.</Dica>
 
         <FormField label="Nova senha" htmlFor="ts-nova" hint="Pelo menos 8 caracteres">
           <Input
             id="ts-nova"
+            data-foco-inicial
             type="password"
             autoComplete="new-password"
             required
-            autoFocus
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
           />
@@ -86,16 +90,7 @@ export function TrocarSenha({ aberto, onFechar }: { aberto: boolean; onFechar: (
             onChange={(e) => setRepetida(e.target.value)}
           />
         </FormField>
-
-        <div className="flex gap-3 pt-1">
-          <Button type="button" variant="secondary" className="flex-1" onClick={onFechar} disabled={salvando}>
-            Cancelar
-          </Button>
-          <Button type="submit" className="flex-1" disabled={salvando}>
-            {salvando ? <Spinner className="h-5 w-5" /> : 'Trocar senha'}
-          </Button>
-        </div>
       </form>
-    </Modal>
+    </SidePanel>
   )
 }

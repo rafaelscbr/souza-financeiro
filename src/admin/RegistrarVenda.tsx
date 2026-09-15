@@ -1,53 +1,53 @@
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import {
+  Building2,
+  Calculator,
+  ChevronRight,
+  CircleAlert,
+  CircleCheck,
+  ListOrdered,
+  Percent,
+  Plus,
+  type LucideIcon,
+} from 'lucide-react'
 import { useAdmin } from './AdminData'
-import { Modal } from '@/components/ui/Modal'
+import { SidePanel } from '@/components/ui/SidePanel'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Button } from '@/components/ui/Button'
 import { FormField, Input, Select, Textarea } from '@/components/ui/Field'
 import { CurrencyInput, PercentInput } from '@/components/ui/MoneyInput'
-import { Segmented } from '@/components/ui/Segmented'
-import { Spinner } from '@/components/ui/Spinner'
+import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import { useToast } from '@/components/ui/Toast'
-import { Secao } from '@/components/ui/Secao'
-import { Lista } from '@/components/ui/Lista'
-import { Cascata, LinhaCascata, TotalCascata } from '@/components/ui/Cascata'
+import { Demonstrativo } from '@/components/ui/Demonstrativo'
+import { Icone } from '@/components/ui/Icone'
 import { Valor } from '@/components/ui/Valor'
 import { Selo } from '@/components/ui/Selo'
 import { FraseDeTempo } from '@/components/ui/Situacao'
 import { formatCurrency, toDateOnly } from '@/lib/format'
 import { previewCascade, suggestInstallments } from '@/lib/sales'
+import type { LinhaDemonstrativo } from '@/lib/linhasDaVenda'
 import { cn } from '@/lib/utils'
 import type { NewInstallment } from '@/types'
 
 /*
- * REGISTRAR UMA VENDA.
+ * REGISTRAR UMA VENDA (9.6, 7.9, 7.10).
  *
- * Este é o formulário mais longo do app, e o comprimento não é acidente: uma
- * venda carrega 17 campos no payload (`NewSale`), e quatro deles — parceria,
- * nota fiscal, ISS retido, percentual do corretor — são EXCEÇÃO, não regra. A
- * versão anterior punha os 17 no mesmo plano, em três passos que só cortavam o
- * formulário em pedaços: o passo 2 sozinho tinha nove campos visíveis, dos
- * quais cinco não se aplicam à venda típica (à vista, com nota, Simples de 6%,
- * sem parceira).
+ * Uma venda carrega 17 campos no payload (`NewSale`), e quatro deles —
+ * parceria, nota fiscal, ISS retido, percentual do corretor — são EXCEÇÃO.
  *
- * A reorganização tem duas camadas, e é isso que muda o trabalho:
+ * Painel lateral `lg` (672px) com rodapé fixo. OS TRÊS PASSOS CONTINUAM: a
+ * planta 9.6 junta tudo numa rolagem só, mas a validação acontece na troca de
+ * passo e a entrada no passo 3 cria a primeira parcela com a comissão daquele
+ * momento. Juntar mudaria o que é validado e quando, e o que é gravado; então
+ * cada passo virou um bloco com nome, sem caixa dentro do painel.
  *
- * 1. OS TRÊS PASSOS CONTINUAM, mas cada um responde a uma pergunta inteira —
- *    qual venda é, quanto sobra dela, quando o dinheiro chega — e cada um tem
- *    UMA ação primária, que diz para onde leva ("Continuar para a comissão").
+ * Dentro do passo, a exceção fica RECOLHIDA com o estado escrito na dobra
+ * ("nota fiscal com Simples de 6% · construtora retém 3% de ISS").
  *
- * 2. DENTRO DO PASSO, a exceção fica RECOLHIDA, e o estado atual dela fica
- *    escrito em texto na própria dobra: "nota fiscal com Simples de 6% ·
- *    construtora retém 3% de ISS". Recolher sem dizer o estado seria esconder;
- *    o que se recolhe aqui é o CONTROLE, nunca a informação.
- *
- * A prévia da conta usa a mesma cascata do resto do sistema, na ordem fixa da
- * migração 009 (ISS, depois Simples, depois o corretor sobre a base). O
- * formulário mais antigo calculava a comissão do corretor sobre o valor BRUTO
- * e pagava o parceiro a mais — por isso a conta aparece inteira, com o "(−)" e
- * o nome completo de cada tributo, antes de gravar. Conferir antes é mais
- * barato que estornar depois.
+ * A prévia usa `previewCascade` e o Demonstrativo, na ordem da migração 009.
+ * O painel só fecha e mostra o toast depois que o banco confirma; em falha,
+ * o que foi digitado continua e o erro aparece no rodapé, junto do botão.
  *
  * O que NÃO mudou: a conta mora em `previewCascade` e no banco; nenhuma
  * validação foi afrouxada; o payload é o mesmo.
@@ -64,8 +64,9 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
   // Qual dobra de exceção está aberta. Uma por vez: duas abertas devolvem a
   // folha à parede de campos que o recolhimento existe para desfazer.
   const [painel, setPainel] = useState<'parceria' | 'impostos' | 'observacao' | null>(null)
-  // Qual parcela está em edição. A lista se lê como extrato; editar é o desvio.
-  const [editando, setEditando] = useState<number | null>(null)
+  // Fechar com dados preenchidos pede confirmação antes de descartar (9.6).
+  const [descartar, setDescartar] = useState(false)
+  const idForm = useId()
 
   // passo 1
   const [empreendimento, setEmpreendimento] = useState('')
@@ -102,7 +103,7 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
     setPasso(1)
     setErro(null)
     setPainel(null)
-    setEditando(null)
+    setDescartar(false)
     setEmpreendimento('')
     setUnidade('')
     setCliente('')
@@ -176,7 +177,6 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
     if (comissao <= 0) return
     const base = parcelas[0]?.expected_date ?? toDateOnly(new Date())
     setParcelas(suggestInstallments(comissao, n, base))
-    setEditando(null)
   }
 
   function irPara(n: number) {
@@ -267,432 +267,469 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
 
   const titulosDoPasso = ['A venda', 'A comissão', 'As parcelas']
 
+  const sujo = Boolean(
+    empreendimento ||
+      unidade ||
+      cliente ||
+      valorImovel != null ||
+      pctComissao != null ||
+      parceria ||
+      comissaoManual ||
+      corretor ||
+      parcelas.length > 0 ||
+      observacao,
+  )
+
+  // Escape, Fechar, véu e Cancelar: com dados preenchidos, pergunta antes.
+  function pedirFechar() {
+    if (salvando) return
+    if (sujo) setDescartar(true)
+    else onFechar()
+  }
+
+  const previaProps = { previa, comissao, temNota, retemIss, pctSimples, pctIss, pctCorretor }
+
   return (
-    <Modal
-      open={aberto}
-      onClose={onFechar}
-      title="Registrar venda"
-      description={`Passo ${passo} de 3 · ${titulosDoPasso[passo - 1]}`}
-      largura="largo"
-      footer={
-        /*
-         * Dois botões, e só dois: uma primária e uma saída. A primária diz para
-         * onde leva, porque "Continuar" três vezes seguidas não informa em que
-         * ponto do cadastro a pessoa está.
-         *
-         * A primária do passo 3 NÃO fica desabilitada quando as parcelas não
-         * fecham: botão desabilitado não explica o que falta. A trava continua
-         * onde sempre esteve, dentro de `salvar()`, e quem toca recebe a conta
-         * da diferença escrita.
-         */
-        <div className="flex gap-3">
-          {passo > 1 ? (
-            <Button variant="secondary" onClick={() => irPara(passo - 1)} disabled={salvando}>
-              Voltar
-            </Button>
-          ) : (
-            <Button variant="secondary" onClick={onFechar} disabled={salvando}>
-              Cancelar
-            </Button>
-          )}
-          {passo < 3 ? (
-            <Button variant="primary" className="flex-1" onClick={() => irPara(passo + 1)}>
-              Continuar para {passo === 1 ? 'a comissão' : 'as parcelas'}
-            </Button>
-          ) : (
-            <Button variant="primary" className="flex-1" onClick={salvar} disabled={salvando}>
-              {salvando && <Spinner className="h-5 w-5" />}
-              Registrar venda
-            </Button>
-          )}
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        {passo === 1 && (
-          <>
+    <>
+      <SidePanel
+        aberto={aberto}
+        aoFechar={pedirFechar}
+        titulo="Registrar venda"
+        subtitulo={`Passo ${passo} de 3 · ${titulosDoPasso[passo - 1]}`}
+        largura="lg"
+        chaveConteudo={passo}
+        rodape={
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
             {/*
-             * O empreendimento vem primeiro porque ele PREENCHE o resto: traz o
-             * ISS da construtora e a comissão habitual. Começar por ele é o que
-             * transforma os campos seguintes em conferência em vez de digitação.
+             * O erro mora no rodapé: quem acabou de tocar no botão está com os
+             * olhos aqui, e o fim do corpo pode estar fora da tela.
              */}
-            <FormField
-              label="Empreendimento"
-              htmlFor="v-cc"
-              hint="a construtora escolhida já traz o ISS e o percentual de comissão habituais"
-            >
-              <Select
-                id="v-cc"
-                data-foco-inicial
-                value={empreendimento}
-                onChange={(e) => escolherEmpreendimento(e.target.value)}
+            {erro && (
+              <div
+                role="alert"
+                className="flex items-start gap-3 rounded-caixa border border-error-line bg-error-bg px-4 py-3"
               >
-                <option value="">Selecione…</option>
-                {empreendimentos.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.developer ? ` · ${c.developer}` : ''}
-                  </option>
-                ))}
-              </Select>
-            </FormField>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="Unidade" htmlFor="v-unid" hint="como está no contrato. Ex.: 414-D, apto 1302A">
-                <Input id="v-unid" value={unidade} onChange={(e) => setUnidade(e.target.value)} />
-              </FormField>
-              <FormField label="Data da venda" htmlFor="v-data" hint="dia/mês/ano">
-                <Input id="v-data" type="date" value={dataVenda} onChange={(e) => setDataVenda(e.target.value)} />
-              </FormField>
-            </div>
-
-            <FormField label="Comprador" htmlFor="v-cli" hint="nome de quem assinou">
-              <Input
-                id="v-cli"
-                value={cliente}
-                onChange={(e) => setCliente(e.target.value)}
-                placeholder="Nome de quem comprou"
-              />
-            </FormField>
-
-            <FormField
-              label="Valor do imóvel"
-              htmlFor="v-vgv"
-              hint="em reais, com centavos. Deixe vazio se ainda não souber — dá para informar a comissão direto"
-            >
-              <CurrencyInput id="v-vgv" value={valorImovel} onChange={setValorImovel} />
-            </FormField>
-          </>
-        )}
-
-        {passo === 2 && (
-          <>
-            <FormField
-              label="% da comissão"
-              htmlFor="v-pct"
-              hint="em %, sobre o valor do imóvel. Use vírgula para decimal: 5,5"
-            >
-              <PercentInput id="v-pct" value={pctComissao} onChange={setPctComissao} />
-            </FormField>
-
-            {/*
-             * A comissão do negócio é resultado, não campo — então não veste
-             * caixa de campo. E quando falta dado ela diz o que falta, em vez
-             * de mostrar um travessão ou um zero que pareceria resposta.
-             */}
-            <p className="flex items-baseline justify-between gap-3 border-t border-line pt-2.5">
-              <span className="text-base text-content-muted">Comissão do negócio</span>
-              {comissaoNegocio == null ? (
-                <span className="text-sm text-content-faint">falta o valor do imóvel ou o percentual</span>
-              ) : (
-                <Valor valor={comissaoNegocio} posto="fato" />
-              )}
-            </p>
-
-            <Excecao
-              titulo="Venda em parceria"
-              resumo={
-                parceria
-                  ? `${parceiro || 'imobiliária parceira'} · ${formatarPct(pctSouza)} da comissão do negócio é da Souza`
-                  : 'a comissão inteira é da Souza'
-              }
-              aberta={painel === 'parceria'}
-              aoAlternar={() => setPainel((p) => (p === 'parceria' ? null : 'parceria'))}
-            >
-              <Escolha
-                rotulo="Divide a comissão com outra imobiliária?"
-                hint="a parceria reduz a comissão da imobiliária antes de qualquer imposto"
-              >
-                <Segmented
-                  ariaLabel="Venda em parceria"
-                  value={parceria ? 'sim' : 'nao'}
-                  onChange={(v) => setParceria(v === 'sim')}
-                  options={[
-                    { value: 'sim', label: 'Sim' },
-                    { value: 'nao', label: 'Não' },
-                  ]}
-                />
-              </Escolha>
-              {parceria && (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <FormField label="Imobiliária parceira" htmlFor="v-parc" hint="o nome que vai no histórico da venda">
-                    <Input
-                      id="v-parc"
-                      value={parceiro}
-                      onChange={(e) => setParceiro(e.target.value)}
-                      placeholder="Ex.: Rogga"
-                    />
-                  </FormField>
-                  <FormField label="% que é da Souza" htmlFor="v-pctsouza" hint="em %, da comissão do negócio">
-                    <PercentInput id="v-pctsouza" value={pctSouza} onChange={setPctSouza} />
-                  </FormField>
-                </div>
-              )}
-            </Excecao>
-
-            <FormField
-              label="Comissão da imobiliária"
-              htmlFor="v-com"
-              hint={
-                comissaoManual
-                  ? 'em reais, informado à mão — é este valor que as parcelas vão somar'
-                  : 'em reais, calculado a partir do percentual. Pode ajustar se o contrato traz outro valor'
-              }
-            >
-              <CurrencyInput
-                id="v-com"
-                value={comissaoManual ? comissaoSouza : comissaoCalculada}
-                onChange={(v) => {
-                  setComissaoManual(true)
-                  setComissaoSouza(v)
-                }}
-              />
-            </FormField>
-
-            <FormField label="Corretor" htmlFor="v-corr" hint="deixe em Nenhum se não há comissão a repassar">
-              <Select id="v-corr" value={corretor} onChange={(e) => escolherCorretor(e.target.value)}>
-                <option value="">Nenhum</option>
-                {corretores.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </FormField>
-
-            {corretor && (
-              <FormField
-                label="% do corretor"
-                htmlFor="v-corrpct"
-                hint="em %, sobre a base — a comissão já descontada de ISS e Simples, nunca sobre o bruto"
-              >
-                <PercentInput id="v-corrpct" value={pctCorretor} onChange={setPctCorretor} />
-              </FormField>
-            )}
-
-            <Excecao
-              titulo="Impostos desta venda"
-              resumo={resumoDosImpostos(temNota, pctSimples, retemIss, pctIss)}
-              aberta={painel === 'impostos'}
-              aoAlternar={() => setPainel((p) => (p === 'impostos' ? null : 'impostos'))}
-            >
-              <Escolha
-                rotulo="A imobiliária emite nota fiscal?"
-                hint={temNota ? 'com nota, o Simples incide sobre cada recebimento' : 'sem nota, o Simples não incide'}
-              >
-                <Segmented
-                  ariaLabel="Emite nota fiscal"
-                  value={temNota ? 'sim' : 'nao'}
-                  onChange={(v) => setTemNota(v === 'sim')}
-                  options={[
-                    { value: 'sim', label: 'Sim' },
-                    { value: 'nao', label: 'Não' },
-                  ]}
-                />
-              </Escolha>
-              {temNota && (
-                <FormField label="% do Simples Nacional" htmlFor="v-simples" hint="em %, sobre a comissão menos o ISS">
-                  <PercentInput id="v-simples" value={pctSimples} onChange={setPctSimples} />
-                </FormField>
-              )}
-
-              <Escolha
-                rotulo="A construtora retém o ISS na fonte?"
-                hint={
-                  retemIss
-                    ? 'a construtora desconta o ISS antes de pagar a parcela'
-                    : 'a construtora paga a parcela cheia'
-                }
-              >
-                <Segmented
-                  ariaLabel="Construtora retém ISS"
-                  value={retemIss ? 'sim' : 'nao'}
-                  onChange={(v) => setRetemIss(v === 'sim')}
-                  options={[
-                    { value: 'sim', label: 'Sim' },
-                    { value: 'nao', label: 'Não' },
-                  ]}
-                />
-              </Escolha>
-              {retemIss && (
-                <FormField label="% do ISS" htmlFor="v-isspct" hint="em %, sobre a comissão">
-                  <PercentInput id="v-isspct" value={pctIss} onChange={setPctIss} />
-                </FormField>
-              )}
-            </Excecao>
-
-            <PreviaDaConta
-              previa={previa}
-              comissao={comissao}
-              temNota={temNota}
-              retemIss={retemIss}
-              pctSimples={pctSimples}
-              pctIss={pctIss}
-              pctCorretor={pctCorretor}
-            />
-          </>
-        )}
-
-        {passo === 3 && (
-          <>
-            <Secao
-              titulo="As parcelas"
-              subtotal={
-                <span className="text-sm text-content-muted">
-                  {parcelas.length === 1 ? '1 parcela' : `${parcelas.length} parcelas`}
+                <span className="flex h-5 shrink-0 items-center text-error-ink">
+                  <Icone icone={CircleAlert} tamanho={16} />
                 </span>
-              }
-            >
-              {/*
-               * Os números são AÇÕES ("divida em 3 iguais"), não um estado
-               * selecionado. A versão anterior acendia o botão quando
-               * `parcelas.length === n`, e aí quatro parcelas de valores
-               * irregulares, digitadas à mão, apareciam como se fossem a
-               * sugestão de quatro iguais — o botão mentia sobre o conteúdo da
-               * lista.
-               */}
-              <div className="flex flex-wrap items-center gap-2 pt-1" role="group" aria-label="Dividir a comissão">
-                <span className="text-base text-content-muted">Dividir em partes iguais:</span>
-                {[1, 2, 3, 4].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => gerarParcelas(n)}
-                    disabled={comissao <= 0}
-                    aria-label={`Dividir em ${n} ${n === 1 ? 'parcela' : 'parcelas'} iguais`}
-                    className="cifra h-toque w-toque rounded-lg border border-line bg-surface-2 text-base font-semibold text-content transition-colors hover:bg-action-soft disabled:opacity-50"
-                  >
-                    {n}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setParcelas((p) => [
-                      ...p,
-                      {
-                        idx: p.length + 1,
-                        expected_date: p[p.length - 1]?.expected_date ?? toDateOnly(new Date()),
-                        amount: 0,
-                      },
-                    ])
-                    // A parcela nova nasce em R$ 0,00 e sem data própria: abrir
-                    // já editando poupa o toque que ninguém quer dar duas vezes.
-                    setEditando(parcelas.length)
-                  }}
-                  className="inline-flex h-toque items-center rounded-lg border border-line px-3.5 text-base text-content-muted transition-colors hover:bg-action-soft hover:text-content"
-                >
-                  Acrescentar parcela
-                </button>
+                <p className="min-w-0 text-texto-corrido text-t1">{erro}</p>
               </div>
-
-              <p className="mt-2 text-sm text-content-faint">
-                Contrato de construtora costuma pagar por gatilho, não por mês fixo. Toque na parcela
-                para corrigir a data e o valor conforme o quadro resumo.
-              </p>
-
+            )}
+            {/*
+             * Dois botões, e só dois: uma saída e uma primária que diz para onde
+             * leva. A primária do passo 3 NÃO fica desabilitada quando as
+             * parcelas não fecham: a trava está em `salvar()` e explica a conta.
+             */}
+            <div className="flex flex-wrap items-center justify-end gap-3">
               {/*
-               * A lista se lê como extrato: selo com o ordinal real, a frase de
-               * tempo com verbo, e o dinheiro no degrau de comparação pousando
-               * numa única borda direita. É o que deixa R$ 201,61 e R$ 2.692,89
-               * se compararem por contagem de dígitos, sem ler.
+               * O resumo mora na mesma fileira dos botões, e não no `resumo` do
+               * painel: assim o erro acima ocupa a largura inteira do rodapé. No
+               * celular ele ganha a própria linha, acima dos dois botões. Sem
+               * comissão ainda não há conta: diz o que falta em vez de um zero.
                */}
-              <Lista className="mt-3">
-                {parcelas.map((p, i) => (
-                  <LinhaDeParcela
-                    key={i}
-                    parcela={p}
-                    indice={i}
-                    total={parcelas.length}
-                    aberta={editando === i}
-                    aoAlternar={() => setEditando((e) => (e === i ? null : i))}
-                    aoMudarData={(data) =>
-                      setParcelas((arr) => arr.map((x, j) => (j === i ? { ...x, expected_date: data } : x)))
-                    }
-                    aoMudarValor={(v) =>
-                      setParcelas((arr) => arr.map((x, j) => (j === i ? { ...x, amount: v ?? 0 } : x)))
-                    }
-                    aoRemover={() => {
-                      setParcelas((arr) => arr.filter((_, j) => j !== i).map((x, j) => ({ ...x, idx: j + 1 })))
-                      setEditando(null)
+              <span className="flex min-w-0 flex-1 flex-col max-sm:w-full max-sm:basis-full max-sm:flex-row max-sm:items-center max-sm:justify-between max-sm:gap-3">
+                <span className="text-texto-meta text-t-meta">Fica para a imobiliária</span>
+                {comissao > 0 ? (
+                  <Valor valor={previa.net} posto="destaque" />
+                ) : (
+                  <span className="text-nota text-t-meta">aparece quando houver comissão</span>
+                )}
+              </span>
+              {passo > 1 ? (
+                <Button
+                  type="button"
+                  variant="secundario"
+                  size="lg"
+                  className="max-sm:flex-1"
+                  onClick={() => irPara(passo - 1)}
+                  disabled={salvando}
+                >
+                  Voltar
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="secundario"
+                  size="lg"
+                  className="max-sm:flex-1"
+                  onClick={pedirFechar}
+                  disabled={salvando}
+                >
+                  Cancelar
+                </Button>
+              )}
+              <Button type="submit" form={idForm} size="lg" className="max-sm:flex-1" carregando={salvando}>
+                {passo === 1 ? 'Continuar para a comissão' : passo === 2 ? 'Continuar para as parcelas' : 'Registrar venda'}
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <form
+          id={idForm}
+          noValidate
+          className="flex flex-col gap-8"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (salvando) return
+            if (passo < 3) irPara(passo + 1)
+            else void salvar()
+          }}
+        >
+          {passo === 1 && (
+            <Bloco titulo="A venda" icone={Building2}>
+              <div className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                {/*
+                 * O empreendimento vem primeiro porque ele PREENCHE o resto: traz o
+                 * ISS da construtora e a comissão habitual.
+                 */}
+                <FormField
+                  label="Empreendimento"
+                  htmlFor="v-cc"
+                  className="sm:col-span-2"
+                  hint="a construtora escolhida já traz o ISS e o percentual de comissão habituais"
+                >
+                  <Select
+                    id="v-cc"
+                    data-foco-inicial
+                    value={empreendimento}
+                    onChange={(e) => escolherEmpreendimento(e.target.value)}
+                  >
+                    <option value="">Selecione…</option>
+                    {empreendimentos.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                        {c.developer ? ` · ${c.developer}` : ''}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+                <FormField label="Unidade" htmlFor="v-unid" hint="como está no contrato. Ex.: 414-D, apto 1302A">
+                  <Input id="v-unid" value={unidade} onChange={(e) => setUnidade(e.target.value)} />
+                </FormField>
+                <FormField label="Data da venda" htmlFor="v-data" hint="dia/mês/ano">
+                  <Input id="v-data" type="date" value={dataVenda} onChange={(e) => setDataVenda(e.target.value)} />
+                </FormField>
+                <FormField label="Comprador" htmlFor="v-cli" hint="nome de quem assinou">
+                  <Input
+                    id="v-cli"
+                    value={cliente}
+                    onChange={(e) => setCliente(e.target.value)}
+                    placeholder="Nome de quem comprou"
+                  />
+                </FormField>
+                <FormField
+                  label="Valor do imóvel"
+                  htmlFor="v-vgv"
+                  hint="em reais, com centavos. Deixe vazio se ainda não souber — dá para informar a comissão direto"
+                >
+                  <CurrencyInput id="v-vgv" value={valorImovel} onChange={setValorImovel} />
+                </FormField>
+              </div>
+            </Bloco>
+          )}
+
+          {passo === 2 && (
+            <>
+              <Bloco titulo="A comissão" icone={Percent}>
+                <FormField
+                  label="% da comissão"
+                  htmlFor="v-pct"
+                  hint="em %, sobre o valor do imóvel. Use vírgula para decimal: 5,5"
+                >
+                  <PercentInput id="v-pct" value={pctComissao} onChange={setPctComissao} />
+                </FormField>
+
+                {/*
+                 * A comissão do negócio é resultado, não campo — então não veste
+                 * caixa de campo. Quando falta dado ela diz o que falta.
+                 */}
+                <p className="flex min-h-8 items-center justify-between gap-3 border-t border-fio-linha pt-3">
+                  <span className="text-texto text-t2">Comissão do negócio</span>
+                  {comissaoNegocio == null ? (
+                    <span className="text-right text-nota text-t-meta">falta o valor do imóvel ou o percentual</span>
+                  ) : (
+                    <Valor valor={comissaoNegocio} posto="linha" />
+                  )}
+                </p>
+
+                <Excecao
+                  titulo="Venda em parceria"
+                  resumo={
+                    parceria
+                      ? `${parceiro || 'imobiliária parceira'} · ${formatarPct(pctSouza)} da comissão do negócio é da Souza`
+                      : 'a comissão inteira é da Souza'
+                  }
+                  aberta={painel === 'parceria'}
+                  aoAlternar={() => setPainel((p) => (p === 'parceria' ? null : 'parceria'))}
+                >
+                  <Escolha
+                    rotulo="Divide a comissão com outra imobiliária?"
+                    hint="a parceria reduz a comissão da imobiliária antes de qualquer imposto"
+                  >
+                    <FiltrosRapidos
+                      rotuloAcessivel="Venda em parceria"
+                      ativo={parceria ? 'sim' : 'nao'}
+                      aoMudar={(v) => setParceria(v === 'sim')}
+                      filtros={SIM_NAO}
+                    />
+                  </Escolha>
+                  {parceria && (
+                    <div className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                      <FormField label="Imobiliária parceira" htmlFor="v-parc" hint="o nome que vai no histórico da venda">
+                        <Input
+                          id="v-parc"
+                          value={parceiro}
+                          onChange={(e) => setParceiro(e.target.value)}
+                          placeholder="Ex.: Rogga"
+                        />
+                      </FormField>
+                      <FormField label="% que é da Souza" htmlFor="v-pctsouza" hint="em %, da comissão do negócio">
+                        <PercentInput id="v-pctsouza" value={pctSouza} onChange={setPctSouza} />
+                      </FormField>
+                    </div>
+                  )}
+                </Excecao>
+
+                <FormField
+                  label="Comissão da imobiliária"
+                  htmlFor="v-com"
+                  hint={
+                    comissaoManual
+                      ? 'em reais, informado à mão — é este valor que as parcelas vão somar'
+                      : 'em reais, calculado a partir do percentual. Pode ajustar se o contrato traz outro valor'
+                  }
+                >
+                  <CurrencyInput
+                    id="v-com"
+                    value={comissaoManual ? comissaoSouza : comissaoCalculada}
+                    onChange={(v) => {
+                      setComissaoManual(true)
+                      setComissaoSouza(v)
                     }}
                   />
-                ))}
-              </Lista>
+                </FormField>
 
-              {/*
-               * O fechamento é uma conta, então é escrito como conta: fio
-               * estrutural acima do total e a diferença dita em reais. "As
-               * parcelas não fecham" sozinho obriga a fazer a subtração de
-               * cabeça — e é exatamente essa subtração que trava o cadastro.
-               */}
-              <Cascata densidade="compacta" className="mt-4">
-                <LinhaCascata rotulo="Comissão da imobiliária" valor={comissao} />
-                <TotalCascata
-                  rotulo="Soma das parcelas"
-                  valor={soma}
-                  tinta={fecha ? undefined : 'text-critical-ink'}
-                  nota={fecha ? 'Fecha com a comissão da imobiliária.' : undefined}
-                />
-              </Cascata>
-              {!fecha && (
-                <p className="mt-2 text-base text-critical-ink" role="alert">
-                  {textoDaDiferenca(diferenca)}
-                </p>
-              )}
-            </Secao>
+                <div className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                  <FormField label="Corretor" htmlFor="v-corr" hint="deixe em Nenhum se não há comissão a repassar">
+                    <Select id="v-corr" value={corretor} onChange={(e) => escolherCorretor(e.target.value)}>
+                      <option value="">Nenhum</option>
+                      {corretores.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                  {corretor && (
+                    <FormField
+                      label="% do corretor"
+                      htmlFor="v-corrpct"
+                      hint="em %, sobre a base — a comissão já descontada de ISS e Simples, nunca sobre o bruto"
+                    >
+                      <PercentInput id="v-corrpct" value={pctCorretor} onChange={setPctCorretor} />
+                    </FormField>
+                  )}
+                </div>
 
-            <Excecao
-              titulo="Observação"
-              resumo={observacao ? observacao : 'nenhuma observação nesta venda'}
-              aberta={painel === 'observacao'}
-              aoAlternar={() => setPainel((p) => (p === 'observacao' ? null : 'observacao'))}
-            >
-              <FormField
-                label="O que registrar sobre esta venda"
-                htmlFor="v-obs"
-                hint="texto livre, fica no histórico da venda. Opcional"
+                <Excecao
+                  titulo="Impostos desta venda"
+                  resumo={resumoDosImpostos(temNota, pctSimples, retemIss, pctIss)}
+                  aberta={painel === 'impostos'}
+                  aoAlternar={() => setPainel((p) => (p === 'impostos' ? null : 'impostos'))}
+                >
+                  <Escolha
+                    rotulo="A imobiliária emite nota fiscal?"
+                    hint={temNota ? 'com nota, o Simples incide sobre cada recebimento' : 'sem nota, o Simples não incide'}
+                  >
+                    <FiltrosRapidos
+                      rotuloAcessivel="Emite nota fiscal"
+                      ativo={temNota ? 'sim' : 'nao'}
+                      aoMudar={(v) => setTemNota(v === 'sim')}
+                      filtros={SIM_NAO}
+                    />
+                  </Escolha>
+                  {temNota && (
+                    <FormField label="% do Simples Nacional" htmlFor="v-simples" hint="em %, sobre a comissão menos o ISS">
+                      <PercentInput id="v-simples" value={pctSimples} onChange={setPctSimples} />
+                    </FormField>
+                  )}
+                  <Escolha
+                    rotulo="A construtora retém o ISS na fonte?"
+                    hint={
+                      retemIss
+                        ? 'a construtora desconta o ISS antes de pagar a parcela'
+                        : 'a construtora paga a parcela cheia'
+                    }
+                  >
+                    <FiltrosRapidos
+                      rotuloAcessivel="Construtora retém ISS"
+                      ativo={retemIss ? 'sim' : 'nao'}
+                      aoMudar={(v) => setRetemIss(v === 'sim')}
+                      filtros={SIM_NAO}
+                    />
+                  </Escolha>
+                  {retemIss && (
+                    <FormField label="% do ISS" htmlFor="v-isspct" hint="em %, sobre a comissão">
+                      <PercentInput id="v-isspct" value={pctIss} onChange={setPctIss} />
+                    </FormField>
+                  )}
+                </Excecao>
+              </Bloco>
+
+              <PreviaDaConta {...previaProps} />
+            </>
+          )}
+
+          {passo === 3 && (
+            <>
+              <Bloco
+                titulo="As parcelas"
+                icone={ListOrdered}
+                descricao={parcelas.length === 1 ? '1 parcela' : `${parcelas.length} parcelas`}
               >
-                <Textarea
-                  id="v-obs"
-                  value={observacao}
-                  onChange={(e) => setObservacao(e.target.value)}
-                  placeholder="Ex.: 50% na assinatura e 50% quando o comprador atingir 8% pago"
-                />
-              </FormField>
-            </Excecao>
+                {/*
+                 * Os números são AÇÕES ("divida em 3 iguais"), não um estado
+                 * selecionado: nenhum deles acende quando a lista tem n parcelas.
+                 */}
+                <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Dividir a comissão">
+                  <span className="text-texto text-t2 max-sm:w-full">Dividir em partes iguais:</span>
+                  {[1, 2, 3, 4].map((n) => (
+                    <Button
+                      key={n}
+                      type="button"
+                      variant="secundario"
+                      size="md"
+                      className="num min-w-11"
+                      onClick={() => gerarParcelas(n)}
+                      disabled={comissao <= 0}
+                      aria-label={`Dividir em ${n} ${n === 1 ? 'parcela' : 'parcelas'} iguais`}
+                    >
+                      {n}
+                    </Button>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="fantasma"
+                    size="md"
+                    icone={Plus}
+                    onClick={() =>
+                      setParcelas((p) => [
+                        ...p,
+                        {
+                          idx: p.length + 1,
+                          expected_date: p[p.length - 1]?.expected_date ?? toDateOnly(new Date()),
+                          amount: 0,
+                        },
+                      ])
+                    }
+                  >
+                    Acrescentar parcela
+                  </Button>
+                </div>
 
-            <PreviaDaConta
-              previa={previa}
-              comissao={comissao}
-              temNota={temNota}
-              retemIss={retemIss}
-              pctSimples={pctSimples}
-              pctIss={pctIss}
-              pctCorretor={pctCorretor}
-            />
-          </>
-        )}
+                <p className="text-nota text-t-meta">
+                  Contrato de construtora costuma pagar por gatilho, não por mês fixo. Corrija a data e o valor de
+                  cada parcela conforme o quadro resumo.
+                </p>
 
-        {/*
-         * O erro fica no PÉ do conteúdo, encostado no rodapé: quem acabou de
-         * tocar em "Continuar" está com os olhos ali, e é ali que a resposta
-         * precisa aparecer.
-         */}
-        {erro && (
-          <p
-            className="rounded-lg bg-critical-field px-3.5 py-2.5 text-base text-critical-ink"
-            role="alert"
-          >
-            {erro}
-          </p>
-        )}
-      </div>
-    </Modal>
+                <div role="list" aria-label="Parcelas desta venda" className="flex flex-col border-b border-fio-linha">
+                  {parcelas.map((p, i) => (
+                    <LinhaDeParcela
+                      key={i}
+                      parcela={p}
+                      indice={i}
+                      total={parcelas.length}
+                      aoMudarData={(data) =>
+                        setParcelas((arr) => arr.map((x, j) => (j === i ? { ...x, expected_date: data } : x)))
+                      }
+                      aoMudarValor={(v) =>
+                        setParcelas((arr) => arr.map((x, j) => (j === i ? { ...x, amount: v ?? 0 } : x)))
+                      }
+                      aoRemover={() =>
+                        setParcelas((arr) => arr.filter((_, j) => j !== i).map((x, j) => ({ ...x, idx: j + 1 })))
+                      }
+                    />
+                  ))}
+                </div>
+
+                {/*
+                 * O fechamento é uma conta, então é escrito como conta: fio acima
+                 * do total e a diferença dita em reais.
+                 */}
+                <div className="flex flex-col gap-2">
+                  <Demonstrativo
+                    rotuloAcessivel="As parcelas contra a comissão"
+                    linhas={[
+                      { chave: 'bruto', rotulo: 'Comissão da imobiliária', sinal: '+', valor: comissao },
+                      { chave: 'fica', rotulo: 'Soma das parcelas', sinal: '=', valor: soma },
+                    ]}
+                  />
+                  {fecha ? (
+                    <p className="flex items-start gap-2 text-nota text-t-meta">
+                      <span className="flex h-4 shrink-0 items-center text-success-ink">
+                        <Icone icone={CircleCheck} tamanho={12} />
+                      </span>
+                      Fecha com a comissão da imobiliária.
+                    </p>
+                  ) : (
+                    <p className="flex items-start gap-2 text-texto font-medium text-error-ink" role="alert">
+                      <span className="flex h-5 shrink-0 items-center">
+                        <Icone icone={CircleAlert} tamanho={16} />
+                      </span>
+                      {textoDaDiferenca(diferenca)}
+                    </p>
+                  )}
+                </div>
+
+                <Excecao
+                  titulo="Observação"
+                  resumo={observacao ? observacao : 'nenhuma observação nesta venda'}
+                  aberta={painel === 'observacao'}
+                  aoAlternar={() => setPainel((p) => (p === 'observacao' ? null : 'observacao'))}
+                >
+                  <FormField
+                    label="O que registrar sobre esta venda"
+                    htmlFor="v-obs"
+                    hint="texto livre, fica no histórico da venda. Opcional"
+                  >
+                    <Textarea
+                      id="v-obs"
+                      value={observacao}
+                      onChange={(e) => setObservacao(e.target.value)}
+                      placeholder="Ex.: 50% na assinatura e 50% quando o comprador atingir 8% pago"
+                    />
+                  </FormField>
+                </Excecao>
+              </Bloco>
+
+              <PreviaDaConta {...previaProps} />
+            </>
+          )}
+        </form>
+      </SidePanel>
+
+      <ConfirmDialog
+        aberto={descartar}
+        aoFechar={() => setDescartar(false)}
+        titulo="Descartar a venda?"
+        descricao="O que foi preenchido neste cadastro some. Nada foi gravado ainda."
+        rotuloConfirmar="Descartar"
+        aoConfirmar={() => {
+          setDescartar(false)
+          onFechar()
+        }}
+      />
+    </>
   )
 }
 
 /* ------------------------------------------------------------------------- */
+
+const SIM_NAO: { id: 'sim' | 'nao'; rotulo: string }[] = [
+  { id: 'sim', rotulo: 'Sim' },
+  { id: 'nao', rotulo: 'Não' },
+]
 
 /** Percentual como o Brasil escreve: 5,5% e não 5.5%. */
 function formatarPct(n: number | null): string {
@@ -718,35 +755,62 @@ function textoDaDiferenca(diferenca: number): string {
     : `Sobram ${formatCurrency(Math.abs(diferenca))}. Reduza o valor de uma parcela ou remova uma.`
 }
 
-/**
- * Rótulo para um controle que NÃO é um `<input>`.
- *
- * `FormField` emite um `<label for=…>`, e um `label` apontando para um
- * `radiogroup` não aponta para nada — o leitor de tela anuncia o grupo sem
- * nome. Aqui o nome acessível vem do `ariaLabel` do próprio `Segmented`, e este
- * texto é só a versão visível.
- */
-function Escolha({ rotulo, hint, children }: { rotulo: string; hint?: string; children: ReactNode }) {
+/** Um bloco com nome dentro do painel: ícone 16 + `titulo-secao`, sem caixa (7.10). */
+function Bloco({
+  titulo,
+  icone,
+  descricao,
+  separado,
+  children,
+}: {
+  titulo: ReactNode
+  icone: LucideIcon
+  descricao?: ReactNode
+  /** Fio de linha acima: separa o bloco do anterior (9.6). */
+  separado?: boolean
+  children: ReactNode
+}) {
   return (
-    <div>
-      <p className="mb-1.5 text-sm font-medium text-content-muted">{rotulo}</p>
+    <section className={cn('flex flex-col gap-6', separado && 'border-t border-fio-linha pt-8')}>
+      <div className="flex min-w-0 items-start gap-2">
+        <span className="flex h-6 shrink-0 items-center text-t3">
+          <Icone icone={icone} tamanho={16} />
+        </span>
+        <div className="flex min-w-0 flex-col gap-1">
+          <h3 className="font-heading text-titulo-secao text-t1">{titulo}</h3>
+          {descricao && <p className="text-texto-meta text-t-meta">{descricao}</p>}
+        </div>
+      </div>
       {children}
-      {hint && <p className="mt-1 text-xs text-content-faint">{hint}</p>}
-    </div>
+    </section>
   )
 }
 
 /**
- * A DOBRA DA EXCEÇÃO.
- *
- * Recolhe o CONTROLE e mantém a INFORMAÇÃO: o resumo diz, em texto corrido, o
- * que está valendo agora ("nota fiscal com Simples de 6% · construtora retém 3%
- * de ISS"). Quem cadastra a venda típica lê a frase e segue; quem tem a exceção
- * abre e mexe.
- *
- * É fio e não caixa: `--c-base` e `--c-surface` são o mesmo hex, então não
- * existe cartão para desenhar dentro da folha. E é chevron, o único glifo de
- * navegação do sistema, girado 90° quando aberto.
+ * Rótulo visível para um grupo de escolha. `FormField` emite `<label for=…>`,
+ * que não aponta para um radiogroup; o nome acessível vem do `rotuloAcessivel`.
+ */
+function Escolha({ rotulo, hint, children }: { rotulo: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p aria-hidden className="text-texto-meta font-medium text-t2">
+        {rotulo}
+      </p>
+      {children}
+      {hint && <p className="text-nota text-t-meta">{hint}</p>}
+    </div>
+  )
+}
+
+const TRANSICAO_COR: CSSProperties = {
+  transitionProperty: 'background-color',
+  transitionDuration: 'var(--dur-micro)',
+  transitionTimingFunction: 'var(--curva-cor)',
+}
+
+/**
+ * A DOBRA DA EXCEÇÃO: recolhe o CONTROLE e mantém a INFORMAÇÃO. O resumo diz
+ * o que está valendo agora; quem tem a exceção abre e mexe. Fio, não caixa.
  */
 function Excecao({
   titulo,
@@ -763,25 +827,28 @@ function Excecao({
 }) {
   const id = useId()
   return (
-    <div className="border-y border-line">
+    <div className="flex flex-col border-y border-fio-linha">
       <button
         type="button"
         onClick={aoAlternar}
         aria-expanded={aberta}
         aria-controls={id}
-        className="flex min-h-toque w-full items-center gap-3 py-2 text-left transition-colors hover:bg-action-soft"
+        style={TRANSICAO_COR}
+        className="flex min-h-14 w-full items-center gap-3 rounded-controle px-2 py-2 text-left hover:bg-linha-hover active:bg-linha-press"
       >
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-base font-medium text-content">{titulo}</span>
-          <span className="truncate text-sm text-content-faint">{resumo}</span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-texto-titulo font-medium text-t1">{titulo}</span>
+          <span className="truncate text-texto-meta text-t-meta">{resumo}</span>
         </span>
-        <ChevronRight
-          className={cn('h-4 w-4 shrink-0 text-content-faint transition-transform', aberta && 'rotate-90')}
-          aria-hidden
-        />
+        <span
+          className={cn('flex shrink-0 text-t3', aberta && 'rotate-90')}
+          style={{ transitionProperty: 'transform', transitionDuration: 'var(--dur-micro)' }}
+        >
+          <Icone icone={ChevronRight} tamanho={16} />
+        </span>
       </button>
       {aberta && (
-        <div id={id} className="space-y-4 pb-4 pt-1">
+        <div id={id} className="flex flex-col gap-6 px-2 pb-6 pt-2">
           {children}
         </div>
       )}
@@ -790,19 +857,13 @@ function Excecao({
 }
 
 /**
- * Uma parcela: linha de extrato fechada, formulário aberto.
- *
- * Fechada, ela é o que se confere — ordinal no selo, a data com verbo e o valor
- * no degrau de comparação. Aberta, ela é o que se corrige. As duas coisas no
- * mesmo lugar significam que o número que se ajusta é o mesmo número que se
- * compara, sem um segundo quadro repetindo os mesmos valores.
+ * Uma parcela: ordinal no selo, a data com verbo e os dois campos que se
+ * corrigem. O número que se ajusta é o mesmo que se compara.
  */
 function LinhaDeParcela({
   parcela,
   indice,
   total,
-  aberta,
-  aoAlternar,
   aoMudarData,
   aoMudarValor,
   aoRemover,
@@ -810,8 +871,6 @@ function LinhaDeParcela({
   parcela: NewInstallment
   indice: number
   total: number
-  aberta: boolean
-  aoAlternar: () => void
   aoMudarData: (data: string) => void
   aoMudarValor: (valor: number | null) => void
   aoRemover: () => void
@@ -819,67 +878,41 @@ function LinhaDeParcela({
   const id = useId()
   const ordinal = total > 1 ? `${indice + 1}ª de ${total}` : 'Parcela única'
   return (
-    <li>
-      <button
-        type="button"
-        onClick={aoAlternar}
-        aria-expanded={aberta}
-        aria-controls={id}
-        className="flex min-h-[3.5rem] w-full items-center gap-3 py-2.5 text-left transition-colors hover:bg-action-soft"
-      >
-        <span className="flex w-6 shrink-0 justify-center pt-0.5">
+    <div role="listitem" className="flex flex-col gap-4 border-t border-fio-linha py-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex w-7 shrink-0 justify-center">
           <Selo situacao="prevista" idx={parcela.idx} count={total} />
         </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-base font-medium text-content">{ordinal}</span>
-          <FraseDeTempo situacao="prevista" prevista={parcela.expected_date} />
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-texto-titulo font-medium text-t1">{ordinal}</span>
+          <FraseDeTempo situacao="prevista" prevista={parcela.expected_date} className="text-texto-meta text-t-meta" />
         </span>
-        {/* Previsto não recebe cor tônica: só tinta neutra. */}
-        <Valor valor={parcela.amount} posto="linha" tinta="text-content-muted" />
-        <ChevronRight
-          className={cn('h-4 w-4 shrink-0 text-content-faint transition-transform', aberta && 'rotate-90')}
-          aria-hidden
-        />
-      </button>
-
-      {aberta && (
-        <div id={id} className="space-y-4 pb-4 pl-9 pr-1 pt-1">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField label="Prevista para" htmlFor={`${id}-data`} hint="dia/mês/ano">
-              <Input
-                id={`${id}-data`}
-                type="date"
-                value={parcela.expected_date}
-                onChange={(e) => aoMudarData(e.target.value)}
-              />
-            </FormField>
-            <FormField label="Valor da parcela" htmlFor={`${id}-valor`} hint="em reais, com centavos">
-              <CurrencyInput id={`${id}-valor`} value={parcela.amount} onChange={aoMudarValor} />
-            </FormField>
-          </div>
-          {/* Texto em vez de lixeira: um ícone de 16px num alvo de 36px era o
-              controle mais fácil de tocar por engano da tela. */}
-          <Button variant="ghost" onClick={aoRemover}>
-            Remover esta parcela
-          </Button>
-        </div>
-      )}
-    </li>
+        {/* Texto em vez de lixeira: ícone solto é o controle mais fácil de tocar por engano. */}
+        <Button type="button" variant="fantasma" size="sm" onClick={aoRemover} aria-label={`Remover a parcela ${ordinal}`}>
+          Remover
+        </Button>
+      </div>
+      <div className="grid grid-cols-1 gap-x-4 gap-y-6 pl-10 sm:grid-cols-2">
+        <FormField label="Prevista para" htmlFor={`${id}-data`} hint="dia/mês/ano">
+          <Input
+            id={`${id}-data`}
+            type="date"
+            value={parcela.expected_date}
+            onChange={(e) => aoMudarData(e.target.value)}
+          />
+        </FormField>
+        <FormField label="Valor da parcela" htmlFor={`${id}-valor`} hint="em reais, com centavos">
+          <CurrencyInput id={`${id}-valor`} value={parcela.amount} onChange={aoMudarValor} />
+        </FormField>
+      </div>
+    </div>
   )
 }
 
 /**
- * A PRÉVIA DA CONTA — a cascata do sistema, antes de gravar.
- *
- * A ordem é a fixa da migração 009, e é a ordem que o formulário antigo errava:
- * ISS retido, depois Simples sobre o que sobrou, depois o corretor sobre a
- * BASE. Cada subtração traz o "(−)" e o nome inteiro do tributo, e cada uma diz
- * sobre o que incide — "6% sobre a comissão menos o ISS" —, porque a pergunta
- * que trava o cadastro nunca é quanto, é sobre o quê.
- *
- * A linha da base só aparece quando existe corretor: sem ele a base e o líquido
- * são o mesmo número, e dois totais iguais um sobre o outro não somam
- * informação.
+ * A PRÉVIA DA CONTA, antes de gravar, na ordem fixa da migração 009: ISS
+ * retido, Simples sobre o que sobrou, corretor sobre a BASE. A base só aparece
+ * com corretor: sem ele a base e o líquido são o mesmo número.
  */
 function PreviaDaConta({
   previa,
@@ -900,49 +933,45 @@ function PreviaDaConta({
 }) {
   if (comissao <= 0) return null
   const fatia = Math.round((previa.net / comissao) * 100)
+  const linhas: LinhaDemonstrativo[] = [{ chave: 'bruto', rotulo: 'Comissão da imobiliária', sinal: '+', valor: comissao }]
+  if (retemIss)
+    linhas.push({
+      chave: 'iss',
+      rotulo: 'ISS retido na fonte',
+      detalhe: `${formatarPct(pctIss)} sobre a comissão`,
+      sinal: '−',
+      valor: previa.iss,
+    })
+  if (temNota)
+    linhas.push({
+      chave: 'simples',
+      rotulo: 'Imposto do Simples Nacional',
+      detalhe: retemIss
+        ? `${formatarPct(pctSimples)} sobre a comissão menos o ISS`
+        : `${formatarPct(pctSimples)} sobre a comissão`,
+      sinal: '−',
+      valor: previa.simples,
+    })
+  if (previa.broker > 0) {
+    linhas.push({ chave: 'base', rotulo: 'Base depois do imposto', sinal: '=', valor: previa.base })
+    linhas.push({
+      chave: 'corretor',
+      rotulo: 'Comissão do corretor',
+      detalhe: `base × ${formatarPct(pctCorretor)}`,
+      sinal: '−',
+      valor: previa.broker,
+    })
+  }
+  linhas.push({ chave: 'fica', rotulo: 'Fica para a imobiliária', sinal: '=', valor: previa.net })
   return (
-    // O `pt-4` repõe o respiro de 32px entre seções: o `space-y-4` da folha tem
-    // seletor mais específico que o `mt-8` do próprio `Secao` e o venceria.
-    <Secao titulo="O que sobra desta venda" variante="simples" className="pt-4">
-      <Cascata className="pt-1">
-        <LinhaCascata rotulo="Comissão da imobiliária" valor={comissao} />
-        {retemIss && (
-          <LinhaCascata
-            rotulo="ISS retido na fonte"
-            valor={previa.iss}
-            subtracao
-            detalhe={`${formatarPct(pctIss)} sobre a comissão`}
-          />
-        )}
-        {temNota && (
-          <LinhaCascata
-            rotulo="Imposto do Simples Nacional"
-            valor={previa.simples}
-            subtracao
-            detalhe={
-              retemIss
-                ? `${formatarPct(pctSimples)} sobre a comissão menos o ISS`
-                : `${formatarPct(pctSimples)} sobre a comissão`
-            }
-          />
-        )}
-        {previa.broker > 0 && (
-          <>
-            <TotalCascata rotulo="Base depois do imposto" valor={previa.base} />
-            <LinhaCascata
-              rotulo="Comissão do corretor"
-              valor={previa.broker}
-              subtracao
-              detalhe={`base × ${formatarPct(pctCorretor)}`}
-            />
-          </>
-        )}
-        <TotalCascata
-          rotulo="Fica para a imobiliária"
-          valor={previa.net}
-          nota={`${fatia}% da comissão da imobiliária. O dinheiro entra parcela a parcela, na medida em que a construtora paga.`}
-        />
-      </Cascata>
-    </Secao>
+    <Bloco titulo="O que sobra desta venda" icone={Calculator} separado>
+      <div className="flex flex-col gap-2">
+        <Demonstrativo linhas={linhas} rotuloAcessivel="O que sobra desta venda" />
+        <p className="text-nota text-t-meta">
+          {fatia}% da comissão da imobiliária. O dinheiro entra parcela a parcela, na medida em que a construtora
+          paga.
+        </p>
+      </div>
+    </Bloco>
   )
 }

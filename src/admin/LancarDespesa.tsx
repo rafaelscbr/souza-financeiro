@@ -5,7 +5,7 @@ import { SidePanel } from '@/components/ui/SidePanel'
 import { Button } from '@/components/ui/Button'
 import { FormField, Input, Select } from '@/components/ui/Field'
 import { CurrencyInput } from '@/components/ui/MoneyInput'
-import { Segmented } from '@/components/ui/Segmented'
+import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import { useToast } from '@/components/ui/Toast'
 import { formatCurrency, toDateOnly } from '@/lib/format'
 import { BlocoDaFolha, DobraDaFolha, EscolhaDaFolha, RodapeDaFolha } from './FolhaDeLancamento'
@@ -171,16 +171,16 @@ export function LancarDespesa({ aberto, onFechar }: { aberto: boolean; onFechar:
       rodape={
         /* UMA ação primária por folha. */
         <RodapeDaFolha erro={erro && !erro.campo ? erro.texto : null} tituloDoErro="Lançamento não salvo">
-          <Button variant="ghost" size="lg" onClick={fechar} disabled={salvando}>
+          <Button variant="secundario" size="lg" onClick={fechar} disabled={salvando}>
             Cancelar
           </Button>
-          <Button size="lg" className="flex-1" onClick={salvar} carregando={salvando}>
+          <Button variant="primario" size="lg" onClick={salvar} carregando={salvando}>
             Salvar lançamento
           </Button>
         </RodapeDaFolha>
       }
     >
-      <div className="space-y-6">
+      <>
         <BlocoDaFolha titulo="O lançamento" icone={Receipt}>
           {/*
            * Sem cor tônica no controle: verde significa dinheiro que se moveu,
@@ -189,16 +189,16 @@ export function LancarDespesa({ aberto, onFechar }: { aberto: boolean; onFechar:
            * marca, como todo controle escolhido.
            */}
           <EscolhaDaFolha rotulo="Tipo">
-            <Segmented
-              ariaLabel="Tipo"
-              value={tipo}
-              onChange={(v) => {
+            <FiltrosRapidos
+              rotuloAcessivel="Tipo"
+              ativo={tipo}
+              aoMudar={(v) => {
                 setTipo(v)
                 setCategoria('')
               }}
-              options={[
-                { value: 'expense', label: 'Saiu' },
-                { value: 'income', label: 'Entrou' },
+              filtros={[
+                { id: 'expense', rotulo: 'Saiu' },
+                { id: 'income', rotulo: 'Entrou' },
               ]}
             />
           </EscolhaDaFolha>
@@ -235,15 +235,15 @@ export function LancarDespesa({ aberto, onFechar }: { aberto: boolean; onFechar:
             </Select>
           </FormField>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
             <EscolhaDaFolha rotulo="Situação">
-              <Segmented
-                ariaLabel="Situação"
-                value={situacao}
-                onChange={setSituacao}
-                options={[
-                  { value: 'settled', label: rotulos.settled },
-                  { value: 'pending', label: rotulos.pending },
+              <FiltrosRapidos
+                rotuloAcessivel="Situação"
+                ativo={situacao}
+                aoMudar={setSituacao}
+                filtros={[
+                  { id: 'settled', rotulo: rotulos.settled },
+                  { id: 'pending', rotulo: rotulos.pending },
                 ]}
               />
             </EscolhaDaFolha>
@@ -322,7 +322,7 @@ export function LancarDespesa({ aberto, onFechar }: { aberto: boolean; onFechar:
             </FormField>
           )}
         </DobraDaFolha>
-      </div>
+      </>
     </SidePanel>
   )
 }

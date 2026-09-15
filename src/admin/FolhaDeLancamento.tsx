@@ -1,28 +1,28 @@
 import { useId, type ReactNode } from 'react'
 import { ChevronRight, TriangleAlert, type LucideIcon } from 'lucide-react'
-import { SecaoTitulo } from '@/components/ui/SecaoTitulo'
-import { Lista } from '@/components/ui/Lista'
-import { SuperficieContext } from '@/components/ui/Painel'
+import { Icone } from '@/components/ui/Icone'
+import { Lista, type ColunasLista } from '@/components/ui/Lista'
 import { Rotulo } from '@/components/ui/Rotulo'
 import { cn } from '@/lib/utils'
 
 /*
- * AS PEÇAS DAS FOLHAS QUE GRAVAM DINHEIRO.
+ * AS PEÇAS DAS FOLHAS QUE GRAVAM DINHEIRO (7.9 campo, 7.10 painel lateral).
  *
  * Registrar venda, receber parcela, pagar comissão, lançar despesa e dar baixa
- * são cinco painéis laterais com a mesma anatomia: blocos com nome, a coisa
- * sendo confirmada como linha de extrato, a conta num quadro tonalizado e o
- * rodapé fixo com o erro e a ação. O guia manda que um estilo que aparece em
- * duas telas vire componente (seção 8), e aqui ele aparecia em cinco.
+ * são painéis laterais com a mesma anatomia: seções com nome (sem Cartao, o
+ * painel já é a caixa), a coisa sendo confirmada como linha de extrato
+ * (`Lista contexto="sobreposicao"`), a conta num sub-bloco `s2` e o rodapé fixo
+ * com o erro e a ação.
  *
  * Nada aqui calcula nem grava: é só a forma. A conta continua em
  * src/lib/sales.ts e a gravação continua no AdminData.
  */
 
 /**
- * Um bloco com nome dentro da folha: ícone + rótulo + descrição (SecaoTitulo)
- * e os campos embaixo. É o que divide um formulário longo sem desenhar caixa
- * dentro do painel, que já é a caixa.
+ * Uma seção com nome dentro da folha: ícone 16 + `titulo-secao` + descrição
+ * `texto-meta` a 4px, e os campos 16px abaixo. Divide um formulário longo sem
+ * desenhar caixa dentro do painel, que já é a caixa. As seções ficam a 32px
+ * umas das outras pelo gap do corpo do SidePanel.
  */
 export function BlocoDaFolha({
   titulo,
@@ -37,42 +37,56 @@ export function BlocoDaFolha({
   children: ReactNode
   className?: string
 }) {
+  const id = useId()
   return (
-    <section className={cn('space-y-3', className)}>
-      <SecaoTitulo titulo={titulo} icone={icone} descricao={descricao} />
-      <div className="space-y-4">{children}</div>
+    <section aria-labelledby={id} className={cn('flex flex-col gap-4', className)}>
+      <div className="flex min-w-0 items-start gap-2">
+        <span className="flex h-6 shrink-0 items-center text-t3">
+          <Icone icone={icone} tamanho={16} />
+        </span>
+        <div className="flex min-w-0 flex-col gap-1">
+          <h3 id={id} className="font-heading text-t1 text-titulo-secao">
+            {titulo}
+          </h3>
+          {descricao && <div className="text-t-meta text-texto-meta">{descricao}</div>}
+        </div>
+      </div>
+      <div className="flex flex-col gap-6">{children}</div>
     </section>
   )
 }
 
 /**
- * O que está sendo confirmado, como linha de extrato.
- *
- * Sub-bloco interno é só fundo tonalizado, sem borda nem sombra (seção 5): a
- * `list-surface` da lista solta seria um cartão dentro do painel. O contexto
- * `painel` faz a Lista desistir da própria superfície e manter só as linhas.
+ * O que está sendo confirmado, como linha de extrato. No painel a lista é
+ * `sobreposicao`: o corpo já tem o recuo, a linha não ganha o seu. As colunas
+ * são declaradas uma vez (selo | título | situação | valor).
  */
-export function ListaNaFolha({ children }: { children: ReactNode }) {
+export function ListaNaFolha({
+  children,
+  colunas = { goteira: true, situacao: true, valor: true },
+  rotuloAcessivel,
+}: {
+  children: ReactNode
+  colunas?: ColunasLista
+  rotuloAcessivel?: string
+}) {
   return (
-    <div className="overflow-hidden rounded-[14px] bg-s2">
-      <SuperficieContext.Provider value="painel">
-        <Lista>{children}</Lista>
-      </SuperficieContext.Provider>
-    </div>
+    <Lista contexto="sobreposicao" colunas={colunas} rotuloAcessivel={rotuloAcessivel} semEscada>
+      {children}
+    </Lista>
   )
 }
 
-/** A conta antes de gravar, no mesmo sub-bloco tonalizado. */
+/** A conta antes de gravar: sub-bloco `s2`, sem borda nem sombra (5.2). */
 export function QuadroDaConta({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('rounded-[14px] bg-s2 px-4 py-3.5', className)}>{children}</div>
+  return <div className={cn('rounded-caixa bg-s2 px-4 py-3', className)}>{children}</div>
 }
 
 /**
- * Rótulo visível para um controle que NÃO é um `<input>`.
- *
- * `FormField` emite `<label for=…>`, e um label apontando para um radiogroup
- * não aponta para nada. O nome acessível vem do `ariaLabel` do próprio
- * Segmented; este texto é a versão que se vê, no mesmo desenho do Label.
+ * Rótulo visível para um controle que NÃO é um `<input>` (um radiogroup).
+ * O nome acessível vem do `rotuloAcessivel` do próprio controle; este texto é
+ * a versão que se vê, no mesmo desenho do Label do campo (7.9): rótulo, 8px,
+ * controle, 8px, dica.
  */
 export function EscolhaDaFolha({
   rotulo,
@@ -84,10 +98,10 @@ export function EscolhaDaFolha({
   children: ReactNode
 }) {
   return (
-    <div>
-      <p className="mb-1.5 text-xs font-medium text-t2">{rotulo}</p>
+    <div className="flex min-w-0 flex-col gap-2">
+      <p className="font-medium text-t2 text-texto-meta">{rotulo}</p>
       {children}
-      {hint && <p className="mt-1.5 text-xs text-t4">{hint}</p>}
+      {hint && <p className="text-t-meta text-nota">{hint}</p>}
     </div>
   )
 }
@@ -96,17 +110,14 @@ export function EscolhaDaFolha({
  * A DOBRA DA EXCEÇÃO.
  *
  * Recolhe o CONTROLE e mantém a INFORMAÇÃO: o resumo diz, em texto corrido, o
- * que está valendo agora ("nota fiscal com Simples de 6% · construtora retém
- * 3% de ISS"). Quem cadastra o caso típico lê a frase e segue; quem tem a
- * exceção abre e mexe. O resumo quebra linha em vez de cortar, porque cortado
- * no celular ele voltaria a esconder o estado.
- *
- * O ícone é o assunto da dobra e o chevron é o único sinal de "abre".
+ * que está valendo agora. O resumo quebra linha em vez de cortar, porque
+ * cortado no celular ele voltaria a esconder o estado. O ícone é o assunto da
+ * dobra e o chevron é o único sinal de "abre".
  */
 export function DobraDaFolha({
   titulo,
   resumo,
-  icone: Icone,
+  icone,
   aberta,
   aoAlternar,
   children,
@@ -120,32 +131,33 @@ export function DobraDaFolha({
 }) {
   const id = useId()
   return (
-    <div className="rounded-[14px] bg-s2">
+    <div className="rounded-caixa bg-s2">
       <button
         type="button"
         onClick={aoAlternar}
         aria-expanded={aberta}
         aria-controls={id}
         className={cn(
-          'flex min-h-toque w-full items-center gap-3 px-4 py-3 text-left',
-          'transition-colors duration-150 hover:bg-s3/50 focus-visible:ring-2 focus-visible:ring-brand/40',
-          aberta ? 'rounded-t-[14px]' : 'rounded-[14px]',
+          'flex min-h-toque w-full items-center gap-3 px-4 py-3 text-left hover:bg-linha-hover',
+          'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/25',
+          aberta ? 'rounded-t-caixa' : 'rounded-caixa',
         )}
+        style={{ transitionProperty: 'background-color', transitionDuration: 'var(--dur-micro)', transitionTimingFunction: 'var(--curva-cor)' }}
       >
-        {Icone && <Icone size={16} strokeWidth={1.6} className="shrink-0 text-t3" aria-hidden />}
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-sm font-medium text-t1">{titulo}</span>
-          <span className="text-xs text-t3">{resumo}</span>
+        {icone && <Icone icone={icone} tamanho={16} className="shrink-0 text-t3" />}
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-t1 text-texto-titulo">{titulo}</span>
+          <span className="text-t-meta text-texto-meta">{resumo}</span>
         </span>
-        <ChevronRight
-          size={16}
-          strokeWidth={1.6}
-          className={cn('shrink-0 text-t4 transition-transform duration-150', aberta && 'rotate-90')}
-          aria-hidden
-        />
+        <span
+          className={cn('flex shrink-0 text-t-meta', aberta && 'rotate-90')}
+          style={{ transitionProperty: 'transform', transitionDuration: 'var(--dur-micro)', transitionTimingFunction: 'var(--curva-cor)' }}
+        >
+          <Icone icone={ChevronRight} tamanho={16} />
+        </span>
       </button>
       {aberta && (
-        <div id={id} className="space-y-4 border-t border-line p-4">
+        <div id={id} className="flex flex-col gap-6 border-t border-fio-linha p-4">
           {children}
         </div>
       )}
@@ -155,13 +167,8 @@ export function DobraDaFolha({
 
 /**
  * Aviso de risco escrito: ícone + título + a frase que diz como resolver.
- *
- * O título fica em `text-t1` e só o ícone leva o vermelho: texto pequeno no
- * tom de erro sobre o próprio fundo de erro não passa de 4,5:1 no tema claro,
- * e o status já está no ícone e na palavra (princípio 3).
- *
- * `papel="status"` é para o aviso que aparece enquanto se digita: anunciar
- * como alerta a cada mudança interromperia quem está digitando.
+ * O título fica em t1 e só o ícone leva o tom de erro (contraste no claro).
+ * `papel="status"` é para o aviso que aparece enquanto se digita.
  */
 export function AvisoDaFolha({
   titulo,
@@ -173,12 +180,11 @@ export function AvisoDaFolha({
   papel?: 'alert' | 'status'
 }) {
   return (
-    <div
-      role={papel}
-      className="flex items-start gap-2.5 rounded-[14px] border border-error-line bg-error-bg px-3.5 py-2.5"
-    >
-      <TriangleAlert size={15} strokeWidth={1.6} className="mt-[3px] shrink-0 text-error" aria-hidden />
-      <div className="min-w-0 text-[13px] leading-relaxed">
+    <div role={papel} className="flex w-full items-start gap-3 rounded-caixa border border-error-line bg-error-bg px-4 py-3">
+      <span className="flex h-5 shrink-0 items-center text-error-ink">
+        <Icone icone={TriangleAlert} tamanho={16} />
+      </span>
+      <div className="flex min-w-0 flex-col text-texto-corrido">
         <p className="font-semibold text-t1">{titulo}</p>
         <p className="text-t2">{children}</p>
       </div>
@@ -188,36 +194,35 @@ export function AvisoDaFolha({
 
 /**
  * O que acontece ao confirmar, uma consequência por linha, cada uma com o
- * ícone do assunto (a conta, a guia, a comissão). É a conta dita em palavras
- * antes de existir, para ninguém descobrir o efeito depois de gravar.
+ * ícone do assunto. É a conta dita em palavras antes de existir.
  */
 export function AoConfirmar({ itens }: { itens: { icone: LucideIcon; texto: ReactNode }[] }) {
+  const id = useId()
   if (itens.length === 0) return null
   return (
-    <div>
-      <Rotulo>Ao confirmar</Rotulo>
-      <ul className="mt-2 space-y-2">
-        {itens.map((item, i) => {
-          const Icone = item.icone
-          return (
-            <li key={i} className="flex items-start gap-2.5 text-[13px] leading-relaxed text-t2">
-              <Icone size={15} strokeWidth={1.6} className="mt-[3px] shrink-0 text-t3" aria-hidden />
-              <span className="min-w-0">{item.texto}</span>
-            </li>
-          )
-        })}
-      </ul>
+    <div className="flex flex-col gap-2">
+      <Rotulo>
+        <span id={id}>Ao confirmar</span>
+      </Rotulo>
+      <div role="list" aria-labelledby={id} className="flex flex-col gap-2">
+        {itens.map((item, i) => (
+          <div role="listitem" key={i} className="flex items-start gap-3 text-t2 text-texto-corrido">
+            <span className="flex h-5 shrink-0 items-center text-t3">
+              <Icone icone={item.icone} tamanho={16} />
+            </span>
+            <span className="min-w-0">{item.texto}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
 /**
- * O rodapé fixo: o erro mora AQUI, e não no pé do corpo.
- *
- * Num formulário comprido o fim do corpo pode estar fora da tela quando a
- * pessoa toca em salvar. O rodapé nunca sai, e é para ele que os olhos de
- * quem acabou de tocar no botão estão olhando. Os dados digitados ficam onde
- * estavam: o erro só é escrito, nada é limpo.
+ * O rodapé fixo: o erro mora AQUI, e não no pé do corpo, porque é para o
+ * rodapé que os olhos de quem acabou de tocar no botão estão olhando. Os
+ * botões ficam à direita (`[secundário][primário]`); no celular dividem a
+ * largura (7.10). Os dados digitados ficam onde estavam.
  */
 export function RodapeDaFolha({
   erro,
@@ -229,9 +234,9 @@ export function RodapeDaFolha({
   children: ReactNode
 }) {
   return (
-    <div className="space-y-3">
+    <div className="flex w-full min-w-0 flex-col gap-3">
       {erro && <AvisoDaFolha titulo={tituloDoErro}>{erro}</AvisoDaFolha>}
-      <div className="flex items-center gap-2">{children}</div>
+      <div className="flex items-center justify-end gap-3 max-sm:[&>*]:flex-1">{children}</div>
     </div>
   )
 }

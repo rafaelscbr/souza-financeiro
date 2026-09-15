@@ -26,24 +26,8 @@ const RAIZ = resolve(fileURLToPath(new URL('..', import.meta.url)))
 // nunca volta. Nenhum arquivo novo entra. Um caminho por linha, em ordem.
 // ─────────────────────────────────────────────────────────────────────────────
 const ISENTOS = [
-  'src/admin/BaixarLancamento.tsx',
-  'src/admin/FolhaDeLancamento.tsx',
-  'src/admin/LancarDespesa.tsx',
-  'src/admin/PagarComissao.tsx',
-  'src/admin/ReceberParcela.tsx',
-  'src/admin/RegistrarVenda.tsx',
-  'src/admin/pages/Config.tsx',
-  'src/admin/pages/Corretores.tsx',
-  'src/admin/pages/Despesas.tsx',
-  'src/admin/pages/Relatorios.tsx',
-  'src/admin/pages/Vendas.tsx',
-  'src/auth/LoginPage.tsx',
-  'src/auth/TrocarSenha.tsx',
   'src/components/ui/Painel.tsx',
   'src/components/ui/Secao.tsx',
-  'src/corretor/pages/Inicio.tsx',
-  'src/corretor/pages/MinhasVendas.tsx',
-  'src/corretor/pages/Recebimentos.tsx',
   'src/lib/situacao.ts',
 ]
 
