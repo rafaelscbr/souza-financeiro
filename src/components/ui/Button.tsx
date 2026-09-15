@@ -1,103 +1,151 @@
-import { forwardRef, type ButtonHTMLAttributes } from 'react'
+import { forwardRef, useCallback, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties } from 'react'
+import { Loader2, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Spinner } from './Spinner'
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'outline'
-export type ButtonSize = 'sm' | 'md' | 'lg' | 'icon'
+/*
+ * Botão (docs/souza-os-fundamentos.md, 7.8 e 8.3 "Pressionar").
+ *
+ * Quatro variantes, quatro tamanhos. O primário é LISO: brand-fill, sem
+ * degradê e sem halo; um por camada. Perigo nunca é chapado.
+ * Carregando: o rótulo fica, o Loader2 de 16 entra no lugar do ícone, a
+ * largura trava e o botão anuncia aria-busy.
+ */
+export type ButtonVariante = 'primario' | 'secundario' | 'fantasma' | 'perigo'
+export type ButtonTamanho = 'sm' | 'md' | 'lg' | 'icone'
+
+/** DEPRECADO — apagar na limpeza final: nomes antigos, traduzidos em `VARIANTE_LEGADA`. */
+export type ButtonVariantLegado = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'outline'
+/** DEPRECADO — apagar na limpeza final: `icon` vira `icone`. */
+export type ButtonSizeLegado = 'icon'
+
+export type ButtonVariant = ButtonVariante | ButtonVariantLegado
+export type ButtonSize = ButtonTamanho | ButtonSizeLegado
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
   size?: ButtonSize
-  /**
-   * O banco ainda não respondeu. Desabilita, anuncia `aria-busy` e põe o giro
-   * ANTES do rótulo, que continua visível: quem clicou em "Salvar lançamento"
-   * continua lendo o que pediu enquanto espera.
-   */
+  /** Ícone lucide à esquerda do rótulo (16, stroke 1.6). Carregando, dá lugar ao Loader2. */
+  icone?: LucideIcon
+  /** O banco ainda não respondeu: desabilita, `aria-busy`, rótulo visível, largura travada. */
   carregando?: boolean
 }
 
-/*
- * Souza OS, seção 8.
- *
- * `primary` é o Areia chapado da marca (sem degradê nem halo, ajuste de 12/09) com a tinta marinho (--grad-brand-text),
- * o mesmo "+ Novo" do iCRM, em Sora bold. No hover o degradê sobe para
- * --brand-fill-hover, que é mais claro no escuro e mais fundo no claro: cada
- * tema tem o próprio valor, então o hover lê o token em vez de um brilho fixo.
- *
- * `danger` e `success` são o tom inteiro (fundo -bg, texto e borda do tom), não
- * um botão chapado de vermelho ou verde: cor é significado, e o significado já
- * está na palavra do botão. `outline` é sinônimo de `secondary`, mantido para as
- * telas que já o usam.
- */
-const variants: Record<ButtonVariant, string> = {
-  primary:
-    'grad-brand font-heading font-bold ' +
-    'hover:bg-[image:linear-gradient(158deg,var(--brand-fill-hover)_0%,var(--brand-fill)_62%)]',
-  secondary: 'border border-line bg-surface text-t2 hover:border-line-strong hover:bg-s2 hover:text-t1',
-  outline: 'border border-line bg-surface text-t2 hover:border-line-strong hover:bg-s2 hover:text-t1',
-  ghost: 'text-t3 hover:bg-s3/50 hover:text-t1',
-  danger: 'border border-error-line bg-error-bg text-error hover:border-error/60',
-  success: 'border border-success-line bg-success-bg text-success hover:border-success/60',
+// DEPRECADO — apagar na limpeza final (quando as telas passarem os nomes novos).
+const VARIANTE_LEGADA: Record<ButtonVariantLegado, ButtonVariante> = {
+  primary: 'primario',
+  secondary: 'secundario',
+  outline: 'secundario',
+  ghost: 'fantasma',
+  danger: 'perigo',
+  success: 'secundario',
+}
+
+const variantes: Record<ButtonVariante, string> = {
+  primario: 'bg-brand-fill text-brand-fill-text font-heading hover:bg-brand-fill-hover',
+  secundario: 'border border-fio-controle bg-surface text-t1 hover:bg-linha-hover',
+  fantasma: 'text-t2 hover:bg-linha-hover hover:text-t1',
+  perigo: 'border border-error-line bg-surface text-error-ink hover:bg-linha-hover',
 }
 
 /*
- * sm 36px, md 40px, lg 44px, icon 40px (seção 8). O alvo de toque mínimo da
- * seção 12 é 40px; o `sm` sobrevive para controle dentro de uma linha que já é
- * tocável por inteiro. A ação principal de uma tela de celular vai de `lg`.
- * Sora 13px é o CTA do cabeçalho (seção 6).
+ * Tamanho de letra FORA do cn(): o tailwind-merge sem configuração lê
+ * `text-botao` como cor e apagaria `text-t1` (ou o contrário).
  */
-const sizes: Record<ButtonSize, string> = {
-  sm: 'h-9 gap-1.5 px-3 text-[13px]',
-  md: 'h-10 gap-2 px-4 text-[13px]',
-  lg: 'h-11 gap-2 px-5 text-sm',
-  icon: 'h-10 w-10 shrink-0 p-0',
+const tipo: Record<ButtonVariante, string> = {
+  primario: 'text-botao',
+  secundario: 'text-botao-secundario',
+  fantasma: 'text-botao-secundario',
+  perigo: 'text-botao-secundario',
 }
 
 /*
- * `type="button"` POR PADRÃO. O padrão do HTML é "submit": um "Cancelar" posto
- * dentro de um <form> enviava o formulário. Agora enviar é sempre uma escolha
- * escrita (`type="submit"`), nunca um acidente de onde o botão caiu.
- *
- * Foco: o anel `ring-brand/40` do guia, somado ao contorno global de
- * `*:focus-visible` (seção 12). Juntos dão uma faixa de ouro de 4px que aparece
- * até sobre o próprio botão dourado no tema claro, onde o anel sozinho some.
+ * sm 32 / md 40 / lg 44 / icone 32 no computador. Abaixo de 1024 ou com toque,
+ * todo botão tem no mínimo 44 (a media de 7.8).
+ */
+const TOQUE = 'max-lg:min-h-11 [@media(pointer:coarse)]:min-h-11'
+const tamanhos: Record<ButtonTamanho, string> = {
+  sm: cn('h-8 gap-2 px-3', TOQUE),
+  md: cn('h-10 gap-2 px-4', TOQUE),
+  lg: 'h-11 gap-2 px-5',
+  icone: 'size-11 shrink-0 lg:size-8 [@media(pointer:coarse)]:size-11',
+}
+
+/* Cor em 150ms na curva da casa; pressionar em 100ms. Só as propriedades que mudam. */
+const TRANSICAO: CSSProperties = {
+  transitionProperty: 'color, background-color, border-color, transform',
+  transitionDuration: 'var(--dur-micro), var(--dur-micro), var(--dur-micro), var(--dur-toque)',
+  transitionTimingFunction: 'var(--curva-cor)',
+}
+
+/*
+ * `type="button"` por padrão: enviar um <form> é sempre escolha escrita.
+ * Foco: o contorno global de 5.5 (2px brand, offset 2), sem anel próprio.
  */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
       className,
-      variant = 'primary',
+      variant = 'primario',
       size = 'md',
       type = 'button',
+      icone: Icone,
       carregando = false,
       disabled,
+      style,
       children,
       ...props
     },
     ref,
   ) => {
+    const variante: ButtonVariante =
+      variant in VARIANTE_LEGADA ? VARIANTE_LEGADA[variant as ButtonVariantLegado] : (variant as ButtonVariante)
+    const tamanho: ButtonTamanho = size === 'icon' ? 'icone' : size
+
+    if (import.meta.env.DEV && tamanho === 'icone' && !props['aria-label']) {
+      console.error('Button tamanho "icone" precisa de aria-label (7.8).')
+    }
+
+    /* Largura travada enquanto carrega: mede antes de trocar o ícone. */
+    const interno = useRef<HTMLButtonElement | null>(null)
+    const [larguraTravada, setLarguraTravada] = useState<number | null>(null)
+    const ligarRef = useCallback(
+      (el: HTMLButtonElement | null) => {
+        interno.current = el
+        if (typeof ref === 'function') ref(el)
+        else if (ref) ref.current = el
+      },
+      [ref],
+    )
+    useLayoutEffect(() => {
+      if (carregando && interno.current) setLarguraTravada(interno.current.offsetWidth)
+      if (!carregando) setLarguraTravada(null)
+    }, [carregando])
+
+    const giro = <Loader2 aria-hidden size={16} strokeWidth={1.6} className="shrink-0 animate-spin" />
+
     return (
       <button
-        ref={ref}
+        ref={ligarRef}
         type={type}
         disabled={disabled || carregando}
         aria-busy={carregando || undefined}
-        className={cn(
-          'relative inline-flex select-none items-center justify-center whitespace-nowrap rounded-lg font-medium',
-          'transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]',
-          'focus-visible:ring-2 focus-visible:ring-brand/40 active:scale-[0.98]',
-          'disabled:pointer-events-none disabled:opacity-40',
-          variants[variant],
-          sizes[size],
+        data-variante={variante}
+        style={{ ...TRANSICAO, ...(larguraTravada ? { minWidth: larguraTravada } : null), ...style }}
+        className={`${tipo[variante]} ${cn(
+          'relative inline-flex select-none items-center justify-center whitespace-nowrap rounded-controle',
+          'enabled:active:scale-[.98]',
+          'disabled:cursor-not-allowed disabled:opacity-40',
+          variantes[variante],
+          tamanhos[tamanho],
           className,
-        )}
+        )}`}
         {...props}
       >
-        {carregando && size === 'icon' ? (
-          <Spinner decorativo />
+        {tamanho === 'icone' ? (
+          carregando ? giro : Icone ? <Icone aria-hidden size={16} strokeWidth={1.6} className="shrink-0" /> : children
         ) : (
           <>
-            {carregando && <Spinner decorativo />}
+            {carregando ? giro : Icone && <Icone aria-hidden size={16} strokeWidth={1.6} className="shrink-0" />}
             {children}
           </>
         )}

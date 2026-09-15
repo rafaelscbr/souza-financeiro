@@ -5,45 +5,37 @@ import { TOM, TOM_DA_SITUACAO } from './tom'
 import { cn } from '@/lib/utils'
 
 /*
- * O SELO — a situação na goteira da linha, com o ORDINAL REAL da parcela.
- *
- * Funde duas informações num objeto que se varre sem ler: QUAL parcela é (o
- * "3" de 3/9) e O QUE o dinheiro é. Numa venda de 9 parcelas irregulares, é a
- * diferença entre procurar e reconhecer.
- *
- * Tem a geometria do IconeTom sm (28px, raio 9px) e as cores do tom da
- * situação, pelo mesmo mapeamento do chip. Sem ordinal, mostra o ícone da
- * situação. O selo é reforço: a palavra e a frase de tempo ao lado dizem o
- * mesmo, então ele fica fora da árvore de acessibilidade.
+ * Selo ordinal (7.7): 28×28, raio `controle`, `valor-fato` centrado, na
+ * goteira de 28. Mostra o ORDINAL REAL da parcela (o "3" de 3/9) nas cores do
+ * tom da situação; sem ordinal, o ícone da situação. Não existe glifo de
+ * traço. É reforço (a palavra ao lado diz o mesmo), então fica fora da árvore
+ * de acessibilidade.
  */
-export function Selo({
-  situacao,
-  idx,
-  count,
-  /**
-   * Linhas sem ordinal — guia de imposto, despesa. 'traco' mostra o ícone da
-   * situação (o traço solto não dizia nada); 'check' força o check.
-   */
-  glifo,
-  className,
-}: {
+export interface SeloProps {
   situacao: Situacao
   idx?: number | null
   count?: number | null
-  glifo?: 'traco' | 'check'
+  /**
+   * 'check' força o check. 'traco' é DEPRECADO — apagar na limpeza final:
+   * não desenha traço nenhum, mostra o ícone da situação.
+   */
+  glifo?: 'check' | 'traco'
   className?: string
-}) {
+}
+
+export function Selo({ situacao, idx, count, glifo, className }: SeloProps) {
+  if (import.meta.env.DEV && glifo === 'traco') {
+    console.error('[Selo] o glifo de traço não existe mais (7.7); remova a prop `glifo`.')
+  }
   const v = VOCABULARIO[situacao]
   const t = TOM[TOM_DA_SITUACAO[situacao]]
   const temOrdinal = typeof idx === 'number' && typeof count === 'number' && count > 1
-  const Icone =
-    glifo === 'check' || (glifo === 'traco' && situacao === 'recebida')
-      ? Check
-      : ICONE_DA_SITUACAO[situacao]
+  const Glifo = glifo === 'check' ? Check : ICONE_DA_SITUACAO[situacao]
   return (
     <span
+      data-selo
       className={cn(
-        'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] border font-heading text-xs font-bold tabular-nums',
+        'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-controle border font-heading text-valor-fato num',
         t.fundo,
         t.borda,
         t.texto,
@@ -53,23 +45,22 @@ export function Selo({
       aria-hidden
       title={`${v.palavra}${temOrdinal ? ` · parcela ${idx}/${count}` : ''}`}
     >
-      {temOrdinal ? idx : <Icone size={13} strokeWidth={1.6} />}
+      {temOrdinal ? idx : <Glifo size={14} strokeWidth={1.6} focusable="false" />}
     </span>
   )
 }
 
 /**
- * O marcador solto — anel, disco, quadrado, check, riscado.
- *
- * Usado onde não há ordinal e o selo seria pesado (numa legenda). Reconhecível
- * por silhueta, sem depender de cor nenhuma: pinta com a cor de quem o contém.
+ * DEPRECADO — apagar na limpeza final (usado por admin/pages/Inicio.tsx e
+ * kit/Kit.tsx). O marcador solto de legenda; 7.7 fica com um glifo por
+ * significado. Pinta com a cor de quem o contém.
  */
 export function Marcador({ situacao }: { situacao: Situacao }) {
   const m = VOCABULARIO[situacao].marcador
   const base = 'inline-block h-2.5 w-2.5 shrink-0'
-  if (m === 'anel') return <span className={cn(base, 'rounded-full border-[1.5px] border-current')} aria-hidden />
+  if (m === 'anel') return <span className={cn(base, 'rounded-full border-2 border-current')} aria-hidden />
   if (m === 'disco') return <span className={cn(base, 'rounded-full bg-current')} aria-hidden />
-  if (m === 'quadrado') return <span className={cn(base, 'rounded-[2px] bg-current')} aria-hidden />
+  if (m === 'quadrado') return <span className={cn(base, 'rounded-none bg-current')} aria-hidden />
   if (m === 'check') return <Check size={12} strokeWidth={1.6} className="shrink-0" aria-hidden />
-  return <span className={cn(base, 'rounded-full border-[1.5px] border-current opacity-60')} aria-hidden />
+  return <span className={cn(base, 'rounded-full border-2 border-current opacity-60')} aria-hidden />
 }

@@ -87,6 +87,19 @@ export default {
         'info-bg': c('--info-bg'),
         'info-line': c('--info-line'),
 
+        /* -------------- Fundamentos 5.1: tokens derivados (index.css) -------------- */
+        'fio-caixa': c('--fio-caixa'),
+        'fio-linha': c('--fio-linha'),
+        'fio-controle': c('--fio-controle'),
+        'borda-ouro': c('--borda-ouro'),
+        't-meta': c('--t-meta'),
+        'linha-hover': c('--linha-hover'),
+        'linha-press': c('--linha-press'),
+        'success-ink': c('--success-ink'),
+        'warning-ink': c('--warning-ink'),
+        'error-ink': c('--error-ink'),
+        'info-ink': c('--info-ink'),
+
         /*
          * ------------------------- ALIASES DEPRECADOS -------------------------
          * TEMPORÁRIOS. Os nomes da paleta anterior, apontados para o token novo
@@ -180,48 +193,101 @@ export default {
       },
 
       /*
-       * Tamanho de fonte e raio seguem a escala PADRÃO do Tailwind, que é a do
-       * guia (text-xs 12px, text-sm 14px, rounded-lg 8px). Só dois nomes da
-       * casa ficam: o raio do símbolo e o alvo de toque.
+       * Fundamentos 6.1: um nome por papel. A família vem junto no componente
+       * (`font-heading` nos papéis Sora). Pares por largura: `text-X-m lg:text-X`.
+       * `rotulo` pede também `uppercase` (fontSize não carrega text-transform).
+       * `campo` não é token: é a classe .campo do index.css.
+       * Nenhum nome aqui repete um nome de `colors` (texto-meta é tamanho, t-meta é cor).
        */
+      fontSize: {
+        'numero-heroi': ['34px', { lineHeight: '40px', letterSpacing: '-0.02em', fontWeight: '800' }],
+        'numero-heroi-m': ['28px', { lineHeight: '32px', letterSpacing: '-0.02em', fontWeight: '800' }],
+        'numero-kpi': ['28px', { lineHeight: '32px', letterSpacing: '-0.015em', fontWeight: '700' }],
+        'numero-kpi-m': ['22px', { lineHeight: '28px', letterSpacing: '-0.015em', fontWeight: '700' }],
+        'titulo-pagina': ['19px', { lineHeight: '28px', letterSpacing: '-0.01em', fontWeight: '700' }],
+        'titulo-pagina-m': ['17px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '700' }],
+        'titulo-painel': ['16px', { lineHeight: '24px', letterSpacing: '-0.005em', fontWeight: '600' }],
+        'titulo-secao': ['15px', { lineHeight: '24px', letterSpacing: '0', fontWeight: '600' }],
+        'valor-destaque': ['17px', { lineHeight: '24px', letterSpacing: '-0.005em', fontWeight: '600' }],
+        'valor-linha': ['15px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '600' }],
+        'valor-fato': ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
+        'texto-titulo': ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
+        texto: ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '400' }],
+        'texto-corrido': ['14px', { lineHeight: '22px', letterSpacing: '0', fontWeight: '400' }],
+        'texto-meta': ['13px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '400' }],
+        nota: ['12px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '400' }],
+        rotulo: ['11px', { lineHeight: '16px', letterSpacing: '0.14em', fontWeight: '500' }],
+        chip: ['11px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '600' }],
+        botao: ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '600' }],
+        'botao-secundario': ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
+      },
+
+      /* Fundamentos 5.3: cinco raios (rounded-full vem do Tailwind). */
       borderRadius: {
-        // A moldura do "S" da marca: radius ~25% (seção 2), o mesmo a 32px e a 80px.
+        badge: '6px',
+        controle: '8px',
+        caixa: '14px',
+        sobreposicao: '20px',
+        // A moldura do "S" da marca: 25%, fora dos cinco.
         marca: '25%',
       },
 
+      /* Fundamentos 3.2: espaço semântico (valores responsivos no index.css). */
       spacing: {
-        // Alvo de toque da ação principal: 44px (seção 12).
+        recuo: 'var(--recuo)',
+        margem: 'var(--margem-pagina)',
+        bloco: 'var(--vao-bloco)',
+        secao: 'var(--vao-secao)',
+        topo: 'var(--topo-conteudo)',
+        linha: 'var(--linha-y)',
+        goteira: 'var(--goteira)',
+        cabecalho: 'var(--altura-cabecalho)',
+        faixa: 'var(--altura-faixa)',
+        // Alvo de toque: 44px.
         toque: '2.75rem',
       },
 
-      /*
-       * DEPRECADO — animações das telas antigas (animate-fade-in, -scale-in,
-       * -slide-up, -recibo). Ficam com a curva da casa até cada tela trocar
-       * pelas receitas da seção 7 no index.css. A verificação apaga.
-       */
-      keyframes: {
-        'fade-in': {
-          from: { opacity: '0' },
-          to: { opacity: '1' },
-        },
-        'scale-in': {
-          from: { opacity: '0', transform: 'scale(0.97)' },
-          to: { opacity: '1', transform: 'scale(1)' },
-        },
-        'slide-up': {
-          from: { transform: 'translateY(100%)' },
-          to: { transform: 'translateY(0)' },
-        },
-        recibo: {
-          from: { backgroundColor: 'color-mix(in srgb, var(--brand-fill) 22%, transparent)' },
-          to: { backgroundColor: 'color-mix(in srgb, var(--brand-fill) 0%, transparent)' },
-        },
+      /* Fundamentos 4.5: camadas. Nenhum `z-` literal no código. */
+      zIndex: {
+        cabecalho: 'var(--z-cabecalho)',
+        nav: 'var(--z-nav)',
+        veu: 'var(--z-veu)',
+        painel: 'var(--z-painel)',
+        popover: 'var(--z-popover)',
+        modal: 'var(--z-modal)',
+        toast: 'var(--z-toast)',
+        paleta: 'var(--z-paleta)',
       },
+
+      /* Fundamentos 8.1. DEFAULT: toda `transition*` existente herda micro/cor. */
+      transitionDuration: {
+        DEFAULT: 'var(--dur-micro)',
+        toque: 'var(--dur-toque)',
+        micro: 'var(--dur-micro)',
+        pagina: 'var(--dur-pagina)',
+        lista: 'var(--dur-lista)',
+        painel: 'var(--dur-painel)',
+        saida: 'var(--dur-saida)',
+        barra: 'var(--dur-barra)',
+        contagem: 'var(--dur-contagem)',
+      },
+      transitionTimingFunction: {
+        DEFAULT: 'var(--curva-cor)',
+        entra: 'var(--curva-entra)',
+        sai: 'var(--curva-sai)',
+        cor: 'var(--curva-cor)',
+      },
+
+      /*
+       * DEPRECADO — apagar na limpeza final. `animate-fade-in` (10 telas de
+       * admin/corretor) e `animate-recibo` (ui/Lista.tsx) ainda são usados, mas
+       * não animam mais (8.2: keyframes antigos saem; 8.4: nada de cor em
+       * keyframe). A entrada nova é `.entrada-pagina`. scale-in e slide-up não
+       * tinham uso e saíram, com todos os keyframes antigos do Tailwind.
+       */
       animation: {
-        'fade-in': 'fade-in 180ms cubic-bezier(0.16, 1, 0.3, 1)',
-        'scale-in': 'scale-in 180ms cubic-bezier(0.16, 1, 0.3, 1)',
-        'slide-up': 'slide-up 280ms cubic-bezier(0.16, 1, 0.3, 1)',
-        recibo: 'recibo 600ms ease-out',
+        'fade-in': 'none',
+        recibo: 'none',
       },
     },
   },

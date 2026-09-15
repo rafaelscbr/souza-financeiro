@@ -1,22 +1,35 @@
 import { type ReactNode } from 'react'
-import { TOM, type Tom } from './tom'
+import { type Tom } from './tom'
 import { cn } from '@/lib/utils'
 
 /*
- * Badge (seção 8): marcação menor que o chip, para contagem e etiqueta curta.
- * O ponto opcional é o sinal que não depende de a pessoa ler a palavra.
+ * Badge (7.7): contagem. Pílula de 20px de altura, largura mínima 20, algarismo
+ * tabular. Neutro por padrão; `risco` quando a contagem é de algo vencido;
+ * `zero` apaga a tinta para t-meta.
  */
-export function Badge({ tom, ponto, children }: { tom: Tom; ponto?: boolean; children: ReactNode }) {
+export interface BadgeProps {
+  children: ReactNode
+  risco?: boolean
+  zero?: boolean
+  className?: string
+  /** DEPRECADO — apagar na limpeza final. Só 'risco' tem efeito (vira `risco`). */
+  tom?: Tom
+  /** DEPRECADO — apagar na limpeza final. Sem efeito: badge não tem ponto decorativo (7.14). */
+  ponto?: boolean
+}
+
+export function Badge({ children, risco, zero, className, tom }: BadgeProps) {
+  const emRisco = risco || tom === 'risco'
   return (
     <span
+      data-badge
       className={cn(
-        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs',
-        TOM[tom].fundo,
-        TOM[tom].borda,
-        TOM[tom].texto,
+        'inline-flex h-5 min-w-5 shrink-0 items-center justify-center whitespace-nowrap rounded-full px-1 font-label text-chip num',
+        emRisco ? 'bg-error-bg text-error-ink' : 'bg-s2 text-t2',
+        zero && 'text-t-meta',
+        className,
       )}
     >
-      {ponto && <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', TOM[tom].ponto)} aria-hidden />}
       {children}
     </span>
   )

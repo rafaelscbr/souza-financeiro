@@ -1,29 +1,27 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { ChevronRight, MoreHorizontal, X } from 'lucide-react'
-import { Rotulo } from '@/components/ui/Rotulo'
-import { useArmadilhaDeFoco } from '@/components/ui/SidePanel'
+import { MoreHorizontal } from 'lucide-react'
+import { Icone } from '@/components/ui/Icone'
+import { Linha, Lista } from '@/components/ui/Lista'
+import { SidePanel } from '@/components/ui/SidePanel'
 import { ContadorNav, OpcoesDaConta, type UsuarioDaCasca } from './NavRail'
 import { estaAtivo, type ItemNav } from './navegacao'
 import { cn } from '@/lib/utils'
 
 /*
- * A BARRA DO POLEGAR (docs/souza-os.md, seção 6), abaixo de lg.
+ * A BARRA INFERIOR (4.4), abaixo de 1024px.
  *
- * Os destinos do dia a dia e um "Mais" com o resto e a conta. Sem botão
- * flutuante: registrar venda e lançar despesa moram no CTA do cabeçalho de
- * cada tela, e um FAB por cima da lista repetiria o mesmo botão tapando a
- * última linha, justamente a que a pessoa rolou até ali para ver.
- *
- * O item ativo tem fundo tonalizado atrás do ícone, e o ícone em Areia: o
- * mesmo par de sinais do trilho, para as duas navegações lerem igual.
+ * `fixed` no rodapé, fundo da página, fio de cima por sombra de 1px. Altura
+ * 64 + área segura. Colunas iguais até `max-w-xl`. Cada item: pílula 32×56
+ * com ícone 20 (ativa em `nav-active-bg`) e rótulo 11/16 500, sem caixa alta.
+ * O contador pousa no canto da pílula, no máximo "9+". "Mais" abre uma folha
+ * (SidePanel forma="folha") com os outros destinos e a conta.
  */
 
 export interface BottomNavProps {
   /** Até cinco destinos, na ordem da lista de navegação. */
   destinos: ItemNav[]
-  /** O que não coube no polegar. Pode ser vazio: o "Mais" ainda leva à conta. */
+  /** O que não coube na barra. Pode ser vazio: o "Mais" ainda leva à conta. */
   mais: ItemNav[]
   usuario: UsuarioDaCasca
   aoBuscar: () => void
@@ -35,8 +33,8 @@ function Pilula({ ativo, children }: { ativo: boolean; children: ReactNode }) {
   return (
     <span
       className={cn(
-        'relative flex h-7 w-12 items-center justify-center rounded-full transition-colors duration-150',
-        ativo ? 'bg-nav-active-bg text-brand' : 'text-nav-muted',
+        'relative flex h-8 w-14 items-center justify-center rounded-full transition-colors',
+        ativo ? 'bg-nav-active-bg text-nav-active-text' : 'text-nav-muted',
       )}
     >
       {children}
@@ -44,15 +42,24 @@ function Pilula({ ativo, children }: { ativo: boolean; children: ReactNode }) {
   )
 }
 
+/* O badge, em relação à pílula: canto de cima à direita, sem número solto de posição. */
+function ContadorDaPilula({ item }: { item: ItemNav }) {
+  if (!item.contador) return null
+  return (
+    <span className="absolute right-0 top-0 flex -translate-y-1/2">
+      <ContadorNav item={item} compacto />
+    </span>
+  )
+}
+
+/* Controle isolado: cor em 150ms; pressionar é fundo `linha-press` na pílula, sem escala (8.3). */
 const ITEM =
-  'flex min-h-[56px] w-full flex-col items-center justify-center gap-1 px-0.5 pb-1.5 pt-2 text-[11px] font-medium leading-none transition-colors duration-150'
+  'group flex min-h-16 w-full flex-col items-center justify-start gap-1 pt-2 font-medium transition-colors [&:active>span:first-child]:bg-linha-press'
 
 export function BottomNav({ destinos, mais, usuario, aoBuscar, aoTrocarSenha, aoSair }: BottomNavProps) {
   const { pathname } = useLocation()
   const [aberto, setAberto] = useState(false)
-  const folhaRef = useRef<HTMLDivElement>(null)
   const fechar = useCallback(() => setAberto(false), [])
-  useArmadilhaDeFoco(aberto, folhaRef, fechar)
 
   useEffect(() => setAberto(false), [pathname])
 
@@ -70,50 +77,42 @@ export function BottomNav({ destinos, mais, usuario, aoBuscar, aoTrocarSenha, ao
     <>
       <nav
         aria-label="Principal"
-        className="nav-bg-blur fixed inset-x-0 bottom-0 z-30 border-t border-nav-line pb-safe lg:hidden"
+        data-barra-inferior=""
+        className="fixed inset-x-0 bottom-0 z-nav bg-page lg:hidden"
+        style={{ boxShadow: '0 -1px 0 var(--fio-caixa)', paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <ul className="mx-auto flex max-w-xl">
-          {destinos.map((item) => {
-            const Icone = item.icone
-            return (
-              <li key={item.para} className="min-w-0 flex-1">
-                <NavLink to={item.para} end={item.fim} className={ITEM}>
-                  {({ isActive }) => (
-                    <>
-                      <Pilula ativo={isActive}>
-                        <Icone size={20} strokeWidth={1.6} aria-hidden />
-                        {item.contador ? (
-                          <span className="absolute -right-1 -top-1 flex">
-                            <ContadorNav item={item} compacto />
-                          </span>
-                        ) : null}
-                      </Pilula>
-                      <span className={cn('max-w-full truncate', isActive ? 'text-nav-active-text' : 'text-nav-text')}>
-                        {item.rotulo}
-                      </span>
-                    </>
-                  )}
-                </NavLink>
-              </li>
-            )
-          })}
-          <li className="min-w-0 flex-1">
+        <ul className="mx-auto grid max-w-xl auto-cols-fr grid-flow-col">
+          {destinos.map((item) => (
+            <li key={item.para} className="min-w-0">
+              <NavLink to={item.para} end={item.fim} className={`${ITEM} text-chip`}>
+                {({ isActive }) => (
+                  <>
+                    <Pilula ativo={isActive}>
+                      <Icone icone={item.icone} tamanho={20} />
+                      <ContadorDaPilula item={item} />
+                    </Pilula>
+                    <span className={cn('max-w-full truncate', isActive ? 'text-nav-active-text' : 'text-nav-text')}>
+                      {item.rotulo}
+                    </span>
+                  </>
+                )}
+              </NavLink>
+            </li>
+          ))}
+          <li className="min-w-0">
             <button
               type="button"
               onClick={() => setAberto(true)}
               aria-haspopup="dialog"
               aria-expanded={aberto}
-              className={ITEM}
+              className={`${ITEM} text-chip`}
             >
               <Pilula ativo={maisAtivo || aberto}>
-                <MoreHorizontal size={20} strokeWidth={1.6} aria-hidden />
+                <Icone icone={MoreHorizontal} tamanho={20} />
                 {contadorMais > 0 && (
-                  <span className="absolute -right-1 -top-1 flex">
-                    <ContadorNav
-                      item={{ para: '', rotulo: 'Mais', icone: MoreHorizontal, contador: contadorMais, tomContador: tomMais }}
-                      compacto
-                    />
-                  </span>
+                  <ContadorDaPilula
+                    item={{ para: '', rotulo: 'Mais', icone: MoreHorizontal, contador: contadorMais, tomContador: tomMais }}
+                  />
                 )}
               </Pilula>
               <span className={maisAtivo || aberto ? 'text-nav-active-text' : 'text-nav-text'}>Mais</span>
@@ -122,79 +121,32 @@ export function BottomNav({ destinos, mais, usuario, aoBuscar, aoTrocarSenha, ao
         </ul>
       </nav>
 
-      {aberto &&
-        createPortal(
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <div aria-hidden className="overlay-entra absolute inset-0 bg-black/40" onClick={fechar} />
-            <div
-              ref={folhaRef}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Mais"
-              tabIndex={-1}
-              className="modal-surface absolute inset-x-0 bottom-0 max-h-[88vh] overflow-y-auto overscroll-contain rounded-t-[20px] pb-safe shadow-modal outline-none animate-[painelSobe_280ms_cubic-bezier(0.16,1,0.3,1)_backwards]"
-            >
-              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-4 py-1.5">
-                <Rotulo as="h2">Mais</Rotulo>
-                <button
-                  type="button"
-                  onClick={fechar}
-                  aria-label="Fechar"
-                  className="-mr-2 flex h-10 w-10 items-center justify-center rounded-lg text-t3 transition-colors duration-150 hover:bg-s3/50 hover:text-t1"
-                >
-                  <X size={18} strokeWidth={1.6} aria-hidden />
-                </button>
-              </div>
-
-              {mais.length > 0 && (
-                <ul className="p-1.5">
-                  {mais.map((item) => {
-                    const Icone = item.icone
-                    return (
-                      <li key={item.para}>
-                        <NavLink
-                          to={item.para}
-                          end={item.fim}
-                          onClick={fechar}
-                          className={({ isActive }) =>
-                            cn(
-                              'flex h-12 items-center gap-3 rounded-lg px-2.5 text-[15px] transition-colors duration-150',
-                              isActive ? 'bg-nav-active-bg font-medium text-t1' : 'text-t2 hover:bg-s3/50',
-                            )
-                          }
-                        >
-                          {({ isActive }) => (
-                            <>
-                              <Icone
-                                size={18}
-                                strokeWidth={1.6}
-                                aria-hidden
-                                className={cn('shrink-0', isActive ? 'text-brand' : 'text-t4')}
-                              />
-                              <span className="min-w-0 flex-1 truncate">{item.rotulo}</span>
-                              <ContadorNav item={item} />
-                              <ChevronRight size={16} strokeWidth={1.6} aria-hidden className="shrink-0 text-t4" />
-                            </>
-                          )}
-                        </NavLink>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-
-              <div className={cn(mais.length > 0 && 'border-t border-line')}>
-                <OpcoesDaConta
-                  usuario={usuario}
-                  aoBuscar={depoisDeFechar(aoBuscar)}
-                  aoTrocarSenha={depoisDeFechar(aoTrocarSenha)}
-                  aoSair={depoisDeFechar(aoSair)}
-                />
-              </div>
-            </div>
-          </div>,
-          document.body,
+      <SidePanel aberto={aberto} aoFechar={fechar} titulo="Mais" forma="folha" largura="md">
+        {mais.length > 0 && (
+          <Lista contexto="sobreposicao" colunas={{ goteira: true, fim: true }} rotuloAcessivel="Outros destinos" semEscada>
+            {mais.map((item) => (
+              <Linha
+                key={item.para}
+                goteira={<Icone icone={item.icone} tamanho={16} className="text-t3" />}
+                titulo={
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="truncate">{item.rotulo}</span>
+                    <ContadorNav item={item} />
+                  </span>
+                }
+                para={item.para}
+              />
+            ))}
+          </Lista>
         )}
+        <OpcoesDaConta
+          contexto="painel"
+          usuario={usuario}
+          aoBuscar={depoisDeFechar(aoBuscar)}
+          aoTrocarSenha={depoisDeFechar(aoTrocarSenha)}
+          aoSair={depoisDeFechar(aoSair)}
+        />
+      </SidePanel>
     </>
   )
 }

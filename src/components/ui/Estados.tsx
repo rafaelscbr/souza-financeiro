@@ -1,20 +1,48 @@
 import { type ReactNode } from 'react'
-import { RotateCcw, TriangleAlert, type LucideIcon } from 'lucide-react'
+import { AlertCircle, RotateCcw, type LucideIcon } from 'lucide-react'
 import { Button } from './Button'
 import { Esqueleto, LinhaEsqueleto } from './Esqueleto'
 import { IconeTom } from './IconeTom'
+import { cn } from '@/lib/utils'
 
 /*
- * OS TRÊS ESTADOS DE TODA TELA QUE LÊ DO BANCO (seção 1), nesta precedência:
- * carregando → falhou → vazio.
+ * OS TRÊS ESTADOS DE TODA TELA QUE LÊ DO BANCO (7.13), nesta precedência:
+ * carregando → erro → vazio.
  *
  * FALHA NUNCA VIRA VAZIO. Uma consulta que falhou e diz "Nenhuma parcela" é
- * uma mentira com cara de boa notícia: o corretor lê que não tem nada a
- * receber quando o que houve foi uma queda de rede. Por isso o erro tem
- * componente próprio e a tela escolhe entre os três, nunca entre dois.
+ * uma mentira com cara de boa notícia. Erro e vazio moram DENTRO do cartão que
+ * leu o dado, nunca a tela toda nem um cartão só para eles; o cabeçalho da
+ * página continua. Os dois têm a mesma geometria:
+ *   IconeTom lg → título (titulo-painel) → texto (texto-corrido, 48ch) → ação.
+ * O componente mostra o que recebe: título, motivo e ação vêm da tela.
  */
 
-/** Vazio (seção 8): IconeTom lg + título Sora + descrição + ação. */
+function Quadro({
+  icone,
+  tom,
+  titulo,
+  texto,
+  acao,
+  alerta,
+}: {
+  icone: LucideIcon
+  tom: 'neutro' | 'risco'
+  titulo: ReactNode
+  texto?: ReactNode
+  acao?: ReactNode
+  alerta?: boolean
+}) {
+  return (
+    <div role={alerta ? 'alert' : undefined} className="flex flex-col items-center px-recuo py-12 text-center">
+      <IconeTom icone={icone} tom={tom} tamanho="lg" />
+      <h3 className="mt-4 text-titulo-painel text-t1">{titulo}</h3>
+      {texto && <p className="mt-1 max-w-[48ch] text-texto-corrido text-t3">{texto}</p>}
+      {acao && <div className="mt-6">{acao}</div>}
+    </div>
+  )
+}
+
+/** Vazio (7.13). Por filtro: título do filtro + ação "Ver todas". */
 export function EstadoVazio({
   icone,
   titulo,
@@ -26,20 +54,12 @@ export function EstadoVazio({
   descricao?: ReactNode
   acao?: ReactNode
 }) {
-  return (
-    <div className="flex flex-col items-center px-6 py-12 text-center">
-      <IconeTom icone={icone} tom="neutro" tamanho="lg" />
-      <h3 className="mt-4 font-heading text-base font-bold tracking-[-0.015em] text-t1">{titulo}</h3>
-      {descricao && <p className="mt-1 max-w-sm text-[13px] text-t3">{descricao}</p>}
-      {acao && <div className="mt-5">{acao}</div>}
-    </div>
-  )
+  return <Quadro icone={icone} tom="neutro" titulo={titulo} texto={descricao} acao={acao} />
 }
 
 /**
- * Erro (seção 8): IconeTom risco + "Não foi possível carregar" + motivo +
- * "Tentar de novo". `role="alert"` para o leitor de tela anunciar sem a pessoa
- * procurar. O motivo diz o que houve; a desculpa vaga não entra.
+ * Erro (7.13): `AlertCircle` em risco + título + motivo + "Tentar de novo"
+ * (Button secundário). `role="alert"` para o leitor de tela anunciar.
  */
 export function EstadoErro({
   titulo = 'Não foi possível carregar',
@@ -51,57 +71,80 @@ export function EstadoErro({
   aoTentarDeNovo: () => void
 }) {
   return (
-    <div role="alert" className="flex flex-col items-center px-6 py-12 text-center">
-      <IconeTom icone={TriangleAlert} tom="risco" tamanho="lg" />
-      <h3 className="mt-4 font-heading text-base font-bold tracking-[-0.015em] text-t1">{titulo}</h3>
-      {motivo && <p className="mt-1 max-w-sm text-[13px] text-t3">{motivo}</p>}
-      <div className="mt-5">
-        <Button type="button" variant="secondary" onClick={aoTentarDeNovo}>
-          <RotateCcw size={15} strokeWidth={1.6} aria-hidden />
+    <Quadro
+      alerta
+      icone={AlertCircle}
+      tom="risco"
+      titulo={titulo}
+      texto={motivo}
+      acao={
+        <Button type="button" variant="secundario" icone={RotateCcw} onClick={aoTentarDeNovo}>
           Tentar de novo
         </Button>
-      </div>
-    </div>
+      }
+    />
   )
 }
 
-/** Lista carregando, com a própria superfície de lista (seção 9). */
-export function EsqueletoLista({ linhas = 5 }: { linhas?: number }) {
+/**
+ * Lista carregando COM caixa própria (cartão de lista), para quando a tela
+ * ainda não tem o cartão montado. Dentro de um cartão, use `ListaCarregando`.
+ */
+export function EsqueletoLista({ linhas = 5, goteira = true }: { linhas?: number; goteira?: boolean }) {
   return (
     <div
-      className="overflow-hidden rounded-xl border border-line list-surface"
+      data-caixa
+      className="lista rounded-caixa border border-fio-caixa bg-surface py-2 shadow-card"
+      data-contexto="cartao"
+      data-com-goteira={goteira ? '' : undefined}
       aria-busy="true"
       aria-live="polite"
     >
       <span className="sr-only">Carregando…</span>
-      <ul>
-        {Array.from({ length: linhas }).map((_, i) => (
-          <LinhaEsqueleto key={i} />
-        ))}
-      </ul>
+      {Array.from({ length: linhas }).map((_, i) => (
+        <LinhaEsqueleto key={i} goteira={goteira} />
+      ))}
     </div>
   )
 }
 
-/** Grade de KPIs carregando: ícone, rótulo, número e barra, como o card real. */
+/** Grade de KPIs carregando (7.4): rótulo, número e nota, na caixa do KPI. */
 export function EsqueletoCards({ quantos = 4 }: { quantos?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-busy="true" aria-live="polite">
+    <div className="grid grid-cols-2 gap-bloco lg:grid-cols-4" aria-busy="true" aria-live="polite">
       <span className="sr-only">Carregando…</span>
       {Array.from({ length: quantos }).map((_, i) => (
-        <div
-          key={i}
-          className="flex flex-col rounded-[14px] border border-line p-4 shadow-card surface-premium"
-          aria-hidden
-        >
-          <div className="flex items-center gap-2">
-            <Esqueleto className="h-7 w-7 shrink-0 rounded-[9px]" />
-            <Esqueleto className="h-2.5 w-20" />
-          </div>
-          <Esqueleto className="mt-3 h-7 w-3/4 rounded-lg" />
-          <Esqueleto className="mt-3 h-1.5 rounded-full" />
+        <div key={i} data-caixa className="flex flex-col gap-3 rounded-caixa border border-fio-caixa bg-surface p-recuo shadow-card" aria-hidden>
+          <Esqueleto className="h-3 w-20" />
+          <Esqueleto className="h-7 w-3/4" />
+          <Esqueleto className="h-3 w-16" />
         </div>
       ))}
+    </div>
+  )
+}
+
+/*
+ * Carregando uma TELA inteira (portão do App, rota preguiçosa): a forma da
+ * composição típica (título, herói, KPIs, lista), na receita da casca
+ * (`.conteudo`, `gap-secao`, `pt-topo`), sem spinner. O rótulo existe para o
+ * leitor de tela.
+ */
+export function CarregandoPagina({ rotulo = 'Carregando…', className }: { rotulo?: string; className?: string }) {
+  return (
+    <div role="status" aria-busy="true" aria-live="polite" className={cn('conteudo flex flex-col gap-secao pt-topo pb-barra-inferior', className)}>
+      <span className="sr-only">{rotulo}</span>
+      <div className="flex flex-col gap-2" aria-hidden>
+        <Esqueleto className="h-5 w-44 max-w-full" />
+        <Esqueleto className="h-3 w-64 max-w-full" />
+      </div>
+      <div data-caixa className="flex flex-col gap-3 rounded-caixa border border-fio-caixa bg-surface p-recuo shadow-card lg:p-8" aria-hidden>
+        <Esqueleto className="h-3 w-28" />
+        <Esqueleto className="h-9 w-60 max-w-full" />
+        <Esqueleto className="h-1.5 w-full" />
+      </div>
+      <EsqueletoCards quantos={4} />
+      <EsqueletoLista linhas={5} />
     </div>
   )
 }

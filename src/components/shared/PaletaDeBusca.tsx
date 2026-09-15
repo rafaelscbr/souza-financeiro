@@ -1,18 +1,32 @@
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as KeyboardEventReact } from 'react'
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as KeyboardEventReact,
+  type ReactNode,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowDown, ArrowRight, ArrowUp, CornerDownLeft, Search, type LucideIcon } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Icone } from '@/components/ui/Icone'
 import { IconeTom } from '@/components/ui/IconeTom'
 import { Rotulo } from '@/components/ui/Rotulo'
 import { useArmadilhaDeFoco } from '@/components/ui/SidePanel'
+import { usePresenca, type Presenca } from '@/lib/usePresenca'
 import { cn } from '@/lib/utils'
 
 /*
- * BUSCA GLOBAL (⌘K) — Souza OS, seção 8.
+ * BUSCA GLOBAL (⌘K) — 5.2 nível 2, `z-paleta`.
  *
- * Paleta centralizada, resultados agrupados por tipo com rótulo de seção,
- * setas e Enter, e um rodapé que ensina os atalhos. Quem monta os grupos é a
- * casca (vendas, corretores, telas); a paleta só filtra o que recebeu, sem ir
- * ao banco a cada tecla (seção 1.12: o custo faz parte do desenho).
+ * Paleta centralizada no alto, resultados agrupados por tipo, setas e Enter,
+ * e um rodapé que ensina os atalhos. Quem monta os grupos é a casca; a paleta
+ * só filtra o que recebeu, sem ir ao banco a cada tecla.
+ *
+ * Véu `veu-painel` 200ms; caixa com `modalEntra`, sai em 150ms
+ * (`usePresenca`). Cada abertura começa com a busca limpa; o foco volta a
+ * quem abriu.
  */
 
 export interface ItemBusca {
@@ -39,23 +53,45 @@ function normalizar(texto: string) {
   return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
 
-const KBD =
-  'inline-flex h-5 min-w-[20px] items-center justify-center rounded-md border border-line bg-s2 px-1 font-label text-[11px] font-medium text-t3'
-
-export function PaletaDeBusca({ aberto, aoFechar, grupos }: PaletaDeBuscaProps) {
-  // Montar só aberta: cada abertura começa com a busca limpa e o primeiro
-  // resultado ativo, sem efeito de "resetar ao abrir".
-  if (!aberto) return null
-  return <PaletaAberta aoFechar={aoFechar} grupos={grupos} />
+function Tecla({ children }: { children: ReactNode }) {
+  return (
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-badge border border-fio-linha bg-s2 px-1 font-label text-chip text-t3">
+      {children}
+    </kbd>
+  )
 }
 
-function PaletaAberta({ aoFechar, grupos }: Omit<PaletaDeBuscaProps, 'aberto'>) {
+export function PaletaDeBusca({ aberto, aoFechar, grupos }: PaletaDeBuscaProps) {
+  const presenca = usePresenca(aberto, 180)
+  // Cada abertura remonta o conteúdo: busca limpa e o primeiro resultado ativo.
+  const aberturas = useRef(0)
+  const estavaAberto = useRef(false)
+  if (aberto && !estavaAberto.current) aberturas.current += 1
+  estavaAberto.current = aberto
+
+  if (!presenca.montado) return null
+  return (
+    <PaletaAberta
+      key={aberturas.current}
+      aberto={aberto}
+      presenca={presenca}
+      aoFechar={aoFechar}
+      grupos={grupos}
+    />
+  )
+}
+
+interface PaletaAbertaProps extends PaletaDeBuscaProps {
+  presenca: Presenca
+}
+
+function PaletaAberta({ aberto, presenca, aoFechar, grupos }: PaletaAbertaProps) {
   const [consulta, setConsulta] = useState('')
   const [ativo, setAtivo] = useState(0)
   const caixaRef = useRef<HTMLDivElement>(null)
   const listaRef = useRef<HTMLDivElement>(null)
   const uid = useId()
-  useArmadilhaDeFoco(true, caixaRef, aoFechar)
+  useArmadilhaDeFoco(aberto, caixaRef, aoFechar)
 
   // Todos os termos precisam aparecer, em qualquer ordem: "vitta 302" acha
   // "Apto 302 · Residencial Vitta".
@@ -120,19 +156,25 @@ function PaletaAberta({ aoFechar, grupos }: Omit<PaletaDeBuscaProps, 'aberto'>) 
   const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-start justify-center px-4 pt-[12vh]">
-      <div aria-hidden className="overlay-entra absolute inset-0 bg-black/25" onClick={aoFechar} />
+    <div className="fixed inset-0 z-paleta flex items-start justify-center px-4 pt-4 sm:pt-16">
+      <div
+        aria-hidden
+        {...presenca.props}
+        className="veu absolute inset-0 bg-[color:var(--veu-painel)]"
+        onClick={aoFechar}
+      />
       <div
         ref={caixaRef}
         role="dialog"
         aria-modal="true"
         aria-label="Buscar"
         data-paleta-busca
+        data-estado={presenca.estado}
         tabIndex={-1}
-        className="modal-surface relative flex max-h-[min(34rem,76vh)] w-full max-w-[38rem] flex-col overflow-hidden rounded-[16px] shadow-modal outline-none animate-[slideUp_220ms_cubic-bezier(0.16,1,0.3,1)_backwards]"
+        className="modal relative flex max-h-[min(34rem,76vh)] w-full max-w-[38rem] flex-col rounded-caixa border border-fio-caixa bg-surface shadow-modal outline-none"
       >
-        <div className="flex shrink-0 items-center gap-3 border-b border-line px-4">
-          <Search className="h-[18px] w-[18px] shrink-0 text-t4" strokeWidth={1.6} aria-hidden />
+        <div className="flex shrink-0 items-center gap-3 border-b border-fio-linha px-4">
+          <Icone icone={Search} tamanho={16} className="text-t-meta" />
           <input
             data-foco-inicial
             type="text"
@@ -151,19 +193,16 @@ function PaletaAberta({ aoFechar, grupos }: Omit<PaletaDeBuscaProps, 'aberto'>) 
               setAtivo(0)
             }}
             onKeyDown={onKeyDown}
-            // O contorno de foco some aqui de propósito: a paleta inteira é o
-            // lugar do foco, e o cursor piscando já diz onde se digita.
-            className="min-h-[52px] min-w-0 flex-1 bg-transparent text-[15px] text-t1 placeholder:text-t4 focus:outline-none"
+            // A paleta inteira é o lugar do foco; o cursor piscando já diz onde se digita.
+            className="h-14 min-w-0 flex-1 bg-transparent text-texto-titulo text-t1 placeholder:text-t-meta focus:outline-none"
           />
-          <kbd className={cn(KBD, 'hidden sm:inline-flex')}>Esc</kbd>
+          <span className="hidden sm:flex">
+            <Tecla>Esc</Tecla>
+          </span>
           {/* No celular não existe Esc: o fechar precisa ser um botão de verdade. */}
-          <button
-            type="button"
-            onClick={aoFechar}
-            className="-mr-2 min-h-10 px-2 text-[13px] font-medium text-t3 sm:hidden"
-          >
+          <Button variant="fantasma" size="sm" onClick={aoFechar} className="sm:hidden">
             Cancelar
-          </button>
+          </Button>
         </div>
 
         <div
@@ -171,21 +210,22 @@ function PaletaAberta({ aoFechar, grupos }: Omit<PaletaDeBuscaProps, 'aberto'>) 
           id={`${uid}-lista`}
           role="listbox"
           aria-label="Resultados"
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1.5"
+          data-rolagem
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-2"
         >
           {planos.length === 0 ? (
-            <div className="px-4 py-9 text-center">
-              <p className="text-sm text-t2">
+            <div className="flex flex-col items-center gap-1 px-4 py-8 text-center">
+              <p className="text-texto text-t2">
                 {consulta.trim() ? `Nada encontrado para “${consulta.trim()}”` : 'Nada para buscar ainda'}
               </p>
               {consulta.trim() && (
-                <p className="mt-1 text-xs text-t4">Tente outra palavra ou só parte do nome.</p>
+                <p className="text-texto-meta text-t-meta">Tente outra palavra ou só parte do nome.</p>
               )}
             </div>
           ) : (
             filtrados.map((grupo, g) => (
-              <div key={grupo.rotulo} role="group" aria-label={grupo.rotulo} className="pb-1">
-                <div aria-hidden className="px-4 pb-1.5 pt-2.5">
+              <div key={grupo.rotulo} role="group" aria-label={grupo.rotulo} className="flex flex-col">
+                <div aria-hidden className="px-2 pb-1 pt-3">
                   <Rotulo as="span">{grupo.rotulo}</Rotulo>
                 </div>
                 {grupo.itens.map((item, k) => {
@@ -205,23 +245,21 @@ function PaletaAberta({ aoFechar, grupos }: Omit<PaletaDeBuscaProps, 'aberto'>) 
                       }}
                       onClick={() => escolher(item)}
                       className={cn(
-                        'mx-1.5 flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2',
-                        selecionado ? 'bg-s3/60' : 'hover:bg-s3/40',
+                        'flex min-h-11 cursor-pointer items-center gap-3 rounded-controle px-2 py-2',
+                        selecionado && 'bg-linha-press',
                       )}
                     >
                       <IconeTom icone={item.icone ?? ArrowRight} tom="neutro" tamanho="sm" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm text-t1">{item.titulo}</span>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-texto text-t1">{item.titulo}</span>
                         {item.descricao && (
-                          <span className="block truncate text-xs text-t4">{item.descricao}</span>
+                          <span className="truncate text-texto-meta text-t-meta">{item.descricao}</span>
                         )}
                       </span>
                       {selecionado && (
-                        <CornerDownLeft
-                          className="hidden h-3.5 w-3.5 shrink-0 text-t4 sm:block"
-                          strokeWidth={1.6}
-                          aria-hidden
-                        />
+                        <span className="hidden sm:flex">
+                          <Icone icone={CornerDownLeft} tamanho={16} className="text-t-meta" />
+                        </span>
                       )}
                     </div>
                   )
@@ -234,29 +272,30 @@ function PaletaAberta({ aoFechar, grupos }: Omit<PaletaDeBuscaProps, 'aberto'>) 
         {/* Atalhos só onde há teclado físico. */}
         <div
           aria-hidden
-          className="hidden shrink-0 items-center gap-4 border-t border-line px-4 py-2.5 text-xs text-t4 sm:flex"
+          className="hidden h-11 shrink-0 items-center gap-4 border-t border-fio-linha px-4 text-texto-meta text-t-meta sm:flex"
         >
-          <span className="inline-flex items-center gap-1.5">
-            <kbd className={KBD}>
-              <ArrowUp className="h-3 w-3" strokeWidth={1.6} />
-            </kbd>
-            <kbd className={KBD}>
-              <ArrowDown className="h-3 w-3" strokeWidth={1.6} />
-            </kbd>
+          <span className="inline-flex items-center gap-2">
+            <Tecla>
+              <Icone icone={ArrowUp} tamanho={12} />
+            </Tecla>
+            <Tecla>
+              <Icone icone={ArrowDown} tamanho={12} />
+            </Tecla>
             navegar
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            <kbd className={KBD}>
-              <CornerDownLeft className="h-3 w-3" strokeWidth={1.6} />
-            </kbd>
+          <span className="inline-flex items-center gap-2">
+            <Tecla>
+              <Icone icone={CornerDownLeft} tamanho={12} />
+            </Tecla>
             abrir
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            <kbd className={KBD}>Esc</kbd>
+          <span className="inline-flex items-center gap-2">
+            <Tecla>Esc</Tecla>
             fechar
           </span>
-          <span className="ml-auto inline-flex items-center gap-1.5">
-            <kbd className={KBD}>{mac ? '⌘K' : 'Ctrl K'}</kbd>
+          <span className="flex-1" />
+          <span className="inline-flex items-center gap-2">
+            <Tecla>{mac ? '⌘K' : 'Ctrl K'}</Tecla>
             de qualquer tela
           </span>
         </div>
@@ -265,7 +304,6 @@ function PaletaAberta({ aoFechar, grupos }: Omit<PaletaDeBuscaProps, 'aberto'>) 
     document.body,
   )
 }
-
 const NAO_TEXTO = new Set(['button', 'checkbox', 'radio', 'submit', 'reset', 'range', 'color', 'file', 'image'])
 
 function ehCampoDeTexto(el: HTMLElement) {

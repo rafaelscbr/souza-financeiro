@@ -9,16 +9,8 @@ import { SeletorMes } from './SeletorMes'
 import { ComposicaoProvider } from '@/components/composicao/Composicao'
 import { NavRail, type UsuarioDaCasca } from '@/components/layout/NavRail'
 import { BottomNav } from '@/components/layout/BottomNav'
-import { POLEGAR_ADMIN, itensDe, navAdmin, separarPolegar } from '@/components/layout/navegacao'
-import {
-  AreaDaTela,
-  BarraDeTransicao,
-  CascaContext,
-  QuadroCarregando,
-  QuadroErro,
-  useQuadrosDaCasca,
-  useValorDaCasca,
-} from '@/components/layout/PageLayout'
+import { POLEGAR_ADMIN, ROTAS_ADMIN, itensDe, navAdmin, separarPolegar } from '@/components/layout/navegacao'
+import { CarregandoTela, CascaDaPagina } from '@/components/layout/PageLayout'
 import { PaletaDeBusca, useAtalhoBusca, type GrupoBusca } from '@/components/shared/PaletaDeBusca'
 import type { Aviso } from '@/components/shared/PopoverAvisos'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -32,11 +24,12 @@ import type { AttentionItem, MoneyItem } from '@/lib/sales'
  * alimentadas pela mesma lista (navegacao.ts). A casca não desenha cabeçalho
  * de tela: cada tela traz o próprio PageLayout, com o ícone da área, o resumo
  * vivo e o CTA. O navegador de mês virou peça (SeletorMes) que só as telas que
- * dependem do mês põem no cabeçalho.
+ * dependem do mês põem na faixa.
  *
- * O que continua sendo da casca: os painéis de registrar venda e lançar
- * despesa (AcoesAdmin), a busca ⌘K, o sino e o menu da conta. E, enquanto
- * houver tela antiga, a barra de transição com o mês e a ação principal.
+ * A casca não injeta nada: cada rota declara em navegacao.ts o ícone, o
+ * título, se usa o seletor de mês e qual CTA tem; a casca só liga o nome do
+ * CTA à função (AcoesAdmin). Continuam sendo da casca a busca ⌘K, o sino e o
+ * menu da conta.
  */
 export function AdminShell() {
   return (
@@ -112,7 +105,6 @@ function CascaDoAdmin() {
   const navigate = useNavigate()
   const [buscando, setBuscando] = useState(false)
   const [trocandoSenha, setTrocandoSenha] = useState(false)
-  const [quadros, registrarQuadro] = useQuadrosDaCasca()
 
   const abrirBusca = useCallback(() => setBuscando(true), [])
   useAtalhoBusca(abrirBusca)
@@ -128,7 +120,11 @@ function CascaDoAdmin() {
   const secoes = useMemo(() => navAdmin({ vencidos, esperando }), [vencidos, esperando])
   const { destinos, mais } = useMemo(() => separarPolegar(secoes, POLEGAR_ADMIN), [secoes])
   const avisos = useMemo(() => avisosDoAdmin(atencao, receber), [atencao, receber])
-  const casca = useValorDaCasca(avisos, registrarQuadro)
+  const acoesDeCta = useMemo(
+    () => ({ 'registrar-venda': registrarVenda, 'lancar-despesa': lancarDespesa }),
+    [registrarVenda, lancarDespesa],
+  )
+  const seletorMes = useMemo(() => <SeletorMes />, [])
 
   const usuario: UsuarioDaCasca = {
     nome: profile?.name?.trim() || 'Administrador',
@@ -207,42 +203,33 @@ function CascaDoAdmin() {
   }
 
   return (
-    <CascaContext.Provider value={casca}>
+    <>
       <div className="flex min-h-screen bg-page">
         <NavRail
           secoes={secoes}
-          avisos={avisos}
           usuario={usuario}
           aoBuscar={abrirBusca}
           aoTrocarSenha={() => setTrocandoSenha(true)}
           aoSair={sairDoSistema}
         />
 
-        {/* Abaixo de lg, o respiro de baixo é a altura da barra do polegar mais a área segura. */}
-        <div className="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
-          {carregando ? (
-            <QuadroCarregando rotulo="Carregando a imobiliária…" />
-          ) : erro ? (
-            <QuadroErro motivo={erro} aoTentarDeNovo={() => void recarregar()} />
-          ) : (
-            <AreaDaTela
-              quadros={quadros}
-              barra={
-                <BarraDeTransicao
-                  acoes={<SeletorMes className="flex-1 sm:flex-none" />}
-                  cta={{ rotulo: 'Registrar venda', rotuloCurto: 'Venda', aoClicar: registrarVenda }}
-                />
-              }
-            >
-              <ErrorBoundary resetKey={pathname}>
-                {/* A tela carrega por partes; o trilho fica de pé enquanto isso. */}
-                <Suspense fallback={<QuadroCarregando rotulo="Abrindo a tela…" />}>
-                  <Outlet />
-                </Suspense>
-              </ErrorBoundary>
-            </AreaDaTela>
-          )}
-        </div>
+        {/* Cabeçalho, mês e CTA vêm da declaração da rota (navegacao.ts); o respiro de baixo é `pb-barra-inferior` no <main>. */}
+        <CascaDaPagina
+          rotas={ROTAS_ADMIN}
+          avisos={avisos}
+          mes={seletorMes}
+          acoesDeCta={acoesDeCta}
+          carregando={carregando}
+          erro={erro}
+          aoTentarDeNovo={() => void recarregar()}
+        >
+          <ErrorBoundary resetKey={pathname}>
+            {/* A tela carrega por partes; trilho e cabeçalho ficam de pé enquanto isso. */}
+            <Suspense fallback={<CarregandoTela rotulo="Abrindo a tela…" />}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
+        </CascaDaPagina>
 
         <BottomNav
           destinos={destinos}
@@ -256,6 +243,6 @@ function CascaDoAdmin() {
 
       <PaletaDeBusca aberto={buscando} aoFechar={() => setBuscando(false)} grupos={grupos} />
       <TrocarSenha aberto={trocandoSenha} onFechar={() => setTrocandoSenha(false)} />
-    </CascaContext.Provider>
+    </>
   )
 }

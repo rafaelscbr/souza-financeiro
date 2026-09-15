@@ -1,3 +1,10 @@
+/*
+ * DEPRECADO — apagar na limpeza final. O Heroi daqui foi substituído por
+ * ui/Heroi.tsx (7.5, variante 'ouro' | 'previsto' obrigatória); Assinatura e
+ * Rotulo por ui/Rotulo. Ainda usam: admin/pages (Inicio, Venda, Pagar, Receber,
+ * Despesas, Corretores, Relatorios), corretor/pages (Inicio, MinhasVendas,
+ * Recebimentos), kit/Kit, ui/Secao (tipo Tom).
+ */
 import { type ReactNode } from 'react'
 import { Painel } from './Painel'
 import { Rotulo as RotuloBase } from './Rotulo'
@@ -71,7 +78,7 @@ export function Heroi({
   rodape?: ReactNode
 }) {
   return (
-    <Painel dourado className="rounded-[18px]">
+    <Painel dourado className="rounded-caixa">
       <div className="px-5 py-5 sm:px-6 sm:py-6">
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
           <RotuloBase as="h2">{rotulo}</RotuloBase>
@@ -82,7 +89,7 @@ export function Heroi({
 
         {apoio && <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">{apoio}</div>}
 
-        {contexto && <p className="mt-3 max-w-[62ch] text-[13px] text-t3">{contexto}</p>}
+        {contexto && <p className={"mt-3 max-w-[62ch] text-t3 " + 'text-texto-meta'}>{contexto}</p>}
       </div>
 
       {rodape && <div className="border-t border-line px-5 py-4 sm:px-6">{rodape}</div>}

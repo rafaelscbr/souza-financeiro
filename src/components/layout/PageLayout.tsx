@@ -8,43 +8,52 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { Plus, type LucideIcon } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { ArrowLeft, Plus, type LucideIcon } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 import { IconeTom } from '@/components/ui/IconeTom'
-import { EstadoErro } from '@/components/ui/Estados'
-import { FullPageLoader } from '@/components/ui/Spinner'
+import { EsqueletoCards, EsqueletoLista, EstadoErro } from '@/components/ui/Estados'
 import type { Tom } from '@/components/ui/tom'
 import { PopoverAvisos, type Aviso } from '@/components/shared/PopoverAvisos'
+import { useRolou } from '@/lib/useRolou'
+import { rotaDe, type AcaoDeCta, type RotaDeclarada } from './navegacao'
 import { cn } from '@/lib/utils'
 
 /*
- * O QUADRO DE TODA TELA (docs/souza-os.md, seção 6), com os ajustes do Rafael
- * de 12/09: sem aurora e sem degradê. Fundo liso com grão, cabeçalho fixo com o
- * ícone da área, título, resumo vivo, ações e a ação principal, e o conteúdo na
- * largura inteira do max-w-7xl. Nada de coluna estreita no meio de um monitor
- * vazio: a primeira versão foi reprovada também por isso.
+ * A CASCA DA PÁGINA (4.1, 4.2): um modelo só.
+ *
+ *   <header class="cabecalho">  altura fixa (56 / 64) em TODAS as rotas, fundo
+ *                               liso, fio e sombra só ao rolar (useRolou)
+ *   <main class="conteudo entrada-pagina flex flex-col gap-secao pt-topo pb-barra-inferior">
+ *     1º filho: bloco de abertura (subtítulo no celular + faixa), se houver
+ *     blocos da tela
+ *
+ * Quem mora no cabeçalho é declarado pela ROTA (navegacao.ts: ícone, título,
+ * mês, faixa, CTA, voltar) e, quando a tela já migrou, pelo próprio
+ * PageLayout, que desenha o cabeçalho num portal dentro do <header> da casca.
+ * A casca nunca injeta nada que a rota não declarou.
+ *
+ * Tela que ainda não usa PageLayout (transição): o cabeçalho sai da declaração
+ * da rota, e o seletor de mês entra como faixa se a rota declara `usaMes`.
  */
 
 /* ------------------------------------------------------------------------- */
-/* Conversa entre o quadro e a casca                                          */
+/* Conversa entre a tela e a casca                                            */
 /* ------------------------------------------------------------------------- */
 
-/*
- * A casca precisa saber se a tela aberta já usa este quadro. As telas antigas
- * não têm cabeçalho próprio e dependem da casca para o navegador de mês, o
- * seletor de ano e o respiro lateral; as novas trazem tudo isso no PageLayout.
- * Enquanto as duas convivem, o quadro se anuncia e a casca tira a barra de
- * transição e o respiro dela, sem cabeçalho duplicado.
- *
- * O anúncio é um contador, não um booleano: numa troca de rota a tela nova
- * pode montar antes de a antiga desmontar. E roda em useLayoutEffect, antes da
- * pintura, para a barra antiga não piscar por um quadro na tela nova.
- *
- * A casca também entrega os avisos: abaixo de lg o trilho some, e o sino passa
- * a morar no cabeçalho da tela.
- */
 export interface CascaValue {
   avisos: Aviso[]
+  /** A tela anuncia que desenha o próprio cabeçalho (contador: numa troca de rota a nova monta antes de a velha sair). */
   registrarQuadro: () => () => void
+  /** A declaração da rota aberta. */
+  rota?: RotaDeclarada
+  /** O seletor de mês da casca (só o admin tem). */
+  mes?: ReactNode
+  /** As funções por trás dos CTAs declarados pelas rotas. */
+  acoesDeCta?: Partial<Record<AcaoDeCta, () => void>>
+  /** Onde o PageLayout desenha o cabeçalho (portal). */
+  slotCabecalho?: HTMLElement | null
 }
 
 export const CascaContext = createContext<CascaValue | null>(null)
@@ -60,17 +69,13 @@ export function useQuadrosDaCasca(): [number, () => () => void] {
   return [quadros, registrarQuadro]
 }
 
-/** Monta o valor do contexto sem recriar a função de registro a cada aviso novo. */
+/** DEPRECADO — apagar na limpeza final. A casca monta o valor em `CascaDaPagina`. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useValorDaCasca(avisos: Aviso[], registrarQuadro: () => () => void): CascaValue {
   return useMemo(() => ({ avisos, registrarQuadro }), [avisos, registrarQuadro])
 }
 
-/**
- * Para o que ocupa o lugar de uma tela sem ser PageLayout (o esqueleto de
- * carregando, o erro da casca): anuncia-se como quadro para a barra de
- * transição não aparecer por cima dele.
- */
+/** A tela anuncia à casca que desenha o próprio cabeçalho. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAnunciarQuadro() {
   const registrar = useContext(CascaContext)?.registrarQuadro
@@ -83,187 +88,367 @@ export function useAnunciarQuadro() {
 
 export interface CtaDaPagina {
   rotulo: string
-  /** O rótulo no celular. Sem ele, "Novo" (seção 6). */
+  /** O rótulo abaixo de 640px. Sem ele, "Novo". O nome acessível continua o completo. */
   rotuloCurto?: string
   aoClicar: () => void
 }
 
-/*
- * Areia CHAPADO, sem halo (ajuste de 12/09): `grad-brand` agora pinta liso, e
- * nem `shadow-brand` nem `grad-brand-glow` entram. Sora 13px bold, 40px de
- * altura, ícone Plus. No celular o rótulo encurta, mas o nome acessível
- * continua o completo: "Novo" sozinho não diz o que vai ser criado.
- */
-export function BotaoCta({ rotulo, rotuloCurto = 'Novo', aoClicar }: CtaDaPagina) {
+/** O CTA do cabeçalho: `Button` primário 40 (44 no toque), ícone Plus, rótulo curto abaixo de 640. */
+export function BotaoCta({ rotulo, rotuloCurto = 'Novo', aoClicar, className }: CtaDaPagina & { className?: string }) {
   return (
-    <button
-      type="button"
-      onClick={aoClicar}
-      aria-label={rotulo}
-      className={cn(
-        'grad-brand inline-flex min-h-[40px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 font-heading text-[13px] font-bold sm:px-4',
-        'transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98]',
-        'focus-visible:ring-2 focus-visible:ring-brand/40',
-      )}
-    >
-      <Plus size={16} strokeWidth={1.6} aria-hidden />
+    <Button variant="primario" icone={Plus} onClick={aoClicar} aria-label={rotulo} className={className}>
       <span className="sm:hidden">{rotuloCurto}</span>
       <span className="hidden sm:inline">{rotulo}</span>
-    </button>
+    </Button>
   )
 }
 
 /* ------------------------------------------------------------------------- */
-/* O quadro                                                                   */
+/* O conteúdo do cabeçalho                                                    */
 /* ------------------------------------------------------------------------- */
 
-export interface PageLayoutProps {
-  /** O ícone da área, o mesmo do menu (memória de lugar). */
+interface ConteudoDoCabecalho {
   icone: LucideIcon
   tom?: Tom
   titulo: string
-  /** O que a tela faz, ou um resumo vivo com números. */
   subtitulo?: ReactNode
-  /** Controles da tela (navegador de mês, filtro). No celular descem para a linha de baixo. */
   acoes?: ReactNode
   cta?: CtaDaPagina
-  /** Abas, filtros rápidos ou indicadores que ficam fixos junto do cabeçalho. */
-  faixa?: ReactNode
-  children: ReactNode
+  voltar?: { para: string; rotulo: string }
 }
 
-export function PageLayout({ icone, tom = 'neutro', titulo, subtitulo, acoes, cta, faixa, children }: PageLayoutProps) {
-  const casca = useContext(CascaContext)
-  useAnunciarQuadro()
-
-  // A aba do navegador diz em que tela se está; com três abas abertas do
-  // financeiro, "Souza Imobiliária · Financeiro" três vezes não ajuda ninguém.
-  // Ao sair, devolve o título de antes: a tela antiga, sem quadro, não o escreve.
-  useEffect(() => {
-    const anterior = document.title
-    document.title = `${titulo} · Souza Imobiliária`
-    return () => {
-      document.title = anterior
-    }
-  }, [titulo])
-
-  return (
-    <div className="flex min-h-screen flex-1 flex-col bg-page texture-grain">
-      <header className="nav-bg-blur sticky top-0 z-20 border-b border-line pt-safe">
-        {/*
-         * Uma linha no computador: identidade à esquerda, ações e CTA à
-         * direita. No celular as ações descem para uma segunda linha inteira
-         * (order-last + w-full), porque navegador de mês, sino e CTA não cabem
-         * ao lado de um título em 390px, e título cortado não diz onde se está.
-         */}
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <IconeTom icone={icone} tom={tom} tamanho="md" />
-            <div className="min-w-0">
-              <h1 className="truncate font-heading text-[19px] font-bold leading-tight tracking-[-0.015em] text-t1">
-                {titulo}
-              </h1>
-              {/* O subtítulo quebra linha em vez de cortar: é onde mora dinheiro, e valor nunca sai pela metade. */}
-              {subtitulo && <p className="mt-0.5 text-[13px] leading-snug text-t3">{subtitulo}</p>}
-            </div>
-          </div>
-
-          {acoes && (
-            <div className="order-last flex w-full min-w-0 items-center gap-2 sm:order-none sm:w-auto">{acoes}</div>
-          )}
-
-          {(cta || casca) && (
-            <div className="flex shrink-0 items-center gap-2.5">
-              {casca && (
-                <div className="flex lg:hidden">
-                  <PopoverAvisos avisos={casca.avisos} />
-                </div>
-              )}
-              {cta && <BotaoCta {...cta} />}
-            </div>
-          )}
-        </div>
-
-        {faixa && <div className="mx-auto max-w-7xl px-4 pb-3 sm:px-6 lg:px-8">{faixa}</div>}
-      </header>
-
-      <main className="entrada-pagina mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-        {children}
-      </main>
-    </div>
-  )
-}
-
-/* ------------------------------------------------------------------------- */
-/* O que a casca põe no lugar da tela                                         */
-/* ------------------------------------------------------------------------- */
+/* Botão-ícone do cabeçalho: 40 no computador, 44 abaixo de 1024 e no toque. */
+const BOTAO_ICONE =
+  'flex size-10 shrink-0 items-center justify-center rounded-controle text-t2 transition-colors hover:bg-linha-hover hover:text-t1 active:bg-linha-press max-lg:size-11 [@media(pointer:coarse)]:size-11'
 
 /*
- * A área da tela dentro da casca. Com tela antiga (nenhum quadro anunciado),
- * a casca desenha a barra de transição e dá o respiro que o <main> antigo dava.
- * Com tela nova, sai da frente: o PageLayout traz cabeçalho, respiro e <main>.
- *
- * O invólucro é SEMPRE o mesmo <div>; só a classe muda. Trocar o elemento
- * remontaria a tela, que desanunciaria o quadro, que trocaria o elemento de
- * novo: um laço sem fim.
+ * Computador: [← 40, ficha] 12 [IconeTom 36] 12 [h1 + subtítulo] … [sino 40] 12 [ações ≤2] 12 [CTA 40]
+ * Celular:    [IconeTom 28] 12 [h1] … [sino 44] [CTA 44, rótulo curto]
+ * Ficha no celular: [← 44] 8 [h1] … [sino 44] (sem IconeTom e sem CTA)
  */
-export function AreaDaTela({ quadros, barra, children }: { quadros: number; barra: ReactNode; children: ReactNode }) {
-  const legado = quadros === 0
+function CabecalhoDaPagina({ icone, tom = 'neutro', titulo, subtitulo, acoes, cta, voltar }: ConteudoDoCabecalho) {
+  const avisos = useContext(CascaContext)?.avisos
+  const navigate = useNavigate()
+  const location = useLocation()
+  const ficha = Boolean(voltar)
+
+  const aoVoltar = () => {
+    if (!voltar) return
+    const de = (location.state as { de?: string } | null)?.de
+    navigate(de ?? voltar.para)
+  }
+
   return (
     <>
-      {legado && barra}
-      <div
-        role={legado ? 'main' : undefined}
-        className={
-          legado ? 'mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8' : 'flex flex-1 flex-col'
-        }
-      >
-        {children}
+      {voltar && (
+        <button type="button" onClick={aoVoltar} aria-label={`Voltar para ${voltar.rotulo}`} className={BOTAO_ICONE}>
+          <ArrowLeft size={16} strokeWidth={1.6} aria-hidden focusable="false" />
+        </button>
+      )}
+      <IconeTom icone={icone} tom={tom} tamanho="sm" className={cn('lg:hidden', ficha && 'hidden')} />
+      <IconeTom icone={icone} tom={tom} tamanho="md" className="max-lg:hidden" />
+      <div className="flex min-w-0 flex-1 items-baseline gap-3">
+        <h1 className="min-w-0 truncate font-heading text-t1 text-titulo-pagina-m lg:text-titulo-pagina">
+          {titulo}
+        </h1>
+        {subtitulo && (
+          <p
+            className="min-w-0 flex-1 truncate text-t-meta text-texto-meta max-lg:hidden"
+            title={typeof subtitulo === 'string' ? subtitulo : undefined}
+          >
+            {subtitulo}
+          </p>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        {avisos && <PopoverAvisos avisos={avisos} />}
+        {acoes && <div className="flex items-center gap-3 max-lg:hidden">{acoes}</div>}
+        {cta && <BotaoCta {...cta} className={cn(ficha && 'max-lg:hidden')} />}
       </div>
     </>
   )
 }
 
-/**
- * Barra fina da casca para as telas que ainda não usam o PageLayout: o
- * navegador de mês (ou de ano), o sino no celular e a ação principal. Some
- * sozinha quando a tela migra. No computador, sem ações e sem CTA, nem aparece:
- * o sino já está no trilho.
+/*
+ * O bloco de abertura: 1º filho do <main>. No celular junta o subtítulo (que
+ * sai do cabeçalho), a faixa e as ações; no computador sobra só a faixa
+ * (`min-h-12 flex flex-wrap items-center`). Sem faixa no computador, o bloco
+ * some ali, para não somar um vão de seção vazio.
  */
-export function BarraDeTransicao({ acoes, cta }: { acoes?: ReactNode; cta?: CtaDaPagina }) {
+function AberturaDaPagina({ subtitulo, faixa, acoes }: { subtitulo?: ReactNode; faixa?: ReactNode; acoes?: ReactNode }) {
+  if (!subtitulo && !faixa && !acoes) return null
+  const faixaNoComputador = Boolean(faixa)
+  const faixaVisivel = Boolean(faixa || acoes)
+  return (
+    <div className={cn('flex flex-col gap-4', !faixaNoComputador && 'lg:hidden')}>
+      {subtitulo && <p className="line-clamp-2 text-t-meta text-texto-meta lg:hidden">{subtitulo}</p>}
+      {faixaVisivel && (
+        <div className={cn('flex min-h-12 flex-wrap items-center gap-2 lg:gap-3', !faixa && 'lg:hidden')}>
+          {faixa}
+          {acoes && <div className="flex flex-wrap items-center gap-2 lg:hidden">{acoes}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------------- */
+/* O PageLayout: o que a tela declara                                         */
+/* ------------------------------------------------------------------------- */
+
+export interface PageLayoutProps {
+  /** Título do h1. Sem ele, o da rota (navegacao.ts). */
+  titulo?: string
+  /** O que a tela faz, ou um resumo vivo. Computador: ao lado do h1, 1 linha; celular: bloco de abertura, até 2. */
+  subtitulo?: ReactNode
+  /** O ícone da área. Sem ele, o da rota. */
+  icone?: LucideIcon
+  /** DEPRECADO — apagar na limpeza final. O ícone do cabeçalho é neutro. */
+  tom?: Tom
+  /** Seletor de mês na faixa. Sem a prop, vale o que a rota declara (`usaMes`). */
+  mes?: boolean
+  /** Até 2 ações ao lado do sino (no celular descem para a faixa). */
+  acoes?: ReactNode
+  /** A ação principal. Sem ela, a que a rota declara. */
+  cta?: CtaDaPagina
+  /** Filtros rápidos ou abas: 1º filho do <main>, rola com o conteúdo. */
+  faixa?: ReactNode
+  /** Ficha: botão voltar para esta lista. Sem ele, o que a rota declara. */
+  voltarPara?: string
+  /** `dados` (padrão, 1216 de teto) ou `leitura` (coluna de 720 à esquerda). */
+  largura?: 'dados' | 'leitura'
+  children: ReactNode
+}
+
+export function PageLayout({
+  titulo,
+  subtitulo,
+  icone,
+  tom,
+  mes,
+  acoes,
+  cta,
+  faixa,
+  voltarPara,
+  largura = 'dados',
+  children,
+}: PageLayoutProps) {
   const casca = useContext(CascaContext)
+  const { pathname } = useLocation()
+  useAnunciarQuadro()
+
+  const rota = casca?.rota
+  const tituloFinal = titulo ?? rota?.titulo ?? ''
+  const iconeFinal = icone ?? rota?.icone
+  const ctaDaRota = rota?.cta && casca?.acoesDeCta?.[rota.cta.acao]
+  const ctaFinal: CtaDaPagina | undefined =
+    cta ?? (rota?.cta && ctaDaRota ? { rotulo: rota.cta.rotulo, rotuloCurto: rota.cta.rotuloCurto, aoClicar: ctaDaRota } : undefined)
+  const voltar = voltarPara
+    ? { para: voltarPara, rotulo: rota?.voltar?.rotulo ?? 'a lista' }
+    : rota?.voltar
+  const usaMes = mes ?? rota?.usaMes ?? false
+  const faixaFinal =
+    usaMes && casca?.mes ? (
+      <>
+        {casca.mes}
+        {faixa}
+      </>
+    ) : (
+      faixa
+    )
+
+  if (import.meta.env.DEV && !iconeFinal) {
+    console.error(`[PageLayout] sem ícone para ${pathname}: declare a rota em navegacao.ts ou passe \`icone\`.`)
+  }
+
+  useEffect(() => {
+    if (!tituloFinal) return
+    const anterior = document.title
+    document.title = `${tituloFinal} · Souza Imobiliária`
+    return () => {
+      document.title = anterior
+    }
+  }, [tituloFinal])
+
+  const cabecalho = iconeFinal ? (
+    <CabecalhoDaPagina
+      icone={iconeFinal}
+      tom={tom}
+      titulo={tituloFinal}
+      subtitulo={subtitulo}
+      acoes={acoes}
+      cta={ctaFinal}
+      voltar={voltar}
+    />
+  ) : null
+
+  const corpo = (
+    <>
+      <AberturaDaPagina subtitulo={subtitulo} faixa={faixaFinal} acoes={acoes} />
+      {largura === 'leitura' ? <div className="leitura flex flex-col gap-secao">{children}</div> : children}
+    </>
+  )
+
+  // Dentro da casca: cabeçalho por portal, corpo direto no <main> da casca.
+  if (casca) {
+    return (
+      <>
+        {casca.slotCabecalho && cabecalho && createPortal(cabecalho, casca.slotCabecalho)}
+        {corpo}
+      </>
+    )
+  }
+
+  // Fora da casca (amostras): a mesma receita, sozinha.
   return (
-    <header className={cn('nav-bg-blur sticky top-0 z-20 border-b border-line pt-safe', !acoes && !cta && 'lg:hidden')}>
-      <div className="mx-auto flex max-w-7xl items-center justify-end gap-2.5 px-4 py-2.5 sm:px-6 lg:px-8">
-        {acoes && <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">{acoes}</div>}
-        {casca && (
-          <div className="flex lg:hidden">
-            <PopoverAvisos avisos={casca.avisos} />
-          </div>
-        )}
-        {cta && <BotaoCta {...cta} />}
-      </div>
-    </header>
+    <div className="flex min-h-screen flex-col bg-page">
+      <header className="cabecalho">
+        <div className="conteudo flex h-cabecalho items-center gap-3">{cabecalho}</div>
+      </header>
+      <main className="conteudo entrada-pagina flex flex-col gap-secao pb-barra-inferior pt-topo">{corpo}</main>
+    </div>
   )
 }
 
-/** Carregando no lugar da tela: o esqueleto com a forma do quadro, nunca spinner solto. */
-export function QuadroCarregando({ rotulo }: { rotulo: string }) {
-  useAnunciarQuadro()
-  return <FullPageLoader label={rotulo} />
+/* ------------------------------------------------------------------------- */
+/* A casca: cabeçalho fixo + <main>                                           */
+/* ------------------------------------------------------------------------- */
+
+export interface CascaDaPaginaProps {
+  /** As declarações das rotas deste perfil (navegacao.ts). */
+  rotas: RotaDeclarada[]
+  /** O sino: sempre no cabeçalho, antes das ações da tela. */
+  avisos: Aviso[]
+  /** O seletor de mês, para as rotas que declaram `usaMes`. */
+  mes?: ReactNode
+  /** As funções dos CTAs declarados pelas rotas. */
+  acoesDeCta?: Partial<Record<AcaoDeCta, () => void>>
+  /** Dados da casca ainda carregando: esqueleto no lugar da tela, cabeçalho de pé. */
+  carregando?: boolean
+  /** Falha ao ler o banco: erro no lugar da tela (erro vence vazio). */
+  erro?: ReactNode
+  aoTentarDeNovo?: () => void
+  children: ReactNode
+}
+
+export function CascaDaPagina({
+  rotas,
+  avisos,
+  mes,
+  acoesDeCta,
+  carregando = false,
+  erro,
+  aoTentarDeNovo,
+  children,
+}: CascaDaPaginaProps) {
+  const { pathname } = useLocation()
+  const rota = useMemo(() => rotaDe(pathname, rotas), [pathname, rotas])
+  const [quadros, registrarQuadro] = useQuadrosDaCasca()
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
+  const [sentinela, rolou] = useRolou()
+  const legado = quadros === 0
+
+  const valor = useMemo<CascaValue>(
+    () => ({ avisos, registrarQuadro, rota, mes, acoesDeCta, slotCabecalho: slot }),
+    [avisos, registrarQuadro, rota, mes, acoesDeCta, slot],
+  )
+
+  // Tela sem PageLayout: o título da aba vem da rota.
+  useEffect(() => {
+    if (legado) document.title = `${rota.titulo} · Souza Imobiliária`
+  }, [legado, rota])
+
+  const ctaDaRota = rota.cta && acoesDeCta?.[rota.cta.acao]
+
+  return (
+    <CascaContext.Provider value={valor}>
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        {/* Sentinela de 1px na base do cabeçalho: sai da vista ao rolar e acende o fio (4.2). */}
+        <div ref={sentinela} aria-hidden className="pointer-events-none absolute inset-x-0 top-cabecalho h-px" />
+
+        <header className="cabecalho" data-rolou={rolou || undefined}>
+          <div className={cn('conteudo flex h-cabecalho items-center gap-3', rota.voltar && 'max-lg:gap-2')}>
+            <div className="contents">
+              {legado && (
+                <CabecalhoDaPagina
+                  icone={rota.icone}
+                  titulo={rota.titulo}
+                  voltar={rota.voltar}
+                  cta={
+                    rota.cta && ctaDaRota
+                      ? { rotulo: rota.cta.rotulo, rotuloCurto: rota.cta.rotuloCurto, aoClicar: ctaDaRota }
+                      : undefined
+                  }
+                />
+              )}
+            </div>
+            <div ref={setSlot} className="contents" />
+          </div>
+        </header>
+
+        <main key={pathname} className="conteudo entrada-pagina flex flex-col gap-secao pb-barra-inferior pt-topo">
+          {carregando ? (
+            <CarregandoTela />
+          ) : erro ? (
+            <ErroDaTela motivo={erro} aoTentarDeNovo={aoTentarDeNovo} />
+          ) : (
+            <>
+              {legado && rota.usaMes && mes ? <AberturaDaPagina faixa={mes} /> : null}
+              {children}
+            </>
+          )}
+        </main>
+      </div>
+    </CascaContext.Provider>
+  )
+}
+
+/** Carregando no lugar da tela, dentro do <main> da casca: a forma da composição, sem spinner (7.13). */
+export function CarregandoTela({ rotulo = 'Carregando…' }: { rotulo?: string }) {
+  return (
+    <div role="status" aria-busy="true" aria-live="polite" className="flex flex-col gap-secao">
+      <span className="sr-only">{rotulo}</span>
+      <EsqueletoCards quantos={4} />
+      <EsqueletoLista linhas={5} />
+    </div>
+  )
+}
+
+/** Falhou no lugar da tela: o erro dentro de uma caixa, o cabeçalho continua de pé. */
+export function ErroDaTela({ motivo, aoTentarDeNovo }: { motivo?: ReactNode; aoTentarDeNovo?: () => void }) {
+  return (
+    <div data-caixa="" className="rounded-caixa border border-fio-caixa bg-surface shadow-card">
+      <EstadoErro motivo={motivo} aoTentarDeNovo={aoTentarDeNovo ?? (() => window.location.reload())} />
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------------- */
+/* Transição                                                                  */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * DEPRECADO — apagar na limpeza final. A casca é `CascaDaPagina`; a barra e o
+ * respiro de transição deixaram de existir (cabeçalho e faixa vêm da rota).
+ */
+export function AreaDaTela({ children }: { quadros?: number; barra?: ReactNode; children: ReactNode }) {
+  return <>{children}</>
 }
 
 /**
- * Falhou no lugar da tela. Erro sempre vence vazio (seção 1): a casca que não
- * conseguiu ler o banco não pode mostrar a tela dizendo "nenhuma venda".
+ * DEPRECADO — apagar na limpeza final. Mês e CTA agora são declarados pela rota
+ * (navegacao.ts) e desenhados pela `CascaDaPagina`; não desenha nada.
  */
+export function BarraDeTransicao(_props: { acoes?: ReactNode; cta?: CtaDaPagina }) {
+  return null
+}
+
+/** DEPRECADO — apagar na limpeza final. Use `CarregandoTela`. */
+export function QuadroCarregando({ rotulo }: { rotulo: string }) {
+  return <CarregandoTela rotulo={rotulo} />
+}
+
+/** DEPRECADO — apagar na limpeza final. Use `ErroDaTela`. */
 export function QuadroErro({ motivo, aoTentarDeNovo }: { motivo?: ReactNode; aoTentarDeNovo: () => void }) {
-  useAnunciarQuadro()
-  return (
-    <main className="entrada-pagina mx-auto flex w-full max-w-7xl flex-1 items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
-      <div className="w-full max-w-xl rounded-[14px] border border-line shadow-card surface-premium">
-        <EstadoErro motivo={motivo} aoTentarDeNovo={aoTentarDeNovo} />
-      </div>
-    </main>
-  )
+  return <ErroDaTela motivo={motivo} aoTentarDeNovo={aoTentarDeNovo} />
 }

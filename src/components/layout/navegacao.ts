@@ -134,3 +134,79 @@ export function estaAtivo(pathname: string, item: ItemNav): boolean {
   if (item.fim) return pathname === item.para
   return pathname === item.para || pathname.startsWith(`${item.para}/`)
 }
+
+/* ------------------------------------------------------------------------- */
+/* Quem mora no cabeçalho, declarado pela rota (4.2)                          */
+/* ------------------------------------------------------------------------- */
+
+/** A ação principal do cabeçalho, pelo nome: a casca liga o nome à função. */
+export type AcaoDeCta = 'registrar-venda' | 'lancar-despesa'
+
+export interface CtaDeclarado {
+  acao: AcaoDeCta
+  rotulo: string
+  /** O rótulo abaixo de 640px ("Venda"). */
+  rotuloCurto: string
+}
+
+export interface RotaDeclarada {
+  /** Caminho no formato do react-router: "/vendas/:id". */
+  padrao: string
+  icone: LucideIcon
+  titulo: string
+  /** Seletor de mês na faixa: só Início, Receber, Pagar, Despesas e Relatórios. */
+  usaMes: boolean
+  /** A rota tem faixa (mês, filtros rápidos ou abas) como 1º filho do <main>. */
+  faixa: boolean
+  cta?: CtaDeclarado
+  /** Ficha: botão voltar para a lista, sem IconeTom e sem CTA no celular. */
+  voltar?: { para: string; rotulo: string }
+}
+
+const CTA_VENDA: CtaDeclarado = { acao: 'registrar-venda', rotulo: 'Registrar venda', rotuloCurto: 'Venda' }
+const CTA_DESPESA: CtaDeclarado = { acao: 'lancar-despesa', rotulo: 'Lançar despesa', rotuloCurto: 'Lançar' }
+
+export const ROTAS_ADMIN: RotaDeclarada[] = [
+  { padrao: '/', icone: Home, titulo: 'Início', usaMes: true, faixa: true, cta: CTA_VENDA },
+  { padrao: '/vendas', icone: Handshake, titulo: 'Vendas', usaMes: false, faixa: true, cta: CTA_VENDA },
+  {
+    padrao: '/vendas/:id',
+    icone: Handshake,
+    titulo: 'Venda',
+    usaMes: false,
+    faixa: false,
+    voltar: { para: '/vendas', rotulo: 'Vendas' },
+  },
+  { padrao: '/receber', icone: ArrowDownCircle, titulo: 'Receber', usaMes: true, faixa: true, cta: CTA_VENDA },
+  { padrao: '/pagar', icone: ArrowUpCircle, titulo: 'Pagar', usaMes: true, faixa: true, cta: CTA_VENDA },
+  { padrao: '/despesas', icone: Receipt, titulo: 'Despesas', usaMes: true, faixa: true, cta: CTA_DESPESA },
+  { padrao: '/corretores', icone: Users, titulo: 'Corretores', usaMes: false, faixa: false, cta: CTA_VENDA },
+  { padrao: '/relatorios', icone: PieChart, titulo: 'Relatórios', usaMes: true, faixa: true },
+  { padrao: '/config', icone: Settings, titulo: 'Configurações', usaMes: false, faixa: true },
+]
+
+export const ROTAS_CORRETOR: RotaDeclarada[] = [
+  { padrao: '/', icone: Home, titulo: 'Início', usaMes: false, faixa: false },
+  { padrao: '/minhas-vendas', icone: Handshake, titulo: 'Vendas', usaMes: false, faixa: false },
+  {
+    padrao: '/minhas-vendas/:id',
+    icone: Handshake,
+    titulo: 'Venda',
+    usaMes: false,
+    faixa: false,
+    voltar: { para: '/minhas-vendas', rotulo: 'Vendas' },
+  },
+  { padrao: '/recebimentos', icone: CalendarDays, titulo: 'Recebimentos', usaMes: false, faixa: true },
+]
+
+function casaPadrao(padrao: string, pathname: string): boolean {
+  const a = padrao.split('/').filter(Boolean)
+  const b = pathname.split('/').filter(Boolean)
+  if (a.length !== b.length) return false
+  return a.every((parte, i) => parte.startsWith(':') || parte === b[i])
+}
+
+/** A declaração da rota aberta; sem casamento, a primeira (o Início). */
+export function rotaDe(pathname: string, rotas: RotaDeclarada[]): RotaDeclarada {
+  return rotas.find((r) => casaPadrao(r.padrao, pathname)) ?? rotas[0]
+}

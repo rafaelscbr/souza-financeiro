@@ -5,22 +5,26 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type FocusEvent,
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { AlertTriangle, CheckCircle2, X } from 'lucide-react'
+import { CircleAlert, CircleCheck, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { usePresenca } from '@/lib/usePresenca'
 import { Button } from './Button'
-import { IconeTom } from './IconeTom'
+import { Icone } from './Icone'
 
 /**
- * Feedback pós-ação com Desfazer — o que permite ao lançamento rápido salvar
- * sem tela de confirmação: errou, desfez, sem medo.
+ * TOAST (7.12) — feedback depois que o banco respondeu, com "Desfazer".
  *
- * Só aparece DEPOIS que o banco respondeu (seção 1: proibido optimistic
- * update). A mensagem é específica ao que aconteceu, no particípio do botão que
- * a disparou: "Registrar pagamento" confirma "Pagamento registrado" (seção 11).
+ * Só aparece DEPOIS da resposta do banco (nada de atualização otimista). A
+ * mensagem é específica ao que aconteceu: "Recebimento registrado · R$ …".
+ *
+ * Tempo: 5s; 8s com ação; erro não some sozinho. Pausa em hover e em foco.
+ * Entra com `toastEntra` 240ms e sai com `esmaeceSai` 180ms (`usePresenca`).
+ * Sem `data-caixa` (7.11).
  */
 export interface ToastOptions {
   message: string
@@ -30,7 +34,7 @@ export interface ToastOptions {
   /** Rótulo da ação (ex.: "Desfazer"). */
   actionLabel?: string
   onAction?: () => void | Promise<void>
-  /** ms até sumir sozinho (padrão 5000). */
+  /** ms até sumir sozinho (padrão 5000; 8000 com ação). Ignorado em erro. */
   duration?: number
 }
 
@@ -45,13 +49,27 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null)
 
 const DURACAO_PADRAO = 5000
-const DURACAO_ERRO = 8000
+const DURACAO_COM_ACAO = 8000
+
+/** Quanto o aviso fica; `null` = não some sozinho (erro). */
+function duracaoDe(t: ToastOptions): number | null {
+  if (t.tone === 'error') return null
+  if (t.duration != null) return t.duration
+  return t.actionLabel && t.onAction ? DURACAO_COM_ACAO : DURACAO_PADRAO
+}
+
+const ENTRADA: CSSProperties = { animation: 'toastEntra var(--dur-lista) var(--curva-entra) backwards' }
+const SAIDA: CSSProperties = { animation: 'esmaeceSai var(--dur-saida) linear both' }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastState | null>(null)
   const [acting, setActing] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const idRef = useRef(0)
+  /* O último aviso continua desenhado enquanto sai. */
+  const ultimo = useRef<ToastState | null>(null)
+  if (toast) ultimo.current = toast
+  const presenca = usePresenca(toast !== null, 180)
 
   const limparTimer = useCallback(() => {
     if (timer.current) clearTimeout(timer.current)
@@ -59,8 +77,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const agendarSaida = useCallback(
-    (ms: number) => {
+    (ms: number | null) => {
       limparTimer()
+      if (ms == null) return
       timer.current = setTimeout(() => setToast(null), ms)
     },
     [limparTimer],
@@ -77,7 +96,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       idRef.current += 1
       setActing(false)
       setToast({ id: idRef.current, tone: 'success', ...opts })
-      agendarSaida(opts.duration ?? DURACAO_PADRAO)
+      agendarSaida(duracaoDe({ tone: 'success', ...opts }))
     },
     [agendarSaida],
   )
@@ -102,64 +121,64 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         tone: 'error',
         message: 'Não foi possível desfazer: o lançamento continua salvo.',
         detail: err instanceof Error ? err.message : undefined,
-        duration: DURACAO_ERRO,
       })
-      agendarSaida(DURACAO_ERRO)
     }
   }
 
   /*
-   * O tempo para enquanto o ponteiro ou o foco estão no aviso (WCAG 2.2.1).
-   * Cinco segundos são pouco para quem chega ao "Desfazer" pelo teclado ou
-   * está lendo o detalhe; ao sair, o aviso ganha o tempo inteiro de novo.
+   * O tempo para enquanto o ponteiro ou o foco estão no aviso (WCAG 2.2.1);
+   * ao sair, o aviso ganha o tempo inteiro de novo.
    */
   function retomar() {
-    if (toast && !acting) agendarSaida(toast.duration ?? DURACAO_PADRAO)
+    if (toast && !acting) agendarSaida(duracaoDe(toast))
   }
   function aoSairFoco(e: FocusEvent<HTMLDivElement>) {
     if (!e.currentTarget.contains(e.relatedTarget as Node | null)) retomar()
   }
 
-  const isError = toast?.tone === 'error'
+  const visto = toast ?? ultimo.current
+  const isError = visto?.tone === 'error'
 
-  const cartao = toast && (
+  const cartao = presenca.montado && visto && (
     <div
-      key={toast.id}
+      key={visto.id}
+      {...presenca.props}
       onMouseEnter={limparTimer}
       onMouseLeave={retomar}
       onFocus={limparTimer}
       onBlur={aoSairFoco}
-      className={cn(
-        'entrada pointer-events-auto flex w-full items-center gap-3 rounded-[14px] py-2.5 pl-3 pr-1.5 shadow-dropdown modal-surface',
-        isError ? 'border-error-line' : 'border-line',
-      )}
+      style={presenca.estado === 'saindo' ? SAIDA : ENTRADA}
+      data-toast
+      className="pointer-events-auto grid w-full grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-3 rounded-caixa border border-fio-caixa bg-surface p-4 shadow-dropdown"
     >
-      <IconeTom
-        icone={isError ? AlertTriangle : CheckCircle2}
-        tom={isError ? 'risco' : 'sucesso'}
-        tamanho="sm"
-        className="shrink-0"
-      />
-      <div className="min-w-0 flex-1">
-        <p className="break-words text-sm font-medium leading-snug text-t1">{toast.message}</p>
-        {toast.detail && (
-          <p className="mt-0.5 break-words text-xs leading-snug text-t3">{toast.detail}</p>
-        )}
+      {/* Ícone de 16 no meio da primeira linha de 20px. */}
+      <span className="flex h-5 items-center">
+        <Icone
+          icone={isError ? CircleAlert : CircleCheck}
+          tamanho={16}
+          className={isError ? 'text-error' : 'text-success'}
+        />
+      </span>
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="break-words text-texto text-t1">{visto.message}</p>
+        {visto.detail && <p className="break-words text-texto-meta text-t-meta">{visto.detail}</p>}
       </div>
-      {toast.actionLabel && toast.onAction && (
-        <Button
-          variant="ghost"
-          carregando={acting}
-          onClick={handleAction}
-          aria-label={`${toast.actionLabel}: ${toast.message}`}
-          className="shrink-0 font-semibold text-brand-text hover:bg-brand-tint hover:text-brand-text"
-        >
-          {toast.actionLabel}
+      <div className="flex items-center gap-2">
+        {visto.actionLabel && visto.onAction && (
+          <Button
+            variant="fantasma"
+            size="sm"
+            carregando={acting}
+            onClick={handleAction}
+            aria-label={`${visto.actionLabel}: ${visto.message}`}
+          >
+            {visto.actionLabel}
+          </Button>
+        )}
+        <Button variant="fantasma" size="icone" onClick={dismiss} aria-label="Fechar aviso">
+          <Icone icone={X} tamanho={16} />
         </Button>
-      )}
-      <Button variant="ghost" size="icon" onClick={dismiss} aria-label="Fechar aviso" className="shrink-0">
-        <X aria-hidden strokeWidth={1.6} className="h-4 w-4" />
-      </Button>
+      </div>
     </div>
   )
 
@@ -169,18 +188,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {createPortal(
         /*
          * As duas regiões vivas ficam montadas o tempo todo, vazias quando não
-         * há aviso. Leitor de tela só anuncia o que ENTRA numa região que já
-         * existia; uma região criada junto com o texto costuma passar calada.
-         * Sucesso é `status`/polite (espera a frase anterior terminar); erro é
-         * `alert`/assertive, porque falha de Desfazer precisa interromper.
+         * há aviso: leitor de tela só anuncia o que ENTRA numa região que já
+         * existia. Sucesso é `status`/polite; erro é `alert`/assertive.
          *
-         * No celular o aviso fica acima da BottomNav; no desktop, junto da borda.
+         * Celular: centrado, 16px de cada lado, 24px acima da barra inferior.
+         * Computador: canto inferior direito, a 24px das bordas.
          */
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex flex-col items-center px-4 pb-safe lg:bottom-6">
-          <div role="status" aria-live="polite" aria-atomic="true" className="w-full max-w-sm">
+        <div
+          data-toasts
+          className="pointer-events-none fixed inset-x-0 bottom-0 z-toast flex flex-col items-center pb-barra-inferior lg:items-end lg:p-6"
+        >
+          <div role="status" aria-live="polite" aria-atomic="true" className={cn(LARGURA, isError && 'hidden')}>
             {!isError && cartao}
           </div>
-          <div role="alert" aria-live="assertive" aria-atomic="true" className="w-full max-w-sm">
+          <div role="alert" aria-live="assertive" aria-atomic="true" className={cn(LARGURA, !isError && 'hidden')}>
             {isError && cartao}
           </div>
         </div>,
@@ -189,6 +210,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     </ToastContext.Provider>
   )
 }
+
+const LARGURA = 'w-[min(24rem,calc(100%_-_32px))]'
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useToast() {

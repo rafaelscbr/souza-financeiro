@@ -1,22 +1,23 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { Icone } from './Icone'
 import { type Tom } from './tom'
 import { cn } from '@/lib/utils'
 
 /*
- * ONDE UMA LISTA ESTÁ.
+ * DEPRECADO — apagar na limpeza final. Use `Cartao` (7.1).
  *
- * "Nem tudo é card" (seção 5): borda, fundo, raio e sombra dizem "objeto
- * separado", e caixa dentro de caixa dentro de caixa é o que o guia proíbe.
- * Uma Lista solta na página é um objeto e ganha a `list-surface`; a mesma
- * Lista dentro de um Painel já está sobre uma superfície e deve ser só linhas.
- * Em vez de cada tela lembrar de trocar uma prop, o Painel avisa por contexto.
- *
- *   solta    fora de qualquer painel: a Lista desenha a própria superfície.
- *   painel   direto no Painel, sem padding em volta: linhas com px próprio.
- *   sangria  dentro do corpo com padding da Secao: a Lista vaza até a borda
- *            do painel, para o hover e o fio da linha irem de ponta a ponta.
- *   plano    dentro de folha ou formulário, sem painel: linhas quase sem recuo.
+ * Mantido para as telas antigas (Vendas, Recebimentos, Assinatura,
+ * FolhaDeLancamento) até a Fase 6, já com a borda e o recuo do documento:
+ * caixa `rounded-caixa border-fio-caixa bg-surface shadow-card`, sem
+ * `overflow-hidden`, e título com `px-recuo pt-recuo pb-3` (3.3).
+ */
+
+/*
+ * DEPRECADO — apagar na limpeza final (junto com o SuperficieContext).
+ * Onde uma Lista antiga está. Não há mais sangria: 'sangria' e 'painel' viram
+ * `contexto="cartao"` na Lista; 'plano' vira `contexto="sobreposicao"`; 'solta'
+ * faz a Lista desenhar a própria caixa.
  */
 export type Superficie = 'solta' | 'painel' | 'sangria' | 'plano'
 
@@ -26,29 +27,22 @@ export function useSuperficie(): Superficie {
   return useContext(SuperficieContext)
 }
 
-/*
- * O PAINEL (seção 8): superfície lisa com grão, borda de 1px e sombra de card.
- * Sem degradê: ajuste do Rafael de 12/09, que vale acima do princípio 4.
- *
- * `dourado` troca a borda por Areia (sem filete nem brilho, ajuste de 12/09). É o
- * único bloco dourado da tela (princípio 2), reservado ao número que carrega
- * o julgamento. Se dois painéis da mesma tela pedirem `dourado`, um deles
- * está errado.
- */
 export function Painel({
   children,
   dourado,
   className,
 }: {
   children: ReactNode
+  /** Borda `borda-ouro`. Um só por tela. */
   dourado?: boolean
   className?: string
 }) {
   return (
     <section
+      data-caixa=""
       className={cn(
-        'relative overflow-hidden rounded-[14px] border border-line surface-premium shadow-card',
-        dourado && 'gold-edge gold-glow-tl',
+        'relative flex min-w-0 flex-col rounded-caixa border bg-surface shadow-card',
+        dourado ? 'border-borda-ouro' : 'border-fio-caixa',
         className,
       )}
     >
@@ -57,14 +51,10 @@ export function Painel({
   )
 }
 
-/*
- * O título de painel (seções 6 e 8): ícone + rótulo, com o `extra` à direita.
- * Sem filete (ajuste do Rafael de 12/09): o ícone dá memória de lugar e o
- * rótulo diz o assunto. `tom` é aceito e ignorado, para as telas não quebrarem.
- */
+/** DEPRECADO — apagar na limpeza final. Use `Cartao.Cabecalho`. `tom` é aceito e ignorado. */
 export function PainelTitulo({
   titulo,
-  icone: Icone,
+  icone,
   descricao,
   extra,
 }: {
@@ -75,15 +65,17 @@ export function PainelTitulo({
   extra?: ReactNode
 }) {
   return (
-    <div className="flex items-center gap-2 px-4 pb-2.5 pt-3.5">
-      {titulo && Icone ? <Icone size={15} strokeWidth={1.6} className="shrink-0 text-t3" aria-hidden /> : null}
-      <div className="min-w-0 flex-1">
-        {titulo ? (
-          <h2 className="font-label text-[11px] uppercase tracking-[0.14em] text-t4">{titulo}</h2>
-        ) : null}
-        {descricao && <div className={cn('text-[11px] text-t4', titulo ? 'mt-0.5' : undefined)}>{descricao}</div>}
+    <div className="flex min-h-14 flex-wrap items-center gap-3 px-recuo pb-3 pt-recuo">
+      {titulo && icone ? (
+        <span className="flex text-t3">
+          <Icone icone={icone} tamanho={16} />
+        </span>
+      ) : null}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {titulo ? <h2 className="font-heading text-t1 text-titulo-secao">{titulo}</h2> : null}
+        {descricao && <div className="text-t-meta text-texto-meta">{descricao}</div>}
       </div>
-      {extra && <div className="ml-auto shrink-0">{extra}</div>}
+      {extra && <div className="ms-auto flex shrink-0 items-center gap-3">{extra}</div>}
     </div>
   )
 }

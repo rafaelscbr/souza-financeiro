@@ -1,16 +1,18 @@
 import { type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { Icone } from './Icone'
 import { type Tom } from './tom'
 
 /*
- * Título de bloco dentro de formulário longo ou folha (seção 8): ícone +
- * rótulo + descrição de 11px. Divide o formulário em blocos com nome sem
- * desenhar caixa dentro de caixa. Sem filete (ajuste do Rafael de 12/09);
- * `tom` é aceito e ignorado.
+ * DEPRECADO — apagar na limpeza final. Use `Cartao.Cabecalho` (7.1) ou, dentro
+ * de painel e modal, `<section>` com `titulo-secao` (5.4).
+ *
+ * Título de bloco em formulário, folha e composição: ícone 16 + título
+ * `titulo-secao` + descrição `texto-meta` a 4px. `tom` é aceito e ignorado.
  */
 export function SecaoTitulo({
   titulo,
-  icone: Icone,
+  icone,
   descricao,
 }: {
   titulo: ReactNode
@@ -20,10 +22,14 @@ export function SecaoTitulo({
 }) {
   return (
     <div className="flex min-w-0 items-start gap-2">
-      {Icone && <Icone size={15} strokeWidth={1.6} className="shrink-0 text-t3" aria-hidden />}
-      <div className="min-w-0">
-        <h3 className="font-label text-[11px] uppercase leading-4 tracking-[0.14em] text-t4">{titulo}</h3>
-        {descricao && <div className="mt-0.5 text-[11px] text-t4">{descricao}</div>}
+      {icone && (
+        <span className="flex h-6 items-center text-t3">
+          <Icone icone={icone} tamanho={16} />
+        </span>
+      )}
+      <div className="flex min-w-0 flex-col gap-1">
+        <h3 className="font-heading text-t1 text-titulo-secao">{titulo}</h3>
+        {descricao && <div className="text-t-meta text-texto-meta">{descricao}</div>}
       </div>
     </div>
   )

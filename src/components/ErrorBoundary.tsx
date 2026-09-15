@@ -49,20 +49,19 @@ export class ErrorBoundary extends Component<Props, State> {
         this.state.error.message,
       )
       return (
-        <div className="flex min-h-[50vh] flex-col items-center justify-center px-4">
+        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 px-4">
           {versaoVelha ? (
-            <div role="alert" className="flex flex-col items-center px-6 py-12 text-center">
+            <div role="alert" className="flex flex-col items-center px-recuo py-12 text-center">
               <IconeTom icone={CloudDownload} tom="info" tamanho="lg" />
-              <h2 className="mt-4 font-heading text-base font-bold tracking-[-0.015em] text-t1">
-                Saiu uma versão nova do sistema
-              </h2>
-              <p className="mt-1 max-w-sm text-[13px] text-t3">
-                Seu aparelho está com a versão anterior guardada. Toque abaixo para baixar a atualização — leva um
-                segundo e você não perde nada.
-              </p>
-              <div className="mt-5">
-                <Button type="button" onClick={forcarAtualizacao}>
-                  <CloudDownload size={15} strokeWidth={1.6} aria-hidden />
+              <div className="flex flex-col items-center gap-1 pt-4">
+                <h2 className={'font-heading text-t1 ' + 'text-titulo-painel'}>Saiu uma versão nova do sistema</h2>
+                <p className={'max-w-[48ch] text-t3 ' + 'text-texto-corrido'}>
+                  Seu aparelho está com a versão anterior guardada. Toque abaixo para baixar a atualização — leva um
+                  segundo e você não perde nada.
+                </p>
+              </div>
+              <div className="pt-6">
+                <Button type="button" icone={CloudDownload} onClick={forcarAtualizacao}>
                   Atualizar agora
                 </Button>
               </div>
@@ -74,9 +73,9 @@ export class ErrorBoundary extends Component<Props, State> {
               aoTentarDeNovo={() => this.setState({ error: null })}
             />
           )}
-          <details className="-mt-6 w-full max-w-md text-left">
-            <summary className="cursor-pointer text-center text-xs text-t4">Detalhes técnicos</summary>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-s2 p-3 text-xs text-t3">{this.state.error.message}</pre>
+          <details className="flex w-full max-w-md flex-col gap-2 text-left">
+            <summary className={'cursor-pointer text-center text-t-meta ' + 'text-nota'}>Detalhes técnicos</summary>
+            <pre className={'overflow-x-auto rounded-controle bg-s2 p-3 text-t3 ' + 'text-nota'}>{this.state.error.message}</pre>
           </details>
         </div>
       )

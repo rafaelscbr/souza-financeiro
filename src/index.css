@@ -121,13 +121,96 @@ html.light {
 }
 
 /*
- * DEPRECADO — variável da paleta anterior, ainda lida por
- * src/components/ui/Trilha.tsx num style inline. Aponta para o degradê da
- * marca para a trilha não perder o preenchimento durante a migração.
- * A verificação apaga junto com o bloco DEPRECADO de classes lá embaixo.
+ * ---------------------------------------------------------------------------
+ * A RÉGUA — docs/souza-os-fundamentos.md. Tokens fora de @layer (variável não
+ * disputa cascata e `html.light`/`html.compacta` não podem ser descartados).
+ * Nenhum hex novo: todo token de cor aqui é derivado de um token do guia.
+ * ---------------------------------------------------------------------------
  */
+
+/* 5.1 Tokens derivados — escuro */
 :root {
-  --grad-action: var(--grad-brand);
+  --fio-caixa: var(--line-strong);      /* 1,74:1 sobre surface (line dava 1,32) */
+  --fio-linha: var(--line);             /* entre linhas dentro da caixa */
+  --fio-controle: color-mix(in srgb, var(--t1) 38%, var(--surface)); /* 3,31:1: WCAG 1.4.11 */
+  --borda-ouro: color-mix(in srgb, var(--brand) 60%, var(--surface)); /* 3,98:1 */
+  --t-meta: var(--t3);                  /* texto pequeno: 5,6 surface / 4,8 s2 */
+  --linha-hover: color-mix(in srgb, var(--surface-2) 50%, var(--surface));
+  --linha-press: var(--surface-2);
+  --success-ink: var(--success);
+  --warning-ink: var(--warning);
+  --error-ink: color-mix(in srgb, var(--error) 85%, var(--t1)); /* error puro dá 4,50 sobre error-bg em s2 */
+  --info-ink: var(--info);
+  --veu-painel: color-mix(in srgb, var(--page-bg) 55%, transparent);
+  --veu-modal: color-mix(in srgb, var(--page-bg) 75%, transparent);
+  --sombra-rolagem: color-mix(in srgb, var(--page-bg) 90%, transparent); /* 4.2 */
+}
+
+/* 5.1 Tokens derivados — claro */
+html.light {
+  --fio-controle: color-mix(in srgb, var(--t1) 55%, var(--surface)); /* 3,97 branco / 3,59 papel */
+  --borda-ouro: var(--brand);                                        /* 3,88:1 sobre branco */
+  --t-meta: var(--t4);                                               /* ≥4,55 no pior fundo */
+  --success-ink: color-mix(in srgb, var(--success) 75%, var(--t1));  /* 5,53 sobre success-bg */
+  --warning-ink: color-mix(in srgb, var(--warning) 65%, var(--t1));  /* 5,62 sobre warning-bg */
+  --error-ink: color-mix(in srgb, var(--error) 85%, var(--t1));      /* 5,06 sobre error-bg */
+  --info-ink: var(--info);                                           /* 5,37 */
+  --veu-painel: color-mix(in srgb, var(--t1) 28%, transparent);
+  --veu-modal: color-mix(in srgb, var(--t1) 45%, transparent);
+  --sombra-rolagem: color-mix(in srgb, var(--t1) 14%, transparent);  /* 4.2 */
+}
+
+/* 3.2 Espaço semântico */
+:root {
+  --margem-pagina: 16px;   /* lateral da página */
+  --recuo: 16px;           /* conteúdo ↔ borda de qualquer caixa */
+  --vao-bloco: 16px;       /* entre cartões irmãos numa grade */
+  --vao-secao: 24px;       /* entre filhos diretos de <main> */
+  --topo-conteudo: 24px;   /* base do cabeçalho → 1º bloco */
+  --linha-y: 12px;         /* padding vertical da linha (confortável) */
+  --linha-min: 56px;       /* altura mínima da linha */
+  --goteira: 28px;         /* coluna do selo/ícone */
+  --col-valor: 9rem;       /* 144px: coluna de valor em lista */
+  --col-situacao: 7.5rem;  /* 120px: coluna de chip */
+  --altura-cabecalho: 56px;
+  --altura-faixa: 48px;
+  --altura-barra-inferior: 64px;
+}
+@media (min-width: 640px) {
+  :root { --margem-pagina: 24px; --recuo: 20px; }
+}
+@media (min-width: 1024px) {
+  :root { --margem-pagina: 32px; --recuo: 24px; --vao-bloco: 24px;
+    --vao-secao: 32px; --topo-conteudo: 32px; --altura-cabecalho: 64px; --linha-min: 52px; }
+}
+@media (min-width: 1536px) {
+  :root { --margem-pagina: 40px; }
+}
+html.compacta { --linha-y: 8px; --linha-min: 44px; }
+@media (pointer: coarse) {
+  :root, html.compacta { --linha-min: 56px; }
+}
+
+/* 4.5 Camadas. Nenhum `z-` literal no código: use z-cabecalho, z-nav… */
+:root {
+  --z-cabecalho: 20; --z-nav: 30; --z-veu: 40; --z-painel: 50; --z-popover: 60;
+  --z-modal: 70; --z-toast: 80; --z-paleta: 90;
+}
+
+/* 8.1 Movimento */
+:root {
+  --dur-toque: 100ms;    /* pressionar */
+  --dur-micro: 150ms;    /* hover, cor, fio do cabeçalho, troca de número */
+  --dur-pagina: 200ms;   /* entrada de página, modal, troca de conteúdo no painel */
+  --dur-lista: 240ms;    /* escada, expandir linha, toast */
+  --dur-painel: 280ms;   /* painel lateral e folha entrando */
+  --dur-saida: 180ms;    /* toda saída */
+  --dur-barra: 520ms;    /* barra enche (guia) */
+  --dur-contagem: 700ms; /* contagem do herói (guia) */
+  --escada: 30ms;        /* atraso por item, teto de 7 itens */
+  --curva-entra: cubic-bezier(.16, 1, .3, 1); /* a curva da casa */
+  --curva-sai: cubic-bezier(.3, 0, .8, .15);  /* saída acelera para fora */
+  --curva-cor: cubic-bezier(.2, 0, 0, 1);     /* cor e estado */
 }
 
 @layer base {
@@ -138,10 +221,18 @@ html.light {
   }
 
   /*
+   * 4.2 Deslocamento de âncora: a âncora para 16px abaixo do cabeçalho fixo.
+   * scrollbar-gutter: a largura útil não pula quando a página ganha rolagem.
+   */
+  html {
+    scroll-padding-top: calc(var(--altura-cabecalho) + 16px);
+    scrollbar-gutter: stable;
+  }
+
+  /*
    * Corpo: Inter (vem de fontFamily.sans pelo preflight), entrelinha 1.6 e
-   * suavização (seção 4). A cor padrão é --t2, o papel "corpo" da seção 3:
-   * título pede text-t1 de propósito, e o que não pediu nada lê como texto
-   * operacional, não como manchete.
+   * suavização (seção 4). A cor padrão é --t2, o papel "corpo" da seção 3.
+   * Fundo LISO: nada lê --grain (fundamentos 5.2, decisão de 13/09/2026).
    */
   body {
     background-color: var(--page-bg);
@@ -152,16 +243,21 @@ html.light {
     text-rendering: optimizeLegibility;
   }
 
-  /* Areia a 35% com o texto em --t1: a seleção é da marca e continua legível. */
-  ::selection {
-    background-color: rgba(228, 178, 60, 0.35);
-    color: var(--t1);
-  }
-
-  /* Seção 12, literal. Contorno e não ring: não depende de o componente lembrar. */
-  *:focus-visible {
+  /* 5.5 Foco e seleção. Contorno e não ring: não depende de o componente lembrar. */
+  :focus-visible {
     outline: 2px solid var(--brand);
     outline-offset: 2px;
+  }
+  /* Dentro de área que rola, o contorno vai para dentro e nunca é cortado. */
+  /* 3.6 / 11.13: rolagem horizontal sem barra visível. */
+  [data-rolagem] { scrollbar-width: none; }
+  [data-rolagem]::-webkit-scrollbar { display: none; }
+  [data-rolagem] :focus-visible {
+    outline-offset: -2px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--brand) 35%, transparent);
+    color: var(--t1);
   }
 
   /*
@@ -191,368 +287,508 @@ html.light {
 
 /*
  * ---------------------------------------------------------------------------
- * Receitas das seções 5, 7 e 9.
+ * Receitas da régua (fundamentos 3.2, 4.1, 4.2, 6.2–6.4, 7.2, 7.3.3).
  * ---------------------------------------------------------------------------
- * Em @layer components para que um utilitário vença a receita quando o
- * componente precisa: `card-surface border-line-strong` troca a borda sem
- * !important. A contrapartida é o Tailwind só emitir a receita que alguém
- * usa, o que é o que queremos.
+ * Em @layer components: um utilitário do Tailwind vence a receita quando o
+ * componente precisa (ex.: `pb-4` na linha com ações vence o padding da
+ * `.linha`). O Tailwind só emite a receita que alguém usa.
  */
 @layer components {
+  /* 4.1 Larguras e colunas */
+  .conteudo {
+    width: 100%;
+    max-width: calc(76rem + 2 * var(--margem-pagina));
+    margin-inline: auto;
+    padding-inline: var(--margem-pagina);
+  }
+  /* 720px: coluna interna do <main>, alinhada à ESQUERDA do .conteudo; nunca centralizada. */
+  .leitura {
+    max-width: 45rem;
+    margin-inline: 0;
+  }
+  .grade {
+    display: grid;
+    gap: var(--vao-bloco);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  @media (min-width: 768px) {
+    .grade { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1024px) {
+    .grade { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  }
+
+  /* 4.2 Cabeçalho fixo: fundo LISO e opaco, sem blur, sem grão. Fio só ao rolar. */
+  .cabecalho {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-cabecalho);
+    background: var(--page-bg);
+  }
+  .cabecalho::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 -1px 0;
+    height: 1px;
+    background: var(--fio-caixa);
+    box-shadow: 0 8px 20px -12px var(--sombra-rolagem);
+    opacity: 0;
+    transition: opacity var(--dur-micro) var(--curva-cor);
+    pointer-events: none;
+  }
+  .cabecalho[data-rolou]::after {
+    opacity: 1;
+  }
+
+  /* 6.2 Números: algarismo tabular. Aplicada pelo `Valor`. */
+  .num {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  /* 6.3 Composição do dinheiro */
+  .valor {
+    display: inline-flex;
+    align-items: baseline;
+    white-space: nowrap;
+  }
+  .valor-moeda {
+    margin-inline-end: .25em;
+  }
+  .valor-sinal {
+    margin-inline-end: .15em;
+  }
+
+  /* 6.4 Meta: o "·" mora no vão de 16px e é recortado quando o item abre linha nova. */
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 16px;
+    row-gap: 0;
+    clip-path: inset(0);
+  }
+  .meta > * {
+    position: relative;
+    white-space: nowrap;
+  }
+  .meta > * + *::before {
+    content: '·';
+    position: absolute;
+    left: -10px;
+    color: var(--t5);
+  }
+
+  /* 6.1 Campo: 16/24 (sem zoom no iOS); 14/20 só com ponteiro fino ≥1024. */
+  .campo {
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
+    color: var(--t1);
+  }
+  @media (min-width: 1024px) and (pointer: fine) {
+    .campo { font-size: 14px; line-height: 20px; }
+  }
+
   /*
-   * AJUSTES DO RAFAEL (12/09/2026), acima do guia — ver o topo de
-   * docs/souza-os.md. Ele reprovou as barras e o degradê da primeira versão:
-   * superfície é cor lisa (o grão fica), botão primário é Areia chapado, sem
-   * aurora, sem filete de ouro, sem brilho no canto, sem filete em rótulo. As
-   * classes continuam existindo com o mesmo nome para nada quebrar; só pintam
-   * liso. Os tokens verbatim lá em cima ficam como o guia escreveu.
+   * 7.2 Lista e Linha. A Lista é o contêiner (forma pela LARGURA DO CARTÃO,
+   * não do viewport) e declara as colunas uma vez em --colunas.
+   *
+   * Contrato de filhos (a forma estreita precisa saber quem vai em qual área):
+   * cada célula da linha leva data-coluna = goteira | texto | titulo | meta |
+   * situacao | valor | acao | fim. Na forma estreita, `texto` vira
+   * display:contents e `titulo`/`meta` ocupam as áreas t/m; `fim` não existe.
    */
-
-  /* ------------------------------ Superfícies ------------------------------ */
-
-  .texture-grain {
-    background-image: var(--grain);
+  .lista {
+    container-type: inline-size;
+  }
+  .lista[data-contexto="cartao"] {
+    --recuo-linha: var(--recuo);
+  }
+  .lista[data-contexto="sobreposicao"] {
+    --recuo-linha: 0px;
+  }
+  .linha {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 4px;
+    padding: var(--linha-y) var(--recuo-linha);
+    min-height: var(--linha-min);
+    border-top: 1px solid var(--fio-linha);
+  }
+  /* hover com 12px de ar dentro do recuo do painel, sem margem negativa */
+  .lista[data-contexto="sobreposicao"] .linha::before {
+    inset: 0 -12px;
+    border-radius: 8px;
+  }
+  .linha [data-acao] {
+    position: relative;
+    z-index: 1;
   }
 
-  .surface-premium {
-    background-color: var(--surface);
-    background-image: var(--grain);
+  /* Estreito e largo são mutuamente exclusivos: a ordem no arquivo não decide nada. */
+  @container (max-width: 39.99rem) {
+    .linha {
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      grid-template-areas: "g t v" "g m s" "g a a";
+    }
+    /* :not([data-parcela]): sem isso (0,3,0) venceria a grade própria da Parcela (0,2,0) nas formas B e C. */
+    .lista:not([data-com-goteira]) .linha:not([data-parcela]) {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: "t v" "m s" "a a";
+    }
+    .linha:not([data-parcela]) > [data-coluna="goteira"] { grid-area: g; align-self: start; }
+    .linha:not([data-parcela]) > [data-coluna="texto"] { display: contents; }
+    .linha:not([data-parcela]) [data-coluna="titulo"] { grid-area: t; }
+    .linha:not([data-parcela]) [data-coluna="meta"] { grid-area: m; }
+    .linha:not([data-parcela]) > [data-coluna="valor"] { grid-area: v; justify-self: end; }
+    .linha:not([data-parcela]) > [data-coluna="situacao"] { grid-area: s; justify-self: end; }
+    .linha:not([data-parcela]) > [data-coluna="acao"] { grid-area: a; padding-top: 8px; } /* 4 do row-gap + 8 = 12 */
+    .linha:not([data-parcela]) > [data-coluna="fim"] { display: none; }
+    /* O cabeçalho de colunas só existe com o cartão ≥ 40rem. */
+    .lista > [role="row"] { display: none; }
+  }
+  @container (min-width: 40rem) {
+    .linha {
+      column-gap: 16px;
+      grid-template-areas: none;
+      grid-template-columns: var(--colunas);
+    }
+    .lista > [role="row"] {
+      column-gap: 16px;
+      grid-template-columns: var(--colunas);
+    }
   }
 
+  /* Hover e pressionar por ::before com opacidade: nenhuma transição de cor na lista (8.4). */
+  .linha::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--linha-hover);
+    opacity: 0;
+    transition: opacity var(--dur-micro) var(--curva-cor);
+    pointer-events: none;
+    border-radius: inherit;
+  }
+  .linha[data-clicavel] { cursor: pointer; }
+  .linha[data-clicavel]:hover::before {
+    opacity: 1;
+  }
+  .linha[data-clicavel]:active::before {
+    opacity: 1;
+    background: var(--linha-press);
+  }
+
+  /* 5.5 Linha de chegada (?parcela=): o ::after é do destaque, o ::before é do hover. */
+  .linha[data-chegada]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--linha-hover);
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 520ms var(--curva-cor) 700ms;
+  }
+  .linha[data-chegada="saindo"]::after {
+    opacity: 0;
+  }
+
+  /*
+   * 7.3.3 Parcela: uma `.linha` marcada data-parcela, com a própria grade nas
+   * TRÊS faixas (especificidade 0,2,0, grid-template-areas incluído, para a
+   * regra estreita de `.linha` não vazar para a forma B).
+   *
+   * Contrato de filhos, na ordem do DOM: goteira, texto (título + meta),
+   * situacao, valor, impostos, corretor, fica, celulas (data-celulas),
+   * demonstrativo, acao, fim. Cada forma mostra só as suas células:
+   *   A ≥ 65rem: goteira texto valor impostos corretor fica acao fim (+ situacao embaixo do texto)
+   *   B 30–65rem: goteira texto situacao valor acao fim + [data-celulas] na 2ª parte
+   *   C < 30rem: áreas g t v / g m s / d d d / a a a
+   */
+  /* Abaixo de 65rem (formas B e C) não há colunas: o cabeçalho some. Vem antes da regra ≥65rem para ela vencer. */
+  .lista > [data-cabecalho-parcelas] { display: none; }
+  @container (min-width: 65rem) {
+    .linha[data-parcela] {
+      grid-template-columns: 28px minmax(9rem, 1fr) 9rem 8rem 9rem 9rem 8rem 16px;
+      grid-template-areas: none;
+      column-gap: 16px;
+    }
+    .linha[data-parcela] > [data-coluna="situacao"] {
+      grid-column: 2;
+      grid-row: 2;
+      justify-self: start;
+    }
+    .linha[data-parcela] > [data-celulas],
+    .linha[data-parcela] > [data-coluna="demonstrativo"] {
+      display: none;
+    }
+    /* O cabeçalho das Parcelas só existe na forma A, com as colunas dela. */
+    .lista > [data-cabecalho-parcelas] {
+      display: grid;
+      grid-template-columns: 28px minmax(9rem, 1fr) 9rem 8rem 9rem 9rem 8rem 16px;
+      column-gap: 16px;
+    }
+  }
+  @container (min-width: 30rem) and (max-width: 64.99rem) {
+    .linha[data-parcela] {
+      /* situação e ação com largura fixa: `auto` mede por linha e desalinha a coluna de valor entre linhas (item 27). */
+      grid-template-columns: 28px minmax(0, 1fr) var(--col-situacao) var(--col-valor) 7rem 16px;
+      grid-template-areas: none;
+      column-gap: 16px;
+    }
+    /* Posições explícitas: sem elas a ação cai numa 3ª linha, na coluna de 28px da goteira. */
+    .linha[data-parcela] > [data-coluna="goteira"] { grid-column: 1; grid-row: 1; }
+    .linha[data-parcela] > [data-coluna="texto"] { grid-column: 2; grid-row: 1; }
+    .linha[data-parcela] > [data-coluna="situacao"] { grid-column: 3; grid-row: 1; }
+    .linha[data-parcela] > [data-coluna="valor"] { grid-column: 4; grid-row: 1; }
+    .linha[data-parcela] > [data-coluna="acao"] { grid-column: 5; grid-row: 1; }
+    .linha[data-parcela] > [data-coluna="fim"] { grid-column: 6; grid-row: 1; }
+    .linha[data-parcela] > [data-celulas] {
+      grid-column: 2 / -1;
+      grid-row: 2;
+    }
+    .linha[data-parcela] > [data-coluna="impostos"],
+    .linha[data-parcela] > [data-coluna="corretor"],
+    .linha[data-parcela] > [data-coluna="fica"],
+    .linha[data-parcela] > [data-coluna="demonstrativo"] {
+      display: none;
+    }
+  }
+  @container (max-width: 29.99rem) {
+    .linha[data-parcela] {
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      grid-template-areas: "g t v" "g m s" "d d d" "a a a";
+      column-gap: 12px;
+    }
+    .linha[data-parcela] > [data-coluna="goteira"] { grid-area: g; align-self: start; }
+    .linha[data-parcela] > [data-coluna="texto"] { display: contents; }
+    .linha[data-parcela] [data-coluna="titulo"] { grid-area: t; }
+    .linha[data-parcela] [data-coluna="meta"] { grid-area: m; }
+    .linha[data-parcela] > [data-coluna="valor"] { grid-area: v; justify-self: end; }
+    .linha[data-parcela] > [data-coluna="situacao"] { grid-area: s; justify-self: end; }
+    .linha[data-parcela] > [data-coluna="demonstrativo"] { grid-area: d; padding-top: 8px; } /* 4 + 8 = 12 (gap-3) */
+    .linha[data-parcela] > [data-coluna="acao"] { grid-area: a; padding-top: 8px; }
+    .linha[data-parcela] > [data-coluna="impostos"],
+    .linha[data-parcela] > [data-coluna="corretor"],
+    .linha[data-parcela] > [data-coluna="fica"],
+    .linha[data-parcela] > [data-celulas],
+    .linha[data-parcela] > [data-coluna="fim"] {
+      display: none;
+    }
+  }
+
+  /*
+   * 8.2 Estados de movimento. O estado padrão é VISÍVEL: só anima com .animar,
+   * que o JS põe no <html> quando a aba está visível. ENTRADA usa fill
+   * backwards (nenhum transform fica aplicado depois); SAÍDA usa both.
+   */
+  .animar .entrada-pagina {
+    animation: sobe var(--dur-pagina) var(--curva-entra) backwards;
+  }
+  /* --i inline; teto 7 itens (210ms). Rede de segurança: o JS põe data-animou em 600ms. */
+  .animar .escada:not([data-animou]) > * {
+    animation: sobe var(--dur-lista) var(--curva-entra) backwards;
+    animation-delay: calc(min(var(--i, 0), 7) * var(--escada));
+  }
+  .painel[data-estado="entrando"] { animation: painelEntra var(--dur-painel) var(--curva-entra) backwards; }
+  .painel[data-estado="saindo"] { animation: painelSai var(--dur-saida) var(--curva-sai) both; }
+  .folha[data-estado="entrando"] { animation: folhaEntra var(--dur-painel) var(--curva-entra) backwards; }
+  .folha[data-estado="saindo"] { animation: folhaSai var(--dur-saida) var(--curva-sai) both; }
+  .veu[data-estado="entrando"] { animation: esmaeceEntra var(--dur-pagina) linear backwards; }
+  .veu[data-estado="saindo"] { animation: esmaeceSai var(--dur-saida) linear both; }
+  .modal[data-estado="entrando"] { animation: modalEntra var(--dur-pagina) var(--curva-entra) backwards; }
+  .modal[data-estado="saindo"] { animation: modalSai 150ms var(--curva-sai) both; }
+  .numero-trocou { animation: numeroTroca var(--dur-micro) var(--curva-cor); }
+  .barra-preenchimento { transform-origin: left; }
+  .animar .barra-preenchimento[data-primeira] {
+    animation: barraEnche var(--dur-barra) var(--curva-entra) backwards;
+  }
+  .esqueleto { animation: pulsoEsqueleto 1.4s ease-in-out infinite; }
+}
+
+/*
+ * Troca de tema sem transição: fora de @layer porque a classe é posta pelo JS
+ * e o seletor `html.trocando-tema` não pode ser descartado pelo Tailwind.
+ */
+html.trocando-tema *,
+html.trocando-tema *::before,
+html.trocando-tema *::after {
+  transition: none !important;
+}
+
+/*
+ * 3.2 Área segura: os únicos com env(). Em @layer utilities para `lg:pb-16`
+ * e afins continuarem vencendo (classe fora de camada venceria em silêncio).
+ */
+@layer utilities {
+  .pb-seguro { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .pt-seguro { padding-top: max(16px, env(safe-area-inset-top)); }
+  .pb-barra-inferior {
+    padding-bottom: calc(var(--altura-barra-inferior) + env(safe-area-inset-bottom) + 24px);
+  }
+  @media (min-width: 1024px) {
+    .pb-barra-inferior { padding-bottom: 64px; }
+  }
+
+  /* DEPRECADO — apagar na limpeza final. Usam: Toast.tsx, BottomNav.tsx (pb-safe); PageLayout.tsx (pt-safe). */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * DEPRECADO — apagar na limpeza final.
+ * ---------------------------------------------------------------------------
+ * Classes que os fundamentos (5.2, 8.2, 10 Fase 2) mandam apagar, mas que
+ * telas e componentes ainda não migrados usam. Pintam LISO (nada lê --grain),
+ * sem halo e sem animação, para nada quebrar até cada arquivo migrar.
+ * Nenhum componente novo usa estas classes. Quem usa está ao lado de cada uma.
+ */
+@layer components {
+  /* PageLayout.tsx */
+  .texture-grain { background-image: none; }
+
+  /* KpiCard, Estados, Spinner, Painel, PageLayout, ProximaAcao */
+  .surface-premium { background-color: var(--surface); }
+
+  /* Spinner */
   .card-surface {
     background-color: var(--surface);
-    background-image: var(--grain);
-    border-color: var(--line);
+    border-color: var(--fio-caixa);
     box-shadow: var(--shadow-card);
   }
 
+  /* SidePanel, ConfirmDialog, Modal, Tip, PaletaDeBusca, BottomNav, Toast */
   .modal-surface {
     background-color: var(--surface);
-    background-image: var(--grain);
-    border: 1px solid var(--line);
+    border: 1px solid var(--fio-caixa);
   }
 
-  .nav-bg-blur {
-    background-color: var(--nav-bg);
-    backdrop-filter: blur(16px);
-  }
-  html.light .nav-bg-blur {
-    background-color: var(--page-bg);
-  }
+  /* BottomNav, PageLayout: opaco e sem blur (4.2). */
+  .nav-bg-blur { background-color: var(--page-bg); }
 
-  /* Trilho lateral (seção 6): grão + o brilho próprio do trilho. */
-  .nav-rail {
-    background-color: var(--nav-bg);
-    background-image: var(--grain);
-  }
+  /* NavRail: liso, sem sheen (4.3). */
+  .nav-rail { background-color: var(--nav-bg); }
 
+  /* Button, PageLayout, ProximaAcao. Continua pintando liso (Ajuste 2). */
   .grad-brand {
     background-color: var(--brand-fill);
     color: var(--brand-fill-text);
   }
-  .grad-brand:hover:not(:disabled) {
-    background-color: var(--brand-fill-hover);
-  }
+  .grad-brand:hover:not(:disabled) { background-color: var(--brand-fill-hover); }
 
-  /* No máximo 1 por tela. */
-  .grad-brand-glow {
-    box-shadow: none;
-  }
+  /* PageLayout */
+  .grad-brand-glow { box-shadow: none; }
 
-  /*
-   * Ouro — USO RESTRITO: só dinheiro, meta e marca. Um bloco dourado por tela
-   * (princípio 2). O host precisa de position:relative.
-   *
-   * O guia escreve gold-edge-short como variação de gold-edge. Aqui a
-   * geometria do filete vale para as duas, então `gold-edge-short` sozinho
-   * também desenha, e `gold-edge gold-edge-short` junto dá o curto, porque a
-   * regra do curto vem depois com a mesma especificidade.
-   */
-  .gold-edge,
-  .gold-edge-short {
-    border-color: color-mix(in srgb, var(--brand) 38%, transparent);
-  }
+  /* Painel: borda Areia derivada (5.1), sem filete. */
+  .gold-edge { border-color: var(--borda-ouro); }
 
-  .gold-glow-tl {
-    isolation: isolate;
-  }
+  /* Painel */
+  .gold-glow-tl { isolation: isolate; }
 
-  /* ---------------------------------- Lista --------------------------------- */
-
+  /* FolhaDeLancamento, Painel, Lista, Estados, Spinner, Composicao */
   .list-surface {
-    background-color: var(--surface-2);
-    background-image: var(--grain);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--shadow-card);
-  }
-  html.light .list-surface {
     background-color: var(--surface);
-    background-image: var(--grain);
     box-shadow: var(--shadow-card);
   }
 
-  /*
-   * Densidade (seção 9): muda só o ar da linha, nunca esconde informação.
-   * `html.compacta .lista-linha` pesa (0,2,1) e vence o `py-3.5` da linha sem
-   * !important. A classe vem de src/context/DensidadeContext.tsx.
-   */
+  /* DensidadeContext, Vendas, Lista, Composicao: densidade muda só o ar da linha. */
   html.compacta .lista-linha {
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
   }
 
-  /*
-   * Barra de progresso de dinheiro e meta (seção 5). Só o tom marca tem
-   * degradê e halo; barra de outro tom é chapada na cor do tom.
-   */
-  .barra-marca {
-    background-color: var(--brand-fill);
-  }
+  /* Barra.tsx */
+  .barra-marca { background-color: var(--brand-fill); }
 
-  /* --------------------------------- Aurora --------------------------------- */
+  /* PageLayout: nunca aparece. */
+  .aurora { display: none; }
 
-  /*
-   * Fundo vivo de toda tela. 48s e 67s não são múltiplos de propósito: as duas
-   * manchas nunca voltam juntas ao mesmo lugar, e o fundo não parece um laço.
-   * Anima só transform, nunca background-position.
-   */
-  .aurora {
-    display: none;
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    pointer-events: none;
-    z-index: 0;
-  }
-  .aurora::before,
-  .aurora::after {
-    content: '';
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(90px);
-    will-change: transform;
-  }
-  .aurora::before {
-    width: 46vw;
-    height: 46vw;
-    top: -14vw;
-    left: -8vw;
-    background: radial-gradient(circle, var(--aurora-a) 0%, transparent 70%);
-    animation: auroraA 48s ease-in-out infinite alternate;
-  }
-  .aurora::after {
-    width: 38vw;
-    height: 38vw;
-    bottom: -12vw;
-    right: -6vw;
-    background: radial-gradient(circle, var(--aurora-b) 0%, transparent 70%);
-    animation: auroraB 67s ease-in-out infinite alternate;
-  }
-  .aurora-host {
-    position: relative;
-  }
-  .aurora-host > *:not(.aurora) {
-    position: relative;
-    z-index: 1;
-  }
+  /* Vendas, Lista, Composicao: sem animação (a escada nova é .escada + --i). */
+  .stagger-children > * { animation: none; }
 
-  /* ------------------------------- Movimento -------------------------------- */
+  /* Toast: sem animação (8.2 apaga a .entrada de 320ms; o novo é toastEntra). */
+  .entrada { animation: none; }
 
-  /*
-   * Entrada em escada: 50ms por filho até o 8º, uma vez. Do 9º em diante o
-   * atraso fica parado em 350ms. Sem esse teto o 9º filho entraria em 0ms,
-   * ANTES do 8º, e a escada viraria ruído no fim de toda lista longa.
-   */
-  .stagger-children > * {
-    animation: slideUp 240ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
-  }
-  .stagger-children > *:nth-child(2) { animation-delay: 50ms; }
-  .stagger-children > *:nth-child(3) { animation-delay: 100ms; }
-  .stagger-children > *:nth-child(4) { animation-delay: 150ms; }
-  .stagger-children > *:nth-child(5) { animation-delay: 200ms; }
-  .stagger-children > *:nth-child(6) { animation-delay: 250ms; }
-  .stagger-children > *:nth-child(7) { animation-delay: 300ms; }
-  .stagger-children > *:nth-child(n + 8) { animation-delay: 350ms; }
+  /* ProximaAcao: sem pulso (8.4). */
+  .atencao-pulse { animation: none; }
 
-  .entrada {
-    animation: slideUp 320ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
-  }
+  /* PopoverAvisos: sem animação (o salto novo é saltoBadge). */
+  .badge-bounce { animation: none; }
 
-  /*
-   * Entrada de PÁGINA (seção 7: "fade + 5px, 200ms"). O guia dá esse número
-   * no texto e dá `.entrada` com 320ms e 10px no código; as duas coisas
-   * existem para trabalhos diferentes. `.entrada` fica como o guia escreveu,
-   * para bloco que aparece; esta é a do quadro da tela inteira.
-   */
-  .entrada-pagina {
-    animation: entradaPagina 200ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
-  }
+  /* Esqueleto, Spinner: bloco liso, sem brilho animado (o novo é .esqueleto). */
+  .shimmer { background-color: var(--surface-2); }
 
-  /* Halo vermelho que pulsa 3 vezes e para. Atenção tem cota. */
-  .atencao-pulse {
-    animation: atencaoPulse 2.2s ease-in-out 3;
-  }
-
-  /* Barra lateral crítica: pisca 4 vezes e para. */
-  .barra-atencao {
-    animation: barraAtencao 1.6s ease-in-out 4;
-  }
-
-  /* O ponto do sino salta quando a contagem muda. Único bounce do sistema. */
-  .badge-bounce {
-    animation: badgeBounce 500ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
-  }
-
-  .shimmer {
-    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-  }
-
-  /*
-   * Painel lateral (seção 7): desliza da direita, 280ms; no celular sobe.
-   * O véu atrás entra em 220ms. Só transform e opacity.
-   */
-  .painel-entra {
-    animation: painelDireita 280ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
-  }
+  /* SidePanel: mesma entrada com os keyframes novos (8.2); folha abaixo de 640. */
+  .painel-entra { animation: painelEntra var(--dur-painel) var(--curva-entra) backwards; }
   @media (max-width: 639px) {
-    .painel-entra {
-      animation-name: painelSobe;
-    }
+    .painel-entra { animation-name: folhaEntra; }
   }
-  .overlay-entra {
-    animation: overlayEntra 220ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
-  }
-}
 
-@layer utilities {
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  .pt-safe {
-    padding-top: env(safe-area-inset-top);
-  }
-}
+  /* ConfirmDialog, Modal, BottomNav, Tip, SidePanel, PaletaDeBusca */
+  .overlay-entra { animation: esmaeceEntra var(--dur-pagina) linear backwards; }
 
-/*
- * ---------------------------------------------------------------------------
- * DEPRECADO — classes da paleta anterior, reimplementadas com os tokens novos.
- * ---------------------------------------------------------------------------
- * Existem só para as telas que ainda não migraram continuarem pintando certo.
- * Nenhum componente novo usa estas classes. A verificação final apaga o bloco
- * inteiro, junto com os aliases deprecados do tailwind.config.js e a variável
- * --grad-action lá em cima.
- */
-@layer components {
-  /* Número: Sora com figura tabular, como o título e número do guia. */
+  /* corretor/Inicio, LoginPage, RegistrarVenda, Venda, Kit: número tabular em Sora. */
   .cifra {
     font-family: 'Sora', system-ui, sans-serif;
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' 1;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1;
     letter-spacing: -0.015em;
   }
 
+  /* admin/pages/Relatorios.tsx: número tabular (o novo é .num). */
   .tnum {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' 1;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1;
   }
 
-  /*
-   * Era a slab do descritor IMOBILIÁRIA, com um ponto de ouro no fim. Vira o
-   * rótulo do guia em Inter, e o ponto sai: o ponto final em Areia pertence
-   * ao lockup, não a todo rótulo. `.sem-ponto` fica sem efeito.
-   */
+  /* LoginPage (com .sem-ponto, que não tem efeito): o papel `rotulo` de 6.1. */
   .assinatura {
     font-family: 'Inter', system-ui, sans-serif;
     font-size: 11px;
+    line-height: 16px;
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.14em;
-    color: var(--t4);
-  }
-
-  .superficie {
-    background-color: var(--surface);
-    background-image: var(--grain);
-    border-color: var(--line);
-    box-shadow: var(--shadow-card);
-  }
-
-  /* O rótulo com filete: `w-1 h-3.5 rounded-full` na cor do tom (seção 6). */
-  .rotulo {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-family: 'Inter', system-ui, sans-serif;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: var(--t4);
-  }
-  .rotulo::before {
-    content: none;
-    flex: none;
-    width: 0.25rem;
-    height: 0.875rem;
-    border-radius: 9999px;
-    background-color: var(--t4);
-  }
-  .rotulo-ouro::before {
-    background-color: var(--brand);
-  }
-  .rotulo-verde::before {
-    background-color: var(--success);
-  }
-  .rotulo-critico::before {
-    background-color: var(--error);
-  }
-
-  .acao-ouro {
-    background-color: var(--brand-fill);
-    color: var(--brand-fill-text);
-  }
-  .acao-ouro:hover {
-    background-color: var(--brand-fill-hover);
-  }
-
-  .brilho-ouro {
-    isolation: isolate;
-  }
-  .brilho-ouro::after {
-    content: none;
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background: radial-gradient(70% 60% at 6% -10%, rgba(228, 178, 60, 0.13), transparent 60%);
-  }
-  html.light .brilho-ouro::after {
-    background: radial-gradient(70% 60% at 6% -10%, rgba(228, 178, 60, 0.16), transparent 60%);
+    color: var(--t-meta);
   }
 }
 
 /*
  * ---------------------------------------------------------------------------
- * Keyframes (seção 7). Fora de camada: keyframe não disputa cascata, e assim
- * sai sempre, mesmo quando a classe que o chama está num arquivo novo.
+ * 8.2 Keyframes (substituem todos os anteriores). Só opacity e transform.
+ * Fora de camada: keyframe não disputa cascata e sai sempre.
  * ---------------------------------------------------------------------------
  */
-@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes entradaPagina { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes auroraA { 0% { transform: translate3d(0, 0, 0) scale(1); } 50% { transform: translate3d(12vw, 6vh, 0) scale(1.18); } 100% { transform: translate3d(4vw, 14vh, 0) scale(1.05); } }
-@keyframes auroraB { 0% { transform: translate3d(0, 0, 0) scale(1.1); } 50% { transform: translate3d(-14vw, -8vh, 0) scale(1); } 100% { transform: translate3d(-5vw, -16vh, 0) scale(1.22); } }
-@keyframes atencaoPulse {
-  0%, 100% { box-shadow: var(--shadow-card); }
-  50% { box-shadow: 0 0 0 4px var(--error-bg), 0 10px 28px rgba(229, 113, 122, 0.28); }
-}
-@keyframes barraAtencao { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-@keyframes badgeBounce { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.3); } 60% { transform: scale(0.92); } 80% { transform: scale(1.08); } }
-@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-@keyframes painelDireita { from { opacity: 0; transform: translateX(2rem); } to { opacity: 1; transform: translateX(0); } }
-@keyframes painelSobe { from { opacity: 0; transform: translateY(1.5rem); } to { opacity: 1; transform: translateY(0); } }
-@keyframes overlayEntra { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sobe { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes esmaeceEntra { from { opacity: 0; } to { opacity: 1; } }
+@keyframes esmaeceSai { from { opacity: 1; } to { opacity: 0; } }
+@keyframes painelEntra { from { opacity: 0; transform: translateX(32px); } to { opacity: 1; transform: none; } }
+@keyframes painelSai { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(24px); } }
+@keyframes folhaEntra { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes folhaSai { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(16px); } }
+@keyframes modalEntra { from { opacity: 0; transform: scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes modalSai { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.98); } }
+@keyframes toastEntra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes avanca { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@keyframes recua { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+@keyframes numeroTroca { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes barraEnche { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes pulsoEsqueleto { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+@keyframes saltoBadge { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.3); } 60% { transform: scale(.92); } 80% { transform: scale(1.08); } }
 
-/* Movimento é ambiente, não evento: quem pediu menos movimento não recebe nenhum. */
+/* 8.5 Quem pediu menos movimento não recebe nenhum; o foco visível não muda. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important;
-    transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .esqueleto { animation: none !important; opacity: .7; }
 }

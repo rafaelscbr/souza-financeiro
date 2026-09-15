@@ -2,11 +2,9 @@ import { type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 /*
- * O rótulo de dado (seção 4): pequeno, maiúsculo e discreto.
- *
- * Hierarquia é tamanho, não negrito. O rótulo diz o que o número é e sai da
- * frente; quem decide a ação é o número grande ao lado. `text-t4` é o menor
- * contraste permitido para informação, então o rótulo nunca desce disso.
+ * Rótulo de dado (6.1, token `rotulo`): Inter 11/16, 500, 0.14em, MAIÚSCULAS,
+ * cor t-meta. Só para rótulo de dado, cabeçalho de coluna e grupo do trilho;
+ * nunca título de cartão (esse é `titulo-secao`).
  */
 export function Rotulo({
   children,
@@ -17,7 +15,5 @@ export function Rotulo({
   className?: string
   as?: 'p' | 'span' | 'h2' | 'h3' | 'dt'
 }) {
-  return (
-    <Tag className={cn('font-label text-[11px] uppercase tracking-[0.14em] text-t4', className)}>{children}</Tag>
-  )
+  return <Tag className={cn('font-label text-rotulo uppercase text-t-meta', className)}>{children}</Tag>
 }

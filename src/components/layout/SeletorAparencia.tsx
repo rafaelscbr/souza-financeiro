@@ -1,18 +1,20 @@
 import { useRef, type KeyboardEvent } from 'react'
 import { Check, Moon, Sun, type LucideIcon } from 'lucide-react'
+import { Icone } from '@/components/ui/Icone'
 import { Rotulo } from '@/components/ui/Rotulo'
-import { useTheme, type Theme } from '@/context/ThemeContext'
+import type { Theme } from '@/context/ThemeContext'
+import { useTrocaDeTema } from './ThemeToggle'
 import { cn } from '@/lib/utils'
 
 /*
- * DUAS OPÇÕES COM MARCA, NÃO INTERRUPTOR (docs/souza-os.md, seção 2).
+ * DUAS OPÇÕES COM NOME, NÃO INTERRUPTOR.
  *
- * Um interruptor com sol e lua pergunta "ligado ou desligado?", e ninguém sabe
- * se o sol quer dizer "está claro" ou "clique para clarear". Duas opções com
- * nome e um visto na escolhida respondem as duas coisas de uma vez: o que
- * existe e o que está valendo.
+ * Um grupo de rádio de duas opções: o que existe e o que está valendo. A
+ * opção marcada é NEUTRA (P5: aba, filtro e escolha ativos nunca são ouro):
+ * fundo s2, borda de controle, texto t1 600 e o visto. Controle isolado, então
+ * a cor transiciona em 150ms (8.4). 40px com ponteiro fino ≥1024; 44 no toque.
  *
- * O mesmo desenho serve à densidade, então mora aqui e o SeletorDensidade usa.
+ * O mesmo desenho serve à densidade (SeletorDensidade).
  */
 
 export interface OpcaoComMarca<T extends string> {
@@ -51,14 +53,11 @@ export function OpcoesComMarca<T extends string>({
   }
 
   return (
-    <div className={className}>
-      <Rotulo as="span" className="mb-1.5 block">
-        {rotulo}
-      </Rotulo>
-      <div role="radiogroup" aria-label={rotulo} className="grid grid-cols-2 gap-1.5">
+    <div className={cn('flex flex-col gap-2', className)}>
+      <Rotulo as="span">{rotulo}</Rotulo>
+      <div role="radiogroup" aria-label={rotulo} className="grid grid-cols-2 gap-2">
         {opcoes.map((o, i) => {
           const marcada = o.valor === valor
-          const Icone = o.icone
           return (
             <button
               key={o.valor}
@@ -71,16 +70,16 @@ export function OpcoesComMarca<T extends string>({
               tabIndex={marcada ? 0 : -1}
               onClick={() => aoMudar(o.valor)}
               onKeyDown={(e) => onKeyDown(e, i)}
-              className={cn(
-                'flex h-10 min-w-0 items-center gap-2 rounded-[10px] border px-2.5 text-[13px] transition-colors duration-150',
+              className={`${cn(
+                'flex h-11 min-w-0 items-center gap-2 rounded-controle border px-3 transition-colors lg:[@media(pointer:fine)]:h-10',
                 marcada
-                  ? 'border-brand/40 bg-brand-tint font-medium text-t1'
-                  : 'border-nav-line text-t3 hover:bg-nav-hover hover:text-t1',
-              )}
+                  ? 'border-fio-controle bg-s2 font-semibold text-t1'
+                  : 'border-fio-linha text-t2 hover:bg-linha-hover hover:text-t1 active:bg-linha-press',
+              )} text-texto-titulo`}
             >
-              <Icone size={15} strokeWidth={1.6} aria-hidden className={marcada ? 'text-brand-text' : 'text-t4'} />
+              <Icone icone={o.icone} tamanho={16} className={marcada ? 'text-t1' : 'text-t3'} />
               <span className="min-w-0 flex-1 truncate text-left">{o.rotulo}</span>
-              {marcada && <Check size={14} strokeWidth={1.6} aria-hidden className="shrink-0 text-brand-text" />}
+              {marcada && <Icone icone={Check} tamanho={16} className="shrink-0 text-t1" />}
             </button>
           )
         })}
@@ -94,7 +93,8 @@ const OPCOES: OpcaoComMarca<Theme>[] = [
   { valor: 'dark', rotulo: 'Escuro', icone: Moon },
 ]
 
+/** Aparência: a troca passa pela coreografia de 8.3 (view transition). */
 export function SeletorAparencia({ className }: { className?: string }) {
-  const { theme, setTheme } = useTheme()
-  return <OpcoesComMarca rotulo="Aparência" valor={theme} opcoes={OPCOES} aoMudar={setTheme} className={className} />
+  const { tema, trocar } = useTrocaDeTema()
+  return <OpcoesComMarca rotulo="Aparência" valor={tema} opcoes={OPCOES} aoMudar={trocar} className={className} />
 }

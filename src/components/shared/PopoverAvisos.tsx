@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import {
@@ -12,24 +12,25 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
+import { Icone } from '@/components/ui/Icone'
 import { IconeTom } from '@/components/ui/IconeTom'
 import { Rotulo } from '@/components/ui/Rotulo'
-import { TOM, type Tom } from '@/components/ui/tom'
+import { type Tom } from '@/components/ui/tom'
+import { usePresenca } from '@/lib/usePresenca'
 import { cn } from '@/lib/utils'
 
 /*
- * O SINO — popover de avisos (Souza OS, seções 6 e 8).
+ * O SINO — popover de avisos (5.2 nível 2; 7.7 Badge; 8.3 salto do badge).
  *
  * Avisos iguais são AGRUPADOS: "Parcelas vencidas · 12", nunca doze linhas
- * idênticas. Uma lista de linhas repetidas não diz mais do que o número, e
- * esconde o aviso diferente que estava no meio delas.
+ * idênticas. Cada aviso leva ao lugar já filtrado (`para`), porque aviso que
+ * não leva à ação é só ansiedade.
  *
- * Cada aviso leva ao lugar já filtrado (`para`, ex.: /pagar?foco=vencidas),
- * porque aviso que não leva à ação é só ansiedade.
- *
- * O ponto do sino salta quando a contagem muda — o único bounce do sistema — e
- * leva a cor do aviso mais grave. A contagem vai no rótulo acessível e no topo
- * do popover; o ponto nunca é o único sinal.
+ * Sino 40 (44 no toque e abaixo de 1024). O contador é o Badge (7.7), em risco
+ * quando o aviso mais grave é risco, no máximo "9+"; salta (`saltoBadge`
+ * 500ms) só quando a contagem AUMENTA. A contagem vai também no rótulo
+ * acessível. O popover entra esmaecendo em 150ms e sai em 180ms
+ * (`usePresenca`); `z-popover`; sem `data-caixa`.
  */
 
 export interface Aviso {
@@ -100,6 +101,18 @@ function agrupar(avisos: Aviso[]): GrupoAviso[] {
 const LARGURA = 352 // 22rem
 const MARGEM = 16
 
+const ENTRADA: CSSProperties = { animation: 'esmaeceEntra var(--dur-micro) linear backwards' }
+const SAIDA: CSSProperties = { animation: 'esmaeceSai var(--dur-saida) linear both' }
+const SALTO: CSSProperties = { animation: 'saltoBadge 500ms var(--curva-entra)' }
+/* Controle isolado: cor em 150ms (8.4). Inline porque aqui não é components/ui. */
+const TRANSICAO_COR: CSSProperties = {
+  transition: 'background-color var(--dur-micro) var(--curva-cor), color var(--dur-micro) var(--curva-cor)',
+}
+
+/* Hover de item de fila (8.3): `::before` com opacidade em 150ms, sem mexer no texto. */
+const ITEM =
+  'relative flex min-h-11 items-center gap-3 rounded-controle px-2 py-2 before:absolute before:inset-0 before:rounded-controle before:bg-linha-hover before:opacity-0 before:transition-opacity hover:before:opacity-100 active:before:bg-linha-press active:before:opacity-100'
+
 export function PopoverAvisos({ avisos }: { avisos: Aviso[] }) {
   const [aberto, setAberto] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number; largura: number; alturaMax: number } | null>(
@@ -108,25 +121,23 @@ export function PopoverAvisos({ avisos }: { avisos: Aviso[] }) {
   const botaoRef = useRef<HTMLButtonElement>(null)
   const painelRef = useRef<HTMLDivElement>(null)
   const uid = useId()
+  const presenca = usePresenca(aberto, 180)
 
   const grupos = useMemo(() => agrupar(avisos), [avisos])
   const total = grupos.reduce((s, g) => s + g.quantidade, 0)
   const tomTopo: Tom = grupos[0]?.tom ?? 'neutro'
 
-  // O salto: remonta o ponto com a animação a cada mudança real de contagem.
+  // O salto: remonta o contador com a animação só quando a contagem aumenta.
   const [salto, setSalto] = useState(0)
   const anterior = useRef(total)
   useEffect(() => {
-    if (anterior.current === total) return
+    if (total > anterior.current) setSalto((s) => s + 1)
     anterior.current = total
-    if (total > 0) setSalto((s) => s + 1)
   }, [total])
 
   /*
-   * Portal com posição fixa: o sino mora no trilho, que recolhe para 68px e
-   * corta o que transborda. Abre para o lado onde há espaço — para a direita se
-   * o sino está na metade esquerda da tela, para a esquerda se está no
-   * cabeçalho — e nunca sai da tela no celular.
+   * Portal com posição fixa: abre para o lado onde há espaço e nunca sai da
+   * tela no celular.
    */
   const posicionar = useCallback(() => {
     const b = botaoRef.current
@@ -175,6 +186,8 @@ export function PopoverAvisos({ avisos }: { avisos: Aviso[] }) {
   const rotuloBotao =
     total === 0 ? 'Avisos: nenhum pendente' : `Avisos: ${total} pendente${total === 1 ? '' : 's'}`
 
+  const contador = total > 9 ? '9+' : String(total)
+
   return (
     <>
       <button
@@ -192,29 +205,21 @@ export function PopoverAvisos({ avisos }: { avisos: Aviso[] }) {
         aria-controls={aberto ? `${uid}-painel` : undefined}
         aria-label={rotuloBotao}
         title={rotuloBotao}
+        style={TRANSICAO_COR}
         className={cn(
-          // 30px e raio 9px, os botões-ícone do topo do trilho (seção 6). O
-          // ::before estende a área tocável a 40px sem mudar o desenho (seção 12).
-          'relative flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] text-nav-text transition-colors duration-150',
-          'before:absolute before:-inset-[5px] hover:bg-nav-hover hover:text-nav-active-text',
-          aberto && 'bg-nav-active-bg text-nav-active-text',
+          'relative flex size-10 shrink-0 items-center justify-center rounded-controle text-t2 hover:bg-linha-hover hover:text-t1 active:bg-linha-press max-lg:size-11 [@media(pointer:coarse)]:size-11',
+          aberto && 'bg-linha-press text-t1',
         )}
       >
-        <Bell className="h-4 w-4" strokeWidth={1.6} aria-hidden />
+        <Icone icone={Bell} tamanho={16} />
         {total > 0 && (
-          <span
-            key={salto}
-            aria-hidden
-            className={cn(
-              'absolute right-[5px] top-[5px] h-2 w-2 rounded-full ring-2 ring-nav-surface',
-              TOM[tomTopo].ponto,
-              salto > 0 && 'badge-bounce',
-            )}
-          />
+          <span key={salto} aria-hidden className="absolute right-0 top-0 flex" style={salto > 0 ? SALTO : undefined}>
+            <Badge risco={tomTopo === 'risco'}>{contador}</Badge>
+          </span>
         )}
       </button>
 
-      {aberto &&
+      {presenca.montado &&
         pos &&
         createPortal(
           <div
@@ -223,6 +228,8 @@ export function PopoverAvisos({ avisos }: { avisos: Aviso[] }) {
             role="dialog"
             aria-label="Avisos"
             tabIndex={-1}
+            data-popover
+            {...presenca.props}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
                 e.preventDefault()
@@ -234,62 +241,61 @@ export function PopoverAvisos({ avisos }: { avisos: Aviso[] }) {
               if (para && (painelRef.current?.contains(para) || botaoRef.current?.contains(para))) return
               if (para) setAberto(false)
             }}
-            style={{ top: pos.top, left: pos.left, width: pos.largura, maxHeight: pos.alturaMax }}
-            className="fixed z-[55] flex flex-col overflow-hidden rounded-[14px] border border-line bg-[color:var(--nav-elev)] shadow-dropdown outline-none animate-[slideUp_180ms_cubic-bezier(0.16,1,0.3,1)_backwards]"
+            style={{
+              top: pos.top,
+              left: pos.left,
+              width: pos.largura,
+              maxHeight: pos.alturaMax,
+              ...(presenca.estado === 'saindo' ? SAIDA : ENTRADA),
+            }}
+            className="fixed z-popover flex flex-col rounded-caixa border border-fio-caixa bg-surface shadow-dropdown outline-none"
           >
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-4 py-3">
+            <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-fio-linha px-4">
               <Rotulo as="h2">Avisos</Rotulo>
               {total > 0 && (
-                <span className="text-xs text-t3 tabular-nums">
+                <span className="num text-texto-meta text-t-meta">
                   {total} pendente{total === 1 ? '' : 's'}
                 </span>
               )}
             </div>
 
             {grupos.length === 0 ? (
-              // Sem pendência, nunca silêncio (seção 10).
-              <div className="flex items-center gap-3 px-4 py-5">
+              // Sem pendência, nunca silêncio.
+              <div className="flex items-center gap-3 p-4">
                 <IconeTom icone={CheckCircle2} tom="sucesso" tamanho="md" />
-                <div className="min-w-0">
-                  <p className="font-heading text-sm font-bold text-t1">Tudo em dia</p>
-                  <p className="text-xs text-t3">Nenhum aviso pede ação agora.</p>
+                <div className="flex min-w-0 flex-col">
+                  <p className="text-texto-titulo text-t1">Tudo em dia</p>
+                  <p className="text-texto-meta text-t-meta">Nenhum aviso pede ação agora.</p>
                 </div>
               </div>
             ) : (
-              <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1.5">
+              <ul data-rolagem className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-2">
                 {grupos.map((g) => {
                   const conteudo = (
                     <>
-                      <IconeTom icone={ICONE[g.tom]} tom={g.tom} tamanho="sm" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm leading-snug text-t1">{g.titulo}</span>
-                        {g.detalhe && (
-                          <span className="mt-0.5 block truncate text-xs text-t4">{g.detalhe}</span>
-                        )}
+                      <span className="relative flex">
+                        <IconeTom icone={ICONE[g.tom]} tom={g.tom} tamanho="sm" />
+                      </span>
+                      <span className="relative flex min-w-0 flex-1 flex-col">
+                        <span className="text-texto text-t1">{g.titulo}</span>
+                        {g.detalhe && <span className="truncate text-texto-meta text-t-meta">{g.detalhe}</span>}
                       </span>
                       {g.quantidade > 1 && (
-                        <Badge tom={g.tom}>
-                          <span className="tabular-nums">{g.quantidade}</span>
-                        </Badge>
+                        <span className="relative flex">
+                          <Badge risco={g.tom === 'risco'}>{g.quantidade}</Badge>
+                        </span>
                       )}
-                      {g.para && (
-                        <ChevronRight className="h-4 w-4 shrink-0 text-t4" strokeWidth={1.6} aria-hidden />
-                      )}
+                      {g.para && <Icone icone={ChevronRight} tamanho={16} className="relative text-t-meta" />}
                     </>
                   )
-                  const linha = 'mx-1.5 flex min-h-[44px] items-center gap-3 rounded-lg px-2.5 py-2'
                   return (
                     <li key={g.chave}>
                       {g.para ? (
-                        <Link
-                          to={g.para}
-                          onClick={() => setAberto(false)}
-                          className={cn(linha, 'transition-colors duration-150 hover:bg-s3/50')}
-                        >
+                        <Link to={g.para} onClick={() => setAberto(false)} className={ITEM}>
                           {conteudo}
                         </Link>
                       ) : (
-                        <div className={linha}>{conteudo}</div>
+                        <div className="flex min-h-11 items-center gap-3 px-2 py-2">{conteudo}</div>
                       )}
                     </li>
                   )

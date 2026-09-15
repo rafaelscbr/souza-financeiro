@@ -7,16 +7,8 @@ import { useCorretor, type CorretorParcela } from './CorretorData'
 import { ComposicaoProvider } from '@/components/composicao/Composicao'
 import { NavRail, type UsuarioDaCasca } from '@/components/layout/NavRail'
 import { BottomNav } from '@/components/layout/BottomNav'
-import { POLEGAR_CORRETOR, itensDe, navCorretor, separarPolegar } from '@/components/layout/navegacao'
-import {
-  AreaDaTela,
-  BarraDeTransicao,
-  CascaContext,
-  QuadroCarregando,
-  QuadroErro,
-  useQuadrosDaCasca,
-  useValorDaCasca,
-} from '@/components/layout/PageLayout'
+import { POLEGAR_CORRETOR, ROTAS_CORRETOR, itensDe, navCorretor, separarPolegar } from '@/components/layout/navegacao'
+import { CarregandoTela, CascaDaPagina } from '@/components/layout/PageLayout'
 import { PaletaDeBusca, useAtalhoBusca, type GrupoBusca } from '@/components/shared/PaletaDeBusca'
 import type { Aviso } from '@/components/shared/PopoverAvisos'
 import { Select } from '@/components/ui/Field'
@@ -119,12 +111,11 @@ function avisosDoCorretor(parcelas: CorretorParcela[]): Aviso[] {
 
 function CascaDoCorretor() {
   const { sair, profile, email } = useAuth()
-  const { carregando, erro, recarregar, vendas, parcelas, anosDisponiveis } = useCorretor()
+  const { carregando, erro, recarregar, vendas, parcelas } = useCorretor()
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const [buscando, setBuscando] = useState(false)
   const [trocandoSenha, setTrocandoSenha] = useState(false)
-  const [quadros, registrarQuadro] = useQuadrosDaCasca()
 
   const abrirBusca = useCallback(() => setBuscando(true), [])
   useAtalhoBusca(abrirBusca)
@@ -132,7 +123,6 @@ function CascaDoCorretor() {
   const secoes = useMemo(() => navCorretor(), [])
   const { destinos, mais } = useMemo(() => separarPolegar(secoes, POLEGAR_CORRETOR), [secoes])
   const avisos = useMemo(() => avisosDoCorretor(parcelas), [parcelas])
-  const casca = useValorDaCasca(avisos, registrarQuadro)
 
   const usuario: UsuarioDaCasca = {
     nome: profile?.name?.trim() || 'Corretor',
@@ -173,35 +163,30 @@ function CascaDoCorretor() {
   }
 
   return (
-    <CascaContext.Provider value={casca}>
+    <>
       <div className="flex min-h-screen bg-page">
         <NavRail
           secoes={secoes}
-          avisos={avisos}
           usuario={usuario}
           aoBuscar={abrirBusca}
           aoTrocarSenha={() => setTrocandoSenha(true)}
           aoSair={sairDoSistema}
         />
 
-        <div className="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
-          {carregando ? (
-            <QuadroCarregando rotulo="Carregando suas vendas…" />
-          ) : erro ? (
-            <QuadroErro motivo={erro} aoTentarDeNovo={() => void recarregar()} />
-          ) : (
-            <AreaDaTela
-              quadros={quadros}
-              barra={<BarraDeTransicao acoes={anosDisponiveis.length > 1 ? <SeletorAno /> : undefined} />}
-            >
-              <ErrorBoundary resetKey={pathname}>
-                <Suspense fallback={<QuadroCarregando rotulo="Abrindo a tela…" />}>
-                  <Outlet />
-                </Suspense>
-              </ErrorBoundary>
-            </AreaDaTela>
-          )}
-        </div>
+        {/* Nenhuma rota do corretor declara mês nem CTA: o cabeçalho é ícone, título e sino. */}
+        <CascaDaPagina
+          rotas={ROTAS_CORRETOR}
+          avisos={avisos}
+          carregando={carregando}
+          erro={erro}
+          aoTentarDeNovo={() => void recarregar()}
+        >
+          <ErrorBoundary resetKey={pathname}>
+            <Suspense fallback={<CarregandoTela rotulo="Abrindo a tela…" />}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
+        </CascaDaPagina>
 
         <BottomNav
           destinos={destinos}
@@ -215,6 +200,6 @@ function CascaDoCorretor() {
 
       <PaletaDeBusca aberto={buscando} aoFechar={() => setBuscando(false)} grupos={grupos} />
       <TrocarSenha aberto={trocandoSenha} onFechar={() => setTrocandoSenha(false)} />
-    </CascaContext.Provider>
+    </>
   )
 }

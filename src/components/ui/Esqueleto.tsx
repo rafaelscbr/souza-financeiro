@@ -1,47 +1,75 @@
+import type { CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 
 /*
- * Carregando (seção 8): blocos `shimmer` com a FORMA REAL do conteúdo.
+ * CARREGANDO (7.13). Esqueleto com a FORMA REAL do que vem.
  *
- * O esqueleto antigo era um fio estático, com o argumento de que brilho sugere
- * atividade financeira. O guia da casa resolve a mesma preocupação por outro
- * caminho: o esqueleto tem a forma da linha que vai chegar (selo, título,
- * contexto, valor), então ninguém confunde carregando com um valor real, e
- * nunca há spinner solto. Com prefers-reduced-motion o brilho para.
+ * Blocos `bg-s2 rounded-badge` com pulso de opacidade (`.esqueleto`, 8.2),
+ * sem shimmer e sem `background-image`. O pulso é o único movimento infinito
+ * permitido e só existe debaixo de `aria-busy="true"` (8.4); com movimento
+ * reduzido para e fica em opacidade .7 (8.5).
+ *
+ * Aparece só se o banco demorar mais de 300ms: a tela usa
+ * `useAtraso(300, carregando)` e, antes disso, reserva a altura vazia. Se já
+ * havia dado (troca de mês), o conteúdo antigo fica com `opacity .6` e
+ * `aria-busy`, sem esqueleto.
  */
 export function Esqueleto({ className }: { className?: string }) {
-  return <span className={cn('shimmer block h-3 w-full rounded-md', className)} aria-hidden />
+  return <span className={cn('esqueleto block h-3 w-full rounded-badge bg-s2', className)} aria-hidden />
 }
 
 /**
- * Uma linha de lista carregando: selo, título, contexto, coluna do meio e o
- * valor alinhado à direita, na mesma geometria da `Linha`.
+ * Uma linha de lista carregando, na geometria da `.linha` (7.2): goteira 28,
+ * título 14px a 40%, meta 12px a 25%, valor 96×16 à direita, mesma
+ * `min-height` e o mesmo recuo (que vem da `.lista` com `data-contexto`).
+ * Não é `<li>`: a `.lista` é grade de `div`.
  */
-export function LinhaEsqueleto({ recuo = 'px-4 sm:px-5' }: { recuo?: string }) {
+export function LinhaEsqueleto({ goteira = true }: { goteira?: boolean }) {
+  const colunas = { '--colunas': goteira ? '28px minmax(0,1fr) var(--col-valor)' : 'minmax(0,1fr) var(--col-valor)' } as CSSProperties
   return (
-    <li className={cn('flex items-center gap-3 border-b border-line py-3.5 last:border-0 sm:gap-4', recuo)} aria-hidden>
-      <Esqueleto className="h-7 w-7 shrink-0 rounded-[9px]" />
-      <span className="flex min-w-0 flex-1 flex-col gap-2">
-        <Esqueleto className="h-3 max-w-[14rem]" />
-        <Esqueleto className="h-2.5 max-w-[8rem]" />
+    <div className="linha" data-linha aria-hidden style={colunas}>
+      {goteira && (
+        <span data-coluna="goteira">
+          <Esqueleto className="h-7 w-7" />
+        </span>
+      )}
+      <span data-coluna="texto" className="flex min-w-0 flex-col gap-2">
+        <span data-coluna="titulo" className="flex items-center">
+          <Esqueleto className="h-3.5 w-2/5" />
+        </span>
+        <span data-coluna="meta" className="flex items-center">
+          <Esqueleto className="h-3 w-1/4" />
+        </span>
       </span>
-      <Esqueleto className="hidden h-5 w-20 shrink-0 rounded-lg md:block" />
-      <Esqueleto className="h-3.5 w-20 shrink-0" />
-    </li>
+      <span data-coluna="valor" className="flex justify-end justify-self-end">
+        <Esqueleto className="h-4 w-24" />
+      </span>
+    </div>
   )
 }
 
-/*
- * Linhas carregando SEM superfície própria, para caber dentro de um painel ou
- * seção que já é a superfície. Solta na página, use EsqueletoLista.
+/**
+ * Linhas carregando SEM caixa própria, para o corpo de um cartão ou painel que
+ * já é a caixa. `contexto` diz de onde vem o recuo (7.2): `'cartao'` ou
+ * `'sobreposicao'`.
  */
-export function ListaCarregando({ linhas = 4 }: { linhas?: number }) {
+export function ListaCarregando({
+  linhas = 4,
+  goteira = true,
+  contexto = 'cartao',
+  rotulo = 'Carregando…',
+}: {
+  linhas?: number
+  goteira?: boolean
+  contexto?: 'cartao' | 'sobreposicao'
+  rotulo?: string
+}) {
   return (
-    <ul aria-busy="true" aria-live="polite">
-      <li className="sr-only">Carregando…</li>
+    <div className="lista" data-contexto={contexto} data-com-goteira={goteira ? '' : undefined} aria-busy="true" aria-live="polite">
+      <span className="sr-only">{rotulo}</span>
       {Array.from({ length: linhas }).map((_, i) => (
-        <LinhaEsqueleto key={i} />
+        <LinhaEsqueleto key={i} goteira={goteira} />
       ))}
-    </ul>
+    </div>
   )
 }

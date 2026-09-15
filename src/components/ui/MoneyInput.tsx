@@ -4,20 +4,18 @@ import { classeCampo, useCampo } from './Field'
 
 type BaseProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'>
 
+/*
+ * Campo de dinheiro (docs/souza-os-fundamentos.md, 7.9): "R$" em t-meta à
+ * esquerda, número tabular (`num`) alinhado à direita, 44px.
+ *
+ * Guarda só dígitos: os dois últimos são os centavos ("123456" é R$ 1.234,56).
+ * Nunca `type="number"` (aceitaria "1e5" e mudaria com a roda do mouse).
+ */
+
 // ---------------------------------------------------------------------------
-// Moeda (R$) — máscara baseada em centavos, formato brasileiro
+// Moeda (R$)
 // ---------------------------------------------------------------------------
 
-/*
- * Seção 1: "Input de dinheiro guarda só dígitos, exibe formatado com prefixo
- * R$. Nunca type=\"number\" cru para dinheiro."
- *
- * O que se digita vira só dígitos e os dois últimos são os centavos: "123456"
- * é R$ 1.234,56. Não há vírgula para errar, não há ponto que o navegador lê
- * como decimal em inglês, e o valor nunca é arredondado para parecer redondo.
- * `type="number"` aceitaria "1e5", mudaria o valor com a roda do mouse e
- * mostraria "1234.56".
- */
 interface CurrencyInputProps extends BaseProps {
   value: number | null
   onChange: (value: number | null) => void
@@ -38,13 +36,10 @@ export function CurrencyInput({
   const { invalido, aria } = useCampo(props)
   return (
     <div className="relative">
-      {/*
-       * O prefixo é desenho sobre a caixa, não parte do valor: o estado é número
-       * e a exibição é pt-BR. Em --t4, o menor texto que ainda é informação.
-       */}
+      {/* O prefixo é desenho sobre a caixa, não parte do valor. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-t4"
+        className="campo pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-t-meta"
       >
         R$
       </span>
@@ -60,7 +55,7 @@ export function CurrencyInput({
           onChange(digits === '' ? null : parseInt(digits, 10) / 100)
         }}
         placeholder={placeholder}
-        className={cn(classeCampo(invalido), 'pl-10 tabular-nums', className)}
+        className={cn(classeCampo(invalido), 'num pl-10 text-right', className)}
       />
     </div>
   )
@@ -108,11 +103,11 @@ export function PercentInput({
           onChange(raw === '' ? null : parseFloat(raw.replace(',', '.')) || 0)
         }}
         placeholder={placeholder}
-        className={cn(classeCampo(invalido), 'pr-8 tabular-nums', className)}
+        className={cn(classeCampo(invalido), 'num pr-8 text-right', className)}
       />
       <span
         aria-hidden
-        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-t4"
+        className="campo pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-t-meta"
       >
         %
       </span>

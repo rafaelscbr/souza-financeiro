@@ -3,12 +3,13 @@ import { Inbox, type LucideIcon } from 'lucide-react'
 import { EstadoVazio } from './Estados'
 
 /*
- * Invólucro DEPRECADO de EstadoVazio, para as telas que ainda não migraram.
+ * DEPRECADO — apagar na limpeza final (7.13: "Apagar EmptyState.tsx").
+ * Use `EstadoVazio` de './Estados'. Ainda importam daqui: admin/pages/Pagar,
+ * Inicio, Venda, Config, Corretores, Despesas, Relatorios, Receber;
+ * corretor/pages/Inicio, MinhasVendas; kit/Kit.
  *
- * As telas passam o ícone como elemento pronto (`<Handshake className="h-8
- * w-8" />`). O EstadoVazio quer o componente, para desenhar no tamanho e no
- * traço do guia e dentro do bloco tonalizado; então o componente é tirado do
- * elemento e o tamanho que a tela escolheu é descartado de propósito.
+ * As telas antigas passam o ícone como elemento pronto; o componente é tirado
+ * do elemento e o tamanho escolhido pela tela é descartado de propósito.
  */
 export function EmptyState({
   icon,

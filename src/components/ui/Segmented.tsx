@@ -1,9 +1,22 @@
 import { useRef, type KeyboardEvent } from 'react'
 import { cn } from '@/lib/utils'
 
+/*
+ * DEPRECADO — apagar na limpeza final.
+ * Quem ainda usa: admin/RegistrarVenda, admin/ReceberParcela,
+ * admin/LancarDespesa, admin/pages/Receber, admin/pages/Relatorios,
+ * admin/pages/Config, kit/Kit. Substituto: `FiltrosRapidos` (faixa) ou
+ * escolha no formulário com a mesma pintura.
+ *
+ * Enquanto vive, pinta como os filtros neutros (5.5, 7.15): inativo
+ * `bg-surface border-fio-linha text-t2`, ativo `bg-s2 border-fio-controle
+ * text-t1 font-semibold`, raio de controle, 44px (régua do formulário),
+ * pressionar em `linha-press`. Nunca brand-fill.
+ */
 interface SegmentedOption<T extends string> {
   value: T
   label: string
+  /** DEPRECADO — ignorado: o ativo é sempre neutro (P5). */
   activeClass?: string
 }
 
@@ -15,23 +28,6 @@ interface SegmentedProps<T extends string> {
   className?: string
 }
 
-/*
- * Escolha única entre poucas opções que cabem lado a lado ("Saiu / Entrou",
- * "Claro / Escuro").
- *
- * O selecionado é preenchido em --brand-fill com --brand-fill-text, a receita
- * que a seção 3 dá para todo controle preenchido (botão, aba ativa, chip
- * selecionado). É a mesma cor da pílula ativa dos Filtros rápidos: as duas são
- * "qual destes vale agora", e ler a mesma pergunta com duas cores seria
- * inventar significado. Além da cor, o selecionado ganha peso e o leitor de
- * tela ouve aria-checked: cor sozinha nunca comunica status.
- *
- * Teclado de radiogroup: o grupo é UMA parada de Tab (entra no selecionado) e
- * as setas andam e escolhem, circulando. Home e End vão às pontas.
- *
- * Cada botão é filho direto do grupo e tem 40px (alvo mínimo da seção 12);
- * quem precisa de 44px no celular usa `className="[&>button]:h-toque"`.
- */
 export function Segmented<T extends string>({
   value,
   onChange,
@@ -45,22 +41,10 @@ export function Segmented<T extends string>({
   function aoTeclar(e: KeyboardEvent<HTMLButtonElement>, i: number) {
     const n = options.length
     let alvo: number | null = null
-    switch (e.key) {
-      case 'ArrowRight':
-      case 'ArrowDown':
-        alvo = (i + 1) % n
-        break
-      case 'ArrowLeft':
-      case 'ArrowUp':
-        alvo = (i - 1 + n) % n
-        break
-      case 'Home':
-        alvo = 0
-        break
-      case 'End':
-        alvo = n - 1
-        break
-    }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') alvo = (i + 1) % n
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') alvo = (i - 1 + n) % n
+    else if (e.key === 'Home') alvo = 0
+    else if (e.key === 'End') alvo = n - 1
     if (alvo === null) return
     e.preventDefault()
     refs.current[alvo]?.focus()
@@ -71,7 +55,7 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className={cn('grid gap-0.5 rounded-lg border border-line-input bg-s2 p-0.5', className)}
+      className={cn('grid gap-2', className)}
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
     >
       {options.map((opt, i) => {
@@ -88,13 +72,13 @@ export function Segmented<T extends string>({
             tabIndex={active || (!temSelecionado && i === 0) ? 0 : -1}
             onClick={() => onChange(opt.value)}
             onKeyDown={(e) => aoTeclar(e, i)}
-            className={cn(
-              'h-10 min-w-0 truncate rounded-md px-3 text-[13px] font-medium',
-              'transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-brand/40',
+            className={`text-texto-titulo ${cn(
+              'h-11 min-w-0 select-none truncate rounded-controle border px-3',
+              'transition-colors duration-micro ease-cor active:bg-linha-press',
               active
-                ? (opt.activeClass ?? 'bg-brand-fill font-semibold text-brand-fill-text shadow-card')
-                : 'text-t3 hover:bg-s3/50 hover:text-t1',
-            )}
+                ? 'border-fio-controle bg-s2 font-semibold text-t1'
+                : 'border-fio-linha bg-surface text-t2 hover:text-t1',
+            )}`}
           >
             {opt.label}
           </button>

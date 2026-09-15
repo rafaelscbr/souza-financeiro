@@ -1,3 +1,9 @@
+/*
+ * DEPRECADO — apagar na limpeza final. Substituído por Demonstrativo (7.3.2),
+ * com as linhas de src/lib/linhasDaVenda.ts. Ainda usam: admin/pages/Venda,
+ * admin/RegistrarVenda, admin/ReceberParcela, admin/PagarComissao,
+ * corretor/pages/MinhasVendas, kit/Kit.
+ */
 import { type ReactNode } from 'react'
 import { Valor } from './Valor'
 import { cn } from '@/lib/utils'
@@ -36,7 +42,7 @@ export function Cascata({
   className?: string
 }) {
   return (
-    <dl className={cn(densidade === 'completa' ? 'space-y-2' : 'space-y-1', className)}>{children}</dl>
+    <dl className={cn('flex flex-col', densidade === 'completa' ? 'gap-2' : 'gap-1', className)}>{children}</dl>
   )
 }
 
@@ -58,12 +64,12 @@ export function LinhaCascata({
       <dt className="min-w-0 text-sm text-t3">
         {subtracao && (
           // O "(−)" é informação da conta, então fica em t4 e não no t5 decorativo.
-          <span className="mr-1 text-t4" aria-label="menos">
+          <span className="mr-1 text-t-meta" aria-label="menos">
             (&#8722;)
           </span>
         )}
         {rotulo}
-        {detalhe && <span className="ml-1.5 text-xs text-t4">{detalhe}</span>}
+        {detalhe && <span className="ml-2 text-xs text-t-meta">{detalhe}</span>}
       </dt>
       <dd className="shrink-0">
         <Valor valor={subtracao ? -Math.abs(valor) : valor} posto="fato" />
@@ -96,7 +102,7 @@ export function TotalCascata({
           <Valor valor={valor} posto="linha" tinta={tinta} />
         </dd>
       </div>
-      {nota && <p className="mt-1 text-xs text-t4">{nota}</p>}
+      {nota && <p className="mt-1 text-xs text-t-meta">{nota}</p>}
     </div>
   )
 }

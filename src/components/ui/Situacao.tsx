@@ -1,40 +1,35 @@
-import { Ban, CalendarClock, CircleCheck, Clock, TriangleAlert, type LucideIcon } from 'lucide-react'
+import { Ban, CalendarClock, CircleAlert, CircleCheck, HandCoins, type LucideIcon } from 'lucide-react'
 import { VOCABULARIO, fraseDeTempo, type Situacao } from '@/lib/situacao'
 import { Chip } from './Chip'
 import { TOM_DA_SITUACAO } from './tom'
 import { cn } from '@/lib/utils'
 
 /*
- * O ícone de cada situação. Cor sozinha nunca comunica status (princípio 3):
- * em escala de cinza, no sol ou impresso, o ícone e a palavra seguem dizendo
- * o que o dinheiro é.
+ * Um glifo por significado (7.7). As situações e as PALAVRAS são as de
+ * src/lib/situacao.ts; aqui só se escolhe o desenho.
  *
- *   prevista   calendário ... tem data, ainda não é dinheiro
- *   liberada   relógio ...... é dinheiro, esperando um humano
- *   vencida    alerta ....... o mesmo dinheiro, esperando demais
- *   recebida   check ........ o dinheiro se moveu
- *   cancelada  proibido ..... registro risca, não apaga
+ *   prevista   CalendarClock  info     tem data, ainda não é dinheiro
+ *   liberada   HandCoins      atenção  é dinheiro, esperando alguém
+ *   vencida    CircleAlert    risco    recebido e não repassado
+ *   recebida   CircleCheck    sucesso  o dinheiro se moveu
+ *   cancelada  Ban            neutro   fica no histórico
  */
 export const ICONE_DA_SITUACAO: Record<Situacao, LucideIcon> = {
   prevista: CalendarClock,
-  liberada: Clock,
-  vencida: TriangleAlert,
+  liberada: HandCoins,
+  vencida: CircleAlert,
   recebida: CircleCheck,
   cancelada: Ban,
 }
 
-/*
- * O chip de situação. O tom sai do mapeamento único (TOM_DA_SITUACAO): prevista
- * é informação, liberada é atenção, vencida é risco, recebida é sucesso e
- * cancelada é neutro. As PALAVRAS continuam as de src/lib/situacao.ts.
- */
+/** Chip de situação: tom, ícone e palavra saem dos mapas únicos. */
 export function ChipSituacao({
   situacao,
   perfil = 'admin',
   className,
 }: {
   situacao: Situacao
-  /** "Liberada" não existe no vocabulário do corretor — ele lê "A receber". */
+  /** O corretor lê as palavras dele (`palavraCorretor`). */
   perfil?: 'admin' | 'corretor'
   className?: string
 }) {
@@ -52,9 +47,8 @@ export function ChipSituacao({
 }
 
 /**
- * A frase de tempo, sozinha. Data nunca aparece sem verbo neste sistema:
- * sempre dizendo o que aconteceu — "liberada em 02/09 · 10 dias esperando".
- * É contexto, então é texto e não pílula (seção 9).
+ * A frase de tempo: data nunca aparece sem verbo. É meta (texto, não pílula):
+ * `texto-meta` em t-meta. A frase vem de fraseDeTempo().
  */
 export function FraseDeTempo({
   situacao,
@@ -70,7 +64,7 @@ export function FraseDeTempo({
   className?: string
 }) {
   return (
-    <span className={cn('text-xs text-t3', className)}>
+    <span className={cn('font-label text-texto-meta text-t-meta', className)}>
       {fraseDeTempo(situacao, { prevista, liberada, recebida })}
     </span>
   )
