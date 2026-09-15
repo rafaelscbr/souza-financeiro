@@ -94,7 +94,9 @@ interface CorretorValue {
   recarregar: () => Promise<void>
 }
 
-const Ctx = createContext<CorretorValue | null>(null)
+// Exportado só para a vitrine (src/demo) montar o mesmo contexto com dados de exemplo.
+// eslint-disable-next-line react-refresh/only-export-components
+export const Ctx = createContext<CorretorValue | null>(null)
 const n = (v: unknown): number => Number(v ?? 0)
 
 export function CorretorDataProvider({ children }: { children: ReactNode }) {

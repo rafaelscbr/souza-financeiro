@@ -354,8 +354,13 @@ export function Valor(props: ValorProps) {
 export type ValorComOrigemProps = ValorProps & {
   aoAbrir: () => void
   rotuloAcessivel: string
-  /** Lado do chevron: 'depois' (padrão) ou 'antes' do número, como no Demonstrativo (7.3.2). */
-  chevron?: 'antes' | 'depois'
+  /**
+   * Lado do chevron: 'depois' (padrão), 'antes' do número, ou 'coluna': o botão
+   * ocupa DUAS colunas de uma grade (subgrid), o chevron na primeira (16px,
+   * fixa) e o valor na segunda, encostado à direita. É o Demonstrativo (7.3.2):
+   * as setas alinham numa coluna e as bordas direitas dos números também.
+   */
+  chevron?: 'antes' | 'depois' | 'coluna'
 }
 
 export function ValorComOrigem(props: ValorComOrigemProps) {
@@ -374,12 +379,13 @@ export function ValorComOrigem(props: ValorComOrigemProps) {
       aria-label={rotuloAcessivel}
       data-origem
       className={cn(
-        'group/origem inline-flex min-h-toque shrink-0 items-center gap-1 whitespace-nowrap rounded-controle',
+        'group/origem min-h-toque shrink-0 items-center whitespace-nowrap rounded-controle',
+        chevron === 'coluna' ? 'col-span-2 grid grid-cols-subgrid justify-items-end' : 'inline-flex gap-1',
         'cursor-pointer text-left',
         className,
       )}
     >
-      {chevron === 'antes' && seta}
+      {chevron !== 'depois' && seta}
       <Valor
         {...(resto as ValorProps)}
         className="decoration-1 underline-offset-4 group-hover/origem:underline"

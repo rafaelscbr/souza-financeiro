@@ -378,6 +378,61 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
     color: var(--t5);
   }
 
+  /*
+   * 7.3.4 Par "agora · previsto". A raiz é o contêiner (flex 1 1 16rem num
+   * pai flex: ao lado do texto quando cabe, linha própria quando não cabe) e
+   * decide a forma pela PRÓPRIA largura:
+   *   ≥ 30rem: `agora R$ … · previsto R$ …` encostado à direita, o "·" mora
+   *            no vão de 16px e só existe entre dois lados;
+   *   < 30rem: uma linha por lado, rótulo à esquerda e valor à direita, sem "·";
+   *            no subtotal de grupo (data-no-grupo) os lados encostam à direita.
+   */
+  [data-par-agora-previsto] {
+    container-type: inline-size;
+    display: block;
+    flex: 1 1 16rem;
+    min-width: 0;
+  }
+  [data-par-agora-previsto] > [data-par-linha] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    column-gap: 16px;
+  }
+  [data-par-agora-previsto] [data-lado] {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  [data-par-agora-previsto] [data-lado] + [data-lado]::before {
+    content: '·';
+    position: absolute;
+    left: -10px;
+    color: var(--t5);
+  }
+  /* No grupo, o par pede 30rem: sem isso ao lado do rótulo, desce inteiro para a linha de baixo. */
+  [data-grupo] > [data-par-agora-previsto] {
+    flex-basis: 30rem;
+  }
+  @container (max-width: 29.99rem) {
+    [data-par-agora-previsto] > [data-par-linha] {
+      flex-direction: column;
+      align-items: stretch;
+      row-gap: 8px;
+    }
+    [data-par-agora-previsto] [data-lado] {
+      justify-content: space-between;
+    }
+    [data-par-agora-previsto][data-no-grupo] [data-lado] {
+      justify-content: flex-end;
+    }
+    [data-par-agora-previsto] [data-lado] + [data-lado]::before {
+      content: none;
+    }
+  }
+
   /* 6.1 Campo: 16/24 (sem zoom no iOS); 14/20 só com ponteiro fino ≥1024. */
   .campo {
     font-size: 16px;
@@ -446,6 +501,8 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
     .linha:not([data-parcela]) > [data-coluna="valor"] { grid-area: v; justify-self: end; }
     .linha:not([data-parcela]) > [data-coluna="situacao"] { grid-area: s; justify-self: end; }
     .linha:not([data-parcela]) > [data-coluna="acao"] { grid-area: a; padding-top: 8px; } /* 4 do row-gap + 8 = 12 */
+    /* 7.2: no estreito a ação principal (1º filho) ocupa a fileira, com alvo de 44; o "⋯" segue ao lado. */
+    .linha:not([data-parcela]) > [data-coluna="acao"] > :first-child { flex: 1 1 auto; min-height: 44px; }
     .linha:not([data-parcela]) > [data-coluna="fim"] { display: none; }
     /* O cabeçalho de colunas só existe com o cartão ≥ 40rem. */
     .lista > [role="row"] { display: none; }
@@ -514,7 +571,7 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
   .lista > [data-cabecalho-parcelas] { display: none; }
   @container (min-width: 65rem) {
     .linha[data-parcela] {
-      grid-template-columns: 28px minmax(9rem, 1fr) 9rem 8rem 9rem 9rem 8rem 16px;
+      grid-template-columns: 28px minmax(9rem, 1fr) 8rem 7rem 8rem 8rem 8rem 16px;
       grid-template-areas: none;
       column-gap: 16px;
     }
@@ -530,7 +587,7 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
     /* O cabeçalho das Parcelas só existe na forma A, com as colunas dela. */
     .lista > [data-cabecalho-parcelas] {
       display: grid;
-      grid-template-columns: 28px minmax(9rem, 1fr) 9rem 8rem 9rem 9rem 8rem 16px;
+      grid-template-columns: 28px minmax(9rem, 1fr) 8rem 7rem 8rem 8rem 8rem 16px;
       column-gap: 16px;
     }
   }
@@ -573,6 +630,10 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
     .linha[data-parcela] > [data-coluna="situacao"] { grid-area: s; justify-self: end; }
     .linha[data-parcela] > [data-coluna="demonstrativo"] { grid-area: d; padding-top: 8px; } /* 4 + 8 = 12 (gap-3) */
     .linha[data-parcela] > [data-coluna="acao"] { grid-area: a; padding-top: 8px; }
+    .linha[data-parcela] > [data-coluna="acao"]:empty { display: none; }
+    /* Sem ação principal o "⋯" encosta à direita; com ela, a principal ocupa a fileira. */
+    .linha[data-parcela] > [data-coluna="acao"] > [data-principal] { flex: 1 1 auto; }
+    .linha[data-parcela] > [data-coluna="acao"] > [data-principal] > * { flex: 1 1 auto; min-height: 44px; }
     .linha[data-parcela] > [data-coluna="impostos"],
     .linha[data-parcela] > [data-coluna="corretor"],
     .linha[data-parcela] > [data-coluna="fica"],

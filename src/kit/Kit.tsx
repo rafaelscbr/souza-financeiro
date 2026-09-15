@@ -652,6 +652,7 @@ function ParcelasExemplo({ abrir, perfil = 'admin' }: { abrir: Abrir; perfil?: '
         meta="prevista para 10/10 · em 28 dias"
         resumo={resumo(1, perfil)}
         acao={perfil === 'admin' ? <Button size="sm" variant="secundario" onClick={() => abrir('Receber parcela 2')}>Recebi</Button> : undefined}
+        menu={<Button size="icone" variant="fantasma" aria-label="Mais ações da parcela 2" icone={MoreHorizontal} />}
         aoAbrir={() => abrir('Parcela 2 de 3')}
       />
       <Parcela
@@ -693,7 +694,7 @@ function GrupoParcela({ abrir }: { abrir: Abrir }) {
 
 function GrupoDemonstrativo({ abrir }: { abrir: Abrir }) {
   return (
-    <Grupo id="demonstrativo" descricao="Toda conta de cima para baixo: bruto, menos, igual. O sinal tem coluna; cada total tem fio acima. O corretor nunca vê o que fica para a imobiliária.">
+    <Grupo id="demonstrativo" descricao="Toda conta de cima para baixo: bruto, menos, igual. O sinal fica colado ao valor e a seta que abre a origem tem coluna própria; cada total tem fio acima. O corretor nunca vê o que fica para a imobiliária.">
       <div className="grid gap-bloco lg:grid-cols-2">
         <Cartao rotuloAcessivel="Demonstrativo do admin">
           <Cartao.Cabecalho titulo="Parcela 1 de 3 · admin" icone={Calculator} meta={<Exemplo />} />
@@ -945,21 +946,32 @@ function GrupoSobreposicoes({ abrir, confirmar }: { abrir: Abrir; confirmar: () 
 // ---------------------------------------------------------------------------
 
 /* O cabeçalho da Parcela lê --colunas; a Lista só declara colunas de Linha. */
-const LISTA_PARCELAS = '[--colunas:28px_minmax(9rem,1fr)_9rem_8rem_9rem_9rem_8rem_16px]'
+const LISTA_PARCELAS = '[--colunas:28px_minmax(9rem,1fr)_8rem_7rem_8rem_8rem_8rem_16px]'
 
-/** Cabeçalho de ficha (4.2): voltar · ícone · título e subtítulo na mesma linha · ações. */
-function CabecalhoFicha({ icone, titulo, subtitulo, acoes, voltar }: { icone: typeof Handshake; titulo: string; subtitulo: string; acoes: ReactNode; voltar?: boolean }) {
+/**
+ * Cabeçalho de página (4.2) numa caixa de exemplo.
+ * Computador: voltar · ícone · título e subtítulo na mesma linha · ações.
+ * Celular: [voltar 44] [título truncado] [⋯ 44] na ficha (sem ícone), ou
+ * [ícone 28] [título] [CTA 44 só com o ícone]; o subtítulo desce para o bloco
+ * de abertura, logo abaixo, em até 2 linhas.
+ */
+function CabecalhoFicha({ icone, titulo, subtitulo, acoes, celular, voltar }: { icone: typeof Handshake; titulo: string; subtitulo: string; acoes: ReactNode; celular: ReactNode; voltar?: boolean }) {
   return (
-    <div data-caixa className="flex min-h-16 flex-wrap items-center gap-3 rounded-caixa border border-fio-caixa bg-surface px-recuo py-4 shadow-card">
-      {voltar && <Button variant="fantasma" size="icone" icone={ArrowLeft} aria-label="Voltar para Vendas" />}
-      <IconeTom icone={icone} />
-      <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="font-heading text-titulo-pagina text-t1">{titulo}</h3>
-        <span title={subtitulo} className="min-w-0 truncate text-texto-meta text-t-meta">
-          {subtitulo}
-        </span>
+    <div className="flex flex-col gap-4">
+      <div data-caixa className="flex min-h-16 items-center gap-3 rounded-caixa border border-fio-caixa bg-surface px-recuo py-4 shadow-card max-lg:gap-2">
+        {voltar && <Button variant="fantasma" size="icone" icone={ArrowLeft} aria-label="Voltar para Vendas" />}
+        <IconeTom icone={icone} tamanho="sm" className={voltar ? 'hidden' : 'lg:hidden'} />
+        <IconeTom icone={icone} className="max-lg:hidden" />
+        <div className="flex min-w-0 flex-1 items-baseline gap-3 max-lg:ps-1">
+          <h3 className="min-w-0 truncate font-heading text-titulo-pagina-m text-t1 lg:text-titulo-pagina">{titulo}</h3>
+          <span title={subtitulo} className="min-w-0 flex-1 truncate text-texto-meta text-t-meta max-lg:hidden">
+            {subtitulo}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-3 max-lg:hidden">{acoes}</div>
+        <div className="flex shrink-0 items-center gap-2 lg:hidden">{celular}</div>
       </div>
-      <div className="flex items-center gap-3">{acoes}</div>
+      <p className="line-clamp-2 text-texto-meta text-t-meta lg:hidden">{subtitulo}</p>
     </div>
   )
 }
@@ -979,6 +991,7 @@ function PlantaVenda({ abrir, confirmar }: { abrir: Abrir; confirmar: () => void
               <Button variant="fantasma" size="icone" icone={MoreHorizontal} aria-label="Mais ações: reagendar ou cancelar venda" onClick={confirmar} />
             </>
           }
+          celular={<Button variant="fantasma" size="icone" icone={MoreHorizontal} aria-label="Mais ações: editar, reagendar ou cancelar venda" onClick={confirmar} />}
         />
         <Heroi
           variante="ouro"
@@ -1059,6 +1072,7 @@ function PlantaReceber({ abrir }: { abrir: Abrir }) {
           titulo="A receber"
           subtitulo="R$ 24.000,00 previstos · exemplo"
           acoes={<Button icone={Plus} onClick={() => abrir('Registrar venda')}>Registrar venda</Button>}
+          celular={<Button size="icone" icone={Plus} aria-label="Registrar venda" onClick={() => abrir('Registrar venda')} />}
         />
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <SeletorMesExemplo />

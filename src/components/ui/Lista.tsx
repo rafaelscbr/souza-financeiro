@@ -13,6 +13,7 @@ import {
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { Icone } from './Icone'
+import { ParNoGrupoContext } from './ParAgoraPrevisto'
 import { useSuperficie } from './Painel'
 import { indiceEscada, useEscada } from '@/lib/animar'
 import { cn } from '@/lib/utils'
@@ -418,6 +419,8 @@ export interface LinhaGrupoProps {
  * soma o que a Lista declarou depois do valor (ação, fim e vãos). Com o cartão
  * < 40rem a ação desce e o fim some, então essa soma vira 0 por `cqw`
  * (a `.lista` é o contêiner) e o par desce para uma 2ª linha, à direita.
+ * O chevron do par (16 + 4) pende para o vão depois do valor: o NÚMERO é que
+ * termina na borda da coluna. O par lê ParNoGrupoContext e esconde o lado zerado.
  */
 export function LinhaGrupo({ rotulo, contador, par, hoje, indice, className }: LinhaGrupoProps) {
   const lista = useContext(ListaContext)
@@ -425,13 +428,13 @@ export function LinhaGrupo({ rotulo, contador, par, hoje, indice, className }: L
   const estilo = {
     paddingInlineStart: 'var(--recuo-linha, var(--recuo))',
     paddingInlineEnd:
-      'calc(var(--recuo-linha, var(--recuo)) + clamp(0px, (100cqw - 39.99rem) * 1000, var(--depois-valor, 0px)))',
+      'calc(var(--recuo-linha, var(--recuo)) + clamp(0px, (100cqw - 39.99rem) * 1000, var(--depois-valor, 0px) - 20px))',
     ...(indice !== undefined ? indiceEscada(indice) : {}),
   } as CSSProperties
   return (
     <div
       className={cn(
-        'flex min-h-10 flex-wrap items-end gap-x-3 gap-y-2 border-t pb-2 pt-6',
+        'flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 border-t pb-2 pt-6',
         hoje ? 'border-fio-caixa' : 'border-fio-linha',
         className,
       )}
@@ -443,7 +446,7 @@ export function LinhaGrupo({ rotulo, contador, par, hoje, indice, className }: L
         <span className={`font-label uppercase ${hoje ? 'text-t2' : 'text-t-meta'} text-rotulo`}>{rotulo}</span>
         {contador && <span className="text-texto-meta text-t-meta">{contador}</span>}
       </span>
-      {par && <span className="ms-auto flex justify-end text-right">{par}</span>}
+      {par && <ParNoGrupoContext.Provider value>{par}</ParNoGrupoContext.Provider>}
     </div>
   )
 }

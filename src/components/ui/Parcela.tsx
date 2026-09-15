@@ -26,7 +26,7 @@ import { indiceEscada } from '@/lib/animar'
  */
 
 /** As colunas da forma A, para `--colunas` da `.lista` que tem o cabeçalho. */
-export const COLUNAS_PARCELA = '28px minmax(9rem,1fr) 9rem 8rem 9rem 9rem 8rem 16px'
+export const COLUNAS_PARCELA = '28px minmax(9rem,1fr) 8rem 7rem 8rem 8rem 8rem 16px'
 
 export interface ParcelaProps {
   perfil: Perfil
@@ -137,8 +137,13 @@ export function Parcela({
         <Demonstrativo linhas={resumo.linhas} perfil={perfil} rotuloAcessivel={`Conta da ${nome.toLowerCase()}`} />
       </div>
 
-      <div data-coluna="acao" data-acao className="flex items-center justify-end gap-2 [&>*:not(:last-child)]:flex-1">
-        {acao}
+      {/* Forma C (index.css): fileira em largura total, a principal flex-1 h-11 e o "⋯" quadrado de 44. */}
+      <div data-coluna="acao" data-acao className="flex items-center justify-end gap-2">
+        {acao && (
+          <span data-principal className="flex min-w-0 [&:not(:last-child)]:flex-1 [&>*]:flex-1">
+            {acao}
+          </span>
+        )}
         {menu}
       </div>
 

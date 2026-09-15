@@ -1,19 +1,18 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Handshake } from 'lucide-react'
+import { CalendarRange, CircleCheck, Handshake, ListChecks } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
-import { Heroi } from '@/components/ui/Assinatura'
-import { Secao } from '@/components/ui/Secao'
-import { Lista, Linha } from '@/components/ui/Lista'
-import { Valor, ValorComOrigem } from '@/components/ui/Valor'
-import { Selo, Marcador } from '@/components/ui/Selo'
+import { PageLayout } from '@/components/layout/PageLayout'
+import { Heroi } from '@/components/ui/Heroi'
+import { Cartao } from '@/components/ui/Cartao'
+import { Linha, LinhaGrupo } from '@/components/ui/Lista'
+import { Valor } from '@/components/ui/Valor'
+import { Selo } from '@/components/ui/Selo'
 import { ChipSituacao } from '@/components/ui/Situacao'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { Button } from '@/components/ui/Button'
+import { EstadoVazio } from '@/components/ui/Estados'
 import { accountBalance } from '@/lib/treasury'
 import { situacaoDeTela } from '@/lib/situacao'
-import { formatCurrency } from '@/lib/format'
 import type { MoneyItem } from '@/lib/sales'
 
 /*
@@ -59,13 +58,17 @@ export function Inicio() {
   const chaveMes = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`
 
   /** O número herói: o que existe de fato, hoje, na conta. */
-  const saldo = useMemo(
+  const contas = useMemo(
     () =>
       accounts
         .filter((a) => a.is_active && a.type !== 'credit_card')
-        .reduce((s, a) => s + accountBalance(a, transactions, transfers, hoje).balance, 0),
+        .map((a) => ({
+          conta: a,
+          saldo: accountBalance(a, transactions, transfers, hoje).balance,
+        })),
     [accounts, transactions, transfers, hoje],
   )
+  const saldo = useMemo(() => contas.reduce((s, c) => s + c.saldo, 0), [contas])
 
   /*
    * A janela de Receber, copiada dela e não reinventada: o mês selecionado
@@ -86,6 +89,12 @@ export function Inicio() {
   const previsto = useMemo(() => pagar.filter((i) => !i.released), [pagar])
 
   const soma = (l: MoneyItem[]) => Math.round(l.reduce((s, i) => s + i.amount, 0) * 100) / 100
+
+  const nomeDoMes = mes.toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  })
+  const tituloDoMes = nomeDoMes.charAt(0).toUpperCase() + nomeDoMes.slice(1)
 
   const vendasAtivas = vendas.filter((v) => v.status !== 'cancelada')
 
@@ -108,178 +117,190 @@ export function Inicio() {
 
   if (vendasAtivas.length === 0 && transactions.length === 0) {
     return (
-      <EmptyState
-        icon={<Handshake className="h-8 w-8" />}
-        title="Tudo pronto para a primeira venda"
-        description="Registre uma venda e o sistema cuida do resto: parcelas a receber, imposto na hora certa e a comissão do corretor liberada quando o dinheiro entrar."
-      />
+      <PageLayout subtitulo="Nenhuma venda registrada">
+        <Cartao rotuloAcessivel="Primeira venda">
+          <Cartao.Corpo>
+            <EstadoVazio
+              icone={Handshake}
+              titulo="Tudo pronto para a primeira venda"
+              descricao="Registre uma venda e o sistema cuida do resto: parcelas a receber, imposto na hora certa e a comissão do corretor liberada quando o dinheiro entrar."
+            />
+          </Cartao.Corpo>
+        </Cartao>
+      </PageLayout>
     )
   }
 
+  const contagemAtencao = atencao.length === 1 ? '1 item' : `${atencao.length} itens`
+
   return (
-    <div className="animate-fade-in">
+    <PageLayout
+      subtitulo={
+        atencao.length === 0
+          ? undefined
+          : `${contagemAtencao} ${atencao.length === 1 ? 'precisa' : 'precisam'} de atenção`
+      }
+    >
       {/*
        * UM número em degrau herói, e um só ponto de ouro na tela. É essa regra
        * que impede o Início de voltar a exibir três valores concorrentes: se só
        * um número pode ser herói, a tela é obrigada a declarar qual pergunta
-       * ela responde.
+       * ela responde. Ele abre nas contas que o somam.
        */}
       <Heroi
+        variante="ouro"
         rotulo="Disponível em conta"
-        contexto="O que existe hoje, somando as contas ativas. Não entra nada previsto."
-      >
-        <Valor valor={saldo} posto="heroi" />
-      </Heroi>
-
-      {/* Trabalho primeiro. */}
-      <Secao
-        titulo="Precisa de atenção"
-        subtotal={
-          atencao.length > 0 ? (
-            <span className="text-sm text-content-muted">
-              {atencao.length === 1 ? '1 item' : `${atencao.length} itens`}
-            </span>
-          ) : undefined
+        valor={saldo}
+        rotuloAcessivel="Ver as contas que somam o disponível"
+        aoAbrir={() =>
+          abrir({
+            rotulo: 'Disponível em conta',
+            titulo: 'Saldo de cada conta ativa',
+            explica: 'O que existe hoje, somando as contas ativas. Não entra nada previsto.',
+            total: saldo,
+            itens: contas.map((c) => ({
+              id: c.conta.id,
+              titulo: c.conta.name,
+              meta: c.conta.bank ?? undefined,
+              valor: c.saldo,
+            })),
+            vazio: 'Nenhuma conta ativa.',
+          })
         }
-      >
-        {atencao.length === 0 ? (
-          <p className="flex items-center gap-2.5 py-3 text-base text-content-muted">
-            <span className="text-income">
-              <Marcador situacao="recebida" />
-            </span>
-            Nada vencido, nenhuma comissão liberada esperando e nenhum imposto em aberto.
-          </p>
-        ) : (
-          <Lista>
-            {atencao.map((a) => (
-              <Linha
-                key={a.id}
-                selo={
-                  <Selo
-                    situacao={a.tone === 'critical' ? 'vencida' : a.tone === 'warning' ? 'liberada' : 'prevista'}
-                    glifo="traco"
-                  />
-                }
-                titulo={a.title}
-                meta={a.detail}
-                valor={<Valor valor={a.amount} posto="linha" />}
-                para={a.to}
-              />
-            ))}
-          </Lista>
-        )}
-      </Secao>
+        frase="O que existe hoje, somando as contas ativas. Não entra nada previsto."
+      />
 
-      <Secao titulo="O mês">
-        <Lista>
-          <Linha
-            titulo="A receber"
-            meta={`${aReceber.length} ${aReceber.length === 1 ? 'parcela' : 'parcelas'} neste mês, mais o vencido`}
-            situacao={vencido.length > 0 ? <ChipSituacao situacao="vencida" /> : undefined}
-            valor={
-              <ValorComOrigem
-                valor={soma(aReceber)}
-                rotuloAcessivel="Ver de onde vem o total a receber"
-                aoAbrir={() =>
-                  abrir({
-                    rotulo: 'A receber',
-                    titulo: 'A receber neste mês, mais o vencido',
-                    explica:
-                      'Parcelas de comissão que a imobiliária ainda vai receber. Inclui o vencido de meses anteriores, porque é o que precisa de cobrança.',
-                    total: soma(aReceber),
-                    itens: comp(aReceber),
-                    vazio: 'Nada a receber neste mês.',
-                  })
-                }
-              />
-            }
+      <div className="grid items-start gap-bloco lg:grid-cols-12">
+        {/* Trabalho primeiro. */}
+        <Cartao className="lg:col-span-7">
+          <Cartao.Cabecalho
+            titulo="Precisa de atenção"
+            icone={ListChecks}
+            meta={atencao.length > 0 ? contagemAtencao : undefined}
           />
-          <Linha
-            titulo="Devido agora"
-            meta="comissão já liberada, imposto de parcela recebida e despesa"
-            valor={
-              <ValorComOrigem
-                valor={soma(devido)}
-                rotuloAcessivel="Ver de onde vem o total devido"
-                aoAbrir={() =>
-                  abrir({
-                    rotulo: 'Devido agora',
-                    titulo: 'O que é obrigação hoje',
-                    explica:
-                      'Só o que a imobiliária de fato deve: comissão de parcela já recebida, imposto de parcela já recebida e despesa lançada.',
-                    total: soma(devido),
-                    itens: comp(devido),
-                    nota: 'Comissão de parcela que a construtora ainda não pagou não entra aqui. Ela aparece abaixo, como previsão.',
-                    vazio: 'Nada devido agora.',
-                  })
-                }
+          {atencao.length === 0 ? (
+            <Cartao.Corpo>
+              <EstadoVazio
+                icone={CircleCheck}
+                titulo="Tudo em dia"
+                descricao="Nada vencido, nenhuma comissão liberada esperando e nenhum imposto em aberto."
               />
-            }
-          />
-          {/*
-           * A previsão aparece, porque esconder informação não é honestidade —
-           * mas em linha própria, com a palavra "depende", e sem cor tônica.
-           * Nunca somada ao devido.
-           */}
-          <Linha
-            titulo="Previsto, depende do recebimento"
-            meta="comissão e imposto de parcela que a construtora ainda não pagou"
-            situacao={<ChipSituacao situacao="prevista" />}
-            valor={
-              <ValorComOrigem
-                valor={soma(previsto)}
-                tinta="text-content-muted"
-                rotuloAcessivel="Ver de onde vem o total previsto"
-                aoAbrir={() =>
-                  abrir({
-                    rotulo: 'Previsto',
-                    titulo: 'Previsão, não dívida',
-                    explica:
-                      'Estes valores só passam a ser devidos quando a construtora pagar a parcela. Até lá não são obrigação e não entram em nenhum total de dívida.',
-                    total: soma(previsto),
-                    itens: comp(previsto),
-                    vazio: 'Nenhuma previsão em aberto.',
-                  })
-                }
-              />
-            }
-          />
-        </Lista>
-        <div className="mt-3 flex gap-2">
-          <Link to="/receber" className="flex-1 sm:flex-none">
-            <Button variant="secondary" className="w-full">
-              Ver A receber
-            </Button>
-          </Link>
-          <Link to="/pagar" className="flex-1 sm:flex-none">
-            <Button variant="secondary" className="w-full">
-              Ver A pagar
-            </Button>
-          </Link>
-        </div>
-      </Secao>
+            </Cartao.Corpo>
+          ) : (
+            <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Precisa de atenção">
+              {atencao.map((a) => (
+                <Linha
+                  key={a.id}
+                  goteira={
+                    <Selo
+                      situacao={a.tone === 'critical' ? 'vencida' : a.tone === 'warning' ? 'liberada' : 'prevista'}
+                    />
+                  }
+                  titulo={a.title}
+                  meta={a.detail}
+                  valor={<Valor valor={a.amount} posto="linha" />}
+                  para={a.to}
+                />
+              ))}
+            </Cartao.Lista>
+          )}
+          {vendasAtivas.some((v) => v.hasOverdue) && (
+            <Cartao.Rodape>
+              <p className="max-w-[72ch]">
+                Parcela vencida quase sempre é a construtora atrasando, não o cliente. Reagende na ficha da venda para a
+                previsão voltar a fazer sentido — o corretor vê a data nova na hora.
+              </p>
+            </Cartao.Rodape>
+          )}
+        </Cartao>
 
-      <Secao titulo="Carteira">
-        <Lista>
-          <Linha
-            titulo="Vendas em carteira"
-            meta={`${vendasAtivas.length} ${vendasAtivas.length === 1 ? 'venda ativa' : 'vendas ativas'}`}
-            valor={<Valor valor={soma(receber)} posto="linha" tinta="text-content-muted" />}
-            para="/vendas"
-          />
-        </Lista>
-        <p className="mt-2 text-sm text-content-faint">
-          {formatCurrency(soma(receber))} é toda a comissão contratada que ainda não entrou, somando
-          todos os meses.
-        </p>
-      </Secao>
-
-      {vendasAtivas.some((v) => v.hasOverdue) && (
-        <p className="mt-8 border-t border-rule pt-3 text-sm text-content-muted">
-          Parcela vencida quase sempre é a construtora atrasando, não o cliente. Reagende na ficha da
-          venda para a previsão voltar a fazer sentido — o corretor vê a data nova na hora.
-        </p>
-      )}
-    </div>
+        <Cartao className="lg:col-span-5">
+          <Cartao.Cabecalho titulo="O mês" icone={CalendarRange} meta={tituloDoMes} />
+          <Cartao.Lista colunas={{ situacao: true, valor: '10rem', fim: true }} rotuloAcessivel="O mês">
+            <LinhaGrupo rotulo="Entra" />
+            <Linha
+              titulo="A receber"
+              meta={`${aReceber.length} ${aReceber.length === 1 ? 'parcela' : 'parcelas'} neste mês, mais o vencido`}
+              situacao={vencido.length > 0 ? <ChipSituacao situacao="vencida" /> : undefined}
+              valor={<Valor valor={soma(aReceber)} posto="linha" />}
+              aoClicar={() =>
+                abrir({
+                  rotulo: 'A receber',
+                  titulo: 'A receber neste mês, mais o vencido',
+                  explica:
+                    'Parcelas de comissão que a imobiliária ainda vai receber. Inclui o vencido de meses anteriores, porque é o que precisa de cobrança.',
+                  total: soma(aReceber),
+                  itens: comp(aReceber),
+                  vazio: 'Nada a receber neste mês.',
+                })
+              }
+            />
+            <LinhaGrupo rotulo="Sai" />
+            <Linha
+              titulo="Devido agora"
+              meta="comissão já liberada, imposto de parcela recebida e despesa"
+              valor={<Valor valor={soma(devido)} posto="linha" />}
+              aoClicar={() =>
+                abrir({
+                  rotulo: 'Devido agora',
+                  titulo: 'O que é obrigação hoje',
+                  explica:
+                    'Só o que a imobiliária de fato deve: comissão de parcela já recebida, imposto de parcela já recebida e despesa lançada.',
+                  total: soma(devido),
+                  itens: comp(devido),
+                  nota: 'Comissão de parcela que a construtora ainda não pagou não entra aqui. Ela aparece abaixo, como previsão.',
+                  vazio: 'Nada devido agora.',
+                })
+              }
+            />
+            {/*
+             * A previsão aparece, porque esconder informação não é honestidade —
+             * mas em linha própria, com a palavra "depende", e sem cor tônica.
+             * Nunca somada ao devido.
+             */}
+            <Linha
+              titulo="Previsto, depende do recebimento"
+              meta="comissão e imposto de parcela que a construtora ainda não pagou"
+              situacao={<ChipSituacao situacao="prevista" />}
+              valor={<Valor valor={soma(previsto)} posto="linha" previsto />}
+              aoClicar={() =>
+                abrir({
+                  rotulo: 'Previsto',
+                  titulo: 'Previsão, não dívida',
+                  explica:
+                    'Estes valores só passam a ser devidos quando a construtora pagar a parcela. Até lá não são obrigação e não entram em nenhum total de dívida.',
+                  total: soma(previsto),
+                  itens: comp(previsto),
+                  vazio: 'Nenhuma previsão em aberto.',
+                })
+              }
+            />
+            <LinhaGrupo rotulo="Carteira" />
+            <Linha
+              titulo="Vendas em carteira"
+              meta={`${vendasAtivas.length} ${vendasAtivas.length === 1 ? 'venda ativa' : 'vendas ativas'}`}
+              valor={<Valor valor={soma(receber)} posto="linha" previsto />}
+              aoClicar={() =>
+                abrir({
+                  rotulo: 'Vendas em carteira',
+                  titulo: 'Comissão contratada que ainda não entrou',
+                  explica: 'Toda a comissão contratada que ainda não entrou, somando todos os meses.',
+                  total: soma(receber),
+                  itens: comp(receber),
+                  vazio: 'Nada a receber.',
+                })
+              }
+            />
+          </Cartao.Lista>
+          {/* A carteira não depende do mês; a frase leva às vendas, como a linha. */}
+          <Cartao.Rodape>
+            <Link to="/vendas" className="min-h-11 py-3 hover:text-t2">
+              <Valor valor={soma(receber)} posto="fato" /> é toda a comissão contratada que ainda não entrou, somando
+              todos os meses.
+            </Link>
+          </Cartao.Rodape>
+        </Cartao>
+      </div>
+    </PageLayout>
   )
 }

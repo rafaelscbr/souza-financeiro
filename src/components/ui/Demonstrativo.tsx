@@ -12,7 +12,10 @@ import { cn } from '@/lib/utils'
  * (src/lib/linhasDaVenda.ts). Nenhuma soma aqui, nenhuma linha escondida por
  * prop (o corretor recebe linhas sem "Fica para a imobiliária").
  *
- * Grade de três colunas declarada uma vez: rótulo | sinal (12px) | valor.
+ * Grade de três colunas declarada uma vez: rótulo | seta (16px) | valor (auto).
+ * O sinal "−" mora colado ao valor ("− R$ 1.080,00"); a seta que abre a
+ * origem fica fora do valor, numa coluna fixa, e a coluna de valor tem a
+ * largura do maior número, então todas as bordas direitas alinham.
  * Linha de 32px sem gap vertical; total com 40px, 8px abaixo do fio. A linha
  * que abre algo ganha 44px com toque ou abaixo de 1024 (item 32).
  */
@@ -44,7 +47,7 @@ export function Demonstrativo({
     <dl
       data-demonstrativo
       aria-label={rotuloAcessivel}
-      className={cn('grid min-w-0 grid-cols-[minmax(0,1fr)_12px_var(--col-valor-fato,8rem)] gap-x-2', className)}
+      className={cn('grid min-w-0 grid-cols-[minmax(0,1fr)_16px_auto] gap-x-2', className)}
     >
       {linhas.map((linha, i) => (
         <LinhaDaConta
@@ -81,10 +84,12 @@ function LinhaDaConta({
 }) {
   const abre = !!(aoAbrirOrigem && linha.origem)
   const destaque = primeira || total
-  const altura = cn(total ? 'min-h-10 pt-2' : 'min-h-8', abre && ALTURA_COM_ORIGEM)
+  /* py-1: a linha de uma fileira continua com 32px; quando o detalhe quebra, 8px separam as linhas. */
+  const altura = cn(total ? 'min-h-10 pt-2' : 'min-h-8 py-1', abre && ALTURA_COM_ORIGEM)
   const posto = final ? 'destaque' : destaque ? 'linha' : 'fato'
   const rotulo = final && tudoEntrou ? `${linha.rotulo} · tudo já entrou` : linha.rotulo
-  const valor = Math.abs(linha.valor)
+  /* O "−" sai do próprio Valor (colado ao número); o módulo vem da linha. */
+  const valor = linha.sinal === '−' ? -Math.abs(linha.valor) : Math.abs(linha.valor)
   return (
     <Fragment>
       {total && <hr aria-hidden className="col-span-3 mt-2 border-0 border-t border-fio-caixa" />}
@@ -99,28 +104,22 @@ function LinhaDaConta({
         {linha.detalhe && <span className="text-texto-meta text-t-meta">{linha.detalhe}</span>}
         {linha.situacao && <ChipSituacao situacao={linha.situacao} perfil={perfil} />}
       </dt>
-      <dd
-        // Tamanho fora do cn(): o tailwind-merge sem configuração lê text-texto como cor.
-        className={`text-texto ${cn('flex items-center justify-center text-t-meta', altura)}`}
-        aria-label={linha.sinal === '−' ? 'menos' : linha.sinal === '=' ? 'igual a' : undefined}
-      >
-        {linha.sinal === '−' ? '−' : ''}
-      </dd>
-      <dd className={cn('flex items-center justify-self-end', altura)}>
-        {abre ? (
+      {abre ? (
+        <dd className={cn('col-span-2 grid grid-cols-subgrid items-center', altura)}>
           <ValorComOrigem
             valor={valor}
             posto={posto}
-            sinal={false}
-            chevron="antes"
+            chevron="coluna"
             className="lg:[@media(pointer:fine)]:min-h-8"
             aoAbrir={() => aoAbrirOrigem?.(linha)}
             rotuloAcessivel={`Ver de onde vem: ${linha.rotulo}`}
           />
-        ) : (
-          <Valor valor={valor} posto={posto} sinal={false} />
-        )}
-      </dd>
+        </dd>
+      ) : (
+        <dd className={cn('col-span-2 flex items-center justify-end', altura)}>
+          <Valor valor={valor} posto={posto} />
+        </dd>
+      )}
     </Fragment>
   )
 }

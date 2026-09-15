@@ -309,25 +309,25 @@ export function NavRail({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }: Na
           {!recolhido && (
             <span aria-hidden className="flex min-w-0 flex-col" style={{ animation: ANIM_ENTRA(120) }}>
               <span className="font-heading font-bold text-[color:var(--nav-logo)] text-valor-linha">Souza</span>
-              <span className="font-label uppercase tracking-[0.08em] text-t-meta text-rotulo">Imobiliária</span>
+              <span className="font-label font-medium uppercase tracking-[0.08em] text-t-meta text-chip">Imobiliária</span>
             </span>
           )}
         </Link>
       </div>
 
-      {/* Destinos: 24 da base do topo até o 1º rótulo; 24 acima e 8 abaixo de cada rótulo. */}
+      {/* Destinos: 24 da base do topo até o 1º rótulo; 24 entre grupos (gap do nav) e 8 abaixo de cada rótulo. */}
       <nav
         aria-label="Principal"
         onScroll={esconderDica}
         data-rolagem=""
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-4 pt-6"
+        className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-4 pt-6', !recolhido && 'gap-6')}
       >
         {secoes.map((secao, i) => (
           <div key={secao.rotulo} className="flex flex-col">
             {recolhido ? (
               i > 0 && <span aria-hidden className="mx-3 my-3 h-px bg-nav-line" />
             ) : (
-              <Rotulo as="h2" className={cn('mb-2 px-3', i > 0 && 'mt-6')}>
+              <Rotulo as="h2" className="mb-2 px-3">
                 {secao.rotulo}
               </Rotulo>
             )}

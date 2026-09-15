@@ -39,7 +39,9 @@ interface AuthValue {
   recarregarPerfil: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthValue | null>(null)
+// Exportado só para a vitrine (src/demo) montar um login falso.
+// eslint-disable-next-line react-refresh/only-export-components
+export const AuthContext = createContext<AuthValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)

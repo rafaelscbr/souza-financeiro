@@ -88,16 +88,26 @@ export function useAnunciarQuadro() {
 
 export interface CtaDaPagina {
   rotulo: string
-  /** O rótulo abaixo de 640px. Sem ele, "Novo". O nome acessível continua o completo. */
+  /** Rótulo curto entre 420 e 639px, se couber. Abaixo de 420 o CTA é o quadrado de 44 só com o ícone. O nome acessível continua o completo. */
   rotuloCurto?: string
   aoClicar: () => void
 }
 
-/** O CTA do cabeçalho: `Button` primário 40 (44 no toque), ícone Plus, rótulo curto abaixo de 640. */
-export function BotaoCta({ rotulo, rotuloCurto = 'Novo', aoClicar, className }: CtaDaPagina & { className?: string }) {
+/**
+ * O CTA do cabeçalho: `Button` primário 40 (44 no toque) com ícone Plus.
+ * Abaixo de 640 é o quadrado de 44 só com o ícone (4.2); o rótulo curto, se a
+ * rota declarar, aparece a partir de 420, onde cabe ao lado do título.
+ */
+export function BotaoCta({ rotulo, rotuloCurto, aoClicar, className }: CtaDaPagina & { className?: string }) {
   return (
-    <Button variant="primario" icone={Plus} onClick={aoClicar} aria-label={rotulo} className={className}>
-      <span className="sm:hidden">{rotuloCurto}</span>
+    <Button
+      variant="primario"
+      icone={Plus}
+      onClick={aoClicar}
+      aria-label={rotulo}
+      className={cn('max-sm:w-11 max-sm:px-0', rotuloCurto && 'min-[420px]:max-sm:w-auto min-[420px]:max-sm:px-4', className)}
+    >
+      {rotuloCurto && <span className="hidden min-[420px]:max-sm:inline">{rotuloCurto}</span>}
       <span className="hidden sm:inline">{rotulo}</span>
     </Button>
   )
@@ -113,6 +123,7 @@ interface ConteudoDoCabecalho {
   titulo: string
   subtitulo?: ReactNode
   acoes?: ReactNode
+  menu?: ReactNode
   cta?: CtaDaPagina
   voltar?: { para: string; rotulo: string }
 }
@@ -124,9 +135,9 @@ const BOTAO_ICONE =
 /*
  * Computador: [← 40, ficha] 12 [IconeTom 36] 12 [h1 + subtítulo] … [sino 40] 12 [ações ≤2] 12 [CTA 40]
  * Celular:    [IconeTom 28] 12 [h1] … [sino 44] [CTA 44, rótulo curto]
- * Ficha no celular: [← 44] 8 [h1] … [sino 44] (sem IconeTom e sem CTA)
+ * Ficha no celular: [← 44] 8 [h1 truncado] … [sino 44] [⋯ 44] (sem IconeTom e sem CTA)
  */
-function CabecalhoDaPagina({ icone, tom = 'neutro', titulo, subtitulo, acoes, cta, voltar }: ConteudoDoCabecalho) {
+function CabecalhoDaPagina({ icone, tom = 'neutro', titulo, subtitulo, acoes, menu, cta, voltar }: ConteudoDoCabecalho) {
   const avisos = useContext(CascaContext)?.avisos
   const navigate = useNavigate()
   const location = useLocation()
@@ -163,6 +174,7 @@ function CabecalhoDaPagina({ icone, tom = 'neutro', titulo, subtitulo, acoes, ct
       <div className="flex shrink-0 items-center gap-3">
         {avisos && <PopoverAvisos avisos={avisos} />}
         {acoes && <div className="flex items-center gap-3 max-lg:hidden">{acoes}</div>}
+        {menu}
         {cta && <BotaoCta {...cta} className={cn(ficha && 'max-lg:hidden')} />}
       </div>
     </>
@@ -207,8 +219,14 @@ export interface PageLayoutProps {
   tom?: Tom
   /** Seletor de mês na faixa. Sem a prop, vale o que a rota declara (`usaMes`). */
   mes?: boolean
-  /** Até 2 ações ao lado do sino (no celular descem para a faixa). */
+  /** Até 2 ações ao lado do sino (no celular descem para a faixa, salvo quando há `menu`). */
   acoes?: ReactNode
+  /**
+   * O "⋯" da ficha (4.2), em todas as larguras, depois das ações. Com ele, no
+   * celular as `acoes` NÃO descem para a faixa: a tela põe Editar e as demais
+   * dentro deste menu (mesma função, mesmos argumentos).
+   */
+  menu?: ReactNode
   /** A ação principal. Sem ela, a que a rota declara. */
   cta?: CtaDaPagina
   /** Filtros rápidos ou abas: 1º filho do <main>, rola com o conteúdo. */
@@ -227,6 +245,7 @@ export function PageLayout({
   tom,
   mes,
   acoes,
+  menu,
   cta,
   faixa,
   voltarPara,
@@ -277,6 +296,7 @@ export function PageLayout({
       titulo={tituloFinal}
       subtitulo={subtitulo}
       acoes={acoes}
+      menu={menu}
       cta={ctaFinal}
       voltar={voltar}
     />
@@ -284,7 +304,7 @@ export function PageLayout({
 
   const corpo = (
     <>
-      <AberturaDaPagina subtitulo={subtitulo} faixa={faixaFinal} acoes={acoes} />
+      <AberturaDaPagina subtitulo={subtitulo} faixa={faixaFinal} acoes={menu ? undefined : acoes} />
       {largura === 'leitura' ? <div className="leitura flex flex-col gap-secao">{children}</div> : children}
     </>
   )

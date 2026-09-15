@@ -122,7 +122,9 @@ interface AdminValue {
   }) => Promise<void>
 }
 
-const AdminContext = createContext<AdminValue | null>(null)
+// Exportado só para a vitrine (src/demo) montar o mesmo contexto com dados de exemplo.
+// eslint-disable-next-line react-refresh/only-export-components
+export const AdminContext = createContext<AdminValue | null>(null)
 
 function inicioDoMes(d = new Date()): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1)

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#070B1A" />
+    <title>Vitrine de telas — Souza Imobiliária</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Mesmas fontes do index.html (Sora 400–800 e Inter 300–800), pelo mesmo
+      motivo: <link> com preconnect em vez do @import do guia pinta mais cedo.
+    -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap"
+    />
+    <script>
+      // Vitrine só de desenvolvimento (fora do build, como kit.html). Anti-flash igual ao do index.html: escuro por padrão, html.light só com
+      // 'light' salvo, html.compacta só com 'compacta' salvo.
+      (function () {
+        var html = document.documentElement
+        try {
+          var claro = localStorage.getItem('sgf.theme') === 'light'
+          if (claro) html.classList.add('light')
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', claro ? '#F6F3EC' : '#070B1A')
+        } catch (e) {}
+        try {
+          if (localStorage.getItem('sgf.densidade') === 'compacta') html.classList.add('compacta')
+        } catch (e) {}
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/demo/main.tsx"></script>
+  </body>
+</html>
