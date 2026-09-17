@@ -57,14 +57,16 @@ function CartaoCabecalho({ titulo, icone, meta, extra, nivel = 'h2', id, classNa
   const H = nivel
   return (
     <div className={cn('flex min-h-14 flex-wrap items-center gap-3 px-recuo pb-3 pt-recuo', className)}>
-      {icone && (
-        <span className="flex text-t3">
-          <Icone icone={icone} tamanho={16} />
-        </span>
-      )}
-      <H id={id} className="min-w-0 font-heading text-t1 text-titulo-secao">
-        {titulo}
-      </H>
+      <div className="flex min-w-0 max-w-full items-center gap-3">
+        {icone && (
+          <span className="flex shrink-0 text-t3">
+            <Icone icone={icone} tamanho={16} />
+          </span>
+        )}
+        <H id={id} className="min-w-0 font-heading text-t1 text-titulo-secao">
+          {titulo}
+        </H>
+      </div>
       {meta && <span className="min-w-0 text-t-meta text-texto-meta">{meta}</span>}
       {extra && <div className="ms-auto flex items-center gap-3">{extra}</div>}
     </div>

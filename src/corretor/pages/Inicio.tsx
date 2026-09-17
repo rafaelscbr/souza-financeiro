@@ -107,7 +107,7 @@ export function CorretorInicio() {
        */}
       {atrasadas.length > 0 && (
         <Cartao>
-          <Cartao.Cabecalho titulo="Esperando há mais tempo que o previsto" icone={TriangleAlert} />
+          <Cartao.Cabecalho titulo="Esperando além do previsto" icone={TriangleAlert} />
           <Cartao.Lista
             rotuloAcessivel="Comissões atrasadas"
             colunas={{ goteira: true, situacao: true, valor: true, fim: true }}

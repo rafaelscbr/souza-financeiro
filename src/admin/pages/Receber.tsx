@@ -107,9 +107,21 @@ export function Receber() {
     const abrirSubtotal = () =>
       abrir({ rotulo, titulo, explica, total: soma(l), itens: comp(l), vazio: 'Nenhuma parcela neste mês.' })
     return previsto || l.length === 0 ? (
-      <ValorComOrigem valor={soma(l)} posto="fato" previsto rotuloAcessivel={`Ver de onde vem: ${titulo}`} aoAbrir={abrirSubtotal} />
+      <ValorComOrigem
+        valor={soma(l)}
+        posto="fato"
+        previsto
+        rotuloAcessivel={`Ver de onde vem: ${titulo}`}
+        aoAbrir={abrirSubtotal}
+      />
     ) : (
-      <ValorComOrigem valor={soma(l)} posto="fato" forte rotuloAcessivel={`Ver de onde vem: ${titulo}`} aoAbrir={abrirSubtotal} />
+      <ValorComOrigem
+        valor={soma(l)}
+        posto="fato"
+        forte
+        rotuloAcessivel={`Ver de onde vem: ${titulo}`}
+        aoAbrir={abrirSubtotal}
+      />
     )
   }
 
@@ -118,31 +130,39 @@ export function Receber() {
    * somar cobrança com expectativa. Usa a forma do par (7.3.4), com as
    * palavras desta tela e os dois lados sempre visíveis, zero incluído.
    */
-  const parDoMes = (itens: MoneyItem[], nome: string) => (
-    <span data-par-agora-previsto className="text-t-meta">
-      <span data-par-linha>
-        <span data-lado>
-          <span className="font-label text-texto-meta">vencido</span>
-          {subtotal(
-            itens.filter((i) => i.overdue),
-            'Vencido',
-            `Vencido de ${nome}`,
-            'Parcelas que já passaram da data e a construtora não pagou. É o que precisa de cobrança.',
+  const parDoMes = (itens: MoneyItem[], nome: string) => {
+    const vencidos = itens.filter((i) => i.overdue)
+    const previstos = itens.filter((i) => !i.overdue)
+    return (
+      <span data-par-agora-previsto className="text-t-meta">
+        <span data-par-linha>
+          {vencidos.length > 0 && (
+            <span data-lado>
+              <span className="font-label text-texto-meta">vencido</span>
+              {subtotal(
+                vencidos,
+                'Vencido',
+                `Vencido de ${nome}`,
+                'Parcelas que já passaram da data e a construtora não pagou. É o que precisa de cobrança.',
+              )}
+            </span>
           )}
-        </span>
-        <span data-lado>
-          <span className="font-label text-texto-meta">previsto</span>
-          {subtotal(
-            itens.filter((i) => !i.overdue),
-            'Previsto',
-            `Previsto para ${nome}`,
-            'Parcelas que ainda não venceram. A data pode mudar — depende da construtora.',
-            true,
+          {(previstos.length > 0 || vencidos.length === 0) && (
+            <span data-lado>
+              <span className="font-label text-texto-meta">previsto</span>
+              {subtotal(
+                previstos,
+                'Previsto',
+                `Previsto para ${nome}`,
+                'Parcelas que ainda não venceram. A data pode mudar — depende da construtora.',
+                true,
+              )}
+            </span>
           )}
         </span>
       </span>
-    </span>
-  )
+    )
+  }
 
   const abrirTotal = () =>
     abrir({
@@ -247,11 +267,7 @@ export function Receber() {
         )}
       </Cartao>
 
-      <ReceberParcela
-        venda={parcela?.venda ?? null}
-        parcela={parcela?.p ?? null}
-        onFechar={() => setParcela(null)}
-      />
+      <ReceberParcela venda={parcela?.venda ?? null} parcela={parcela?.p ?? null} onFechar={() => setParcela(null)} />
       <BaixarLancamento tx={avulso} onFechar={() => setAvulso(null)} />
     </PageLayout>
   )
