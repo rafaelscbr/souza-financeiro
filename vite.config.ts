@@ -24,8 +24,10 @@ export default defineConfig({
         short_name: 'Souza Imob',
         description: 'Vendas, comissões e financeiro da Souza Imobiliária',
         lang: 'pt-BR',
-        theme_color: '#1E3A8A',
-        background_color: '#F4F6FA',
+        // As cores da casca de hoje (5.1): o azul e o papel antigos ficaram
+        // para trás e pintavam a tela de abertura no celular com outra marca.
+        theme_color: '#070B1A',
+        background_color: '#070B1A',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',

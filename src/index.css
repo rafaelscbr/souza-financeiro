@@ -186,10 +186,11 @@ html.light {
    * fundo tem de sumir atrás do conteúdo, não competir com ele.
    */
   --grad-pagina:
-    radial-gradient(1300px 760px at 92% -12%, rgba(228,178,60,.20), transparent 56%),
-    radial-gradient(1000px 640px at -8% -6%, rgba(86,124,222,.14), transparent 58%),
-    radial-gradient(1300px 820px at 40% 116%, rgba(228,178,60,.09), transparent 60%),
-    linear-gradient(180deg, #121A3C 0%, #0C1228 34%, #080D1F 64%, #070B1A 100%);
+    radial-gradient(1400px 820px at 94% -10%, rgba(228,178,60,.38), transparent 58%),
+    radial-gradient(760px 520px at 78% 2%, rgba(240,204,120,.16), transparent 60%),
+    radial-gradient(1000px 640px at -8% -6%, rgba(86,124,222,.16), transparent 58%),
+    radial-gradient(1300px 820px at 40% 116%, rgba(228,178,60,.16), transparent 60%),
+    linear-gradient(180deg, #16204A 0%, #0D142C 34%, #080D1F 64%, #070B1A 100%);
 }
 
 /* 5.1 Tokens derivados — claro */
@@ -212,9 +213,10 @@ html.light {
 
   /* No claro o mesmo desenho, em papel: o halo é quente e quase não se vê. */
   --grad-pagina:
-    radial-gradient(1300px 760px at 92% -12%, rgba(228,178,60,.36), transparent 56%),
-    radial-gradient(1000px 640px at -8% -6%, rgba(86,124,222,.12), transparent 58%),
-    radial-gradient(1300px 820px at 40% 116%, rgba(228,178,60,.16), transparent 60%),
+    radial-gradient(1400px 820px at 94% -10%, rgba(228,178,60,.62), transparent 58%),
+    radial-gradient(760px 520px at 78% 2%, rgba(240,204,120,.30), transparent 60%),
+    radial-gradient(1000px 640px at -8% -6%, rgba(86,124,222,.14), transparent 58%),
+    radial-gradient(1300px 820px at 40% 116%, rgba(228,178,60,.26), transparent 60%),
     linear-gradient(180deg, #FCF9F1 0%, #F1EDE3 44%, #E6E1D4 100%);
 }
 
