@@ -134,7 +134,7 @@ export function Pagar() {
       'Só vira dívida quando a construtora pagar a parcela. Até lá não é obrigação e não entra em nenhum total de dívida.',
     )
   const abrirImpostos = () =>
-    abrirGrupo(grupos.impostos, 'Imposto', 'Imposto a pagar', 'Simples e ISS das parcelas de venda, na conta desta tela.')
+    abrirGrupo(grupos.impostos, 'Imposto', 'Imposto a pagar', 'A guia do Simples de cada mês, mais o ISS das parcelas de venda.')
   const abrirDespesas = () =>
     abrirGrupo(grupos.despesas, 'Despesas', 'Despesa a pagar', 'Despesa lançada e distribuição do sócio ainda em aberto.')
 
@@ -242,7 +242,7 @@ export function Pagar() {
       )}
 
       {grupos.impostos.length > 0 && (
-        <CartaoDeSaida titulo="Imposto" icone={Landmark} explica="Guia do Simples e ISS retido na fonte." itens={grupos.impostos} hoje={hoje} onPagar={setAvulso} aoAbrir={abrirLancamento} />
+        <CartaoDeSaida titulo="Imposto" icone={Landmark} explica="A guia mensal do Simples soma tudo que entrou no mês e vence dia 20 do mês seguinte. O ISS é retido pela construtora no pagamento." itens={grupos.impostos} hoje={hoje} onPagar={setAvulso} aoAbrir={abrirLancamento} />
       )}
 
       {grupos.despesas.length > 0 && (

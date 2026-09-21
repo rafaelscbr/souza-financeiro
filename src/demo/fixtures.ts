@@ -39,10 +39,32 @@ export function dia(deslocamento: number): string {
   return toDateOnly(d)
 }
 
-/** Dia 20 do mês seguinte ao recebimento: vencimento da guia do Simples. */
+/**
+ * Vencimento do DAS do mês da data: dia 20 do mês seguinte, adiado para
+ * segunda quando cai no fim de semana. Espelha `venc_das` do banco (027).
+ */
 function vencDas(data: string): string {
   const [a, m] = data.split('-').map(Number)
-  return toDateOnly(new Date(a, m, 20))
+  const d = new Date(a, m, 20)
+  if (d.getDay() === 6) d.setDate(d.getDate() + 2)
+  if (d.getDay() === 0) d.setDate(d.getDate() + 1)
+  return toDateOnly(d)
+}
+
+/*
+ * A GUIA DO MÊS (027). O Simples de parcela recebida não é linha de parcela:
+ * ele se junta ao de todas as outras parcelas que entraram no mesmo mês, numa
+ * guia só. Aqui o acumulador faz o que `sincroniza_das` faz no banco.
+ */
+const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro']
+const guiaDoMes = new Map<string, { total: number; paga: boolean }>()
+function somarNaGuia(dataRec: string, valor: number, paga: boolean) {
+  const comp = `${dataRec.slice(0, 7)}-01`
+  const g = guiaDoMes.get(comp) ?? { total: 0, paga: true }
+  g.total = r2(g.total + valor)
+  // A guia só está paga quando todo o mês está pago.
+  g.paga = g.paga && paga
+  guiaDoMes.set(comp, g)
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100
@@ -240,15 +262,17 @@ function venda(p: PlanoVenda) {
         account_id: recebida ? 'ac-pj' : null,
       })
     }
-    const simplesPago = recebida && pp.simplesPago
-    inst.simples_tx_id = lancar({
-      ...base, id: `${iid}-das`, kind: 'expense', category: 'Impostos e Taxas', dre_group: 'variable_expense',
-      description: `Simples ${s.simples_pct}% — ${s.title}${sufixo}`, amount: simples,
-      status: simplesPago ? 'settled' : 'pending',
-      settled_date: simplesPago && dataRec ? vencDas(dataRec) : null,
-      due_date: simplesPago ? null : dataRec ? vencDas(dataRec) : venc,
-      account_id: simplesPago ? 'ac-pj' : null,
-    })
+    if (recebida && dataRec) {
+      // Recebida: o imposto vai para a guia do mês, não fica na parcela.
+      if (simples > 0) somarNaGuia(dataRec, simples, !!pp.simplesPago)
+    } else if (simples > 0) {
+      // Ainda prevista: a previsão continua presa à venda que a gerou.
+      inst.simples_tx_id = lancar({
+        ...base, id: `${iid}-das`, kind: 'expense', category: 'Impostos e Taxas', dre_group: 'variable_expense',
+        description: `Simples ${s.simples_pct}% — ${s.title}${sufixo}`, amount: simples,
+        status: 'pending', settled_date: null, due_date: vencDas(venc), account_id: null,
+      })
+    }
     if (broker > 0) {
       const pago = recebida && pp.corretorPago
       inst.broker_tx_id = lancar({
@@ -344,6 +368,18 @@ venda({
     { dias: 55, estado: 'prevista' },
   ],
 })
+
+// As guias do Simples, uma por mês, depois de todas as vendas lançadas.
+for (const [comp, g] of [...guiaDoMes.entries()].sort()) {
+  const mes = MESES[Number(comp.slice(5, 7)) - 1]
+  lancar({
+    id: `das-${comp.slice(0, 7)}`, kind: 'expense', category: 'Impostos e Taxas', dre_group: 'variable_expense',
+    description: `DAS Simples — ${mes}/${comp.slice(0, 4)}`, amount: g.total,
+    competence_date: comp, status: g.paga ? 'settled' : 'pending',
+    settled_date: g.paga ? vencDas(comp) : null, due_date: g.paga ? null : vencDas(comp),
+    account_id: g.paga ? 'ac-pj' : null,
+  })
+}
 
 // ---------------------------------------------------------------------------
 // Despesas da estrutura: pagas, vencidas e a vencer
