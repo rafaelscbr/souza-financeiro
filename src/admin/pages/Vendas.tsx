@@ -52,9 +52,9 @@ import type { SaleInstallment, TransactionStatus } from '@/types'
  * carteira vazia é vazia de verdade, nunca uma consulta que caiu.
  */
 
-type Filtro = 'andamento' | 'atrasadas' | 'comissao' | 'concluidas' | 'todas'
+type Filtro = 'andamento' | 'atrasadas' | 'comissao' | 'pessoais' | 'concluidas' | 'todas'
 
-const FILTROS: Filtro[] = ['andamento', 'atrasadas', 'comissao', 'concluidas', 'todas']
+const FILTROS: Filtro[] = ['andamento', 'atrasadas', 'comissao', 'pessoais', 'concluidas', 'todas']
 
 /*
  * O filtro mora na URL (`?situacao=atrasadas`): cada indicador e cada sugestão
@@ -80,8 +80,16 @@ export function Vendas() {
     [transactions],
   )
 
-  /** Venda cancelada não é carteira: o que sobrou dela já foi cancelado no banco. */
-  const ativas = useMemo(() => vendas.filter((v) => v.status !== 'cancelada'), [vendas])
+  /*
+   * Venda cancelada não é carteira: o que sobrou dela já foi cancelado no
+   * banco. Venda de pessoa física também não é: a comissão é do Rafael, não da
+   * imobiliária (21/09/2026), e ela não tem lançamento nenhum no razão dela.
+   * Fica na lista, no filtro próprio, mas fora de todo número da empresa.
+   */
+  const ativas = useMemo(
+    () => vendas.filter((v) => v.status !== 'cancelada' && !v.is_personal),
+    [vendas],
+  )
 
   /*
    * O número herói. `toReceive` é a soma das parcelas ainda previstas, gravada
@@ -108,6 +116,7 @@ export function Vendas() {
     const vencidoPorVenda = new Map<string, number>()
 
     for (const venda of vendas) {
+      if (venda.is_personal) continue
       for (const p of venda.installments) {
         if (p.broker_amount > 0) {
           const st = brokerStatusOf(p, statusPorTx)
@@ -134,10 +143,11 @@ export function Vendas() {
   const passa = useMemo(
     () =>
       ({
-        andamento: (v: SaleView) => v.status === 'ativa',
-        atrasadas: (v: SaleView) => v.status !== 'cancelada' && v.hasOverdue,
-        comissao: (v: SaleView) => v.brokerReleased > 0,
-        concluidas: (v: SaleView) => v.status === 'concluida',
+        andamento: (v: SaleView) => v.status === 'ativa' && !v.is_personal,
+        atrasadas: (v: SaleView) => v.status !== 'cancelada' && !v.is_personal && v.hasOverdue,
+        comissao: (v: SaleView) => !v.is_personal && v.brokerReleased > 0,
+        pessoais: (v: SaleView) => v.is_personal && v.status !== 'cancelada',
+        concluidas: (v: SaleView) => v.status === 'concluida' && !v.is_personal,
         todas: () => true,
       }) satisfies Record<Filtro, (v: SaleView) => boolean>,
     [],
@@ -352,6 +362,12 @@ export function Vendas() {
           contador: contagem.comissao,
           dica: 'A imobiliária já recebeu a parcela e ainda não pagou o corretor.',
         },
+        {
+          id: 'pessoais',
+          rotulo: 'Pessoa física',
+          contador: contagem.pessoais,
+          dica: 'Comissão que entra para o Rafael, não para a Souza. Fora de todo número da imobiliária.',
+        },
         { id: 'concluidas', rotulo: 'Concluídas', contador: contagem.concluidas },
         { id: 'todas', rotulo: 'Todas', contador: contagem.todas, dica: 'Inclui as canceladas, riscadas.' },
       ]}
@@ -498,7 +514,10 @@ export function Vendas() {
               {filtradas.length === vendas.length
                 ? plural(vendas.length, 'venda registrada', 'vendas registradas')
                 : `${filtradas.length} de ${plural(vendas.length, 'venda', 'vendas')}`}
-              . O valor à direita é a comissão contratada da imobiliária.
+              .{' '}
+              {filtro === 'pessoais'
+                ? 'O valor à direita é a comissão da venda, que entra pra você — nada dela passa pelo caixa da imobiliária.'
+                : 'O valor à direita é a comissão contratada da imobiliária.'}
             </p>
             {/* O par da lista, com as palavras de sempre: nunca um total único. */}
             <span data-par-agora-previsto className="max-w-full grow-0 basis-[30rem] text-t-meta">
@@ -549,6 +568,7 @@ function linhaVenda(v: SaleView, vencido: number) {
   const pct = v.cascade.commission > 0 ? Math.round(v.progress * 100) : 0
 
   const contexto = [v.development ?? 'sem empreendimento', v.brokerName, v.client_name].filter(Boolean) as string[]
+  if (v.is_personal) contexto.push('pessoa física · não é da imobiliária')
   if (!cancelada) {
     contexto.push(v.toReceive === 0 ? 'comissão recebida por inteiro' : `falta ${formatCurrency(v.toReceive)}`)
   }
@@ -591,7 +611,13 @@ function linhaVenda(v: SaleView, vencido: number) {
       }
       situacao={<ChipSituacao situacao={s} />}
       valor={<Valor valor={v.cascade.commission} posto="linha" tinta={cancelada ? 'text-t4 line-through' : undefined} />}
-      metaValor={cancelada ? 'venda cancelada' : `já entrou ${formatCurrency(v.received)} · ${pct}%`}
+      metaValor={
+        cancelada
+          ? 'venda cancelada'
+          : v.is_personal
+            ? `entra pra você · já entrou ${formatCurrency(v.received)}`
+            : `já entrou ${formatCurrency(v.received)} · ${pct}%`
+      }
       para={`/vendas/${v.id}`}
     />
   )

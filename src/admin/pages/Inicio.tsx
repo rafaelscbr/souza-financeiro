@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarRange, CircleCheck, Clock, Handshake, ListChecks, ReceiptText } from 'lucide-react'
+import { CalendarRange, CircleCheck, Clock, Handshake, ListChecks, ReceiptText, UserRound } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
@@ -74,6 +74,8 @@ export function Inicio() {
     const esperando: { p: SaleInstallment; venda: SaleView | undefined }[] = []
     for (const p of installments) {
       if (p.status !== 'prevista') continue
+      // Venda de pessoa física não tem nota da imobiliária: fora da fila.
+      if (porVenda.get(p.sale_id)?.is_personal) continue
       const { etapa } = etapaDaParcela(p)
       if (etapa === 'a_emitir_nota') emitir.push({ p, venda: porVenda.get(p.sale_id) })
       else if (etapa === 'nota_emitida' && p.expected_date < hoje) esperando.push({ p, venda: porVenda.get(p.sale_id) })
@@ -122,7 +124,21 @@ export function Inicio() {
   })
   const tituloDoMes = nomeDoMes.charAt(0).toUpperCase() + nomeDoMes.slice(1)
 
-  const vendasAtivas = vendas.filter((v) => v.status !== 'cancelada')
+  /*
+   * O dinheiro da imobiliária. Venda marcada como pessoa física (decisão de
+   * 21/09/2026) fica de fora de tudo que é dela — ela não recebe, não paga
+   * imposto e não repassa — e aparece no cartão próprio, mais abaixo.
+   */
+  const vendasAtivas = vendas.filter((v) => v.status !== 'cancelada' && !v.is_personal)
+
+  /** O que entra pra você, fora da imobiliária: parcela cheia, sem desconto. */
+  const pessoais = useMemo(() => {
+    const linhas = vendas
+      .filter((v) => v.is_personal && v.status !== 'cancelada')
+      .flatMap((v) => v.installments.filter((p) => p.status === 'prevista').map((p) => ({ v, p })))
+      .sort((a, b) => (a.p.expected_date < b.p.expected_date ? -1 : 1))
+    return { linhas, total: Math.round(linhas.reduce((s, l) => s + l.p.amount, 0) * 100) / 100 }
+  }, [vendas])
 
   /** Transforma uma lista de lançamentos na composição que a folha exibe. */
   const comp = (l: MoneyItem[]) =>
@@ -281,6 +297,37 @@ export function Inicio() {
               <p className="max-w-[72ch]">
                 A comissão liberada só vira dinheiro depois da nota. O prazo de cada construtora fica em
                 Configurações.
+              </p>
+            </Cartao.Rodape>
+          </Cartao>
+        )}
+
+        {/*
+         * PESSOA FÍSICA (21/09/2026). Duas vendas do PortoVelas foram feitas
+         * quando o Rafael ainda estava em outra imobiliária: a comissão é dele,
+         * não da Souza. Elas não têm lançamento no razão da empresa, então não
+         * aparecem em nenhum número acima — mas continuam sendo previsão de
+         * dinheiro, e previsão escondida não ajuda ninguém.
+         */}
+        {pessoais.linhas.length > 0 && (
+          <Cartao className="lg:col-span-5">
+            <Cartao.Cabecalho titulo="Entra pra você" icone={UserRound} meta="pessoa física" />
+            <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Comissão de pessoa física">
+              {pessoais.linhas.map(({ v, p }) => (
+                <Linha
+                  key={p.id}
+                  goteira={<IconeTom icone={UserRound} tom="neutro" tamanho="sm" />}
+                  titulo={v.title}
+                  meta={fraseDaEtapa(p, hoje)}
+                  valor={<Valor valor={p.amount} posto="linha" previsto />}
+                  para={`/vendas/${v.id}`}
+                />
+              ))}
+            </Cartao.Lista>
+            <Cartao.Rodape>
+              <p className="max-w-[72ch]">
+                <Valor valor={pessoais.total} posto="fato" previsto /> de vendas anteriores à Souza. O dinheiro é seu: não
+                entra em A receber, não gera imposto da imobiliária e não aparece no resultado dela.
               </p>
             </Cartao.Rodape>
           </Cartao>

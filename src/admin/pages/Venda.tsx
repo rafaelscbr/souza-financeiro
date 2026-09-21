@@ -163,8 +163,21 @@ export function Venda() {
     parcelaId: p.id,
   })
 
+  /*
+   * Venda de pessoa física (026): a comissão é do Rafael, não da Souza. O
+   * número é o mesmo — a parcela cheia —, mas o rótulo não pode dizer
+   * "imobiliária", e a frase precisa avisar que nada disso passa pelo caixa
+   * dela.
+   */
+  const pf = venda.is_personal
+  const rotuloDoHeroi = pf ? 'Entra pra você' : 'Fica para a imobiliária'
+
   /* A frase do herói diz o que o número NÃO é (o mesmo texto da ficha anterior). */
-  const contextoDoHeroi = !ativa
+  const contextoDoHeroi = pf
+    ? `Venda sua, como pessoa física: a comissão entra inteira pra você, sem imposto da imobiliária e sem repasse de corretor. Nada desta venda passa pelo caixa da Souza — ela não aparece em A receber, em A pagar nem no resultado.${
+        venda.toReceive > 0 ? ` ${formatCurrency(venda.toReceive)} ainda dependem da construtora pagar.` : ''
+      }`
+    : !ativa
     ? 'Venda cancelada. O que já tinha sido recebido e pago continua registrado, e o imposto de parcela já recebida continua devido.'
     : venda.toReceive > 0
       ? `${Math.round(c.netShare * 100)}% da comissão contratada, depois do imposto e da comissão do corretor. Não é caixa: ${formatCurrency(venda.toReceive)} desta venda ainda dependem da construtora pagar.`
@@ -179,7 +192,7 @@ export function Venda() {
   const conta: LinhaDemonstrativo[] = [
     {
       chave: 'bruto',
-      rotulo: 'Comissão da imobiliária',
+      rotulo: pf ? 'Comissão da venda' : 'Comissão da imobiliária',
       detalhe: vivas.length > 1 ? `soma das ${vivas.length} parcelas` : 'parcela única',
       sinal: '+',
       valor: c.commission,
@@ -203,7 +216,13 @@ export function Venda() {
   }
   if (c.owner > 0)
     conta.push({ chave: 'socio', rotulo: 'Distribuição ao sócio', detalhe: `${venda.owner_profit_pct ?? 0}% do que sobra depois da comissão do corretor`, sinal: '−', valor: c.owner })
-  conta.push({ chave: 'fica', rotulo: 'Fica para a imobiliária', detalhe: `${Math.round(c.netShare * 100)}% da comissão contratada`, sinal: '=', valor: c.net })
+  conta.push({
+    chave: 'fica',
+    rotulo: rotuloDoHeroi,
+    detalhe: pf ? 'a comissão inteira é sua' : `${Math.round(c.netShare * 100)}% da comissão contratada`,
+    sinal: '=',
+    valor: c.net,
+  })
 
   /* Cada linha da conta abre as parcelas, com o campo gravado que compõe aquela linha (a mesma soma de cascadeOf). */
   for (const l of conta) l.origem = { tipo: 'venda', id: venda.id }
@@ -308,14 +327,14 @@ export function Venda() {
       <Heroi
         variante="ouro"
         estado={c.net < 0 ? 'negativo' : undefined}
-        rotulo="Fica para a imobiliária"
+        rotulo={rotuloDoHeroi}
         valor={c.net}
         contar
-        rotuloAcessivel="Abrir o que fica para a imobiliária, parcela por parcela"
+        rotuloAcessivel={`Abrir ${rotuloDoHeroi.toLowerCase()}, parcela por parcela`}
         aoAbrir={() =>
           abrir({
-            rotulo: 'Fica para a imobiliária',
-            titulo: 'O que fica para a imobiliária',
+            rotulo: rotuloDoHeroi,
+            titulo: pf ? 'O que entra pra você' : 'O que fica para a imobiliária',
             explica: contextoDoHeroi,
             total: c.net,
             linhas: conta,
@@ -355,7 +374,7 @@ export function Venda() {
       {ativa && (
         <div className="grid gap-bloco lg:grid-cols-2">
           <Cartao>
-            <Cartao.Cabecalho titulo="Da construtora para a imobiliária" icone={Building2} />
+            <Cartao.Cabecalho titulo={pf ? 'Da construtora para você' : 'Da construtora para a imobiliária'} icone={Building2} />
             <Cartao.Corpo>
               <Barra
                 valor={c.commission > 0 ? venda.received / c.commission : 0}
@@ -499,12 +518,14 @@ export function Venda() {
              * A ação principal é sempre o PRÓXIMO passo da parcela: esperar o
              * gatilho, emitir a nota, e só então receber. Uma por linha.
              */
+            // Na venda de pessoa física quem emite a nota é a outra
+            // imobiliária: aqui só existe o dia em que o dinheiro entrou.
             const etapa = etapaDaParcela(p).etapa
-            const principal = podeReceber && etapa === 'aguardando_gatilho' ? (
+            const principal = podeReceber && !pf && etapa === 'aguardando_gatilho' ? (
               <Button size="sm" variant="secundario" aria-label="Marcar gatilho atingido" onClick={() => abrirMarco(p, 'gatilho')} disabled={ocupado}>
                 Gatilho
               </Button>
-            ) : podeReceber && etapa === 'a_emitir_nota' ? (
+            ) : podeReceber && !pf && etapa === 'a_emitir_nota' ? (
               <Button size="sm" variant="secundario" aria-label="Marcar nota fiscal emitida" onClick={() => abrirMarco(p, 'nota')} disabled={ocupado}>
                 Nota
               </Button>
@@ -563,16 +584,19 @@ export function Venda() {
               {venda.property_value != null ? formatCurrency(venda.property_value) : 'valor do imóvel não informado'}
             </Dado>
             <Dado rotulo="Corretor">
-              {venda.brokerName ? `${venda.brokerName} ${venda.broker_pct ?? 0}%` : 'sem corretor'}
+              {pf ? 'venda sua, sem repasse' : venda.brokerName ? `${venda.brokerName} ${venda.broker_pct ?? 0}%` : 'sem corretor'}
             </Dado>
             <Dado rotulo="Impostos">
-              {[
-                venda.issues_invoice ? `Simples ${venda.simples_pct}%` : 'sem nota fiscal',
-                venda.retains_iss ? `ISS retido ${venda.iss_pct}%` : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
+              {pf
+                ? 'nenhum da imobiliária: a comissão é sua'
+                : [
+                    venda.issues_invoice ? `Simples ${venda.simples_pct}%` : 'sem nota fiscal',
+                    venda.retains_iss ? `ISS retido ${venda.iss_pct}%` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
             </Dado>
+            {pf && <Dado rotulo="Para quem entra">Rafael, pessoa física — fora do caixa da Souza</Dado>}
             {venda.partner_name && (
               <Dado rotulo="Parceria">{`parceria ${venda.partner_name} (${venda.partner_share_pct}% da Souza)`}</Dado>
             )}
@@ -633,12 +657,12 @@ export function Venda() {
                   Reagendar
                 </Button>
               )}
-              {aberta.p.status === 'prevista' && (
+              {aberta.p.status === 'prevista' && !pf && (
                 <Button variant="secundario" onClick={() => abrirMarco(aberta.p, 'gatilho')} disabled={ocupado}>
                   {aberta.p.trigger_met_date ? 'Mudar o gatilho' : 'Gatilho atingido'}
                 </Button>
               )}
-              {aberta.p.status === 'prevista' && (
+              {aberta.p.status === 'prevista' && !pf && (
                 <Button variant="secundario" onClick={() => abrirMarco(aberta.p, 'nota')} disabled={ocupado}>
                   {aberta.p.invoice_issued_date ? 'Mudar a nota' : 'Nota emitida'}
                 </Button>
@@ -663,7 +687,14 @@ export function Venda() {
               <ChipSituacao situacao={aberta.s} />
               <MetaDaParcela parcela={aberta} nomeCorretor={nomeCorretor} hoje={hoje} />
             </div>
-            {aberta.p.status === 'prevista' && (
+            {aberta.p.status === 'prevista' && pf && (
+              <Dica>
+                <strong className="font-semibold text-t1">Comissão sua, como pessoa física.</strong> Esta venda é
+                anterior à Souza: a nota é da outra imobiliária e nada aqui passa pelo caixa da sua empresa. Quando o
+                dinheiro cair, marque "Recebi esta parcela".
+              </Dica>
+            )}
+            {aberta.p.status === 'prevista' && !pf && (
               <Dica>
                 <strong className="font-semibold text-t1">{etapaDaParcela(aberta.p).palavra}.</strong>{' '}
                 {etapaDaParcela(aberta.p).explica}

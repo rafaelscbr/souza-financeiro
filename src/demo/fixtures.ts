@@ -165,6 +165,8 @@ interface PlanoVenda {
   corretor: string | null
   pctCorretor: number | null
   status: Sale['status']
+  /** Venda do Rafael como pessoa física: fora do razão da imobiliária. */
+  pf?: boolean
   notes?: string
   parcelas: PlanoParcela[]
 }
@@ -176,9 +178,12 @@ function venda(p: PlanoVenda) {
   const s: Sale = {
     id: p.id, company_id: EMPRESA_ID, title: p.title, cost_center_id: p.cc, unit: p.unit, client_name: p.cliente,
     sale_date: dia(p.vendaEm), property_value: p.vgv, commission_pct: p.pctComissao, commission_total: p.comissao,
-    partner_name: null, partner_share_pct: null, issues_invoice: true, simples_pct: 6, retains_iss: p.retemIss,
-    iss_pct: p.retemIss ? 3 : 0, broker_id: p.corretor, broker_pct: p.pctCorretor, owner_profit_pct: null,
-    status: p.status, notes: p.notes ?? null, legacy_group_id: null, created_at: CRIADO, updated_at: CRIADO,
+    partner_name: null, partner_share_pct: null,
+    issues_invoice: !p.pf, simples_pct: p.pf ? 0 : 6, retains_iss: !p.pf && p.retemIss,
+    iss_pct: !p.pf && p.retemIss ? 3 : 0,
+    broker_id: p.pf ? null : p.corretor, broker_pct: p.pf ? null : p.pctCorretor, owner_profit_pct: null,
+    status: p.status, is_personal: !!p.pf,
+    notes: p.notes ?? null, legacy_group_id: null, created_at: CRIADO, updated_at: CRIADO,
   }
   sales.push(s)
   const n = p.parcelas.length
@@ -191,7 +196,7 @@ function venda(p: PlanoVenda) {
     const amount = valores[k]
     const iss = s.retains_iss ? r2((amount * s.iss_pct) / 100) : 0
     const simples = r2(((amount - iss) * s.simples_pct) / 100)
-    const broker = p.corretor && p.pctCorretor != null ? r2(((amount - iss - simples) * p.pctCorretor) / 100) : 0
+    const broker = !p.pf && p.corretor && p.pctCorretor != null ? r2(((amount - iss - simples) * p.pctCorretor) / 100) : 0
     const venc = dia(pp.dias)
     const recebida = pp.estado === 'recebida'
     const dataRec = recebida ? dia(pp.recebidaEm ?? pp.dias) : null
@@ -208,14 +213,17 @@ function venda(p: PlanoVenda) {
       trigger_note: null,
       // Marcos de exemplo: a 1ª parcela prevista de cada venda já teve o
       // gatilho atingido, e a 2ª já está com a nota emitida.
-      trigger_met_date: recebida ? dia(pp.dias - 20) : idx <= 2 ? dia(pp.dias - 12) : null,
-      invoice_issued_date: recebida ? dia(pp.dias - 10) : idx === 2 ? dia(pp.dias - 6) : null,
+      // Venda de pessoa física não tem gatilho nem nota da imobiliária.
+      trigger_met_date: p.pf ? null : recebida ? dia(pp.dias - 20) : idx <= 2 ? dia(pp.dias - 12) : null,
+      invoice_issued_date: p.pf ? null : recebida ? dia(pp.dias - 10) : idx === 2 ? dia(pp.dias - 6) : null,
       invoice_number: null,
       revenue_tx_id: null, iss_tx_id: null, simples_tx_id: null, broker_tx_id: null, owner_tx_id: null, other_tx_id: null,
     }
     installments.push(inst)
     // Parcela cancelada: o cancel_sale apaga os lançamentos pendentes.
     if (pp.estado === 'cancelada') return
+    // Venda de pessoa física não escreve no razão da imobiliária (026).
+    if (p.pf) return
 
     inst.revenue_tx_id = lancar({
       ...base, id: `${iid}-rec`, kind: 'income', category: 'Comissões de Venda', dre_group: 'revenue',
@@ -321,6 +329,19 @@ venda({
   parcelas: [
     { dias: 15, estado: 'prevista' },
     { dias: 45, estado: 'prevista' },
+  ],
+})
+
+// 7. Venda feita antes da imobiliária: a comissão entra para o Rafael como
+//    pessoa física. Nenhum lançamento no razão da empresa.
+venda({
+  id: 'venda-exemplo-pf-902', title: 'Recanto Exemplo Sul — 902', cc: 'cc-parque', unit: '902', cliente: 'Cliente Exemplo Sete',
+  vendaEm: -240, vgv: 480000, pctComissao: 3, comissao: 14400, retemIss: false, corretor: null, pctCorretor: null,
+  status: 'ativa', pf: true,
+  notes: 'Venda feita quando o Rafael ainda estava em outra imobiliária: a comissão entra para ele como pessoa física.',
+  parcelas: [
+    { dias: -60, estado: 'recebida', recebidaEm: -58 },
+    { dias: 55, estado: 'prevista' },
   ],
 })
 

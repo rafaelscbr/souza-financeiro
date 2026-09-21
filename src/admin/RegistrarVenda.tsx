@@ -74,6 +74,12 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
   const [cliente, setCliente] = useState('')
   const [dataVenda, setDataVenda] = useState(toDateOnly(new Date()))
   const [valorImovel, setValorImovel] = useState<number | null>(null)
+  /*
+   * Para quem entra esta comissão (21/09/2026). Venda de pessoa física é
+   * venda do Rafael, não da Souza: não gera lançamento nenhum no razão da
+   * empresa — nem receita, nem imposto, nem repasse de corretor.
+   */
+  const [pessoaFisica, setPessoaFisica] = useState(false)
 
   // passo 2
   const [pctComissao, setPctComissao] = useState<number | null>(null)
@@ -109,6 +115,7 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
     setCliente('')
     setDataVenda(toDateOnly(new Date()))
     setValorImovel(null)
+    setPessoaFisica(false)
     setPctComissao(null)
     setParceria(false)
     setParceiro('')
@@ -164,13 +171,13 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
     () =>
       previewCascade({
         amount: comissao,
-        issuesInvoice: temNota,
-        simplesPct: pctSimples ?? 0,
-        retainsIss: retemIss,
-        issPct: pctIss ?? 0,
-        brokerPct: corretor ? pctCorretor : null,
+        issuesInvoice: pessoaFisica ? false : temNota,
+        simplesPct: pessoaFisica ? 0 : pctSimples ?? 0,
+        retainsIss: pessoaFisica ? false : retemIss,
+        issPct: pessoaFisica ? 0 : pctIss ?? 0,
+        brokerPct: pessoaFisica || !corretor ? null : pctCorretor,
       }),
-    [comissao, temNota, pctSimples, retemIss, pctIss, corretor, pctCorretor],
+    [comissao, pessoaFisica, temNota, pctSimples, retemIss, pctIss, corretor, pctCorretor],
   )
 
   function gerarParcelas(n: number) {
@@ -194,7 +201,7 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
           'A comissão da imobiliária está em zero. Informe o valor do imóvel e o percentual, ou digite a comissão direto no campo "Comissão da imobiliária".',
         )
       }
-      if (corretor && !pctCorretor) {
+      if (!pessoaFisica && corretor && !pctCorretor) {
         return setErro(
           'O corretor está escolhido e o percentual dele está vazio. Informe o % do corretor, ou volte o campo Corretor para "Nenhum".',
         )
@@ -231,12 +238,13 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
         commission_total: comissao,
         partner_name: parceria ? parceiro || null : null,
         partner_share_pct: parceria ? pctSouza : null,
-        issues_invoice: temNota,
-        simples_pct: pctSimples ?? 6,
-        retains_iss: retemIss,
-        iss_pct: retemIss ? pctIss ?? 0 : 0,
-        broker_id: corretor || null,
-        broker_pct: corretor ? pctCorretor : null,
+        issues_invoice: pessoaFisica ? false : temNota,
+        simples_pct: pessoaFisica ? 0 : pctSimples ?? 6,
+        retains_iss: pessoaFisica ? false : retemIss,
+        iss_pct: pessoaFisica || !retemIss ? 0 : pctIss ?? 0,
+        broker_id: pessoaFisica ? null : corretor || null,
+        broker_pct: pessoaFisica || !corretor ? null : pctCorretor,
+        is_personal: pessoaFisica,
         notes: observacao || null,
         installments: parcelas,
       })
@@ -287,7 +295,15 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
     else onFechar()
   }
 
-  const previaProps = { previa, comissao, temNota, retemIss, pctSimples, pctIss, pctCorretor }
+  const previaProps = {
+    previa,
+    comissao,
+    temNota: pessoaFisica ? false : temNota,
+    retemIss: pessoaFisica ? false : retemIss,
+    pctSimples: pessoaFisica ? 0 : pctSimples,
+    pctIss: pessoaFisica ? 0 : pctIss,
+    pctCorretor: pessoaFisica ? null : pctCorretor,
+  }
 
   return (
     <>
@@ -425,6 +441,34 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
                 >
                   <CurrencyInput id="v-vgv" value={valorImovel} onChange={setValorImovel} />
                 </FormField>
+                {/*
+                 * PARA QUEM ENTRA (21/09/2026). Duas vendas do PortoVelas foram
+                 * feitas quando o Rafael ainda estava em outra imobiliária: a
+                 * comissão é dele, não da Souza. A pergunta vem aqui, no passo
+                 * da venda, porque ela decide TUDO o que vem depois — venda de
+                 * pessoa física não tem imposto da empresa nem repasse de
+                 * corretor, e não vira lançamento no caixa dela.
+                 */}
+                <div className="sm:col-span-2">
+                  <Escolha
+                    rotulo="Para quem entra esta comissão?"
+                    hint={
+                      pessoaFisica
+                        ? 'venda sua: a parcela entra inteira pra você, sem imposto da imobiliária e sem repasse. Nada disso passa pelo caixa da Souza.'
+                        : 'venda da Souza: imposto, comissão de corretor e caixa da imobiliária, como sempre'
+                    }
+                  >
+                    <FiltrosRapidos
+                      rotuloAcessivel="Para quem entra esta comissão"
+                      ativo={pessoaFisica ? 'pf' : 'empresa'}
+                      aoMudar={(v) => setPessoaFisica(v === 'pf')}
+                      filtros={[
+                        { id: 'empresa', rotulo: 'Souza Imobiliária' },
+                        { id: 'pf', rotulo: 'Você, pessoa física' },
+                      ]}
+                    />
+                  </Escolha>
+                </div>
               </div>
             </Bloco>
           )}
@@ -510,71 +554,80 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
                   />
                 </FormField>
 
-                <div className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-                  <FormField label="Corretor" htmlFor="v-corr" hint="deixe em Nenhum se não há comissão a repassar">
-                    <Select id="v-corr" value={corretor} onChange={(e) => escolherCorretor(e.target.value)}>
-                      <option value="">Nenhum</option>
-                      {corretores.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-                  {corretor && (
-                    <FormField
-                      label="% do corretor"
-                      htmlFor="v-corrpct"
-                      hint="em %, sobre a base — a comissão já descontada de ISS e Simples, nunca sobre o bruto"
-                    >
-                      <PercentInput id="v-corrpct" value={pctCorretor} onChange={setPctCorretor} />
+                {pessoaFisica ? (
+                  <p className="rounded-caixa border border-fio-linha bg-fundo-2 px-4 py-3 text-texto-corrido text-t2">
+                    Venda sua, como pessoa física: a comissão entra inteira pra você. A imobiliária não emite nota, não
+                    recolhe imposto e não repassa comissão de corretor nesta venda — por isso estes campos não aparecem.
+                  </p>
+                ) : (
+                  <>
+                  <div className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                    <FormField label="Corretor" htmlFor="v-corr" hint="deixe em Nenhum se não há comissão a repassar">
+                      <Select id="v-corr" value={corretor} onChange={(e) => escolherCorretor(e.target.value)}>
+                        <option value="">Nenhum</option>
+                        {corretores.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </Select>
                     </FormField>
-                  )}
-                </div>
+                    {corretor && (
+                      <FormField
+                        label="% do corretor"
+                        htmlFor="v-corrpct"
+                        hint="em %, sobre a base — a comissão já descontada de ISS e Simples, nunca sobre o bruto"
+                      >
+                        <PercentInput id="v-corrpct" value={pctCorretor} onChange={setPctCorretor} />
+                      </FormField>
+                    )}
+                  </div>
 
-                <Excecao
-                  titulo="Impostos desta venda"
-                  resumo={resumoDosImpostos(temNota, pctSimples, retemIss, pctIss)}
-                  aberta={painel === 'impostos'}
-                  aoAlternar={() => setPainel((p) => (p === 'impostos' ? null : 'impostos'))}
-                >
-                  <Escolha
-                    rotulo="A imobiliária emite nota fiscal?"
-                    hint={temNota ? 'com nota, o Simples incide sobre cada recebimento' : 'sem nota, o Simples não incide'}
+                  <Excecao
+                    titulo="Impostos desta venda"
+                    resumo={resumoDosImpostos(temNota, pctSimples, retemIss, pctIss)}
+                    aberta={painel === 'impostos'}
+                    aoAlternar={() => setPainel((p) => (p === 'impostos' ? null : 'impostos'))}
                   >
-                    <FiltrosRapidos
-                      rotuloAcessivel="Emite nota fiscal"
-                      ativo={temNota ? 'sim' : 'nao'}
-                      aoMudar={(v) => setTemNota(v === 'sim')}
-                      filtros={SIM_NAO}
-                    />
-                  </Escolha>
-                  {temNota && (
-                    <FormField label="% do Simples Nacional" htmlFor="v-simples" hint="em %, sobre a comissão menos o ISS">
-                      <PercentInput id="v-simples" value={pctSimples} onChange={setPctSimples} />
-                    </FormField>
-                  )}
-                  <Escolha
-                    rotulo="A construtora retém o ISS na fonte?"
-                    hint={
-                      retemIss
-                        ? 'a construtora desconta o ISS antes de pagar a parcela'
-                        : 'a construtora paga a parcela cheia'
-                    }
-                  >
-                    <FiltrosRapidos
-                      rotuloAcessivel="Construtora retém ISS"
-                      ativo={retemIss ? 'sim' : 'nao'}
-                      aoMudar={(v) => setRetemIss(v === 'sim')}
-                      filtros={SIM_NAO}
-                    />
-                  </Escolha>
-                  {retemIss && (
-                    <FormField label="% do ISS" htmlFor="v-isspct" hint="em %, sobre a comissão">
-                      <PercentInput id="v-isspct" value={pctIss} onChange={setPctIss} />
-                    </FormField>
-                  )}
-                </Excecao>
+                    <Escolha
+                      rotulo="A imobiliária emite nota fiscal?"
+                      hint={temNota ? 'com nota, o Simples incide sobre cada recebimento' : 'sem nota, o Simples não incide'}
+                    >
+                      <FiltrosRapidos
+                        rotuloAcessivel="Emite nota fiscal"
+                        ativo={temNota ? 'sim' : 'nao'}
+                        aoMudar={(v) => setTemNota(v === 'sim')}
+                        filtros={SIM_NAO}
+                      />
+                    </Escolha>
+                    {temNota && (
+                      <FormField label="% do Simples Nacional" htmlFor="v-simples" hint="em %, sobre a comissão menos o ISS">
+                        <PercentInput id="v-simples" value={pctSimples} onChange={setPctSimples} />
+                      </FormField>
+                    )}
+                    <Escolha
+                      rotulo="A construtora retém o ISS na fonte?"
+                      hint={
+                        retemIss
+                          ? 'a construtora desconta o ISS antes de pagar a parcela'
+                          : 'a construtora paga a parcela cheia'
+                      }
+                    >
+                      <FiltrosRapidos
+                        rotuloAcessivel="Construtora retém ISS"
+                        ativo={retemIss ? 'sim' : 'nao'}
+                        aoMudar={(v) => setRetemIss(v === 'sim')}
+                        filtros={SIM_NAO}
+                      />
+                    </Escolha>
+                    {retemIss && (
+                      <FormField label="% do ISS" htmlFor="v-isspct" hint="em %, sobre a comissão">
+                        <PercentInput id="v-isspct" value={pctIss} onChange={setPctIss} />
+                      </FormField>
+                    )}
+                  </Excecao>
+                  </>
+                )}
               </Bloco>
 
               <PreviaDaConta {...previaProps} />

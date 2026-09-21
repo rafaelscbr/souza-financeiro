@@ -75,7 +75,13 @@ export function Relatorios() {
     () => treasurySummary(accounts, transactions, transfers),
     [accounts, transactions, transfers],
   )
-  const porEmpreendimento = useMemo(() => developmentResults(vendas), [vendas])
+  /*
+   * Só o dinheiro da imobiliária. Venda marcada como pessoa física (026) é do
+   * Rafael: não tem lançamento no razão da empresa e não pode entrar no
+   * resultado por empreendimento dela.
+   */
+  const vendasDaEmpresa = useMemo(() => vendas.filter((v) => !v.is_personal), [vendas])
+  const porEmpreendimento = useMemo(() => developmentResults(vendasDaEmpresa), [vendasDaEmpresa])
   const porCorretor = useMemo(
     () => brokerProduction({ vendas, contacts, comAcesso: contatosComAcesso, year: null }),
     [vendas, contacts, contatosComAcesso],
@@ -163,7 +169,7 @@ export function Relatorios() {
 
   /** As vendas de um empreendimento — a mesma chave que `developmentResults` usa. */
   const vendasDoEmpreendimento = (d: DevelopmentResult) =>
-    vendas.filter((v) => v.status !== 'cancelada' && (v.cost_center_id ?? '—') === (d.id ?? '—'))
+    vendasDaEmpresa.filter((v) => v.status !== 'cancelada' && (v.cost_center_id ?? '—') === (d.id ?? '—'))
 
   const metaDaVenda = (titulo: string | null, data: string) =>
     [titulo, `vendida em ${formatDate(data)}`].filter(Boolean).join(' · ')

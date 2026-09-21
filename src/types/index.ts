@@ -377,6 +377,12 @@ export interface Sale {
   status: SaleStatus
   notes: string | null
   legacy_group_id: string | null
+  /**
+   * A comissão é do Rafael como pessoa física, não da imobiliária (vendas
+   * feitas quando ele estava em outra imobiliária). Venda assim não gera
+   * lançamento nenhum no razão da empresa: só a previsão do que entra pra ele.
+   */
+  is_personal: boolean
   created_at: string
   updated_at: string
 }
@@ -451,6 +457,8 @@ export interface NewSale {
   iss_pct: number
   broker_id: string | null
   broker_pct: number | null
+  /** Venda que entra para o Rafael como pessoa física: fora do razão da empresa. */
+  is_personal?: boolean
   notes: string | null
   installments: NewInstallment[]
 }
