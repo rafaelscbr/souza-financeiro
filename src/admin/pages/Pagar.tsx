@@ -24,9 +24,9 @@ const soma = (l: MoneyItem[]) => Math.round(l.reduce((s, i) => s + i.amount, 0) 
  * A situação de uma linha a pagar.
  *
  * A fonte é `released`, o MESMO campo que define o que esta tela chama de
- * devido (src/lib/sales.ts): comissão só é liberada quando a parcela da venda
- * foi recebida; imposto e despesa nascem liberados. Assim o chip nunca
- * contradiz o total do topo. A regra de atraso é de `situacaoDeTela`, que
+ * devido (src/lib/sales.ts): comissão e imposto só são devidos quando a
+ * parcela da venda foi recebida; a guia do mês e a despesa nascem devidas.
+ * Assim o chip nunca contradiz o total do topo. A regra de atraso é de `situacaoDeTela`, que
  * garante que comissão ainda prevista nunca apareça como vencida.
  */
 function situacaoDaLinha(i: MoneyItem, hoje: string): Situacao {
@@ -69,9 +69,11 @@ export function Pagar() {
   const grupos = useMemo(() => {
     const liberadas = pagar.filter((i) => i.kind === 'comissao' && i.released)
     const previstas = pagar.filter((i) => i.kind === 'comissao' && !i.released)
-    const impostos = pagar.filter((i) => i.kind === 'imposto')
+    // Imposto de parcela que ainda não entrou é previsão, não dívida (21/09/2026).
+    const impostos = pagar.filter((i) => i.kind === 'imposto' && i.released)
+    const impostosPrevistos = pagar.filter((i) => i.kind === 'imposto' && !i.released)
     const despesas = pagar.filter((i) => i.kind === 'despesa' || i.kind === 'socio')
-    return { liberadas, previstas, impostos, despesas }
+    return { liberadas, previstas, impostos, impostosPrevistos, despesas }
   }, [pagar])
 
   const porCorretor = useMemo(() => porCorretorDe(grupos.liberadas), [grupos.liberadas])
@@ -134,7 +136,21 @@ export function Pagar() {
       'Só vira dívida quando a construtora pagar a parcela. Até lá não é obrigação e não entra em nenhum total de dívida.',
     )
   const abrirImpostos = () =>
-    abrirGrupo(grupos.impostos, 'Imposto', 'Imposto a pagar', 'A guia do Simples de cada mês, mais o ISS das parcelas de venda.')
+    abrirGrupo(grupos.impostos, 'Imposto', 'Imposto a pagar', 'A guia do Simples de cada mês, mais o ISS das parcelas já recebidas.')
+  const abrirImpostosPrevistos = () =>
+    abrirGrupo(
+      grupos.impostosPrevistos,
+      'Imposto previsto',
+      'Imposto ainda previsto',
+      'Imposto de parcela que a construtora não pagou. Ele entra na guia do mês em que o dinheiro cair — até lá não é obrigação.',
+    )
+  const abrirTudoPrevisto = () =>
+    abrirGrupo(
+      [...grupos.previstas, ...grupos.impostosPrevistos],
+      'Previsto',
+      'O que depende da construtora pagar',
+      'Comissão do corretor e imposto de parcela que a construtora ainda não pagou. Nada disso é obrigação hoje.',
+    )
   const abrirDespesas = () =>
     abrirGrupo(grupos.despesas, 'Despesas', 'Despesa a pagar', 'Despesa lançada e distribuição do sócio ainda em aberto.')
 
@@ -249,7 +265,7 @@ export function Pagar() {
         <CartaoDeSaida titulo="Despesas" icone={Receipt} explica="Estrutura da imobiliária e retiradas do sócio." itens={grupos.despesas} hoje={hoje} onPagar={setAvulso} aoAbrir={abrirLancamento} />
       )}
 
-      {previstasPorCorretor.length > 0 && (
+      {(previstasPorCorretor.length > 0 || grupos.impostosPrevistos.length > 0) && (
         /*
          * A previsão fica em cartão próprio, sem botão de pagar:
          * `pay_broker_installments` recusa parcela não recebida. Uma linha por
@@ -259,14 +275,20 @@ export function Pagar() {
           <Cartao.Cabecalho
             titulo="Previsto, depende da construtora"
             icone={Hourglass}
-            meta={previstasPorCorretor.length === 1 ? 'um corretor' : `${previstasPorCorretor.length} corretores`}
+            meta={
+              grupos.impostosPrevistos.length > 0
+                ? 'comissão e imposto de parcela que ainda não entrou'
+                : previstasPorCorretor.length === 1
+                  ? 'um corretor'
+                  : `${previstasPorCorretor.length} corretores`
+            }
             extra={
               <ValorComOrigem
                 posto="destaque"
                 previsto
-                valor={soma(grupos.previstas)}
-                aoAbrir={abrirPrevistas}
-                rotuloAcessivel="Ver de onde vem: Comissão ainda prevista"
+                valor={soma([...grupos.previstas, ...grupos.impostosPrevistos])}
+                aoAbrir={grupos.impostosPrevistos.length > 0 ? abrirTudoPrevisto : abrirPrevistas}
+                rotuloAcessivel="Ver de onde vem: o que ainda depende da construtora"
               />
             }
           />
@@ -306,9 +328,24 @@ export function Pagar() {
                 />
               )
             })}
+            {grupos.impostosPrevistos.length > 0 && (
+              <Linha
+                titulo="Imposto das parcelas previstas"
+                meta={`${grupos.impostosPrevistos.length === 1 ? 'uma parcela' : `${grupos.impostosPrevistos.length} parcelas`} · entra na guia do mês em que o dinheiro cair`}
+                situacao={<ChipSituacao situacao="prevista" />}
+                valor={<Valor posto="linha" previsto valor={soma(grupos.impostosPrevistos)} />}
+                aoClicar={abrirImpostosPrevistos}
+                acao={
+                  <Button size="sm" variant="fantasma" onClick={abrirImpostosPrevistos}>
+                    Ver parcelas
+                  </Button>
+                }
+              />
+            )}
           </Cartao.Lista>
           <Cartao.Rodape>
-            O corretor recebe quando a imobiliária receber. Não é dívida hoje, e nada daqui entra no número do topo.
+            O corretor recebe quando a imobiliária receber, e o imposto só nasce com o dinheiro dentro. Não é dívida
+            hoje, e nada daqui entra no número do topo.
           </Cartao.Rodape>
         </Cartao>
       )}

@@ -290,8 +290,17 @@ export function payablesOf(
         installment: parcela,
         overdue: date < hoje,
         kind,
-        // Comissão só é devida de verdade quando a parcela foi recebida.
-        released: kind === 'comissao' ? parcela?.status === 'recebida' : true,
+        /*
+         * Devido de verdade é o que a imobiliária já deve. Comissão e imposto
+         * de parcela que a construtora ainda não pagou são PREVISÃO — decisão
+         * do Rafael em 21/09/2026, depois que a guia mensal do Simples (027)
+         * deixou a diferença à vista: a tela dizia "imposto de parcela
+         * recebida" e somava também o da parcela que não entrou.
+         *
+         * Lançamento de imposto sem parcela (a guia do mês, a despesa avulsa)
+         * é devido: ele só existe porque o dinheiro já entrou.
+         */
+        released: kind === 'comissao' || kind === 'imposto' ? (parcela ? parcela.status === 'recebida' : true) : true,
       }
     })
     .sort((a, b) => (a.date < b.date ? -1 : 1))
@@ -363,7 +372,8 @@ export function attentionOf(params: {
     })
   }
 
-  const impostos = params.pagar.filter((i) => i.kind === 'imposto')
+  // Só o imposto que já é devido: previsão não precisa de atenção hoje.
+  const impostos = params.pagar.filter((i) => i.kind === 'imposto' && i.released)
   if (impostos.length > 0) {
     const vencidos = impostos.filter((i) => i.overdue)
     itens.push({
