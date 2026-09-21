@@ -58,6 +58,9 @@ function CartaoCabecalho({ titulo, icone, meta, extra, nivel = 'h2', id, classNa
   return (
     <div className={cn('flex min-h-14 flex-wrap items-center gap-3 px-recuo pb-3 pt-recuo', className)}>
       <div className="flex min-w-0 max-w-full items-center gap-3">
+        {/* O filete de marca: onde a seção começa (21/09/2026, a pedido do
+            Rafael, no desenho do CRM). Decoração muda, significado não. */}
+        <span data-filete aria-hidden />
         {icone && (
           <span className="flex shrink-0 text-t3">
             <Icone icone={icone} tamanho={16} />

@@ -1,11 +1,12 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, CalendarDays, Timer, Handshake, TriangleAlert, Wallet } from 'lucide-react'
+import { ArrowRight, Banknote, CalendarDays, Timer, Handshake, HandCoins, Hourglass, TriangleAlert, Wallet } from 'lucide-react'
 import { useCorretor, type CorretorParcela } from '../CorretorData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
+import { Kpi } from '@/components/ui/Kpi'
 import { Linha } from '@/components/ui/Lista'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
 import { Selo } from '@/components/ui/Selo'
@@ -99,6 +100,61 @@ export function CorretorInicio() {
             : 'Nada liberado no momento. Quando a construtora pagar uma parcela, sua comissão aparece aqui.'
         }
       />
+
+      {/*
+       * A FILEIRA DO CORRETOR (21/09/2026). O painel dele era uma coluna de
+       * cartões; agora abre com os quatro números que ele quer de relance —
+       * os mesmos que já estavam mais abaixo, sem conta nova. O herói continua
+       * sendo um só: o que está liberado para ele receber.
+       */}
+      <div className="grid gap-bloco sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi
+          rotulo={`Vendas em ${ano}`}
+          icone={Handshake}
+          tom="neutro"
+          valor={0}
+          texto={String(p.sales_count)}
+          nota={`${formatCurrency(soma(doAno))} de comissão sua no ano`}
+          para="/minhas-vendas"
+        />
+        <Kpi
+          rotulo={`Já recebida em ${ano}`}
+          icone={Banknote}
+          tom="sucesso"
+          valor={soma(recebidas)}
+          estado={soma(recebidas) > 0 ? 'recebido' : undefined}
+          nota={
+            recebidas.length === 0
+              ? 'nada pago a você ainda neste ano'
+              : `${recebidas.length} ${recebidas.length === 1 ? 'parcela paga' : 'parcelas pagas'} a você`
+          }
+          para="/recebimentos"
+        />
+        <Kpi
+          rotulo="Liberada, a receber"
+          icone={HandCoins}
+          tom="atencao"
+          valor={soma(liberadas)}
+          nota={
+            liberadas.length === 0
+              ? 'nada liberado no momento'
+              : `${liberadas.length} ${liberadas.length === 1 ? 'parcela' : 'parcelas'} que a imobiliária já recebeu`
+          }
+          para="/recebimentos?filtro=aReceber"
+        />
+        <Kpi
+          rotulo="Ainda prevista"
+          icone={Hourglass}
+          tom="info"
+          valor={soma(previstas)}
+          nota={
+            previstas.length === 0
+              ? 'nenhuma parcela prevista'
+              : `${previstas.length} ${previstas.length === 1 ? 'parcela' : 'parcelas'} · depende da construtora pagar`
+          }
+          para="/recebimentos"
+        />
+      </div>
 
       {/*
        * Atraso aqui tem um significado estrito: é o que a imobiliária JÁ

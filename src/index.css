@@ -163,6 +163,31 @@ html.light {
   --veu-painel: color-mix(in srgb, var(--page-bg) 55%, transparent);
   --veu-modal: color-mix(in srgb, var(--page-bg) 75%, transparent);
   --sombra-rolagem: color-mix(in srgb, var(--page-bg) 90%, transparent); /* 4.2 */
+
+  /*
+   * DEGRADÊ E FILETE, de volta em 21/09/2026.
+   *
+   * Em 12/09 o Rafael reprovou os dois. Em 21/09, comparando com o CRM dele,
+   * pediu os dois de volta — e o CRM é a referência que ele quer. O que muda
+   * em relação ao que foi reprovado: o degradê agora é UM token, aplicado na
+   * superfície inteira de uma vez, e não efeito solto espalhado por tela; e o
+   * filete é o marcador do título de seção, como no CRM, não enfeite de linha.
+   */
+  --grad-superficie: linear-gradient(158deg, rgba(255,255,255,.055) 0%, rgba(255,255,255,.012) 38%, rgba(255,255,255,0) 72%);
+  --grad-heroi: linear-gradient(158deg, rgba(228,178,60,.12) 0%, rgba(228,178,60,.03) 40%, rgba(228,178,60,0) 72%);
+
+  /*
+   * O FUNDO DA PÁGINA não é mais uma chapa (21/09/2026): "quero algo mais
+   * bonito, e não só um fundo opaco, sólido". Três camadas presas na tela
+   * (background-attachment: fixed), para o fundo não deslizar com a rolagem:
+   * um halo de ouro no alto à direita, um azul frio no alto à esquerda e uma
+   * descida vertical que escurece até o rodapé. Tudo em opacidade baixa: o
+   * fundo tem de sumir atrás do conteúdo, não competir com ele.
+   */
+  --grad-pagina:
+    radial-gradient(1100px 620px at 82% -12%, rgba(228,178,60,.085), transparent 62%),
+    radial-gradient(900px 560px at 4% 2%, rgba(86,124,222,.115), transparent 64%),
+    linear-gradient(180deg, #0E1530 0%, #0A0F20 42%, #070B1A 100%);
 }
 
 /* 5.1 Tokens derivados — claro */
@@ -177,6 +202,16 @@ html.light {
   --veu-painel: color-mix(in srgb, var(--t1) 28%, transparent);
   --veu-modal: color-mix(in srgb, var(--t1) 45%, transparent);
   --sombra-rolagem: color-mix(in srgb, var(--t1) 14%, transparent);  /* 4.2 */
+
+  /* No claro a luz vem de cima e o degradê fecha em sombra, não em brilho. */
+  --grad-superficie: linear-gradient(158deg, rgba(255,255,255,.9) 0%, rgba(15,23,48,.012) 55%, rgba(15,23,48,.032) 100%);
+  --grad-heroi: linear-gradient(158deg, rgba(228,178,60,.16) 0%, rgba(228,178,60,.05) 45%, rgba(228,178,60,0) 78%);
+
+  /* No claro o mesmo desenho, em papel: o halo é quente e quase não se vê. */
+  --grad-pagina:
+    radial-gradient(1100px 620px at 82% -12%, rgba(228,178,60,.16), transparent 62%),
+    radial-gradient(900px 560px at 4% 2%, rgba(86,124,222,.07), transparent 64%),
+    linear-gradient(180deg, #F5F2EA 0%, #EDE9DF 48%, #E7E2D6 100%);
 }
 
 /* 3.2 Espaço semântico */
@@ -255,6 +290,9 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
    */
   body {
     background-color: var(--page-bg);
+    background-image: var(--grad-pagina);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
     color: var(--t2);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
@@ -722,6 +760,42 @@ html.trocando-tema *::after {
   /* DEPRECADO — apagar na limpeza final. Usam: Toast.tsx, BottomNav.tsx (pb-safe); PageLayout.tsx (pt-safe). */
   .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
   .pt-safe { padding-top: env(safe-area-inset-top); }
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * PROFUNDIDADE E LUZ (21/09/2026)
+ * ---------------------------------------------------------------------------
+ * O Rafael comparou com o CRM e pediu: degradê no fundo, degradê nas caixas,
+ * filete no título de seção. Tudo aqui, em um lugar só, lendo token — nenhuma
+ * tela escreve gradiente à mão.
+ */
+@layer components {
+  /* A caixa ganha a luz batendo na quina de cima. */
+  [data-caixa] { background-image: var(--grad-superficie); }
+
+  /* O herói é a única caixa com ouro no fundo, e bem de leve. */
+  [data-caixa][data-heroi] { background-image: var(--grad-heroi); }
+
+  /* A trilha do menu acompanha o fundo, sem virar outro plano. */
+  .nav-rail {
+    background-color: var(--nav-bg);
+    background-image: linear-gradient(180deg, rgba(255,255,255,.035) 0%, rgba(255,255,255,0) 28%);
+  }
+
+  /*
+   * O FILETE do título de seção: 3px, raio inteiro, cor de marca. É o mesmo
+   * marcador do CRM. Ele não substitui ícone nem palavra — só marca onde a
+   * seção começa.
+   */
+  [data-filete] {
+    width: 3px;
+    min-height: 1.125rem;
+    align-self: center;
+    flex: none;
+    border-radius: 999px;
+    background-color: var(--brand);
+  }
 }
 
 /*

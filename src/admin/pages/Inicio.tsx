@@ -1,17 +1,19 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarRange, CircleCheck, Clock, Handshake, ListChecks, ReceiptText, UserRound } from 'lucide-react'
+import { Banknote, CalendarRange, CircleCheck, Clock, Handshake, Hourglass, ListChecks, ReceiptText, UserRound } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
+import { Kpi } from '@/components/ui/Kpi'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { Selo } from '@/components/ui/Selo'
 import { IconeTom } from '@/components/ui/IconeTom'
 import { ChipSituacao } from '@/components/ui/Situacao'
 import { EstadoVazio } from '@/components/ui/Estados'
+import { formatCurrency } from '@/lib/format'
 import { accountBalance } from '@/lib/treasury'
 import { situacaoDeTela } from '@/lib/situacao'
 import { etapaDaParcela, fraseDaEtapa } from '@/lib/etapas'
@@ -131,6 +133,26 @@ export function Inicio() {
    */
   const vendasAtivas = vendas.filter((v) => v.status !== 'cancelada' && !v.is_personal)
 
+  /*
+   * A FILEIRA DE INDICADORES (21/09/2026, pedido do Rafael no desenho do CRM).
+   *
+   * Quatro números que ele quer ver de relance. Nenhum é novo: três já estavam
+   * na tela, dentro do cartão do mês, e o quarto — o que entrou no mês — sai
+   * das parcelas recebidas, somadas pela data em que o dinheiro caiu. A regra
+   * do herói continua de pé: o indicador é pequeno, sem ouro, e leva para a
+   * tela que manda no número.
+   */
+  const entrouNoMes = useMemo(() => {
+    const parcelas = vendas
+      .filter((v) => !v.is_personal)
+      .flatMap((v) => v.installments)
+      .filter((i) => i.status === 'recebida' && (i.received_date ?? '').slice(0, 7) === chaveMes)
+    return {
+      total: Math.round(parcelas.reduce((s, i) => s + i.amount, 0) * 100) / 100,
+      n: parcelas.length,
+    }
+  }, [vendas, chaveMes])
+
   /** O que entra pra você, fora da imobiliária: parcela cheia, sem desconto. */
   const pessoais = useMemo(() => {
     const linhas = vendas
@@ -211,6 +233,51 @@ export function Inicio() {
         }
         frase="O que existe hoje, somando as contas ativas. Não entra nada previsto."
       />
+
+      <div className="grid gap-bloco sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi
+          rotulo="Vendas ativas"
+          icone={Handshake}
+          tom="neutro"
+          valor={0}
+          texto={String(vendasAtivas.length)}
+          nota={`${formatCurrency(soma(receber))} de comissão ainda por entrar`}
+          para="/vendas"
+        />
+        <Kpi
+          rotulo="Entrou no mês"
+          icone={Banknote}
+          tom="sucesso"
+          valor={entrouNoMes.total}
+          estado={entrouNoMes.total > 0 ? 'recebido' : undefined}
+          nota={
+            entrouNoMes.n === 0
+              ? 'nenhuma parcela recebida neste mês'
+              : `${entrouNoMes.n} ${entrouNoMes.n === 1 ? 'parcela recebida' : 'parcelas recebidas'}`
+          }
+          para="/vendas"
+        />
+        <Kpi
+          rotulo="A receber"
+          icone={CalendarRange}
+          tom="info"
+          valor={soma(aReceber)}
+          nota="neste mês, mais o que está em atraso"
+          para="/receber"
+        />
+        <Kpi
+          rotulo="Em atraso"
+          icone={Hourglass}
+          tom={vencido.length > 0 ? 'atencao' : 'neutro'}
+          valor={soma(vencido)}
+          nota={
+            vencido.length === 0
+              ? 'nenhuma parcela em atraso'
+              : `${vencido.length} ${vencido.length === 1 ? 'parcela' : 'parcelas'} que a construtora não pagou`
+          }
+          para="/receber?janela=vencidas"
+        />
+      </div>
 
       <div className="grid items-start gap-bloco lg:grid-cols-12">
         {/* Trabalho primeiro. */}
