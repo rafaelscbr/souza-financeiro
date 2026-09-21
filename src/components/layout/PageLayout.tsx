@@ -321,7 +321,7 @@ export function PageLayout({
 
   // Fora da casca (amostras): a mesma receita, sozinha.
   return (
-    <div className="flex min-h-screen flex-col bg-page">
+    <div className="fundo-app flex min-h-screen flex-col">
       <header className="cabecalho">
         <div className="conteudo flex h-cabecalho items-center gap-3">{cabecalho}</div>
       </header>

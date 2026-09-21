@@ -77,7 +77,7 @@
   --shadow-modal:0 25px 50px rgba(0,0,0,.80),0 10px 20px rgba(0,0,0,.55);
   --shadow-dropdown:0 10px 30px rgba(0,0,0,.65),0 4px 10px rgba(0,0,0,.50);
 
-  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.06'/%3E%3C/svg%3E");
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.035'/%3E%3C/svg%3E");
   --surface-sheen:linear-gradient(158deg,rgba(255,255,255,.055) 0%,rgba(255,255,255,0) 58%);
   --sheen-start:var(--surface-2);
   --aurora-a:rgba(228,178,60,.14); --aurora-b:rgba(228,178,60,.09);
@@ -110,7 +110,7 @@ html.light { /* CLARO — Papel */
   --shadow-modal:0 25px 50px rgba(15,23,48,.18),0 10px 20px rgba(15,23,48,.10);
   --shadow-dropdown:0 10px 30px rgba(15,23,48,.12),0 4px 10px rgba(15,23,48,.08);
 
-  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.025'/%3E%3C/svg%3E");
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.02'/%3E%3C/svg%3E");
   --surface-sheen:linear-gradient(158deg,rgba(255,255,255,0) 45%,rgba(15,23,48,.030) 100%);
   --sheen-start:color-mix(in srgb,var(--surface-2) 50%,var(--surface));
   --aurora-a:rgba(228,178,60,.055); --aurora-b:rgba(196,146,42,.035);
@@ -175,6 +175,7 @@ html.light {
    */
   --grad-superficie: linear-gradient(158deg, rgba(255,255,255,.055) 0%, rgba(255,255,255,.012) 38%, rgba(255,255,255,0) 72%);
   --grad-heroi: linear-gradient(158deg, rgba(228,178,60,.12) 0%, rgba(228,178,60,.03) 40%, rgba(228,178,60,0) 72%);
+  --grad-trilha: linear-gradient(180deg, rgba(86,124,222,.14) 0%, rgba(86,124,222,.04) 26%, rgba(255,255,255,0) 60%);
 
   /*
    * O FUNDO DA PÁGINA não é mais uma chapa (21/09/2026): "quero algo mais
@@ -185,9 +186,10 @@ html.light {
    * fundo tem de sumir atrás do conteúdo, não competir com ele.
    */
   --grad-pagina:
-    radial-gradient(1100px 620px at 82% -12%, rgba(228,178,60,.085), transparent 62%),
-    radial-gradient(900px 560px at 4% 2%, rgba(86,124,222,.115), transparent 64%),
-    linear-gradient(180deg, #0E1530 0%, #0A0F20 42%, #070B1A 100%);
+    radial-gradient(1300px 760px at 92% -12%, rgba(228,178,60,.20), transparent 56%),
+    radial-gradient(1000px 640px at -8% -6%, rgba(86,124,222,.14), transparent 58%),
+    radial-gradient(1300px 820px at 40% 116%, rgba(228,178,60,.09), transparent 60%),
+    linear-gradient(180deg, #121A3C 0%, #0C1228 34%, #080D1F 64%, #070B1A 100%);
 }
 
 /* 5.1 Tokens derivados — claro */
@@ -206,12 +208,14 @@ html.light {
   /* No claro a luz vem de cima e o degradê fecha em sombra, não em brilho. */
   --grad-superficie: linear-gradient(158deg, rgba(255,255,255,.9) 0%, rgba(15,23,48,.012) 55%, rgba(15,23,48,.032) 100%);
   --grad-heroi: linear-gradient(158deg, rgba(228,178,60,.16) 0%, rgba(228,178,60,.05) 45%, rgba(228,178,60,0) 78%);
+  --grad-trilha: linear-gradient(180deg, rgba(255,255,255,.75) 0%, rgba(255,255,255,0) 40%);
 
   /* No claro o mesmo desenho, em papel: o halo é quente e quase não se vê. */
   --grad-pagina:
-    radial-gradient(1100px 620px at 82% -12%, rgba(228,178,60,.16), transparent 62%),
-    radial-gradient(900px 560px at 4% 2%, rgba(86,124,222,.07), transparent 64%),
-    linear-gradient(180deg, #F5F2EA 0%, #EDE9DF 48%, #E7E2D6 100%);
+    radial-gradient(1300px 760px at 92% -12%, rgba(228,178,60,.36), transparent 56%),
+    radial-gradient(1000px 640px at -8% -6%, rgba(86,124,222,.12), transparent 58%),
+    radial-gradient(1300px 820px at 40% 116%, rgba(228,178,60,.16), transparent 60%),
+    linear-gradient(180deg, #FCF9F1 0%, #F1EDE3 44%, #E6E1D4 100%);
 }
 
 /* 3.2 Espaço semântico */
@@ -288,11 +292,18 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
    * suavização (seção 4). A cor padrão é --t2, o papel "corpo" da seção 3.
    * Fundo LISO: nada lê --grain (fundamentos 5.2, decisão de 13/09/2026).
    */
+  /*
+   * O GRÃO (21/09/2026). Fundo chapado em tela grande "fica opaco, sem vida":
+   * o degradê liso mostra faixas (banding) e nada quebra a superfície. O grão
+   * é uma textura de ruído de 160px, repetida, por cima do degradê e ABAIXO de
+   * todo o conteúdo — ele não escurece nem clareia nada, só tira a chapa.
+   */
   body {
     background-color: var(--page-bg);
-    background-image: var(--grad-pagina);
-    background-attachment: fixed;
-    background-repeat: no-repeat;
+    background-image: var(--grain), var(--grad-pagina);
+    background-attachment: fixed, fixed;
+    background-repeat: repeat, no-repeat;
+    background-size: 160px 160px, cover;
     color: var(--t2);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
@@ -771,16 +782,54 @@ html.trocando-tema *::after {
  * tela escreve gradiente à mão.
  */
 @layer components {
-  /* A caixa ganha a luz batendo na quina de cima. */
-  [data-caixa] { background-image: var(--grad-superficie); }
+  /*
+   * O FUNDO DO APP. Ele mora aqui e não no body porque a casca (AdminShell,
+   * CorretorShell, PageLayout) pinta a própria caixa por cima do body — era
+   * essa chapa que escondia o degradê. Agora é ela que carrega a luz.
+   */
+  .fundo-app {
+    position: relative;
+    isolation: isolate;
+    background-color: var(--page-bg);
+    background-image: var(--grad-pagina);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+
+  /*
+   * O grão vem numa camada própria, presa na janela e ATRÁS do conteúdo
+   * (z-index -1 dentro do próprio contexto). Tentar empilhá-lo como segunda
+   * imagem de fundo junto do degradê deixava a emenda dos ladrilhos à vista.
+   */
+  .fundo-app::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: var(--grain);
+    background-repeat: repeat;
+  }
+
+  /* A caixa ganha a luz batendo na quina de cima, e o mesmo grão do fundo. */
+  [data-caixa] {
+    background-image: var(--grain), var(--grad-superficie);
+    background-repeat: repeat, no-repeat;
+    background-size: auto, cover;
+  }
 
   /* O herói é a única caixa com ouro no fundo, e bem de leve. */
-  [data-caixa][data-heroi] { background-image: var(--grad-heroi); }
+  [data-caixa][data-heroi] {
+    background-image: var(--grain), var(--grad-heroi);
+  }
 
   /* A trilha do menu acompanha o fundo, sem virar outro plano. */
   .nav-rail {
     background-color: var(--nav-bg);
-    background-image: linear-gradient(180deg, rgba(255,255,255,.035) 0%, rgba(255,255,255,0) 28%);
+    background-image: var(--grain), var(--grad-trilha);
+    background-repeat: repeat, no-repeat;
+    background-size: auto, cover;
   }
 
   /*

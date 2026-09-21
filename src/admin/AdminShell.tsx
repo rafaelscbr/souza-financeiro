@@ -206,7 +206,7 @@ function CascaDoAdmin() {
 
   return (
     <>
-      <div className="flex min-h-screen bg-page">
+      <div className="fundo-app flex min-h-screen">
         <NavRail
           secoes={secoes}
           usuario={usuario}
