@@ -138,7 +138,18 @@ function Contas() {
         )}
       </Cartao>
 
+      {/*
+       * A CHAVE É O QUE FAZ EDITAR FUNCIONAR (21/09/2026).
+       *
+       * O formulário fica montado o tempo todo, e `useState(existente?.name)`
+       * só corre na PRIMEIRA montagem — quando ainda não há alvo nenhum. Sem
+       * a chave, abrir para editar mostrava o formulário vazio: o React
+       * reaproveitava o estado inicial, de quando o alvo era null. Com ela,
+       * cada alvo é um componente novo, e o estado nasce do que está gravado.
+       * É o mesmo remédio que o cadastro de corretor já usava.
+       */}
       <FormConta
+        key={editando === null ? 'fechado' : editando === 'nova' ? 'nova' : editando.id}
         alvo={editando}
         onFechar={() => setEditando(null)}
         onSalvar={async (dados) => {
@@ -347,6 +358,7 @@ function Construtoras() {
       </Cartao>
 
       <FormConstrutora
+        key={editando === null ? 'fechado' : editando === 'nova' ? 'nova' : editando.id}
         alvo={editando}
         onFechar={() => setEditando(null)}
         onSalvar={async (dados) => {
@@ -507,6 +519,7 @@ function Empreendimentos() {
       </Cartao>
 
       <FormEmpreendimento
+        key={editando === null ? 'fechado' : editando === 'novo' ? 'novo' : editando.id}
         construtoras={developers}
         alvo={editando}
         onFechar={() => setEditando(null)}
@@ -696,7 +709,12 @@ function Categorias() {
 
       <SidePanel
         aberto={nova}
-        aoFechar={() => setNova(false)}
+        // Fechar joga fora o que foi digitado: reabrir tem que ser folha em
+        // branco, não o rascunho da vez passada.
+        aoFechar={() => {
+          setNome('')
+          setNova(false)
+        }}
         titulo="Nova categoria"
         largura="lg"
         rodape={
@@ -705,7 +723,10 @@ function Categorias() {
             salvando={salvando}
             desabilitado={!nome.trim()}
             cancelarTravado={false}
-            aoCancelar={() => setNova(false)}
+            aoCancelar={() => {
+              setNome('')
+              setNova(false)
+            }}
             aoSalvar={async () => {
               setSalvando(true)
               try {

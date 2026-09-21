@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '@/lib/supabase'
 import { SidePanel } from '@/components/ui/SidePanel'
 import { Dica } from '@/components/ui/Dica'
@@ -24,6 +24,15 @@ export function TrocarSenha({ aberto, onFechar }: { aberto: boolean; onFechar: (
   const [repetida, setRepetida] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+
+  // Cada abertura começa em branco: senha digitada e erro da vez passada não
+  // podem estar na tela quando o painel volta.
+  useEffect(() => {
+    if (!aberto) return
+    setSenha('')
+    setRepetida('')
+    setErro(null)
+  }, [aberto])
 
   async function enviar(e: FormEvent) {
     e.preventDefault()
