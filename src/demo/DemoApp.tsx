@@ -87,6 +87,7 @@ function AdminFalso({ children }: { children: ReactNode }) {
     () => ({
       company: fx.company, sales: fx.sales, installments: fx.installments, transactions: fx.transactions,
       accounts: fx.accounts, contacts: fx.contacts, categories: fx.categories, costCenters: fx.costCenters,
+      developers: fx.developers,
       transfers: fx.transfers, usuarios: fx.usuarios,
       vendas, receber, pagar, atencao, contatosComAcesso,
       mes, hoje,
@@ -100,7 +101,9 @@ function AdminFalso({ children }: { children: ReactNode }) {
       pagarComissoes: semBanco, reagendarParcela: semBanco, cancelarVenda: semBanco, editarVenda: semBanco,
       criarLancamento: semBanco, baixarLancamento: semBanco, estornarLancamento: semBanco,
       excluirLancamento: semBanco, salvarContato: semBanco, salvarConta: semBanco,
-      salvarEmpreendimento: semBanco, salvarCategoria: semBanco, salvarImposto: semBanco, salvarAcesso: semBanco,
+      salvarEmpreendimento: semBanco, salvarConstrutora: semBanco, salvarCategoria: semBanco, salvarImposto: semBanco,
+      salvarAcesso: semBanco,
+      marcarGatilho: semBanco, marcarNota: async () => { await semBanco(); return null },
     }),
     [vendas, receber, pagar, atencao, contatosComAcesso, mes, hoje],
   )

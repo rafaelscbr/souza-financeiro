@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import { fraseDeTempo, situacaoDeTela } from '@/lib/situacao'
+import { fraseDaEtapa } from '@/lib/etapas'
 import { formatMonthYear, parseDateOnly, toDateOnly } from '@/lib/format'
 import type { MoneyItem, SaleView } from '@/lib/sales'
 import type { SaleInstallment, Transaction } from '@/types'
@@ -238,7 +239,13 @@ export function Receber() {
                         titulo={i.label}
                         meta={
                           <>
-                            <FraseDeTempo situacao={s} prevista={i.date} />
+                            {/* Parcela de venda mostra o degrau (gatilho, nota, pagamento);
+                                entrada avulsa continua na frase de tempo de sempre. */}
+                            {i.installment ? (
+                              <span>{fraseDaEtapa(i.installment, hoje)}</span>
+                            ) : (
+                              <FraseDeTempo situacao={s} prevista={i.date} />
+                            )}
                             {outros && ` · ${outros}`}
                           </>
                         }

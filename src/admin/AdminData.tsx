@@ -24,6 +24,7 @@ import type {
   Company,
   Contact,
   CostCenter,
+  Developer,
   NewSale,
   Profile,
   Sale,
@@ -60,6 +61,8 @@ interface AdminValue {
   contacts: Contact[]
   categories: Category[]
   costCenters: CostCenter[]
+  /** Construtoras, donas do prazo de pagamento depois da nota. */
+  developers: Developer[]
   transfers: Transfer[]
   usuarios: UsuarioDoSistema[]
 
@@ -111,6 +114,14 @@ interface AdminValue {
   salvarContato: (c: Partial<Contact> & { id?: string }) => Promise<Contact>
   salvarConta: (c: Partial<Account> & { id?: string }) => Promise<void>
   salvarEmpreendimento: (c: Partial<CostCenter> & { id?: string }) => Promise<void>
+  salvarConstrutora: (d: Partial<Developer> & { id?: string }) => Promise<void>
+  /** Marca (ou desmarca, com data nula) o gatilho que libera a comissão da parcela. */
+  marcarGatilho: (installmentId: string, data: string | null, nota?: string | null) => Promise<void>
+  /**
+   * Marca (ou desmarca) a nota fiscal da parcela. Devolve a nova previsão de
+   * pagamento, calculada pelo prazo da construtora.
+   */
+  marcarNota: (installmentId: string, data: string | null, numero?: string | null) => Promise<string | null>
   salvarCategoria: (c: Partial<Category> & { id?: string }) => Promise<void>
   salvarImposto: (regime: string, aliquota: number | null) => Promise<void>
   salvarAcesso: (p: {
@@ -141,6 +152,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [costCenters, setCostCenters] = useState<CostCenter[]>([])
+  const [developers, setDevelopers] = useState<Developer[]>([])
   const [transfers, setTransfers] = useState<Transfer[]>([])
   const [usuarios, setUsuarios] = useState<UsuarioDoSistema[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -163,7 +175,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }
     const cid = (empresa.data as Company).id
 
-    const [vendasRes, parcelasRes, txRes, contasRes, contatosRes, catsRes, ccRes, trfRes, perfisRes] =
+    const [vendasRes, parcelasRes, txRes, contasRes, contatosRes, catsRes, ccRes, constRes, trfRes, perfisRes] =
       await Promise.all([
         supabase.from('sales').select('*').eq('company_id', cid).order('sale_date', { ascending: false }),
         supabase.from('sale_installments').select('*').order('idx'),
@@ -172,6 +184,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         supabase.from('contacts').select('*').order('name'),
         supabase.from('categories').select('*').order('sort_order'),
         supabase.from('cost_centers').select('*').eq('company_id', cid).order('name'),
+        supabase.from('developers').select('*').eq('company_id', cid).order('name'),
         supabase.from('transfers').select('*').order('date', { ascending: false }),
         supabase.from('profiles').select('*'),
       ])
@@ -239,6 +252,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     setContacts((contatosRes.data as Contact[]) ?? [])
     setCategories((catsRes.data as Category[]) ?? [])
     setCostCenters((ccRes.data as CostCenter[]) ?? [])
+    setDevelopers((constRes.data as Developer[]) ?? [])
     setTransfers(((trfRes.data as Transfer[]) ?? []).map((t) => ({ ...t, amount: num(t.amount) })))
 
     // E-mail e último acesso ficam em auth.users, que o app não lê. O perfil
@@ -292,6 +306,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       contacts,
       categories,
       costCenters,
+      developers,
       transfers,
       usuarios,
       vendas,
@@ -411,6 +426,31 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         if (error) throw new Error(traduzirErro(error.message))
         await recarregar()
       },
+      async salvarConstrutora(d) {
+        if (!company) throw new Error('Empresa não carregada.')
+        const { id, ...resto } = d
+        const { error } = id
+          ? await supabase.from('developers').update(resto).eq('id', id)
+          : await supabase.from('developers').insert({ company_id: company.id, is_active: true, ...resto })
+        if (error) throw new Error(traduzirErro(error.message))
+        await recarregar()
+      },
+      async marcarGatilho(installmentId, data, nota) {
+        await chamar('set_installment_trigger', {
+          p_installment: installmentId,
+          p_date: data,
+          p_note: nota ?? null,
+        })
+      },
+      async marcarNota(installmentId, data, numero) {
+        // O banco devolve a data prevista nova (nota + prazo da construtora).
+        const nova = await chamar('set_installment_invoice', {
+          p_installment: installmentId,
+          p_date: data,
+          p_number: numero ?? null,
+        })
+        return (nova as string | null) ?? null
+      },
       async salvarCategoria(c) {
         if (!company) throw new Error('Empresa não carregada.')
         const { id, ...resto } = c
@@ -438,7 +478,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       },
     }),
     [
-      company, sales, installments, transactions, accounts, contacts, categories, costCenters,
+      company, sales, installments, transactions, accounts, contacts, categories, costCenters, developers,
       transfers, usuarios, vendas, receber, pagar, atencao, contatosComAcesso, mes, hoje,
       carregando, erro, recarregar, chamar,
     ],

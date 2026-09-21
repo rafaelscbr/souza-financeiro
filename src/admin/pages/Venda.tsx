@@ -10,6 +10,7 @@ import { useComposicao, type ItemComposicao } from '@/components/composicao/Comp
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
+import { Dica } from '@/components/ui/Dica'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Parcela, CabecalhoParcelas } from '@/components/ui/Parcela'
 import { Demonstrativo } from '@/components/ui/Demonstrativo'
@@ -26,6 +27,7 @@ import { EstadoVazio } from '@/components/ui/Estados'
 import { useToast } from '@/components/ui/Toast'
 import { brokerStatusOf, type SaleView } from '@/lib/sales'
 import { situacaoDeTela, fraseDeTempo, diasEntre, type Situacao } from '@/lib/situacao'
+import { etapaDaParcela, fraseDaEtapa, prazoDaConstrutora, previsaoAPartirDaNota } from '@/lib/etapas'
 import { formatCurrency, formatDate, formatDateShort } from '@/lib/format'
 import type { LinhaDemonstrativo, ResumoDaParcela } from '@/lib/linhasDaVenda'
 import type { SaleInstallment } from '@/types'
@@ -50,7 +52,8 @@ export function Venda() {
   const { showToast } = useToast()
   const { abrir } = useComposicao()
   const {
-    vendas, transactions, hoje, desfazerRecebimento, reagendarParcela, cancelarVenda, editarVenda,
+    vendas, transactions, costCenters, developers, hoje,
+    desfazerRecebimento, reagendarParcela, cancelarVenda, editarVenda, marcarGatilho, marcarNota,
   } = useAdmin()
   const idCabecalhoParcelas = useId()
 
@@ -59,6 +62,10 @@ export function Venda() {
   const [reagendando, setReagendando] = useState<SaleInstallment | null>(null)
   const [novaData, setNovaData] = useState('')
   const [notaReagendar, setNotaReagendar] = useState('')
+  /* Marcar gatilho ou nota fiscal: o mesmo painel, dois assuntos. */
+  const [marco, setMarco] = useState<{ parcela: SaleInstallment; tipo: 'gatilho' | 'nota' } | null>(null)
+  const [dataMarco, setDataMarco] = useState('')
+  const [numeroNota, setNumeroNota] = useState('')
   const [cancelando, setCancelando] = useState(false)
   const [notaCancelar, setNotaCancelar] = useState('')
   const [editando, setEditando] = useState(false)
@@ -200,6 +207,18 @@ export function Venda() {
 
   /* Cada linha da conta abre as parcelas, com o campo gravado que compõe aquela linha (a mesma soma de cascadeOf). */
   for (const l of conta) l.origem = { tipo: 'venda', id: venda.id }
+
+  /* A construtora (dona do prazo) e o gatilho (do empreendimento) desta venda. */
+  const empreendimento = costCenters.find((c) => c.id === venda.cost_center_id) ?? null
+  const construtora = developers.find((d) => d.id === empreendimento?.developer_id) ?? null
+  const prazo = prazoDaConstrutora(construtora)
+
+  function abrirMarco(p: SaleInstallment, tipo: 'gatilho' | 'nota') {
+    setMarco({ parcela: p, tipo })
+    setDataMarco(tipo === 'gatilho' ? (p.trigger_met_date ?? hoje) : (p.invoice_issued_date ?? hoje))
+    setNumeroNota(p.invoice_number ?? '')
+    setParcelaAberta(null)
+  }
 
   async function acao(fn: () => Promise<void>, msg: string) {
     setErro(null)
@@ -476,7 +495,20 @@ export function Venda() {
             const podeReceber = ativa && p.status === 'prevista'
             const podePagar = ativa && x.stCorretor === 'liberada' && p.broker_amount > 0
             const podeDesfazer = ativa && p.status === 'recebida'
-            const principal = podeReceber ? (
+            /*
+             * A ação principal é sempre o PRÓXIMO passo da parcela: esperar o
+             * gatilho, emitir a nota, e só então receber. Uma por linha.
+             */
+            const etapa = etapaDaParcela(p).etapa
+            const principal = podeReceber && etapa === 'aguardando_gatilho' ? (
+              <Button size="sm" variant="secundario" aria-label="Marcar gatilho atingido" onClick={() => abrirMarco(p, 'gatilho')} disabled={ocupado}>
+                Gatilho
+              </Button>
+            ) : podeReceber && etapa === 'a_emitir_nota' ? (
+              <Button size="sm" variant="secundario" aria-label="Marcar nota fiscal emitida" onClick={() => abrirMarco(p, 'nota')} disabled={ocupado}>
+                Nota
+              </Button>
+            ) : podeReceber ? (
               <Button size="sm" variant="secundario" aria-label="Recebi esta parcela" onClick={() => abrirReceber(p)} disabled={ocupado}>
                 Recebi
               </Button>
@@ -601,6 +633,16 @@ export function Venda() {
                   Reagendar
                 </Button>
               )}
+              {aberta.p.status === 'prevista' && (
+                <Button variant="secundario" onClick={() => abrirMarco(aberta.p, 'gatilho')} disabled={ocupado}>
+                  {aberta.p.trigger_met_date ? 'Mudar o gatilho' : 'Gatilho atingido'}
+                </Button>
+              )}
+              {aberta.p.status === 'prevista' && (
+                <Button variant="secundario" onClick={() => abrirMarco(aberta.p, 'nota')} disabled={ocupado}>
+                  {aberta.p.invoice_issued_date ? 'Mudar a nota' : 'Nota emitida'}
+                </Button>
+              )}
               {aberta.stCorretor === 'liberada' && aberta.p.broker_amount > 0 && (
                 <Button variant="secundario" onClick={() => abrirPagar(aberta.p)} disabled={ocupado}>
                   Pagar comissão
@@ -621,6 +663,16 @@ export function Venda() {
               <ChipSituacao situacao={aberta.s} />
               <MetaDaParcela parcela={aberta} nomeCorretor={nomeCorretor} hoje={hoje} />
             </div>
+            {aberta.p.status === 'prevista' && (
+              <Dica>
+                <strong className="font-semibold text-t1">{etapaDaParcela(aberta.p).palavra}.</strong>{' '}
+                {etapaDaParcela(aberta.p).explica}
+                {(aberta.p.trigger_note ?? empreendimento?.trigger_note) && (
+                  <> Gatilho do contrato: {aberta.p.trigger_note ?? empreendimento?.trigger_note}</>
+                )}
+                {prazo && <> A {construtora?.name} {prazo}.</>}
+              </Dica>
+            )}
             <Demonstrativo linhas={aberta.linhas} perfil="admin" rotuloAcessivel={`Conta da ${tituloDaParcela(aberta.p).toLowerCase()}`} />
           </div>
         )}
@@ -628,6 +680,99 @@ export function Venda() {
 
       <ReceberParcela venda={venda} parcela={recebendo} onFechar={() => setRecebendo(null)} />
       <PagarComissao itens={pagando} onFechar={() => setPagando(null)} />
+
+      <SidePanel
+        aberto={!!marco}
+        aoFechar={() => setMarco(null)}
+        titulo={marco?.tipo === 'nota' ? 'Nota fiscal emitida' : 'Gatilho atingido'}
+        subtitulo={
+          marco?.tipo === 'nota'
+            ? 'A previsão de pagamento passa a contar o prazo da construtora.'
+            : 'O cliente atingiu o que o contrato pede: a comissão está liberada.'
+        }
+        largura="lg"
+        rodape={
+          <div className="flex flex-wrap justify-end gap-3">
+            {marco?.tipo === 'gatilho' && marco.parcela.trigger_met_date && (
+              <Button
+                variant="fantasma"
+                disabled={ocupado}
+                onClick={async () => {
+                  await acao(() => marcarGatilho(marco.parcela.id, null), 'Gatilho desmarcado')
+                  setMarco(null)
+                }}
+              >
+                Desmarcar
+              </Button>
+            )}
+            {marco?.tipo === 'nota' && marco.parcela.invoice_issued_date && (
+              <Button
+                variant="fantasma"
+                disabled={ocupado}
+                onClick={async () => {
+                  await acao(async () => {
+                    await marcarNota(marco.parcela.id, null)
+                  }, 'Nota desmarcada')
+                  setMarco(null)
+                }}
+              >
+                Desmarcar
+              </Button>
+            )}
+            <Button variant="secundario" onClick={() => setMarco(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="primario"
+              disabled={ocupado || !dataMarco}
+              carregando={ocupado}
+              onClick={async () => {
+                const m = marco!
+                if (m.tipo === 'gatilho') {
+                  await acao(() => marcarGatilho(m.parcela.id, dataMarco), 'Gatilho marcado')
+                } else {
+                  await acao(async () => {
+                    await marcarNota(m.parcela.id, dataMarco, numeroNota || null)
+                  }, 'Nota marcada')
+                }
+                setMarco(null)
+              }}
+            >
+              Salvar
+            </Button>
+          </div>
+        }
+      >
+        {marco && (
+          <div className="flex flex-col gap-4">
+            <FormField
+              label={marco.tipo === 'nota' ? 'Nota emitida em' : 'Gatilho atingido em'}
+              htmlFor="marco-data"
+            >
+              <Input id="marco-data" type="date" value={dataMarco} onChange={(e) => setDataMarco(e.target.value)} data-foco-inicial />
+            </FormField>
+            {marco.tipo === 'nota' && (
+              <>
+                <FormField label="Número da nota" htmlFor="marco-numero" hint="opcional">
+                  <Input id="marco-numero" value={numeroNota} onChange={(e) => setNumeroNota(e.target.value)} placeholder="Ex.: 1042" />
+                </FormField>
+                <p className="text-texto-meta text-t-meta">
+                  {construtora && prazo
+                    ? `A ${construtora.name} ${prazo}. Com esta data, o dinheiro é previsto para ${
+                        formatDateShort(previsaoAPartirDaNota(dataMarco, construtora) ?? marco.parcela.expected_date)
+                      }.`
+                    : 'A construtora ainda não tem prazo cadastrado, então a data prevista da parcela não muda. Cadastre o prazo em Configurações › Construtoras.'}
+                </p>
+              </>
+            )}
+            {marco.tipo === 'gatilho' && (marco.parcela.trigger_note ?? empreendimento?.trigger_note) && (
+              <p className="text-texto-meta text-t-meta">
+                Gatilho do contrato: {marco.parcela.trigger_note ?? empreendimento?.trigger_note}
+              </p>
+            )}
+          </div>
+        )}
+      </SidePanel>
 
       <SidePanel
         aberto={!!reagendando}
@@ -852,7 +997,9 @@ function MetaDaParcela({ parcela, nomeCorretor, hoje }: { parcela: ParcelaNaTela
               <Icone icone={Clock} tamanho={12} className="inline" />{' '}
             </>
           )}
-        {fraseDeTempo(s, { prevista: p.expected_date, recebida: p.received_date }, hoje)}
+        {p.status === 'prevista'
+          ? fraseDaEtapa(p, hoje)
+          : fraseDeTempo(s, { prevista: p.expected_date, recebida: p.received_date }, hoje)}
         {caiu && (
           <span className="whitespace-nowrap">
             {' · caiu '}

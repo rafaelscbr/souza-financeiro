@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarRange, CircleCheck, Handshake, ListChecks } from 'lucide-react'
+import { CalendarRange, CircleCheck, Clock, Handshake, ListChecks, ReceiptText } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
@@ -9,11 +9,14 @@ import { Cartao } from '@/components/ui/Cartao'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { Selo } from '@/components/ui/Selo'
+import { IconeTom } from '@/components/ui/IconeTom'
 import { ChipSituacao } from '@/components/ui/Situacao'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { accountBalance } from '@/lib/treasury'
 import { situacaoDeTela } from '@/lib/situacao'
-import type { MoneyItem } from '@/lib/sales'
+import { etapaDaParcela, fraseDaEtapa } from '@/lib/etapas'
+import type { MoneyItem, SaleView } from '@/lib/sales'
+import type { SaleInstallment } from '@/types'
 
 /*
  * O INÍCIO DO ADMINISTRADOR.
@@ -52,10 +55,33 @@ import type { MoneyItem } from '@/lib/sales'
  * vem primeiro, com a ação na própria linha.
  */
 export function Inicio() {
-  const { transactions, transfers, accounts, atencao, receber, pagar, vendas, hoje, mes } = useAdmin()
+  const { transactions, transfers, accounts, atencao, receber, pagar, vendas, installments, hoje, mes } = useAdmin()
   const { abrir } = useComposicao()
 
   const chaveMes = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`
+
+  /*
+   * A FILA DA NOTA FISCAL (21/09/2026).
+   *
+   * Entre o gatilho e o dinheiro existe um passo que só depende da
+   * imobiliária: emitir a nota. Sem alguém cobrando, é ele que atrasa o
+   * recebimento. Aqui não se soma nada novo: são as mesmas parcelas de
+   * sempre, separadas pelo degrau em que estão.
+   */
+  const porVenda = useMemo(() => new Map(vendas.map((v) => [v.id, v])), [vendas])
+  const filaDaNota = useMemo(() => {
+    const emitir: { p: SaleInstallment; venda: SaleView | undefined }[] = []
+    const esperando: { p: SaleInstallment; venda: SaleView | undefined }[] = []
+    for (const p of installments) {
+      if (p.status !== 'prevista') continue
+      const { etapa } = etapaDaParcela(p)
+      if (etapa === 'a_emitir_nota') emitir.push({ p, venda: porVenda.get(p.sale_id) })
+      else if (etapa === 'nota_emitida' && p.expected_date < hoje) esperando.push({ p, venda: porVenda.get(p.sale_id) })
+    }
+    const porData = (a: { p: SaleInstallment }, b: { p: SaleInstallment }) =>
+      (a.p.trigger_met_date ?? a.p.expected_date) < (b.p.trigger_met_date ?? b.p.expected_date) ? -1 : 1
+    return { emitir: emitir.sort(porData), esperando: esperando.sort(porData) }
+  }, [installments, porVenda, hoje])
 
   /** O número herói: o que existe de fato, hoje, na conta. */
   const contas = useMemo(
@@ -213,6 +239,52 @@ export function Inicio() {
             </Cartao.Rodape>
           )}
         </Cartao>
+
+        {(filaDaNota.emitir.length > 0 || filaDaNota.esperando.length > 0) && (
+          <Cartao className="lg:col-span-7">
+            <Cartao.Cabecalho
+              titulo="Nota fiscal"
+              icone={ReceiptText}
+              meta={
+                filaDaNota.emitir.length > 0
+                  ? `${filaDaNota.emitir.length} ${filaDaNota.emitir.length === 1 ? 'comissão liberada' : 'comissões liberadas'} esperando nota`
+                  : 'notas emitidas esperando pagamento'
+              }
+            />
+            <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Fila da nota fiscal">
+              {filaDaNota.emitir.length > 0 && <LinhaGrupo rotulo="Emitir nota" contador={`${filaDaNota.emitir.length}`} />}
+              {filaDaNota.emitir.map(({ p, venda }) => (
+                <Linha
+                  key={p.id}
+                  goteira={<IconeTom icone={ReceiptText} tom="atencao" tamanho="sm" />}
+                  titulo={venda?.title ?? 'Parcela de comissão'}
+                  meta={fraseDaEtapa(p, hoje)}
+                  valor={<Valor valor={p.amount} posto="linha" />}
+                  para={venda ? `/vendas/${venda.id}?parcela=${p.id}` : undefined}
+                />
+              ))}
+              {filaDaNota.esperando.length > 0 && (
+                <LinhaGrupo rotulo="Nota emitida, passou do prazo" contador={`${filaDaNota.esperando.length}`} />
+              )}
+              {filaDaNota.esperando.map(({ p, venda }) => (
+                <Linha
+                  key={p.id}
+                  goteira={<IconeTom icone={Clock} tom="risco" tamanho="sm" />}
+                  titulo={venda?.title ?? 'Parcela de comissão'}
+                  meta={fraseDaEtapa(p, hoje)}
+                  valor={<Valor valor={p.amount} posto="linha" />}
+                  para={venda ? `/vendas/${venda.id}?parcela=${p.id}` : undefined}
+                />
+              ))}
+            </Cartao.Lista>
+            <Cartao.Rodape>
+              <p className="max-w-[72ch]">
+                A comissão liberada só vira dinheiro depois da nota. O prazo de cada construtora fica em
+                Configurações.
+              </p>
+            </Cartao.Rodape>
+          </Cartao>
+        )}
 
         <Cartao className="lg:col-span-5">
           <Cartao.Cabecalho titulo="O mês" icone={CalendarRange} meta={tituloDoMes} />
