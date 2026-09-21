@@ -1671,9 +1671,9 @@ A auditoria encontrou estes pontos. Cada um é uma pergunta para o Rafael, não
 uma tarefa:
 
 1. **"Devido agora"** soma toda despesa lançada (mesmo a que vence daqui a
-   meses) e a retirada do sócio. No app, soma também o imposto de parcela que a
-   construtora ainda não pagou: por isso o app mostra R$ 9.363,69 e o CFO
-   R$ 5.676,88 (diferença de R$ 3.686,81). Opções levantadas: só o que vence
+   meses) e a retirada do sócio. Soma também o imposto de parcela que a
+   construtora ainda não pagou, que é previsão e não dívida: são R$ 3.686,81
+   dentro dos R$ 9.363,69 que a tela mostra hoje. Opções levantadas: só o que vence
    até hoje (daria R$ 2.076,98, com R$ 3.599,90 "a vencer"); tudo lançado; até
    hoje + 7 dias.
 2. **Relatórios › Por corretor › "A pagar"** soma liberado com previsto.

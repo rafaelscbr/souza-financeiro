@@ -13,7 +13,6 @@
     "teste-restauracao": "node scripts/teste-restauracao.mjs",
     "teste-sistema": "node scripts/teste-sistema.mjs",
     "auditoria-imob": "node --env-file=.env scripts/auditoria-imobiliaria.mjs",
-    "cfo": "node --env-file=.env scripts/cfo.mjs",
     "verificar-design": "node scripts/verificar-design.mjs",
     "prebuild": "npm run -s verificar-design"
   },

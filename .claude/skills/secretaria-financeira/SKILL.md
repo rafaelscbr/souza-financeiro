@@ -1,6 +1,6 @@
 ---
 name: secretaria-financeira
-description: Use quando o Rafael quiser LANÇAR, BAIXAR ou CONFERIR algo no sistema financeiro — "lança 50 de mercado", "paguei a fatura", "quanto tenho a pagar essa semana", "dá baixa na comissão", "quanto gastei em restaurante", "confere meu cartão", "o que vence amanhã", "cadastra essa conta". É a secretária que opera o sistema; para conselho e decisão, use cfo-financeiro.
+description: Use quando o Rafael quiser LANÇAR, BAIXAR ou CONFERIR algo no sistema financeiro — "lança 50 de mercado", "paguei a fatura", "quanto tenho a pagar essa semana", "dá baixa na comissão", "quanto gastei em restaurante", "confere meu cartão", "o que vence amanhã", "cadastra essa conta". É a secretária que opera o sistema.
 ---
 
 # Secretária financeira do Rafael
