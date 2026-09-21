@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
-import { ArrowDownCircle, ListOrdered } from 'lucide-react'
+import { ArrowDownCircle, Hourglass, ListOrdered } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { ReceberParcela } from '../ReceberParcela'
 import { BaixarLancamento } from '../BaixarLancamento'
@@ -12,6 +12,7 @@ import { Valor, ValorComOrigem } from '@/components/ui/Valor'
 import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
 import { Button } from '@/components/ui/Button'
 import { EstadoVazio } from '@/components/ui/Estados'
+import { IconeTom } from '@/components/ui/IconeTom'
 import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import { fraseDeTempo, situacaoDeTela } from '@/lib/situacao'
 import { fraseDaEtapa } from '@/lib/etapas'
@@ -165,6 +166,36 @@ export function Receber() {
     )
   }
 
+  /*
+   * COMISSÕES EM ATRASO (21/09/2026).
+   *
+   * O Rafael pediu para enxergar isso junto: "é importante ter as duas opções
+   * (reagendar ou deixar a data), seria interessante ter a visualização dessa
+   * informação de comissões em atraso".
+   *
+   * O atraso quase nunca é do cliente dele — é a construtora, ou o cliente
+   * dela. Por isso o cartão agrupa por EMPREENDIMENTO: o que ele precisa saber
+   * é de quem cobrar, e há quanto tempo. Nada aqui é recalculado: são as mesmas
+   * parcelas da lista, com a data que está gravada.
+   *
+   * E ele não segue a janela do filtro. Atraso de agosto não some porque a
+   * tela está mostrando setembro.
+   */
+  const dias = (d: string) => Math.round((Date.parse(hoje) - Date.parse(d)) / 86400000)
+
+  const atraso = useMemo(() => {
+    const atrasadas = receber.filter((i) => i.overdue)
+    const grupos = new Map<string, { nome: string; construtora: string | null; itens: MoneyItem[] }>()
+    for (const i of atrasadas) {
+      const nome = i.sale?.development ?? 'Sem empreendimento'
+      const g = grupos.get(nome)
+      if (g) g.itens.push(i)
+      else grupos.set(nome, { nome, construtora: i.sale?.developer ?? null, itens: [i] })
+    }
+    const lista = [...grupos.values()].sort((a, b) => (a.itens[0].date < b.itens[0].date ? -1 : 1))
+    return { atrasadas, grupos: lista, total: soma(atrasadas) }
+  }, [receber, hoje])
+
   const abrirTotal = () =>
     abrir({
       rotulo: 'A receber',
@@ -203,6 +234,83 @@ export function Receber() {
         rotuloAcessivel="Ver de onde vem o total a receber"
         frase={`${explicacao[janela]} ${contagem}. É comissão contratada, não dinheiro em conta.`}
       />
+
+      {atraso.atrasadas.length > 0 && (
+        <Cartao rotuloAcessivel="Comissões em atraso">
+          <Cartao.Cabecalho
+            titulo="Comissões em atraso"
+            icone={Hourglass}
+            meta={`${atraso.atrasadas.length === 1 ? '1 parcela' : `${atraso.atrasadas.length} parcelas`} · a mais antiga há ${dias(atraso.atrasadas[0].date)} dias`}
+            extra={
+              <ValorComOrigem
+                posto="destaque"
+                valor={atraso.total}
+                estado="vencido"
+                aoAbrir={() =>
+                  abrir({
+                    rotulo: 'Em atraso',
+                    titulo: 'Toda a comissão em atraso',
+                    explica:
+                      'Parcelas com a data já passada que a construtora não pagou. A data continua a que foi combinada — o sistema não inventa data nova.',
+                    total: atraso.total,
+                    itens: comp(atraso.atrasadas),
+                  })
+                }
+                rotuloAcessivel="Ver todas as parcelas em atraso"
+              />
+            }
+          />
+          <Cartao.Lista
+            colunas={{ goteira: true, situacao: true, valor: true, acao: '7rem' }}
+            rotuloAcessivel="Atraso por empreendimento"
+          >
+            {atraso.grupos.map((g) => {
+              const maisAntiga = g.itens[0]
+              const n = dias(maisAntiga.date)
+              const abrirGrupo = () =>
+                abrir({
+                  rotulo: g.nome,
+                  titulo: `Em atraso — ${g.nome}`,
+                  explica: g.construtora
+                    ? `Parcelas de ${g.construtora} com a data já passada. Se você souber a data nova, reagende na ficha da venda; se não souber, deixe como está — o atraso continua à vista aqui.`
+                    : 'Parcelas com a data já passada.',
+                  total: soma(g.itens),
+                  itens: comp(g.itens),
+                })
+              return (
+                <Linha
+                  key={g.nome}
+                  goteira={<IconeTom icone={Hourglass} tom="atencao" tamanho="sm" />}
+                  titulo={g.nome}
+                  meta={[
+                    g.construtora,
+                    g.itens.length === 1
+                      ? `uma parcela · há ${n} ${n === 1 ? 'dia' : 'dias'}`
+                      : `${g.itens.length} parcelas · a mais antiga há ${n} dias`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  situacao={<ChipSituacao situacao="prevista" />}
+                  valor={<Valor valor={soma(g.itens)} posto="linha" estado="vencido" />}
+                  aoClicar={abrirGrupo}
+                  acao={
+                    <Button size="sm" variant="fantasma" onClick={abrirGrupo}>
+                      {g.itens.length === 1 ? 'Ver parcela' : 'Ver parcelas'}
+                    </Button>
+                  }
+                />
+              )
+            })}
+          </Cartao.Lista>
+          <Cartao.Rodape>
+            <p className="max-w-[72ch]">
+              Atraso da construtora não é dívida de ninguém: a comissão continua contratada. Quando souber a data nova,
+              reagende na ficha da venda — a data antiga fica registrada no histórico da parcela. Sem data nova, deixe
+              como está: é assim que o atraso continua visível.
+            </p>
+          </Cartao.Rodape>
+        </Cartao>
+      )}
 
       <Cartao rotuloAcessivel="Parcelas a receber">
         <Cartao.Cabecalho titulo="Parcelas a receber" icone={ListOrdered} meta={contagem} />
