@@ -64,7 +64,9 @@ function avisosDoAdmin(atencao: AttentionItem[], receber: MoneyItem[]): Aviso[] 
       avisos.push({
         id: 'receber-vencidas',
         tom: 'risco',
-        titulo: vencidas.length === 1 ? 'Parcela vencida a receber' : 'Parcelas vencidas a receber',
+        // "Em atraso", não "vencida": vencida é dívida da imobiliária, e
+        // parcela que a construtora não pagou não é dívida de ninguém.
+        titulo: vencidas.length === 1 ? 'Parcela em atraso a receber' : 'Parcelas em atraso a receber',
         detalhe: `${formatCurrency(total)} no total`,
         quantidade: vencidas.length,
         para: '/receber',

@@ -339,8 +339,11 @@ export function Inicio() {
             <LinhaGrupo rotulo="Entra" />
             <Linha
               titulo="A receber"
-              meta={`${aReceber.length} ${aReceber.length === 1 ? 'parcela' : 'parcelas'} neste mês, mais o vencido`}
-              situacao={vencido.length > 0 ? <ChipSituacao situacao="vencida" /> : undefined}
+              meta={
+                vencido.length > 0
+                  ? `${aReceber.length} ${aReceber.length === 1 ? 'parcela' : 'parcelas'} neste mês · ${vencido.length} em atraso`
+                  : `${aReceber.length} ${aReceber.length === 1 ? 'parcela' : 'parcelas'} neste mês, mais o que está em atraso`
+              }
               valor={<Valor valor={soma(aReceber)} posto="linha" />}
               aoClicar={() =>
                 abrir({

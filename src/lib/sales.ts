@@ -336,7 +336,7 @@ export function attentionOf(params: {
       id: `receber-${v.tx.id}`,
       tone: 'critical',
       title: v.label,
-      detail: dias === 0 ? 'vence hoje' : `vencida há ${dias} dia${dias > 1 ? 's' : ''}`,
+      detail: dias === 0 ? 'a data é hoje' : `em atraso há ${dias} dia${dias > 1 ? 's' : ''}`,
       amount: v.amount,
       to: v.sale ? `/vendas/${v.sale.id}` : '/receber',
     })
@@ -345,7 +345,7 @@ export function attentionOf(params: {
     itens.push({
       id: 'receber-mais',
       tone: 'critical',
-      title: `mais ${vencidas.length - 4} parcela(s) vencida(s)`,
+      title: `mais ${vencidas.length - 4} parcela(s) em atraso`,
       detail: 'ver todas em A receber',
       amount: soma(vencidas.slice(4).map((v) => v.amount)),
       to: '/receber',

@@ -32,7 +32,13 @@ type Janela = 'mes' | 'trinta' | 'vencidas' | 'tudo'
  *
  * A situação sai de `situacaoDeTela`: parcela que a construtora não pagou
  * continua PREVISTA. A urgência vem da frase ("a construtora atrasou"), do
- * marco de HOJE e do subtotal de vencido do mês.
+ * marco de HOJE e do subtotal de atraso do mês.
+ *
+ * E a PALAVRA, decidida pelo Rafael em 21/09/2026: aqui é "em atraso", nunca
+ * "vencida". "Vencida" ficou reservada para o que a imobiliária já recebeu e
+ * não repassou — dívida dela. Parcela que a construtora não pagou é atraso
+ * dela, não dívida de ninguém, e as duas coisas não podem usar a mesma
+ * palavra nem a mesma cor.
  */
 export function Receber() {
   const { receber, mes, hoje } = useAdmin()
@@ -91,15 +97,15 @@ export function Receber() {
   const nomeDoMes = (chave: string) => formatMonthYear(parseDateOnly(`${chave}-01`))
 
   const explicacao: Record<Janela, string> = {
-    mes: `Parcelas que vencem em ${formatMonthYear(mes).toLowerCase()}, mais tudo o que já venceu e não entrou — o vencido é justamente o que precisa de cobrança.`,
+    mes: `Parcelas previstas para ${formatMonthYear(mes).toLowerCase()}, mais tudo o que passou da data e não entrou — o que está em atraso é justamente o que precisa de cobrança.`,
     trinta: 'Tudo o que vence nos próximos 30 dias, incluindo o que já passou da data.',
-    vencidas: 'Só o que já passou da data e a construtora não pagou.',
+    vencidas: 'Só o que já passou da data e a construtora não pagou. Não é dívida de ninguém: é cobrança.',
     tudo: 'Toda a comissão contratada que ainda não entrou, somando todos os meses.',
   }
 
   const contagem =
     `${lista.length === 1 ? '1 parcela' : `${lista.length} parcelas`}` +
-    (vencidas.length > 0 ? `, ${vencidas.length} já vencida${vencidas.length > 1 ? 's' : ''}` : '')
+    (vencidas.length > 0 ? `, ${vencidas.length} em atraso` : '')
 
   /*
    * Subtotal do mês que abre no que o compõe. O zero também abre (folha vazia
@@ -128,7 +134,7 @@ export function Receber() {
   }
 
   /*
-   * O par do grupo: "vencido R$ … · previsto R$ …". Nunca um total único —
+   * O par do grupo: "em atraso R$ … · previsto R$ …". Nunca um total único —
    * somar cobrança com expectativa. Usa a forma do par (7.3.4), com as
    * palavras desta tela e os dois lados sempre visíveis, zero incluído.
    */
@@ -140,12 +146,12 @@ export function Receber() {
         <span data-par-linha>
           {vencidos.length > 0 && (
             <span data-lado>
-              <span className="font-label text-texto-meta">vencido</span>
+              <span className="font-label text-texto-meta">em atraso</span>
               {subtotal(
                 vencidos,
-                'Vencido',
-                `Vencido de ${nome}`,
-                'Parcelas que já passaram da data e a construtora não pagou. É o que precisa de cobrança.',
+                'Em atraso',
+                `Em atraso em ${nome}`,
+                'Parcelas que já passaram da data e a construtora não pagou. É o que precisa de cobrança — e não é dívida de ninguém.',
               )}
             </span>
           )}
@@ -205,7 +211,7 @@ export function Receber() {
       itens: comp(lista),
       nota:
         vencidas.length > 0
-          ? 'Parcela vencida quase sempre é a construtora atrasando, não o cliente. Reagende na ficha da venda para a previsão voltar a fazer sentido.'
+          ? 'Parcela em atraso quase sempre é a construtora, não o cliente. Se souber a data nova, reagende na ficha da venda para a previsão voltar a fazer sentido.'
           : undefined,
       vazio: 'Nada a receber nesta janela.',
     })
@@ -218,7 +224,7 @@ export function Receber() {
       filtros={[
         { id: 'mes', rotulo: 'Este mês', contador: filtrar('mes').length },
         { id: 'trinta', rotulo: '30 dias', contador: filtrar('trinta').length },
-        { id: 'vencidas', rotulo: 'Vencidas', contador: filtrar('vencidas').length },
+        { id: 'vencidas', rotulo: 'Em atraso', contador: filtrar('vencidas').length },
         { id: 'tudo', rotulo: 'Tudo', contador: filtrar('tudo').length },
       ]}
     />
@@ -245,7 +251,6 @@ export function Receber() {
               <ValorComOrigem
                 posto="destaque"
                 valor={atraso.total}
-                estado="vencido"
                 aoAbrir={() =>
                   abrir({
                     rotulo: 'Em atraso',
@@ -264,6 +269,8 @@ export function Receber() {
             colunas={{ goteira: true, situacao: true, valor: true, acao: '7rem' }}
             rotuloAcessivel="Atraso por empreendimento"
           >
+            {/* Sem o vermelho de vencido: atraso da construtora não é dívida
+                da imobiliária. O âmbar do ícone e a palavra é que dizem. */}
             {atraso.grupos.map((g) => {
               const maisAntiga = g.itens[0]
               const n = dias(maisAntiga.date)
@@ -291,7 +298,7 @@ export function Receber() {
                     .filter(Boolean)
                     .join(' · ')}
                   situacao={<ChipSituacao situacao="prevista" />}
-                  valor={<Valor valor={soma(g.itens)} posto="linha" estado="vencido" />}
+                  valor={<Valor valor={soma(g.itens)} posto="linha" />}
                   aoClicar={abrirGrupo}
                   acao={
                     <Button size="sm" variant="fantasma" onClick={abrirGrupo}>
@@ -320,7 +327,7 @@ export function Receber() {
             titulo="Nada a receber aqui"
             descricao={
               janela === 'vencidas'
-                ? 'Nenhuma parcela vencida. É o melhor cenário.'
+                ? 'Nenhuma parcela em atraso. É o melhor cenário.'
                 : 'Troque o período para ver o que vem mais adiante.'
             }
           />
