@@ -5,6 +5,7 @@ import type {
   Company,
   Contact,
   CostCenter,
+  Developer,
   DreGroup,
   Sale,
   SaleInstallment,
@@ -59,10 +60,16 @@ export const company: Company = {
   created_at: CRIADO,
 }
 
+export const developers: Developer[] = [
+  { id: 'dev-alfa', company_id: EMPRESA_ID, name: 'Construtora Exemplo Alfa', payment_days: 10, payment_days_business: true, notes: null, is_active: true, created_at: CRIADO },
+  { id: 'dev-beta', company_id: EMPRESA_ID, name: 'Incorporadora Exemplo Beta', payment_days: 15, payment_days_business: false, notes: null, is_active: true, created_at: CRIADO },
+  { id: 'dev-gama', company_id: EMPRESA_ID, name: 'Construtora Exemplo Gama', payment_days: null, payment_days_business: true, notes: null, is_active: true, created_at: CRIADO },
+]
+
 export const costCenters: CostCenter[] = [
-  { id: 'cc-mar', company_id: EMPRESA_ID, name: 'Residencial Exemplo Mar', developer: 'Construtora Exemplo Alfa', is_active: true, created_at: CRIADO },
-  { id: 'cc-parque', company_id: EMPRESA_ID, name: 'Torre Exemplo Parque', developer: 'Incorporadora Exemplo Beta', is_active: true, created_at: CRIADO },
-  { id: 'cc-vista', company_id: EMPRESA_ID, name: 'Vista Exemplo Center', developer: 'Construtora Exemplo Gama', is_active: true, created_at: CRIADO },
+  { id: 'cc-mar', company_id: EMPRESA_ID, name: 'Residencial Exemplo Mar', developer: 'Construtora Exemplo Alfa', developer_id: 'dev-alfa', trigger_note: '50% da comissão quando o cliente paga 5% do valor do imóvel; 50% ao atingir 8%.', is_active: true, created_at: CRIADO },
+  { id: 'cc-parque', company_id: EMPRESA_ID, name: 'Torre Exemplo Parque', developer: 'Incorporadora Exemplo Beta', developer_id: 'dev-beta', trigger_note: 'Comissão integral quando o cliente paga 10% do valor do imóvel.', is_active: true, created_at: CRIADO },
+  { id: 'cc-vista', company_id: EMPRESA_ID, name: 'Vista Exemplo Center', developer: 'Construtora Exemplo Gama', developer_id: 'dev-gama', trigger_note: null, is_active: true, created_at: CRIADO },
 ]
 
 function contato(id: string, name: string, type: Contact['type'], extra: Partial<Contact> = {}): Contact {
@@ -198,6 +205,12 @@ function venda(p: PlanoVenda) {
       broker_amount: broker, broker_adjustment: pp.desconto ?? 0, owner_amount: 0,
       net_amount: r2(amount - iss - simples - broker), status: pp.estado, received_date: dataRec,
       received_amount: recebida ? r2(amount - iss) : null, account_id: recebida ? 'ac-pj' : null, notes: null,
+      trigger_note: null,
+      // Marcos de exemplo: a 1ª parcela prevista de cada venda já teve o
+      // gatilho atingido, e a 2ª já está com a nota emitida.
+      trigger_met_date: recebida ? dia(pp.dias - 20) : idx <= 2 ? dia(pp.dias - 12) : null,
+      invoice_issued_date: recebida ? dia(pp.dias - 10) : idx === 2 ? dia(pp.dias - 6) : null,
+      invoice_number: null,
       revenue_tx_id: null, iss_tx_id: null, simples_tx_id: null, broker_tx_id: null, owner_tx_id: null, other_tx_id: null,
     }
     installments.push(inst)

@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { Building, Building2, Check, KeyRound, Landmark, Percent, Plus, Tags, UserRound } from 'lucide-react'
+import { Building, Building2, Check, HardHat, KeyRound, Landmark, Percent, Plus, Tags, UserRound } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { TrocarSenha } from '@/auth/TrocarSenha'
 import { useAdmin } from '../AdminData'
@@ -11,15 +11,15 @@ import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
 import { SidePanel } from '@/components/ui/SidePanel'
 import { Valor } from '@/components/ui/Valor'
-import { FormField, Input, Select } from '@/components/ui/Field'
+import { FormField, Input, Select, Textarea } from '@/components/ui/Field'
 import { CurrencyInput, PercentInput } from '@/components/ui/MoneyInput'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { useToast } from '@/components/ui/Toast'
 import { ACCOUNT_TYPE_LABEL, accountBalance } from '@/lib/treasury'
 import { formatDate, toDateOnly } from '@/lib/format'
-import type { Account, CostCenter } from '@/types'
+import type { Account, CostCenter, Developer } from '@/types'
 
-type Aba = 'contas' | 'empreendimentos' | 'categorias' | 'imposto' | 'conta'
+type Aba = 'contas' | 'construtoras' | 'empreendimentos' | 'categorias' | 'imposto' | 'conta'
 
 /*
  * CONFIGURAÇÕES (planta 9.7) — cadastros e regras.
@@ -53,6 +53,7 @@ export function Config() {
       aoMudar={setAba}
       abas={[
         { id: 'contas', rotulo: 'Contas' },
+        { id: 'construtoras', rotulo: 'Construtoras' },
         { id: 'empreendimentos', rotulo: 'Empreendimentos' },
         { id: 'categorias', rotulo: 'Categorias' },
         { id: 'imposto', rotulo: 'Imposto' },
@@ -69,6 +70,7 @@ export function Config() {
       </p>
       <PainelAba idBase={idBase} aba={aba} className="flex flex-col gap-bloco focus-visible:outline-none">
         {aba === 'contas' && <Contas />}
+        {aba === 'construtoras' && <Construtoras />}
         {aba === 'empreendimentos' && <Empreendimentos />}
         {aba === 'categorias' && <Categorias />}
         {aba === 'imposto' && <Imposto />}
@@ -285,8 +287,170 @@ function FormConta({
   )
 }
 
+/*
+ * CONSTRUTORAS (21/09/2026).
+ *
+ * O prazo de pagamento é da construtora: ela paga tantos dias depois que a
+ * imobiliária emite a nota. É esse número que transforma "nota emitida" em
+ * uma data de dinheiro na conta. O gatilho, que libera a comissão, é do
+ * empreendimento, porque muda de produto para produto.
+ */
+function Construtoras() {
+  const { developers, costCenters, salvarConstrutora } = useAdmin()
+  const [editando, setEditando] = useState<Developer | 'nova' | null>(null)
+  const { showToast } = useToast()
+
+  return (
+    <>
+      <Cartao>
+        <Cartao.Cabecalho
+          titulo="Construtoras"
+          icone={HardHat}
+          extra={<BotaoNovo rotulo="Nova" aoClicar={() => setEditando('nova')} />}
+        />
+        <Cartao.Corpo>
+          <p className="text-texto-meta text-t-meta">
+            O prazo aqui conta a partir da emissão da nota fiscal. Com ele, marcar a nota numa
+            parcela já dá a data prevista do dinheiro.
+          </p>
+        </Cartao.Corpo>
+
+        {developers.length === 0 ? (
+          <EstadoVazio
+            icone={HardHat}
+            titulo="Nenhuma construtora cadastrada"
+            descricao="Sem o prazo da construtora, a previsão do pagamento depende de você lembrar."
+            acao={<Button onClick={() => setEditando('nova')}>Cadastrar a primeira</Button>}
+          />
+        ) : (
+          <Cartao.Lista rotuloAcessivel="Construtoras" colunas={{ fim: true }}>
+            {developers.map((d) => {
+              const quantos = costCenters.filter((c) => c.developer_id === d.id).length
+              return (
+                <Linha
+                  key={d.id}
+                  titulo={d.is_active ? d.name : `${d.name} (inativa)`}
+                  meta={[
+                    d.payment_days == null
+                      ? 'prazo não cadastrado'
+                      : `paga em ${d.payment_days} dia${d.payment_days === 1 ? '' : 's'} ${
+                          d.payment_days_business ? 'útil' : 'corrido'
+                        }${d.payment_days === 1 ? '' : 's'} depois da nota`,
+                    `${quantos} empreendimento${quantos === 1 ? '' : 's'}`,
+                  ].join(' · ')}
+                  aoClicar={() => setEditando(d)}
+                />
+              )
+            })}
+          </Cartao.Lista>
+        )}
+      </Cartao>
+
+      <FormConstrutora
+        alvo={editando}
+        onFechar={() => setEditando(null)}
+        onSalvar={async (dados) => {
+          await salvarConstrutora(dados)
+          showToast({ message: dados.id ? 'Construtora atualizada' : 'Construtora criada' })
+          setEditando(null)
+        }}
+      />
+    </>
+  )
+}
+
+function FormConstrutora({
+  alvo,
+  onFechar,
+  onSalvar,
+}: {
+  alvo: Developer | 'nova' | null
+  onFechar: () => void
+  onSalvar: (d: Partial<Developer> & { id?: string }) => Promise<void>
+}) {
+  const existente = alvo && alvo !== 'nova' ? alvo : null
+  const [nome, setNome] = useState(existente?.name ?? '')
+  const [dias, setDias] = useState<string>(existente?.payment_days?.toString() ?? '')
+  const [uteis, setUteis] = useState(existente?.payment_days_business ?? true)
+  const [observacao, setObservacao] = useState(existente?.notes ?? '')
+  const [ativa, setAtiva] = useState(existente?.is_active ?? true)
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+
+  return (
+    <SidePanel
+      aberto={!!alvo}
+      aoFechar={onFechar}
+      titulo={existente ? 'Editar construtora' : 'Nova construtora'}
+      largura="lg"
+      chaveConteudo={existente?.id ?? (alvo === 'nova' ? 'nova' : 'fechado')}
+      rodape={
+        <RodapeForm
+          rotulo="Salvar"
+          salvando={salvando}
+          aoCancelar={onFechar}
+          aoSalvar={async () => {
+            setErro(null)
+            if (!nome.trim()) return setErro('Informe o nome.')
+            const n = dias.trim() === '' ? null : Number(dias)
+            if (n != null && (!Number.isInteger(n) || n < 0 || n > 180)) {
+              return setErro('O prazo precisa ser um número de dias entre 0 e 180.')
+            }
+            setSalvando(true)
+            try {
+              await onSalvar({
+                id: existente?.id,
+                name: nome.trim(),
+                payment_days: n,
+                payment_days_business: uteis,
+                notes: observacao.trim() || null,
+                is_active: ativa,
+              })
+            } catch (e) {
+              setErro(e instanceof Error ? e.message : 'Não deu para salvar.')
+            } finally {
+              setSalvando(false)
+            }
+          }}
+        />
+      }
+    >
+      <div className="flex flex-col gap-6">
+        <FormField label="Nome" htmlFor="cs-nome">
+          <Input id="cs-nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: LOTISA" data-foco-inicial />
+        </FormField>
+        <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
+          <FormField label="Paga em quantos dias" htmlFor="cs-dias" hint="depois da nota emitida">
+            <Input id="cs-dias" type="number" inputMode="numeric" min={0} max={180} value={dias} onChange={(e) => setDias(e.target.value)} placeholder="Ex.: 10" />
+          </FormField>
+          <FormField label="Contagem" htmlFor="cs-uteis">
+            <Select id="cs-uteis" value={uteis ? 'uteis' : 'corridos'} onChange={(e) => setUteis(e.target.value === 'uteis')}>
+              <option value="uteis">Dias úteis</option>
+              <option value="corridos">Dias corridos</option>
+            </Select>
+          </FormField>
+        </div>
+        <FormField label="Observação" htmlFor="cs-obs" hint="opcional">
+          <Textarea id="cs-obs" rows={3} value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Ex.: nota até dia 25 entra no pagamento do mês seguinte." />
+        </FormField>
+        <FormField label="Ativa?" htmlFor="cs-ativa">
+          <Select id="cs-ativa" value={ativa ? 'sim' : 'nao'} onChange={(e) => setAtiva(e.target.value === 'sim')}>
+            <option value="sim">Sim</option>
+            <option value="nao">Não</option>
+          </Select>
+        </FormField>
+        {erro && (
+          <p role="alert" className="text-texto text-error-ink">
+            {erro}
+          </p>
+        )}
+      </div>
+    </SidePanel>
+  )
+}
+
 function Empreendimentos() {
-  const { costCenters, vendas, salvarEmpreendimento } = useAdmin()
+  const { costCenters, developers, vendas, salvarEmpreendimento } = useAdmin()
   const [editando, setEditando] = useState<CostCenter | 'novo' | null>(null)
   const { showToast } = useToast()
 
@@ -326,8 +490,9 @@ function Empreendimentos() {
                   key={c.id}
                   titulo={c.is_active ? c.name : `${c.name} (inativo)`}
                   meta={[
-                    c.developer,
+                    developers.find((d) => d.id === c.developer_id)?.name ?? c.developer,
                     `${qtd} venda${qtd === 1 ? '' : 's'}`,
+                    c.trigger_note ? 'com gatilho escrito' : 'sem gatilho escrito',
                     cc.retains_iss ? `retém ISS ${cc.iss_pct ?? 0}%` : 'sem retenção de ISS',
                     cc.default_commission_pct != null ? `comissão padrão ${cc.default_commission_pct}%` : null,
                   ]
@@ -342,6 +507,7 @@ function Empreendimentos() {
       </Cartao>
 
       <FormEmpreendimento
+        construtoras={developers}
         alvo={editando}
         onFechar={() => setEditando(null)}
         onSalvar={async (dados) => {
@@ -356,10 +522,12 @@ function Empreendimentos() {
 
 function FormEmpreendimento({
   alvo,
+  construtoras,
   onFechar,
   onSalvar,
 }: {
   alvo: CostCenter | 'novo' | null
+  construtoras: Developer[]
   onFechar: () => void
   onSalvar: (c: Partial<CostCenter> & { id?: string }) => Promise<void>
 }) {
@@ -369,6 +537,8 @@ function FormEmpreendimento({
     | null
   const [nome, setNome] = useState(existente?.name ?? '')
   const [construtora, setConstrutora] = useState(existente?.developer ?? '')
+  const [construtoraId, setConstrutoraId] = useState(existente?.developer_id ?? '')
+  const [gatilho, setGatilho] = useState(existente?.trigger_note ?? '')
   const [retem, setRetem] = useState(cc?.retains_iss ?? false)
   const [pctIss, setPctIss] = useState<number | null>(cc?.iss_pct ?? 3)
   const [pctComissao, setPctComissao] = useState<number | null>(cc?.default_commission_pct ?? null)
@@ -396,7 +566,9 @@ function FormEmpreendimento({
               await onSalvar({
                 id: existente?.id,
                 name: nome.trim(),
-                developer: construtora || null,
+                developer: construtoras.find((d) => d.id === construtoraId)?.name ?? construtora ?? null,
+                developer_id: construtoraId || null,
+                trigger_note: gatilho.trim() || null,
                 is_active: ativo,
                 ...({
                   retains_iss: retem,
@@ -423,8 +595,35 @@ function FormEmpreendimento({
             data-foco-inicial
           />
         </FormField>
-        <FormField label="Construtora" htmlFor="ep-const" hint="quem paga a comissão">
-          <Input id="ep-const" value={construtora} onChange={(e) => setConstrutora(e.target.value)} />
+        <FormField label="Construtora" htmlFor="ep-const" hint="quem paga a comissão e define o prazo">
+          <Select
+            id="ep-const"
+            value={construtoraId}
+            onChange={(e) => {
+              setConstrutoraId(e.target.value)
+              setConstrutora(construtoras.find((d) => d.id === e.target.value)?.name ?? '')
+            }}
+          >
+            <option value="">Sem construtora</option>
+            {construtoras.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+        <FormField
+          label="Gatilho da comissão"
+          htmlFor="ep-gatilho"
+          hint="o que o contrato exige para liberar"
+        >
+          <Textarea
+            id="ep-gatilho"
+            value={gatilho}
+            onChange={(e) => setGatilho(e.target.value)}
+            rows={3}
+            placeholder="Ex.: 50% quando o cliente paga 5% do valor do imóvel; 50% ao atingir 8%."
+          />
         </FormField>
         <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
           <FormField label="Retém ISS?" htmlFor="ep-iss" hint="desconta no pagamento">

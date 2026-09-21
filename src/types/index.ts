@@ -166,13 +166,40 @@ export interface TransactionInput {
   card_cycle_month?: string | null
 }
 
+/**
+ * Construtora ou incorporadora.
+ *
+ * O PRAZO DE PAGAMENTO é dela, não do empreendimento: a LOTISA paga 10 dias
+ * úteis depois que a imobiliária emite a nota, em qualquer produto. O GATILHO
+ * de liberação da comissão é do empreendimento (`CostCenter.trigger_note`),
+ * porque a mesma construtora usa regras diferentes em cada lançamento.
+ */
+export interface Developer {
+  id: string
+  company_id: string
+  name: string
+  /** Dias até o pagamento, contados da emissão da nota. `null` = não sei ainda. */
+  payment_days: number | null
+  /** true = dias úteis (segunda a sexta, sem feriado); false = corridos. */
+  payment_days_business: boolean
+  notes: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export type DeveloperInput = Omit<Developer, 'id' | 'company_id' | 'created_at'>
+
 /** Empreendimento ou projeto — permite apurar resultado por produto. */
 export interface CostCenter {
   id: string
   company_id: string
   name: string
-  /** Construtora, incorporadora ou parceiro. */
+  /** Construtora, incorporadora ou parceiro — o nome, como era antes do cadastro. */
   developer: string | null
+  /** A construtora cadastrada, dona do prazo de pagamento. */
+  developer_id: string | null
+  /** O gatilho que libera a comissão neste empreendimento, como está no contrato. */
+  trigger_note: string | null
   is_active: boolean
   created_at: string
 }
@@ -370,6 +397,21 @@ export interface SaleInstallment {
   owner_amount: number
   net_amount: number
   status: InstallmentStatus
+  /**
+   * OS TRÊS MARCOS DA PARCELA (decisão de 21/09/2026).
+   *
+   * O dinheiro não vem na data: vem depois de uma corrente de eventos. O
+   * cliente paga a construtora até atingir o gatilho do contrato, a comissão
+   * é liberada, a imobiliária emite a nota fiscal, e a construtora paga no
+   * prazo dela. `expected_date` é sempre a melhor previsão de quando o
+   * dinheiro entra — e passa a ser calculada quando a nota é emitida.
+   */
+  trigger_note: string | null
+  /** Gatilho atingido em. `null` = a comissão ainda não foi liberada. */
+  trigger_met_date: string | null
+  /** Nota fiscal emitida em. `null` = ainda não emitida. */
+  invoice_issued_date: string | null
+  invoice_number: string | null
   received_date: string | null
   /** Quanto caiu na conta (parcela menos o que foi retido). */
   received_amount: number | null
@@ -388,6 +430,8 @@ export interface NewInstallment {
   idx: number
   expected_date: string
   amount: number
+  /** O gatilho desta parcela; sem ele, vale o do empreendimento. */
+  trigger_note?: string | null
 }
 
 export interface NewSale {
