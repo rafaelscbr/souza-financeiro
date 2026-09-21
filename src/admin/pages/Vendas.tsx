@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Clock, Handshake, HandCoins, Hourglass, List, Plus, Search, SearchX, TriangleAlert } from 'lucide-react'
+import { Banknote, Building2, Clock, Handshake, HandCoins, Hourglass, Landmark, List, Plus, Search, SearchX, TriangleAlert } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useAcoesAdmin } from '../AcoesAdmin'
 import { PagarComissao, type ComissaoAPagar } from '../PagarComissao'
@@ -8,6 +8,7 @@ import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
+import { Kpi } from '@/components/ui/Kpi'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Barra, LegendaBarra } from '@/components/ui/Barra'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
@@ -98,6 +99,40 @@ export function Vendas() {
    */
   const emCarteira = useMemo(() => soma(ativas.map((v) => v.toReceive)), [ativas])
   const jaEntrouCarteira = useMemo(() => soma(ativas.map((v) => v.received)), [ativas])
+
+  /*
+   * DE QUEM É A CARTEIRA (21/09/2026, pedido do Rafael).
+   *
+   * O herói diz QUANTO ainda entra. Ele quis saber de quem é esse dinheiro
+   * antes de entrar: "o que é da imobiliária, o que é pagamento de comissão,
+   * o que é imposto que vamos pagar".
+   *
+   * As três partes saem gravadas de cada parcela ainda PREVISTA (migração
+   * 009) — imposto, corretor e o que sobra. Nada é recalculado aqui, e as
+   * três somam exatamente o herói. É a mesma cascata da ficha da venda, só
+   * que somada na carteira inteira.
+   */
+  const carteira = useMemo(() => {
+    let imposto = 0
+    let corretor = 0
+    let fica = 0
+    const porVenda = new Map<string, { imposto: number; corretor: number; fica: number }>()
+    for (const v of ativas) {
+      for (const p of v.installments) {
+        if (p.status !== 'prevista') continue
+        const i = soma([p.iss_amount, p.simples_amount])
+        const e = porVenda.get(v.id) ?? { imposto: 0, corretor: 0, fica: 0 }
+        e.imposto = soma([e.imposto, i])
+        e.corretor = soma([e.corretor, p.broker_amount])
+        e.fica = soma([e.fica, p.net_amount])
+        porVenda.set(v.id, e)
+        imposto = soma([imposto, i])
+        corretor = soma([corretor, p.broker_amount])
+        fica = soma([fica, p.net_amount])
+      }
+    }
+    return { imposto, corretor, fica, porVenda }
+  }, [ativas])
   const contratadaCarteira = useMemo(() => soma(ativas.map((v) => v.cascade.commission)), [ativas])
 
   /*
@@ -271,6 +306,37 @@ export function Vendas() {
       .filter(Boolean)
       .join(' · ')
 
+  /** Uma das três partes da carteira, aberta venda por venda. */
+  const abrirParte = (parte: 'fica' | 'corretor' | 'imposto') => {
+    const rotulo =
+      parte === 'fica' ? 'Fica para a imobiliária' : parte === 'corretor' ? 'Comissão dos corretores' : 'Imposto'
+    const explica =
+      parte === 'fica'
+        ? 'O que sobra para a imobiliária nas parcelas que ainda vão entrar, já descontados o imposto e a comissão do corretor. É previsão: nada disso é caixa hoje.'
+        : parte === 'corretor'
+          ? 'A comissão dos corretores nas parcelas que ainda vão entrar. Ela só vira dívida quando a construtora pagar a parcela.'
+          : 'O ISS retido na fonte e o Simples das parcelas que ainda vão entrar. O Simples entra na guia do mês em que o dinheiro cair.'
+    const itens = ativas
+      .map((v) => ({ v, e: carteira.porVenda.get(v.id) }))
+      .filter((x): x is { v: SaleView; e: { imposto: number; corretor: number; fica: number } } => !!x.e && x.e[parte] > 0)
+      .map(({ v, e }) => ({
+        id: v.id,
+        titulo: v.title,
+        meta: metaDaVenda(v),
+        valor: e[parte],
+        situacao: 'prevista' as const,
+        para: `/vendas/${v.id}`,
+      }))
+    abrir({
+      rotulo,
+      titulo: `${rotulo}, venda por venda`,
+      explica,
+      total: parte === 'fica' ? carteira.fica : parte === 'corretor' ? carteira.corretor : carteira.imposto,
+      itens,
+      vazio: 'Nenhuma venda com parcela em aberto.',
+    })
+  }
+
   const abrirCarteira = () =>
     abrir({
       rotulo: 'Em carteira',
@@ -423,6 +489,47 @@ export function Vendas() {
             : []),
         ]}
       />
+
+      {/*
+       * Os totalizadores da carteira: as três partes do que ainda entra.
+       * Cada um abre venda por venda, com a mesma regra de origem do resto
+       * da casa — número sem origem não existe aqui.
+       */}
+      <div className="grid gap-bloco sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi
+          rotulo="Da imobiliária"
+          icone={Building2}
+          tom="marca"
+          valor={carteira.fica}
+          nota="o que sobra da carteira depois do imposto e do corretor"
+          aoClicar={() => abrirParte('fica')}
+        />
+        <Kpi
+          rotulo="Dos corretores"
+          icone={HandCoins}
+          tom="atencao"
+          valor={carteira.corretor}
+          nota="a pagar quando a construtora pagar a parcela"
+          aoClicar={() => abrirParte('corretor')}
+        />
+        <Kpi
+          rotulo="Do imposto"
+          icone={Landmark}
+          tom="info"
+          valor={carteira.imposto}
+          nota="ISS retido na fonte e Simples de cada parcela"
+          aoClicar={() => abrirParte('imposto')}
+        />
+        <Kpi
+          rotulo="Já entrou"
+          icone={Banknote}
+          tom="sucesso"
+          valor={jaEntrouCarteira}
+          estado={jaEntrouCarteira > 0 ? 'recebido' : undefined}
+          nota="comissão que a construtora já pagou, nas vendas ativas"
+          aoClicar={abrirJaEntrou}
+        />
+      </div>
 
       <FilaDeAcao itens={fila.itens} vazio={fila.vazio} />
 
