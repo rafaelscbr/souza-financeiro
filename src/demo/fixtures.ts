@@ -404,3 +404,13 @@ despesa('dp-crm-vencida', 'Assinatura CRM Exemplo', 'Ferramentas/Assinaturas', 3
 despesa('dp-contab-vencida', 'Honorários Contabilidade Exemplo', 'Contabilidade', 650, -2, false, 'ct-contab')
 despesa('dp-marketing-avencer', 'Anúncios Exemplo', 'Marketing', 1500, 5, false)
 despesa('dp-aluguel-avencer', 'Aluguel da sala (exemplo)', 'Aluguel', 2800, 29, false, 'ct-sala')
+
+/*
+ * Compras da imobiliária no cartão pessoal do Rafael: duas parceladas, uma
+ * fatura por mês. Na tela de A pagar elas viram UMA linha por mês, que abre o
+ * detalhe — é o caso que fez essa regra existir.
+ */
+for (const k of [0, 1, 2, 3]) {
+  despesa(`dp-cartao-crm${k}`, `Assinatura CRM Exemplo (${k + 7}/12) — cartão pessoal do Rafael`, 'Ferramentas/Assinaturas', 249.5, 4 + k * 30, false)
+  despesa(`dp-cartao-note${k}`, `Notebook Exemplo (${k + 9}/18) — cartão pessoal do Rafael`, 'Material de Escritório', 164, 6 + k * 30, false)
+}

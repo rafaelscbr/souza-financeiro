@@ -32,8 +32,14 @@ import { AoConfirmar, BlocoDaFolha, ListaNaFolha, RodapeDaFolha } from './FolhaD
  * mesma coisa de dois jeitos.
  *
  * O RPC continua sendo `baixarLancamento(id, data, conta)`.
+ *
+ * TAMBÉM ACEITA VÁRIOS (21/09/2026). Compra parcelada no cartão pessoal do
+ * Rafael chega em dez linhas que ele paga numa fatura só; a lista de A pagar
+ * junta as do mês numa linha, e aqui ele confirma as dez de uma vez, com a
+ * mesma data e a mesma conta. Cada uma continua sendo um lançamento seu — o
+ * que muda é que ele não precisa repetir a mesma folha dez vezes.
  */
-export function BaixarLancamento({ tx, onFechar }: { tx: Transaction | null; onFechar: () => void }) {
+export function BaixarLancamento({ tx, onFechar }: { tx: Transaction | Transaction[] | null; onFechar: () => void }) {
   const { accounts, baixarLancamento, hoje } = useAdmin()
   const { showToast } = useToast()
   const [data, setData] = useState(toDateOnly(new Date()))
@@ -42,7 +48,10 @@ export function BaixarLancamento({ tx, onFechar }: { tx: Transaction | null; onF
   const [erro, setErro] = useState<string | null>(null)
 
   const contas = useMemo(() => accounts.filter((a) => a.is_active), [accounts])
-  const entrada = tx?.kind === 'income'
+  const lista = useMemo(() => (tx ? (Array.isArray(tx) ? tx : [tx]) : []), [tx])
+  const primeiro = lista[0] ?? null
+  const total = Math.round(lista.reduce((acc, t) => acc + t.amount, 0) * 100) / 100
+  const entrada = primeiro?.kind === 'income'
 
   useEffect(() => {
     if (!tx) return
@@ -51,16 +60,13 @@ export function BaixarLancamento({ tx, onFechar }: { tx: Transaction | null; onF
     setErro(null)
   }, [tx, contas])
 
-  if (!tx) return null
+  if (!primeiro) return null
 
   /*
    * A data que o lançamento promete: vencimento quando existe, competência
    * quando não. É a mesma escolha que `payablesOf` faz em src/lib/sales.ts —
    * duas telas lendo a mesma data pelo mesmo critério.
    */
-  const vencimento = tx.due_date ?? tx.competence_date
-  const situacao = situacaoDeTela(tx.status === 'settled' ? 'recebida' : 'prevista', vencimento, hoje)
-  const titulo = tx.description || tx.category
   const conta = contas.find((a) => a.id === contaId)
   const destino = entrada ? 'A receber' : 'A pagar'
 
@@ -73,18 +79,26 @@ export function BaixarLancamento({ tx, onFechar }: { tx: Transaction | null; onF
   async function confirmar() {
     setErro(null)
     setSalvando(true)
+    // Um de cada vez, na ordem: se o quinto falhar, os quatro primeiros estão
+    // gravados e a mensagem diz exatamente isso, em vez de sumir com tudo.
+    let feitos = 0
     try {
-      await baixarLancamento(tx!.id, data, contaId || null)
+      for (const t of lista) {
+        await baixarLancamento(t.id, data, contaId || null)
+        feitos += 1
+      }
       showToast({
         message: entrada ? 'Recebimento confirmado' : 'Pagamento confirmado',
-        detail: formatCurrency(tx!.amount),
+        detail: lista.length > 1 ? `${lista.length} lançamentos · ${formatCurrency(total)}` : formatCurrency(total),
       })
       onFechar()
     } catch (e) {
+      const parcial =
+        feitos > 0 ? `${feitos} de ${lista.length} já foram gravados; os que faltam continuam em ${destino}. ` : ''
       setErro(
         e instanceof Error
-          ? `A baixa não foi gravada: ${e.message}`
-          : `A baixa não foi gravada e o lançamento continua em ${destino}. Confira a conexão e confirme de novo.`,
+          ? `${parcial}A baixa não foi gravada: ${e.message}`
+          : `${parcial}A baixa não foi gravada e o lançamento continua em ${destino}. Confira a conexão e confirme de novo.`,
       )
     } finally {
       setSalvando(false)
@@ -93,10 +107,16 @@ export function BaixarLancamento({ tx, onFechar }: { tx: Transaction | null; onF
 
   return (
     <SidePanel
-      aberto={!!tx}
+      aberto={lista.length > 0}
       aoFechar={fechar}
       titulo={entrada ? 'Confirmar recebimento' : 'Confirmar pagamento'}
-      subtitulo={tx.description && tx.description !== tx.category ? tx.category : destino}
+      subtitulo={
+        lista.length > 1
+          ? `${lista.length} lançamentos · ${formatCurrency(total)}`
+          : primeiro.description && primeiro.description !== primeiro.category
+            ? primeiro.category
+            : destino
+      }
       rodape={
         /* UMA ação primária: a que grava. */
         <RodapeDaFolha erro={erro} tituloDoErro="Baixa não gravada">
@@ -115,15 +135,28 @@ export function BaixarLancamento({ tx, onFechar }: { tx: Transaction | null; onF
          * situação, frase com verbo, valor na coluna da direita. O ícone do
          * bloco diz o sentido do dinheiro, que a linha sozinha não diz.
          */}
-        <BlocoDaFolha titulo="O lançamento" icone={entrada ? ArrowDownLeft : ArrowUpRight}>
+        <BlocoDaFolha
+          titulo={lista.length > 1 ? 'Os lançamentos' : 'O lançamento'}
+          icone={entrada ? ArrowDownLeft : ArrowUpRight}
+        >
           {/* Sem selo: não há ordinal, e o ícone solto na goteira repetiria o chip. */}
-          <ListaNaFolha rotuloAcessivel="O lançamento" colunas={{ situacao: true, valor: true }}>
-            <Linha
-              titulo={titulo}
-              meta={<FraseDeTempo situacao={situacao} prevista={vencimento} recebida={tx.settled_date} />}
-              situacao={<ChipSituacao situacao={situacao} />}
-              valor={<Valor valor={tx.amount} posto="linha" />}
-            />
+          <ListaNaFolha
+            rotuloAcessivel={lista.length > 1 ? 'Os lançamentos' : 'O lançamento'}
+            colunas={{ situacao: true, valor: true }}
+          >
+            {lista.map((t) => {
+              const v = t.due_date ?? t.competence_date
+              const st = situacaoDeTela(t.status === 'settled' ? 'recebida' : 'prevista', v, hoje)
+              return (
+                <Linha
+                  key={t.id}
+                  titulo={t.description || t.category}
+                  meta={<FraseDeTempo situacao={st} prevista={v} recebida={t.settled_date} />}
+                  situacao={<ChipSituacao situacao={st} />}
+                  valor={<Valor valor={t.amount} posto="linha" />}
+                />
+              )
+            })}
           </ListaNaFolha>
         </BlocoDaFolha>
 
@@ -181,16 +214,22 @@ export function BaixarLancamento({ tx, onFechar }: { tx: Transaction | null; onF
                 icone: Wallet,
                 texto: conta ? (
                   <>
-                    <Valor valor={tx.amount} posto="fato" /> {entrada ? 'entram em' : 'saem de'} {conta.name}.
+                    <Valor valor={total} posto="fato" /> {entrada ? 'entram em' : 'saem de'} {conta.name}.
                   </>
                 ) : (
                   <>
-                    <Valor valor={tx.amount} posto="fato" /> {entrada ? 'entram' : 'saem'}, com a conta para definir
+                    <Valor valor={total} posto="fato" /> {entrada ? 'entram' : 'saem'}, com a conta para definir
                     depois — até lá o saldo não muda.
                   </>
                 ),
               },
-              { icone: CircleCheck, texto: `O lançamento sai de ${destino}.` },
+              {
+                icone: CircleCheck,
+                texto:
+                  lista.length > 1
+                    ? `Os ${lista.length} lançamentos saem de ${destino}.`
+                    : `O lançamento sai de ${destino}.`,
+              },
             ]}
           />
         </BlocoDaFolha>

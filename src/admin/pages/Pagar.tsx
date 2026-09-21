@@ -14,7 +14,7 @@ import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
 import { Button } from '@/components/ui/Button'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { fraseDeTempo, situacaoDeTela, type Situacao } from '@/lib/situacao'
-import { formatCurrency } from '@/lib/format'
+import { formatCurrency, formatDateShort } from '@/lib/format'
 import type { Transaction } from '@/types'
 import type { MoneyItem } from '@/lib/sales'
 
@@ -31,6 +31,63 @@ const soma = (l: MoneyItem[]) => Math.round(l.reduce((s, i) => s + i.amount, 0) 
  */
 function situacaoDaLinha(i: MoneyItem, hoje: string): Situacao {
   return situacaoDeTela(i.released ? 'liberada' : 'prevista', i.date, hoje)
+}
+
+/**
+ * Uma linha da lista de saída. Ou é um lançamento só, ou é um punhado deles
+ * que o Rafael paga junto (a fatura do cartão) — e aí a linha mostra o total e
+ * abre o detalhe.
+ */
+interface Saida {
+  chave: string
+  rotulo: string
+  titulo: string
+  explica?: string
+  /** A data que a linha promete: a mais próxima do grupo. */
+  data: string
+  itens: MoneyItem[]
+}
+
+const MESES = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+]
+
+/** Compra no cartão pessoal do Rafael, que a imobiliária reembolsa. */
+const ehCartao = (i: MoneyItem) => /cartão pessoal/i.test(i.tx.description)
+
+/**
+ * Junta as compras do cartão pessoal por mês de vencimento — uma fatura, uma
+ * linha. Todo o resto continua linha a linha, na mesma ordem em que chegou.
+ */
+function agruparCartao(itens: MoneyItem[]): Saida[] {
+  const saidas: Saida[] = []
+  const porMes = new Map<string, Saida>()
+  for (const i of itens) {
+    if (!ehCartao(i)) {
+      saidas.push({ chave: i.tx.id, rotulo: 'Despesa', titulo: i.label, data: i.date, itens: [i] })
+      continue
+    }
+    const mes = i.date.slice(0, 7)
+    const existente = porMes.get(mes)
+    if (existente) {
+      existente.itens.push(i)
+      if (i.date < existente.data) existente.data = i.date
+      continue
+    }
+    const nova: Saida = {
+      chave: `cartao-${mes}`,
+      rotulo: 'Cartão',
+      titulo: `Cartão do Rafael — ${MESES[Number(mes.slice(5, 7)) - 1]}/${mes.slice(0, 4)}`,
+      explica:
+        'Compras da imobiliária feitas no cartão pessoal do Rafael. Cada uma continua sendo um lançamento; a fatura é que é paga de uma vez.',
+      data: i.date,
+      itens: [i],
+    }
+    porMes.set(mes, nova)
+    saidas.push(nova)
+  }
+  return saidas.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0))
 }
 
 /** Agrupa por corretor, na ordem em que cada um aparece. */
@@ -61,10 +118,10 @@ const estadoDe = (s: Situacao) => (s === 'vencida' ? ('vencido' as const) : unde
  *    abre as parcelas dele. Previsão nunca soma no devido.
  */
 export function Pagar() {
-  const { pagar, hoje } = useAdmin()
+  const { pagar, hoje, installments, vendas } = useAdmin()
   const { abrir } = useComposicao()
   const [comissoes, setComissoes] = useState<ComissaoAPagar[] | null>(null)
-  const [avulso, setAvulso] = useState<Transaction | null>(null)
+  const [avulso, setAvulso] = useState<Transaction[] | null>(null)
 
   const grupos = useMemo(() => {
     const liberadas = pagar.filter((i) => i.kind === 'comissao' && i.released)
@@ -75,6 +132,18 @@ export function Pagar() {
     const despesas = pagar.filter((i) => i.kind === 'despesa' || i.kind === 'socio')
     return { liberadas, previstas, impostos, impostosPrevistos, despesas }
   }, [pagar])
+
+  /*
+   * O CARTÃO PESSOAL EM UMA LINHA POR MÊS (21/09/2026).
+   *
+   * Compra parcelada no cartão do Rafael chega aqui em dez, doze linhas que
+   * ele paga numa fatura só. Ele pediu as duas coisas: uma linha para pagar, e
+   * o detalhe do que está dentro ao tocar nela. Então o LANÇAMENTO continua
+   * sendo um por compra — é dele que sai o controle — e o que muda é só o que
+   * a lista mostra.
+   */
+  const saidasDespesa = useMemo(() => agruparCartao(grupos.despesas), [grupos.despesas])
+  const saidasImposto = useMemo(() => agruparCartao(grupos.impostos), [grupos.impostos])
 
   const porCorretor = useMemo(() => porCorretorDe(grupos.liberadas), [grupos.liberadas])
   const previstasPorCorretor = useMemo(() => porCorretorDe(grupos.previstas), [grupos.previstas])
@@ -123,8 +192,65 @@ export function Pagar() {
   const abrirGrupo = (l: MoneyItem[], rotulo: string, titulo: string, explica: string) =>
     abrir({ rotulo, titulo, explica, total: soma(l), itens: comp(l), vazio: 'Nada em aberto aqui.' })
 
-  const abrirLancamento = (i: MoneyItem) =>
-    abrir({ rotulo: i.kind === 'imposto' ? 'Imposto' : 'Despesa', titulo: i.label, total: i.amount, itens: comp([i]) })
+  /*
+   * O detalhe de uma saída. Três casos, e nenhum deles inventa número:
+   *
+   * · grupo (cartão do mês): as compras que estão dentro dele;
+   * · guia do Simples: as parcelas recebidas no mês que formaram a guia,
+   *   lidas das parcelas gravadas — é a mesma conta que `sincroniza_das` faz
+   *   no banco;
+   * · o resto: o lançamento, como sempre.
+   */
+  const abrirSaida = (g: Saida) => {
+    if (g.itens.length > 1) {
+      return abrir({
+        rotulo: g.rotulo,
+        titulo: g.titulo,
+        explica: g.explica,
+        total: soma(g.itens),
+        itens: comp(g.itens),
+      })
+    }
+    const i = g.itens[0]
+    const guia = parcelasDaGuia(i)
+    if (guia) {
+      return abrir({
+        rotulo: 'Guia do mês',
+        titulo: i.label,
+        explica:
+          'A guia soma o imposto de tudo que entrou no mês. Cada linha abaixo é uma parcela recebida e o que ela levou para a guia.',
+        total: i.amount,
+        itens: guia,
+      })
+    }
+    return abrir({ rotulo: i.kind === 'imposto' ? 'Imposto' : 'Despesa', titulo: i.label, total: i.amount, itens: comp([i]) })
+  }
+
+  /** As parcelas que formaram uma guia do Simples — vazio se não é guia. */
+  function parcelasDaGuia(i: MoneyItem): ItemComposicao[] | null {
+    if (i.installment || !i.tx.description.startsWith('DAS Simples')) return null
+    const mes = i.tx.competence_date.slice(0, 7)
+    const porVenda = new Map(vendas.map((v) => [v.id, v]))
+    const linhas = installments
+      .filter(
+        (p) =>
+          p.status === 'recebida' &&
+          p.simples_amount > 0 &&
+          (p.received_date ?? '').slice(0, 7) === mes &&
+          !porVenda.get(p.sale_id)?.is_personal,
+      )
+      .sort((a, b) => ((a.received_date ?? '') < (b.received_date ?? '') ? -1 : 1))
+      .map((p) => ({
+        id: p.id,
+        titulo: porVenda.get(p.sale_id)?.title ?? 'Parcela de comissão',
+        meta: `recebida em ${formatDateShort(p.received_date ?? '')} · 6% sobre ${formatCurrency(p.amount - p.iss_amount)}`,
+        valor: p.simples_amount,
+        idx: p.count > 1 ? p.idx : undefined,
+        count: p.count > 1 ? p.count : undefined,
+        para: `/vendas/${p.sale_id}`,
+      }))
+    return linhas.length > 0 ? linhas : null
+  }
 
   const abrirLiberadas = () =>
     abrirGrupo(grupos.liberadas, 'Liberada', 'Comissão liberada', 'A imobiliária já recebeu estas parcelas. A comissão do corretor está a pagar.')
@@ -257,12 +383,12 @@ export function Pagar() {
         </Cartao>
       )}
 
-      {grupos.impostos.length > 0 && (
-        <CartaoDeSaida titulo="Imposto" icone={Landmark} explica="A guia mensal do Simples soma tudo que entrou no mês e vence dia 20 do mês seguinte. O ISS é retido pela construtora no pagamento." itens={grupos.impostos} hoje={hoje} onPagar={setAvulso} aoAbrir={abrirLancamento} />
+      {saidasImposto.length > 0 && (
+        <CartaoDeSaida titulo="Imposto" icone={Landmark} explica="A guia mensal do Simples soma tudo que entrou no mês e vence dia 20 do mês seguinte. Toque na guia para ver as parcelas que ela soma." saidas={saidasImposto} hoje={hoje} onPagar={setAvulso} aoAbrir={abrirSaida} />
       )}
 
-      {grupos.despesas.length > 0 && (
-        <CartaoDeSaida titulo="Despesas" icone={Receipt} explica="Estrutura da imobiliária e retiradas do sócio." itens={grupos.despesas} hoje={hoje} onPagar={setAvulso} aoAbrir={abrirLancamento} />
+      {saidasDespesa.length > 0 && (
+        <CartaoDeSaida titulo="Despesas" icone={Receipt} explica="Estrutura da imobiliária e retiradas do sócio. Compra parcelada no cartão aparece numa linha por mês — toque para ver o que está dentro." saidas={saidasDespesa} hoje={hoje} onPagar={setAvulso} aoAbrir={abrirSaida} />
       )}
 
       {(previstasPorCorretor.length > 0 || grupos.impostosPrevistos.length > 0) && (
@@ -365,7 +491,7 @@ function CartaoDeSaida({
   titulo,
   icone,
   explica,
-  itens,
+  saidas,
   hoje,
   onPagar,
   aoAbrir,
@@ -373,36 +499,46 @@ function CartaoDeSaida({
   titulo: string
   icone: typeof Receipt
   explica: string
-  itens: MoneyItem[]
+  saidas: Saida[]
   hoje: string
-  onPagar: (t: Transaction) => void
-  /** O lançamento abre o que ele é (e a venda de origem, quando houver). */
-  aoAbrir: (i: MoneyItem) => void
+  onPagar: (t: Transaction[]) => void
+  /** A linha abre o que ela é: o lançamento, o grupo ou a conta da guia. */
+  aoAbrir: (g: Saida) => void
 }) {
   return (
     <Cartao>
       <Cartao.Cabecalho titulo={titulo} icone={icone} meta={explica} />
       <Cartao.Lista colunas={{ goteira: true, situacao: true, valor: true, acao: '7rem' }} rotuloAcessivel={titulo}>
-        {itens.flatMap((i, n) => {
-          const s = situacaoDaLinha(i, hoje)
+        {saidas.flatMap((g, n) => {
+          const s = situacaoDaLinha(g.itens[0], hoje)
+          const total = Math.round(g.itens.reduce((acc, i) => acc + i.amount, 0) * 100) / 100
           const linha = (
             <Linha
-              key={i.tx.id}
+              key={g.chave}
               goteira={<Selo situacao={s} />}
-              titulo={i.label}
-              meta={<FraseDeTempo situacao={s} prevista={i.date} />}
+              titulo={g.titulo}
+              meta={
+                g.itens.length > 1 ? (
+                  <>
+                    {g.itens.length} compras ·{' '}
+                    <FraseDeTempo situacao={s} prevista={g.data} />
+                  </>
+                ) : (
+                  <FraseDeTempo situacao={s} prevista={g.data} />
+                )
+              }
               situacao={<ChipSituacao situacao={s} />}
-              valor={<Valor posto="linha" valor={i.amount} estado={estadoDe(s)} />}
-              aoClicar={() => aoAbrir(i)}
+              valor={<Valor posto="linha" valor={total} estado={estadoDe(s)} />}
+              aoClicar={() => aoAbrir(g)}
               acao={
-                <Button size="sm" variant="secundario" onClick={() => onPagar(i.tx)}>
-                  Paguei
+                <Button size="sm" variant="secundario" onClick={() => onPagar(g.itens.map((i) => i.tx))}>
+                  {g.itens.length > 1 ? 'Paguei tudo' : 'Paguei'}
                 </Button>
               }
             />
           )
-          return n > 0 && itens[n - 1].date < hoje && i.date >= hoje
-            ? [<LinhaGrupo key={`hoje-${i.tx.id}`} rotulo="Hoje" hoje />, linha]
+          return n > 0 && saidas[n - 1].data < hoje && g.data >= hoje
+            ? [<LinhaGrupo key={`hoje-${g.chave}`} rotulo="Hoje" hoje />, linha]
             : [linha]
         })}
       </Cartao.Lista>
