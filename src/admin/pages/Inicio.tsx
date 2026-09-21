@@ -256,83 +256,6 @@ export function Inicio() {
           )}
         </Cartao>
 
-        {(filaDaNota.emitir.length > 0 || filaDaNota.esperando.length > 0) && (
-          <Cartao className="lg:col-span-7">
-            <Cartao.Cabecalho
-              titulo="Nota fiscal"
-              icone={ReceiptText}
-              meta={
-                filaDaNota.emitir.length > 0
-                  ? `${filaDaNota.emitir.length} ${filaDaNota.emitir.length === 1 ? 'comissão liberada' : 'comissões liberadas'} esperando nota`
-                  : 'notas emitidas esperando pagamento'
-              }
-            />
-            <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Fila da nota fiscal">
-              {filaDaNota.emitir.length > 0 && <LinhaGrupo rotulo="Emitir nota" contador={`${filaDaNota.emitir.length}`} />}
-              {filaDaNota.emitir.map(({ p, venda }) => (
-                <Linha
-                  key={p.id}
-                  goteira={<IconeTom icone={ReceiptText} tom="atencao" tamanho="sm" />}
-                  titulo={venda?.title ?? 'Parcela de comissão'}
-                  meta={fraseDaEtapa(p, hoje)}
-                  valor={<Valor valor={p.amount} posto="linha" />}
-                  para={venda ? `/vendas/${venda.id}?parcela=${p.id}` : undefined}
-                />
-              ))}
-              {filaDaNota.esperando.length > 0 && (
-                <LinhaGrupo rotulo="Nota emitida, passou do prazo" contador={`${filaDaNota.esperando.length}`} />
-              )}
-              {filaDaNota.esperando.map(({ p, venda }) => (
-                <Linha
-                  key={p.id}
-                  goteira={<IconeTom icone={Clock} tom="risco" tamanho="sm" />}
-                  titulo={venda?.title ?? 'Parcela de comissão'}
-                  meta={fraseDaEtapa(p, hoje)}
-                  valor={<Valor valor={p.amount} posto="linha" />}
-                  para={venda ? `/vendas/${venda.id}?parcela=${p.id}` : undefined}
-                />
-              ))}
-            </Cartao.Lista>
-            <Cartao.Rodape>
-              <p className="max-w-[72ch]">
-                A comissão liberada só vira dinheiro depois da nota. O prazo de cada construtora fica em
-                Configurações.
-              </p>
-            </Cartao.Rodape>
-          </Cartao>
-        )}
-
-        {/*
-         * PESSOA FÍSICA (21/09/2026). Duas vendas do PortoVelas foram feitas
-         * quando o Rafael ainda estava em outra imobiliária: a comissão é dele,
-         * não da Souza. Elas não têm lançamento no razão da empresa, então não
-         * aparecem em nenhum número acima — mas continuam sendo previsão de
-         * dinheiro, e previsão escondida não ajuda ninguém.
-         */}
-        {pessoais.linhas.length > 0 && (
-          <Cartao className="lg:col-span-5">
-            <Cartao.Cabecalho titulo="Entra pra você" icone={UserRound} meta="pessoa física" />
-            <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Comissão de pessoa física">
-              {pessoais.linhas.map(({ v, p }) => (
-                <Linha
-                  key={p.id}
-                  goteira={<IconeTom icone={UserRound} tom="neutro" tamanho="sm" />}
-                  titulo={v.title}
-                  meta={fraseDaEtapa(p, hoje)}
-                  valor={<Valor valor={p.amount} posto="linha" previsto />}
-                  para={`/vendas/${v.id}`}
-                />
-              ))}
-            </Cartao.Lista>
-            <Cartao.Rodape>
-              <p className="max-w-[72ch]">
-                <Valor valor={pessoais.total} posto="fato" previsto /> de vendas anteriores à Souza. O dinheiro é seu: não
-                entra em A receber, não gera imposto da imobiliária e não aparece no resultado dela.
-              </p>
-            </Cartao.Rodape>
-          </Cartao>
-        )}
-
         <Cartao className="lg:col-span-5">
           <Cartao.Cabecalho titulo="O mês" icone={CalendarRange} meta={tituloDoMes} />
           <Cartao.Lista colunas={{ situacao: true, valor: '10rem', fim: true }} rotuloAcessivel="O mês">
@@ -422,6 +345,84 @@ export function Inicio() {
             </Link>
           </Cartao.Rodape>
         </Cartao>
+
+        {(filaDaNota.emitir.length > 0 || filaDaNota.esperando.length > 0) && (
+          <Cartao className="lg:col-span-7">
+            <Cartao.Cabecalho
+              titulo="Nota fiscal"
+              icone={ReceiptText}
+              meta={
+                filaDaNota.emitir.length > 0
+                  ? `${filaDaNota.emitir.length} ${filaDaNota.emitir.length === 1 ? 'comissão liberada' : 'comissões liberadas'} esperando nota`
+                  : 'notas emitidas esperando pagamento'
+              }
+            />
+            <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Fila da nota fiscal">
+              {filaDaNota.emitir.length > 0 && <LinhaGrupo rotulo="Emitir nota" contador={`${filaDaNota.emitir.length}`} />}
+              {filaDaNota.emitir.map(({ p, venda }) => (
+                <Linha
+                  key={p.id}
+                  goteira={<IconeTom icone={ReceiptText} tom="atencao" tamanho="sm" />}
+                  titulo={venda?.title ?? 'Parcela de comissão'}
+                  meta={fraseDaEtapa(p, hoje)}
+                  valor={<Valor valor={p.amount} posto="linha" />}
+                  para={venda ? `/vendas/${venda.id}?parcela=${p.id}` : undefined}
+                />
+              ))}
+              {filaDaNota.esperando.length > 0 && (
+                <LinhaGrupo rotulo="Nota emitida, passou do prazo" contador={`${filaDaNota.esperando.length}`} />
+              )}
+              {filaDaNota.esperando.map(({ p, venda }) => (
+                <Linha
+                  key={p.id}
+                  goteira={<IconeTom icone={Clock} tom="risco" tamanho="sm" />}
+                  titulo={venda?.title ?? 'Parcela de comissão'}
+                  meta={fraseDaEtapa(p, hoje)}
+                  valor={<Valor valor={p.amount} posto="linha" />}
+                  para={venda ? `/vendas/${venda.id}?parcela=${p.id}` : undefined}
+                />
+              ))}
+            </Cartao.Lista>
+            <Cartao.Rodape>
+              <p className="max-w-[72ch]">
+                A comissão liberada só vira dinheiro depois da nota. O prazo de cada construtora fica em
+                Configurações.
+              </p>
+            </Cartao.Rodape>
+          </Cartao>
+        )}
+
+        {/*
+         * PESSOA FÍSICA (21/09/2026). Duas vendas do PortoVelas foram feitas
+         * quando o Rafael ainda estava em outra imobiliária: a comissão é dele,
+         * não da Souza. Elas não têm lançamento no razão da empresa, então não
+         * aparecem em nenhum número acima — mas continuam sendo previsão de
+         * dinheiro, e previsão escondida não ajuda ninguém.
+         */}
+        {pessoais.linhas.length > 0 && (
+          <Cartao className="lg:col-span-5">
+            <Cartao.Cabecalho titulo="Entra pra você" icone={UserRound} meta="pessoa física" />
+            <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Comissão de pessoa física">
+              {pessoais.linhas.map(({ v, p }) => (
+                <Linha
+                  key={p.id}
+                  goteira={<IconeTom icone={UserRound} tom="neutro" tamanho="sm" />}
+                  titulo={v.title}
+                  meta={fraseDaEtapa(p, hoje)}
+                  valor={<Valor valor={p.amount} posto="linha" previsto />}
+                  para={`/vendas/${v.id}`}
+                />
+              ))}
+            </Cartao.Lista>
+            <Cartao.Rodape>
+              <p className="max-w-[72ch]">
+                <Valor valor={pessoais.total} posto="fato" previsto /> de vendas anteriores à Souza. O dinheiro é seu: não
+                entra em A receber, não gera imposto da imobiliária e não aparece no resultado dela.
+              </p>
+            </Cartao.Rodape>
+          </Cartao>
+        )}
+
       </div>
     </PageLayout>
   )
