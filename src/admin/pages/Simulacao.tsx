@@ -92,7 +92,14 @@ export function Simulacao() {
   const [estrutura, setEstrutura] = useState<number | null>(real.estrutura)
   const [nova, setNova] = useState<number | null>(null)
   const [ticket, setTicket] = useState<number | null>(real.ticket)
-  const [porCorretor, setPorCorretor] = useState('2')
+  /*
+   * QUANTOS CORRETORES (21/09/2026, pedido dele): a pergunta virou ao
+   * contrário. Antes era "quantas vendas cada um fecha" e a tela dizia
+   * quantos corretores precisam existir. Agora ele informa o TIME que tem, e
+   * a tela diz quanto cada um precisa vender para o desenho fechar — que é a
+   * conversa que ele tem com o corretor.
+   */
+  const [corretores, setCorretores] = useState('2')
   const [periodo, setPeriodo] = useState<Periodo>(12)
 
   function voltarAoReal() {
@@ -106,7 +113,7 @@ export function Simulacao() {
     setEstrutura(real.estrutura)
     setNova(null)
     setTicket(real.ticket)
-    setPorCorretor('2')
+    setCorretores('2')
     setPeriodo(12)
   }
 
@@ -124,8 +131,12 @@ export function Simulacao() {
     const liquido = r2(brutoDaCasa - estruturaTotal - novaTotal)
 
     const vendasNecessarias = ticket && ticket > 0 ? Math.ceil(base / ticket) : 0
-    const porCorretorN = Math.max(1, Number(porCorretor) || 1)
-    const corretoresNecessarios = vendasNecessarias > 0 ? Math.ceil(vendasNecessarias / porCorretorN) : 0
+    const time = Math.max(1, Number(corretores) || 1)
+    /* Vendas por corretor arredonda PARA CIMA: meia venda não existe, e a
+       meta que não fecha o VGV não é meta. */
+    const vendasPorCorretor = vendasNecessarias > 0 ? Math.ceil(vendasNecessarias / time) : 0
+    const vgvPorCorretor = r2(base / time)
+    const comissaoPorCorretor = r2(corretor / time)
 
     /* O VGV que apenas empata: estrutura ÷ (o que sobra de cada real de VGV). */
     const sobraPorReal = base > 0 ? brutoDaCasa / base : 0
@@ -142,12 +153,15 @@ export function Simulacao() {
       novaTotal,
       liquido,
       vendasNecessarias,
-      corretoresNecessarios,
+      time,
+      vendasPorCorretor,
+      vgvPorCorretor,
+      comissaoPorCorretor,
       vgvDeEquilibrio,
       margemSobreComissao: comissao > 0 ? brutoDaCasa / comissao : 0,
       margemSobreVgv: base > 0 ? liquido / base : 0,
     }
-  }, [vgv, pctComissao, temNota, pctSimples, retemIss, pctIss, pctCorretor, estrutura, nova, periodo, ticket, porCorretor])
+  }, [vgv, pctComissao, temNota, pctSimples, retemIss, pctIss, pctCorretor, estrutura, nova, periodo, ticket, corretores])
 
   const linhas: LinhaDemonstrativo[] = [
     {
@@ -158,7 +172,7 @@ export function Simulacao() {
       valor: conta.comissao,
     },
   ]
-  if (conta.iss > 0)
+  if (retemIss)
     linhas.push({
       chave: 'iss',
       rotulo: 'ISS retido na fonte',
@@ -166,7 +180,7 @@ export function Simulacao() {
       sinal: '−',
       valor: conta.iss,
     })
-  if (conta.simples > 0)
+  if (temNota)
     linhas.push({
       chave: 'simples',
       rotulo: 'Imposto (Simples Nacional)',
@@ -174,7 +188,7 @@ export function Simulacao() {
       sinal: '−',
       valor: conta.simples,
     })
-  if (conta.iss > 0 || conta.simples > 0)
+  if (retemIss || temNota)
     linhas.push({
       chave: 'base',
       rotulo: 'Base do cálculo da comissão',
@@ -182,37 +196,36 @@ export function Simulacao() {
       sinal: '=',
       valor: conta.baseCorretor,
     })
-  if (conta.corretor > 0)
-    linhas.push({
+  linhas.push(
+    {
       chave: 'corretor',
       rotulo: 'Comissão dos corretores',
       detalhe: `${formatPercent((pctCorretor ?? 0) / 100, 2)} da base`,
       sinal: '−',
       valor: conta.corretor,
-    })
-  linhas.push({
-    chave: 'fica',
-    rotulo: 'Sobra da operação',
-    detalhe: 'antes da estrutura da imobiliária',
-    sinal: '=',
-    valor: conta.brutoDaCasa,
-  })
-  if (conta.estruturaTotal > 0)
-    linhas.push({
+    },
+    {
+      chave: 'fica',
+      rotulo: 'Sobra da operação',
+      detalhe: 'antes da estrutura da imobiliária',
+      sinal: '=',
+      valor: conta.brutoDaCasa,
+    },
+    {
       chave: 'estrutura',
       rotulo: 'Estrutura',
       detalhe: `${formatCurrency(estrutura ?? 0)} por mês × ${periodo} ${periodo === 1 ? 'mês' : 'meses'}`,
       sinal: '−',
       valor: conta.estruturaTotal,
-    })
-  if (conta.novaTotal > 0)
-    linhas.push({
+    },
+    {
       chave: 'nova',
       rotulo: 'Despesa nova',
       detalhe: `${formatCurrency(nova ?? 0)} por mês × ${periodo} ${periodo === 1 ? 'mês' : 'meses'}`,
       sinal: '−',
       valor: conta.novaTotal,
-    })
+    },
+  )
   linhas.push({
     chave: 'fica',
     rotulo: 'Fica para a imobiliária',
@@ -249,28 +262,26 @@ export function Simulacao() {
         média por mês — e você mexe à vontade. Recarregar a página devolve tudo ao real.
       </Dica>
 
-      {conta.liquido < 0 ? (
-        <Heroi
-          variante="ouro"
-          estado="negativo"
-          rotulo={`Fica para a imobiliária · ${nomeDoPeriodo}`}
-          valor={conta.liquido}
-          rotuloAcessivel="Abrir a conta da simulação"
-          aoAbrir={abrirAConta}
-          frase={`Neste desenho a operação não paga a estrutura: falta ${formatCurrency(-conta.liquido)}. O VGV que empata é ${formatCurrency(conta.vgvDeEquilibrio)}.`}
-          demonstrativo={{ linhas, perfil: 'admin', rotuloAcessivel: 'A conta da simulação' }}
-        />
-      ) : (
-        <Heroi
-          variante="ouro"
-          rotulo={`Fica para a imobiliária · ${nomeDoPeriodo}`}
-          valor={conta.liquido}
-          rotuloAcessivel="Abrir a conta da simulação"
-          aoAbrir={abrirAConta}
-          frase={`De cada real de VGV, ${formatPercent(conta.margemSobreVgv, 2)} sobram para a imobiliária depois do imposto, do corretor e da estrutura. O VGV que apenas empata é ${formatCurrency(conta.vgvDeEquilibrio)}.`}
-          demonstrativo={{ linhas, perfil: 'admin', rotuloAcessivel: 'A conta da simulação' }}
-        />
-      )}
+      {/*
+       * UM HERÓI SÓ, e este detalhe não é estética: antes havia dois, um para
+       * o resultado negativo e outro para o positivo. Digitar o VGV cruzava o
+       * zero e o React trocava de componente — a caixa remontava e a tela
+       * saltava debaixo do dedo do Rafael. Agora o estado é um atributo.
+       */}
+      <Heroi
+        variante="ouro"
+        estado={conta.liquido < 0 ? 'negativo' : undefined}
+        rotulo={`Fica para a imobiliária · ${nomeDoPeriodo}`}
+        valor={conta.liquido}
+        rotuloAcessivel="Abrir a conta da simulação"
+        aoAbrir={abrirAConta}
+        frase={
+          conta.liquido < 0
+            ? `Neste desenho a operação não paga a estrutura: falta ${formatCurrency(-conta.liquido)}. O VGV que empata é ${formatCurrency(conta.vgvDeEquilibrio)}.`
+            : `De cada real de VGV, ${formatPercent(conta.margemSobreVgv, 2)} sobram para a imobiliária depois do imposto, do corretor e da estrutura. O VGV que apenas empata é ${formatCurrency(conta.vgvDeEquilibrio)}.`
+        }
+        demonstrativo={{ linhas, perfil: 'admin', rotuloAcessivel: 'A conta da simulação' }}
+      />
 
       <div className="grid gap-bloco sm:grid-cols-2 lg:grid-cols-4">
         <Kpi
@@ -289,12 +300,11 @@ export function Simulacao() {
           nota={`com ticket de ${formatCurrency(ticket ?? 0)} por imóvel`}
         />
         <Kpi
-          rotulo="Corretores"
+          rotulo="Cada corretor vende"
           icone={Users}
           tom="atencao"
-          valor={0}
-          texto={String(conta.corretoresNecessarios)}
-          nota={`a ${porCorretor} ${Number(porCorretor) === 1 ? 'venda' : 'vendas'} por corretor ${nomeDoPeriodo}`}
+          valor={conta.vgvPorCorretor}
+          nota={`${conta.vendasPorCorretor} ${conta.vendasPorCorretor === 1 ? 'venda' : 'vendas'} por corretor ${nomeDoPeriodo}, com ${conta.time} no time`}
         />
         <Kpi
           rotulo="Margem da operação"
@@ -333,39 +343,41 @@ export function Simulacao() {
                 <CurrencyInput id="s-ticket" value={ticket} onChange={setTicket} />
               </FormField>
               <FormField
-                label="Vendas por corretor"
-                htmlFor="s-porcorretor"
-                hint={`quantas vendas cada corretor fecha ${nomeDoPeriodo}`}
+                label="Quantos corretores"
+                htmlFor="s-corretores"
+                hint="o time que vai atrás deste VGV"
               >
                 <Input
-                  id="s-porcorretor"
+                  id="s-corretores"
                   type="number"
                   min="1"
-                  value={porCorretor}
-                  onChange={(e) => setPorCorretor(e.target.value)}
+                  value={corretores}
+                  onChange={(e) => setCorretores(e.target.value)}
                 />
               </FormField>
             </div>
           </Cartao.Corpo>
-          <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="O período da simulação">
-            <Linha
-              titulo="Período"
-              meta="a estrutura é mensal; o VGV é do período inteiro"
-              valor={
-                <FiltrosRapidos
-                  rotuloAcessivel="Período da simulação"
-                  ativo={String(periodo)}
-                  aoMudar={(v) => setPeriodo(Number(v) as Periodo)}
-                  filtros={[
-                    { id: '1', rotulo: '1 mês' },
-                    { id: '3', rotulo: '3 meses' },
-                    { id: '6', rotulo: '6 meses' },
-                    { id: '12', rotulo: '12 meses' },
-                  ]}
-                />
-              }
-            />
-          </Cartao.Lista>
+          <Cartao.Corpo>
+            {/* O período fica no corpo, e não na coluna de valor de uma linha:
+                quatro pílulas ali comprimiam a frase até cortá-la. */}
+            <div className="flex flex-col gap-2">
+              <p className="text-texto-meta font-medium text-t2">Período da simulação</p>
+              <FiltrosRapidos
+                rotuloAcessivel="Período da simulação"
+                ativo={String(periodo)}
+                aoMudar={(v) => setPeriodo(Number(v) as Periodo)}
+                filtros={[
+                  { id: '1', rotulo: '1 mês' },
+                  { id: '3', rotulo: '3 meses' },
+                  { id: '6', rotulo: '6 meses' },
+                  { id: '12', rotulo: '12 meses' },
+                ]}
+              />
+              <p className="text-nota text-t-meta">
+                A estrutura é mensal e se multiplica pelo período; o VGV é do período inteiro.
+              </p>
+            </div>
+          </Cartao.Corpo>
         </Cartao>
 
         <Cartao className="lg:col-span-5">
@@ -471,9 +483,19 @@ export function Simulacao() {
               valor={<span className="num font-heading text-t1 text-valor-linha">{conta.vendasNecessarias}</span>}
             />
             <Linha
-              titulo="Corretores"
-              meta={`a ${porCorretor} ${Number(porCorretor) === 1 ? 'venda' : 'vendas'} por corretor`}
-              valor={<span className="num font-heading text-t1 text-valor-linha">{conta.corretoresNecessarios}</span>}
+              titulo="VGV por corretor"
+              meta={`o VGV dividido pelos ${conta.time} ${conta.time === 1 ? 'corretor' : 'corretores'} do time`}
+              valor={<Valor valor={conta.vgvPorCorretor} posto="linha" forte />}
+            />
+            <Linha
+              titulo="Vendas por corretor"
+              meta={`o que cada um precisa fechar ${nomeDoPeriodo} para o VGV fechar`}
+              valor={<span className="num font-heading text-t1 text-valor-linha">{conta.vendasPorCorretor}</span>}
+            />
+            <Linha
+              titulo="Comissão de cada corretor"
+              meta="o que cada um leva, se o time vender por igual"
+              valor={<Valor valor={conta.comissaoPorCorretor} posto="linha" />}
             />
             <Linha
               titulo="Comissão por venda"
@@ -499,8 +521,9 @@ export function Simulacao() {
           </Cartao.Lista>
           <Cartao.Rodape>
             <p className="max-w-[72ch]">
-              A conta de corretores é aritmética simples, não previsão: ela diz quantas pessoas, no ritmo que você
-              informou, fecham o VGV do período. Se o ritmo real for outro, mude o campo e veja.
+              Aritmética simples, não previsão: o VGV dividido pelo time que você informou. Vendas por corretor
+              arredonda para cima — meia venda não existe, e meta que não fecha o VGV não é meta. Se o time tiver
+              ritmos diferentes, a divisão por igual é só o ponto de partida da conversa.
             </p>
           </Cartao.Rodape>
         </Cartao>
