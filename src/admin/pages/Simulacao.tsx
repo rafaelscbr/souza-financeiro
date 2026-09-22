@@ -101,6 +101,13 @@ export function Simulacao() {
    */
   const [corretores, setCorretores] = useState('2')
   const [periodo, setPeriodo] = useState<Periodo>(12)
+  /*
+   * A CONTA AO CONTRÁRIO (21/09/2026). "Nosso cálculo é anual: quanto temos
+   * que fazer de VGV anual." Aqui ele diz quanto quer que SOBRE no período e
+   * a tela devolve o VGV que produz isso — e, com o time informado, quanto
+   * cada corretor precisa vender para chegar lá.
+   */
+  const [meta, setMeta] = useState<number | null>(null)
 
   function voltarAoReal() {
     setVgv(real.vgv)
@@ -115,6 +122,7 @@ export function Simulacao() {
     setTicket(real.ticket)
     setCorretores('2')
     setPeriodo(12)
+    setMeta(null)
   }
 
   /* ------------------------------------------------------------- a conta */
@@ -142,6 +150,18 @@ export function Simulacao() {
     const sobraPorReal = base > 0 ? brutoDaCasa / base : 0
     const vgvDeEquilibrio = sobraPorReal > 0 ? r2((estruturaTotal + novaTotal) / sobraPorReal) : 0
 
+    /*
+     * A CONTA AO CONTRÁRIO: para sobrar `meta` no período, o VGV tem de cobrir
+     * a estrutura mais a meta, dividido pelo que sobra de cada real de VGV.
+     * Sem percentual de comissão não existe conta — e aí a tela diz isso, em
+     * vez de mostrar zero.
+     */
+    const metaAlvo = meta ?? 0
+    const vgvDaMeta = sobraPorReal > 0 ? r2((estruturaTotal + novaTotal + metaAlvo) / sobraPorReal) : 0
+    const vendasDaMeta = ticket && ticket > 0 && vgvDaMeta > 0 ? Math.ceil(vgvDaMeta / ticket) : 0
+    const vendasPorCorretorNaMeta = vendasDaMeta > 0 ? Math.ceil(vendasDaMeta / Math.max(1, Number(corretores) || 1)) : 0
+    const comissaoDaMeta = r2((vgvDaMeta * (pctComissao ?? 0)) / 100)
+
     return {
       comissao,
       iss,
@@ -158,10 +178,16 @@ export function Simulacao() {
       vgvPorCorretor,
       comissaoPorCorretor,
       vgvDeEquilibrio,
+      metaAlvo,
+      vgvDaMeta,
+      vendasDaMeta,
+      vendasPorCorretorNaMeta,
+      comissaoDaMeta,
+      sobraPorReal,
       margemSobreComissao: comissao > 0 ? brutoDaCasa / comissao : 0,
       margemSobreVgv: base > 0 ? liquido / base : 0,
     }
-  }, [vgv, pctComissao, temNota, pctSimples, retemIss, pctIss, pctCorretor, estrutura, nova, periodo, ticket, corretores])
+  }, [vgv, pctComissao, temNota, pctSimples, retemIss, pctIss, pctCorretor, estrutura, nova, periodo, ticket, corretores, meta])
 
   const linhas: LinhaDemonstrativo[] = [
     {
@@ -234,7 +260,7 @@ export function Simulacao() {
     valor: conta.liquido,
   })
 
-  const nomeDoPeriodo = periodo === 1 ? 'no mês' : `em ${periodo} meses`
+  const nomeDoPeriodo = periodo === 1 ? 'no mês' : periodo === 12 ? 'no ano' : `em ${periodo} meses`
 
   /* O herói abre a mesma cascata que ele já mostra — é o único lugar onde há
      o que abrir, porque a simulação não tem lançamento por trás. */
@@ -445,6 +471,14 @@ export function Simulacao() {
               >
                 <CurrencyInput id="s-nova" value={nova} onChange={setNova} />
               </FormField>
+              <FormField
+                label={`Quanto você quer que sobre ${nomeDoPeriodo}`}
+                htmlFor="s-meta"
+                className="sm:col-span-2"
+                hint="a conta ao contrário: a tela devolve o VGV que produz este resultado"
+              >
+                <CurrencyInput id="s-meta" value={meta} onChange={setMeta} />
+              </FormField>
             </div>
           </Cartao.Corpo>
           <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="A conta da estrutura">
@@ -470,6 +504,64 @@ export function Simulacao() {
             <p className="max-w-[72ch]">
               A estrutura é da empresa, não da venda: ela entra depois da comissão do corretor e do imposto, e é por
               isso que ela não muda a margem da operação — muda o que sobra no fim.
+            </p>
+          </Cartao.Rodape>
+        </Cartao>
+
+        <Cartao className="lg:col-span-7">
+          <Cartao.Cabecalho
+            titulo={conta.metaAlvo > 0 ? `Para sobrar ${formatCurrency(conta.metaAlvo)} ${nomeDoPeriodo}` : `A meta ${nomeDoPeriodo}`}
+            icone={Target}
+            meta={
+              conta.sobraPorReal > 0
+                ? `de cada real de VGV, ${formatPercent(conta.sobraPorReal, 2)} sobram antes da estrutura`
+                : 'informe o percentual de comissão para a conta existir'
+            }
+          />
+          <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="A meta do período">
+            <Linha
+              titulo="VGV necessário"
+              meta={
+                conta.metaAlvo > 0
+                  ? `para cobrir a estrutura e ainda sobrar ${formatCurrency(conta.metaAlvo)}`
+                  : 'o VGV que apenas empata com a estrutura'
+              }
+              valor={<Valor valor={conta.vgvDaMeta} posto="linha" forte />}
+            />
+            <Linha
+              titulo="Comissão que isso gera"
+              meta={`${formatPercent((pctComissao ?? 0) / 100, 2)} do VGV necessário`}
+              valor={<Valor valor={conta.comissaoDaMeta} posto="linha" />}
+            />
+            <Linha
+              titulo="Vendas necessárias"
+              meta={`com ticket de ${formatCurrency(ticket ?? 0)} por imóvel`}
+              valor={<span className="num font-heading text-t1 text-valor-linha">{conta.vendasDaMeta}</span>}
+            />
+            <Linha
+              titulo="Cada corretor precisa vender"
+              meta={`dividido pelos ${conta.time} ${conta.time === 1 ? 'corretor' : 'corretores'} do time · ${formatCurrency(conta.vgvDaMeta / conta.time)} de VGV cada`}
+              valor={
+                <span className="num font-heading text-t1 text-valor-linha">
+                  {conta.vendasPorCorretorNaMeta}
+                </span>
+              }
+            />
+          </Cartao.Lista>
+          <Cartao.Rodape>
+            <p className="max-w-[72ch]">
+              {conta.metaAlvo > 0 ? (
+                <>
+                  Esta é a conta ao contrário: você disse quanto quer que sobre e a tela devolveu o VGV que produz
+                  isso, com a estrutura de{' '}
+                  <Valor valor={conta.estruturaTotal + conta.novaTotal} posto="fato" /> {nomeDoPeriodo} já dentro. O VGV simulado lá em cima é outro número — é o que você digitou.
+                </>
+              ) : (
+                <>
+                  Preencha “quanto você quer que sobre {nomeDoPeriodo}”, no cartão da estrutura, e esta tabela passa a
+                  mostrar o VGV que produz esse resultado. Sem meta, ela mostra o VGV que apenas empata.
+                </>
+              )}
             </p>
           </Cartao.Rodape>
         </Cartao>
