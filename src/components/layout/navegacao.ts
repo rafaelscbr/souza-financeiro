@@ -2,6 +2,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   CalendarDays,
+  Calculator,
   Handshake,
   Home,
   PieChart,
@@ -85,7 +86,10 @@ export function navAdmin({ vencidos, esperando }: { vencidos: number; esperando:
     },
     {
       rotulo: 'Relatórios',
-      itens: [{ para: '/relatorios', rotulo: 'Relatórios', icone: PieChart }],
+      itens: [
+        { para: '/relatorios', rotulo: 'Relatórios', icone: PieChart },
+        { para: '/simulacao', rotulo: 'Simulação', icone: Calculator },
+      ],
     },
     {
       rotulo: 'Sistema',
@@ -182,6 +186,7 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
   { padrao: '/despesas', icone: Receipt, titulo: 'Despesas', usaMes: true, faixa: true, cta: CTA_DESPESA },
   { padrao: '/corretores', icone: Users, titulo: 'Corretores', usaMes: false, faixa: false, cta: CTA_VENDA },
   { padrao: '/relatorios', icone: PieChart, titulo: 'Relatórios', usaMes: true, faixa: true },
+  { padrao: '/simulacao', icone: Calculator, titulo: 'Simulação', usaMes: false, faixa: false },
   { padrao: '/config', icone: Settings, titulo: 'Configurações', usaMes: false, faixa: true },
 ]
 

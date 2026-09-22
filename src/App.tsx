@@ -37,6 +37,9 @@ const AdminCorretores = pagina(() =>
 const AdminRelatorios = pagina(() =>
   import('@/admin/pages/Relatorios').then((m) => ({ default: m.Relatorios })),
 )
+const AdminSimulacao = pagina(() =>
+  import('@/admin/pages/Simulacao').then((m) => ({ default: m.Simulacao })),
+)
 const AdminConfig = pagina(() => import('@/admin/pages/Config').then((m) => ({ default: m.Config })))
 const AdminDataProvider = pagina(() =>
   import('@/admin/AdminData').then((m) => ({ default: m.AdminDataProvider })),
@@ -105,6 +108,7 @@ function AppAdministrador() {
           <Route path="/despesas" element={<AdminDespesas />} />
           <Route path="/corretores" element={<AdminCorretores />} />
           <Route path="/relatorios" element={<AdminRelatorios />} />
+          <Route path="/simulacao" element={<AdminSimulacao />} />
           <Route path="/config" element={<AdminConfig />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

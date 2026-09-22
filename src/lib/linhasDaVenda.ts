@@ -39,6 +39,9 @@ export type ChaveLinha =
   | 'desconto'
   | 'socio'
   | 'fica'
+  /* Só a tela de Simulação usa estas duas: a estrutura entra na conta dela. */
+  | 'estrutura'
+  | 'nova'
 
 export interface LinhaDemonstrativo {
   chave: ChaveLinha
