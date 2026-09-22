@@ -62,8 +62,16 @@ export function Simulacao() {
     const ativas = daEmpresa.filter((v) => v.status !== 'cancelada')
     const comissao = r2(ativas.reduce((s, v) => s + v.cascade.commission, 0))
     const liquido = r2(ativas.reduce((s, v) => s + v.cascade.net, 0))
-    const vgvComValor = r2(ativas.reduce((s, v) => s + (v.property_value ?? 0), 0))
-    const pct = vgvComValor > 0 ? r2((comissao / vgvComValor) * 100) : 5
+    /*
+     * O percentual sugerido é a média PONDERADA da carteira: comissão ÷ VGV.
+     * E só entra na conta a venda que tem o valor do imóvel informado — do
+     * contrário a comissão dela contaria no numerador sem o VGV no
+     * denominador, e a média sairia mais baixa do que a realidade.
+     */
+    const comValor = ativas.filter((v) => v.property_value != null)
+    const vgvComValor = r2(comValor.reduce((s, v) => s + (v.property_value ?? 0), 0))
+    const comissaoComValor = r2(comValor.reduce((s, v) => s + v.cascade.commission, 0))
+    const pct = vgvComValor > 0 ? r2((comissaoComValor / vgvComValor) * 100) : 5
     const equilibrio = pontoDeEquilibrio({
       transactions,
       meses: doze.slice(0, 11),
@@ -358,7 +366,11 @@ export function Simulacao() {
               <FormField label="VGV do período" htmlFor="s-vgv" hint="o valor dos imóveis que você quer vender">
                 <CurrencyInput id="s-vgv" value={vgv} onChange={setVgv} />
               </FormField>
-              <FormField label="% de comissão" htmlFor="s-com" hint="sobre o VGV; use vírgula para decimal">
+              <FormField
+                label="% de comissão"
+                htmlFor="s-com"
+                hint={`sobre o VGV. Começa em ${formatPercent(real.pctComissao / 100, 2)}, que é a média ponderada da sua carteira — não o percentual de um contrato`}
+              >
                 <PercentInput id="s-com" value={pctComissao} onChange={setPctComissao} />
               </FormField>
               <FormField
