@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Banknote, Building2, Clock, Handshake, HandCoins, Hourglass, Landmark, List, Plus, Search, SearchX, TriangleAlert } from 'lucide-react'
+import { Banknote, BarChart3, Building2, Clock, Handshake, HandCoins, Hourglass, Landmark, List, Plus, Search, SearchX, TriangleAlert } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useAcoesAdmin } from '../AcoesAdmin'
 import { PagarComissao, type ComissaoAPagar } from '../PagarComissao'
@@ -9,6 +9,7 @@ import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
 import { Kpi } from '@/components/ui/Kpi'
+import { Colunas } from '@/components/ui/Colunas'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Barra, LegendaBarra } from '@/components/ui/Barra'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
@@ -19,9 +20,10 @@ import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Field'
 import { FilaDeAcao, type ItemFila } from '@/components/shared/FilaDeAcao'
-import { brokerStatusOf, type SaleView } from '@/lib/sales'
+import { brokerStatusOf, volumeDeVendas, type SaleView } from '@/lib/sales'
+import { lastNMonths, monthKey } from '@/lib/finance'
 import { diasEntre, situacaoDeTela, type Situacao } from '@/lib/situacao'
-import { formatCurrency, formatDateShort } from '@/lib/format'
+import { formatCurrency, formatDateShort, formatMonthTiny, formatMonthYear } from '@/lib/format'
 import type { SaleInstallment, TransactionStatus } from '@/types'
 
 /*
@@ -67,7 +69,7 @@ function lerFiltro(valor: string | null): Filtro {
 }
 
 export function Vendas() {
-  const { vendas, transactions, hoje } = useAdmin()
+  const { vendas, transactions, hoje, mes } = useAdmin()
   const { registrarVenda } = useAcoesAdmin()
   const { abrir } = useComposicao()
   const navigate = useNavigate()
@@ -199,6 +201,17 @@ export function Vendas() {
     [observado],
   )
 
+  /*
+   * QUANTO A IMOBILIÁRIA VENDEU (21/09/2026).
+   *
+   * VGV é o valor dos IMÓVEIS que saíram — o tamanho do que a imobiliária
+   * colocou na rua. Não é dinheiro dela: o dinheiro dela é a comissão, que é
+   * uma fração disso e está no herói logo acima. VGL é o mesmo número sem os
+   * distratos. Os dois olham a data da VENDA, não a do recebimento.
+   */
+  const doze = useMemo(() => lastNMonths(mes, 12), [mes])
+  const volume = useMemo(() => volumeDeVendas(ativas.concat(vendas.filter((v) => v.status === 'cancelada' && !v.is_personal)), doze), [ativas, vendas, doze])
+
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase()
     return vendas.filter((v) => {
@@ -305,6 +318,32 @@ export function Vendas() {
     ]
       .filter(Boolean)
       .join(' · ')
+
+  /** Um mês do VGV, aberto nas vendas daquele mês. */
+  const abrirMesDoVgv = (i: number) => {
+    const m = volume.meses[i]
+    if (!m) return
+    const chave = monthKey(m.mes)
+    abrir({
+      rotulo: 'VGV',
+      titulo: `Vendido em ${formatMonthYear(m.mes)}`,
+      explica:
+        'O valor dos imóveis vendidos neste mês. A comissão da imobiliária é uma fração disso e aparece na ficha de cada venda.',
+      total: m.vgv,
+      itens: vendas
+        .filter((v) => !v.is_personal && v.sale_date.slice(0, 7) === chave && v.property_value != null)
+        .map((v) => ({
+          id: v.id,
+          titulo: v.title,
+          meta: [v.development, v.status === 'cancelada' ? 'distrato' : `comissão de ${formatCurrency(v.cascade.commission)}`]
+            .filter(Boolean)
+            .join(' · '),
+          valor: v.property_value ?? 0,
+          para: `/vendas/${v.id}`,
+        })),
+      vazio: 'Nenhuma venda com valor informado neste mês.',
+    })
+  }
 
   /** Uma das três partes da carteira, aberta venda por venda. */
   const abrirParte = (parte: 'fica' | 'corretor' | 'imposto') => {
@@ -530,6 +569,64 @@ export function Vendas() {
           aoClicar={abrirJaEntrou}
         />
       </div>
+
+      <Cartao>
+        <Cartao.Cabecalho
+          titulo="Quanto a imobiliária vendeu"
+          icone={BarChart3}
+          meta={`VGV dos últimos 12 meses, até ${formatMonthYear(mes).toLowerCase()}`}
+        />
+        <Cartao.Corpo>
+          <Colunas
+            tom="marca"
+            itens={volume.meses.map((m) => ({
+              rotulo: formatMonthTiny(m.mes),
+              valor: m.vgv,
+              descricao: `${formatMonthYear(m.mes)}: ${formatCurrency(m.vgv)} em ${m.vendas === 1 ? '1 venda' : `${m.vendas} vendas`}`,
+              ativo: monthKey(m.mes) === monthKey(mes),
+            }))}
+            rotuloAcessivel={`VGV mês a mês nos últimos 12 meses. Total de ${formatCurrency(volume.vgv)}.`}
+            aoClicar={(i) => abrirMesDoVgv(i)}
+          />
+        </Cartao.Corpo>
+        <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="Volume de vendas nos 12 meses">
+          <Linha
+            titulo="VGV"
+            meta="valor dos imóveis vendidos nestes 12 meses"
+            valor={<Valor valor={volume.vgv} posto="linha" />}
+          />
+          <Linha
+            titulo="VGL"
+            meta={
+              volume.distratos === 0
+                ? 'o mesmo valor: nenhum distrato no período'
+                : `sem os ${volume.distratos === 1 ? 'distrato' : `${volume.distratos} distratos`} do período`
+            }
+            valor={<Valor valor={volume.vgl} posto="linha" forte />}
+          />
+          <Linha
+            titulo="Ticket médio"
+            meta="VGL dividido pelas vendas firmes com valor informado"
+            valor={<Valor valor={volume.ticket} posto="linha" />}
+          />
+          <Linha
+            titulo="Vendas no período"
+            meta={
+              volume.semValor === 0
+                ? 'todas com o valor do imóvel informado'
+                : `${volume.semValor} sem o valor do imóvel informado — ficam fora do VGV`
+            }
+            valor={<span className="num font-heading text-t1 text-valor-linha">{volume.vendas}</span>}
+          />
+        </Cartao.Lista>
+        <Cartao.Rodape>
+          <p className="max-w-[72ch]">
+            VGV é o tamanho do que foi vendido, não o dinheiro da imobiliária — dele ela recebe a comissão, que é o
+            número do topo desta tela. Venda sem o valor do imóvel informado não entra no VGV: ela é contada à parte,
+            para o total não parecer menor do que a realidade.
+          </p>
+        </Cartao.Rodape>
+      </Cartao>
 
       <FilaDeAcao itens={fila.itens} vazio={fila.vazio} />
 

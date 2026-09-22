@@ -1,19 +1,22 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Banknote, CalendarRange, CircleCheck, Clock, Handshake, Hourglass, ListChecks, ReceiptText, UserRound } from 'lucide-react'
+import { Banknote, BarChart3, CalendarRange, CircleCheck, Clock, Handshake, Hourglass, ListChecks, ReceiptText, TrendingUp, UserRound } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
 import { Kpi } from '@/components/ui/Kpi'
+import { Colunas } from '@/components/ui/Colunas'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { Selo } from '@/components/ui/Selo'
 import { IconeTom } from '@/components/ui/IconeTom'
 import { ChipSituacao } from '@/components/ui/Situacao'
 import { EstadoVazio } from '@/components/ui/Estados'
-import { formatCurrency } from '@/lib/format'
+import { formatCurrency, formatMonthTiny, formatMonthYear } from '@/lib/format'
+import { lastNMonths, monthKey } from '@/lib/finance'
+import { entradasPorMes } from '@/lib/sales'
 import { accountBalance } from '@/lib/treasury'
 import { situacaoDeTela } from '@/lib/situacao'
 import { etapaDaParcela, fraseDaEtapa } from '@/lib/etapas'
@@ -152,6 +155,44 @@ export function Inicio() {
       n: parcelas.length,
     }
   }, [vendas, chaveMes])
+
+  /*
+   * O RITMO DO DINHEIRO (21/09/2026).
+   *
+   * Duas séries que o Início não tinha e que respondem as duas perguntas mais
+   * frequentes de quem abre um financeiro: quanto entrou até agora, e quanto
+   * vem pela frente. Nenhuma inventa número — a de trás lê a data em que cada
+   * parcela foi RECEBIDA; a da frente lê as mesmas linhas de "A receber" que
+   * a tela de Receber usa, agrupadas por mês de vencimento.
+   */
+  const doze = useMemo(() => lastNMonths(mes, 12), [mes])
+  const entradas = useMemo(
+    () => entradasPorMes(vendas.filter((v) => !v.is_personal), doze),
+    [vendas, doze],
+  )
+  const entrou = useMemo(() => {
+    const r2 = (n: number) => Math.round(n * 100) / 100
+    return {
+      total: r2(entradas.reduce((s, e) => s + e.total, 0)),
+      imposto: r2(entradas.reduce((s, e) => s + e.imposto, 0)),
+      corretor: r2(entradas.reduce((s, e) => s + e.corretor, 0)),
+      imobiliaria: r2(entradas.reduce((s, e) => s + e.imobiliaria, 0)),
+      parcelas: entradas.reduce((s, e) => s + e.parcelas, 0),
+    }
+  }, [entradas])
+
+  const proximos = useMemo(() => {
+    const meses = Array.from({ length: 6 }, (_, i) => new Date(mes.getFullYear(), mes.getMonth() + i, 1))
+    return meses.map((m) => {
+      const chave = monthKey(m)
+      const itens = receber.filter((r) => r.date.slice(0, 7) === chave)
+      return { mes: m, itens, total: Math.round(itens.reduce((s, r) => s + r.amount, 0) * 100) / 100 }
+    })
+  }, [receber, mes])
+  const totalProximos = useMemo(
+    () => Math.round(proximos.reduce((s, p) => s + p.total, 0) * 100) / 100,
+    [proximos],
+  )
 
   /** O que entra pra você, fora da imobiliária: parcela cheia, sem desconto. */
   const pessoais = useMemo(() => {
@@ -458,6 +499,94 @@ export function Inicio() {
             </Cartao.Rodape>
           </Cartao>
         )}
+
+        <Cartao className="lg:col-span-7">
+          <Cartao.Cabecalho
+            titulo="Entrou por mês"
+            icone={BarChart3}
+            meta={`${formatCurrency(entrou.total)} nos últimos 12 meses`}
+          />
+          <Cartao.Corpo>
+            <Colunas
+              tom="sucesso"
+              itens={entradas.map((e) => ({
+                rotulo: formatMonthTiny(e.mes),
+                valor: e.total,
+                descricao: `${formatMonthYear(e.mes)}: ${formatCurrency(e.total)} em ${e.parcelas === 1 ? '1 parcela' : `${e.parcelas} parcelas`}`,
+                ativo: monthKey(e.mes) === chaveMes,
+              }))}
+              rotuloAcessivel={`Comissão recebida mês a mês nos últimos 12 meses. Total de ${formatCurrency(entrou.total)}.`}
+            />
+          </Cartao.Corpo>
+          {/*
+           * DE QUEM FOI O QUE ENTROU. O gráfico diz quanto; estas três linhas
+           * dizem para onde foi. Elas somam exatamente a comissão recebida,
+           * porque saem gravadas de cada parcela — imposto, corretor e o que
+           * sobrou para a imobiliária.
+           */}
+          <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="De quem foi a comissão que entrou">
+            <LinhaGrupo rotulo="De quem foi" />
+            <Linha
+              titulo="Imposto sobre essa comissão"
+              meta="ISS retido na fonte e Simples das parcelas recebidas"
+              valor={<Valor valor={entrou.imposto} posto="linha" />}
+            />
+            <Linha
+              titulo="Repassado aos corretores"
+              meta="a comissão deles nas parcelas que entraram"
+              valor={<Valor valor={entrou.corretor} posto="linha" />}
+            />
+            <Linha
+              titulo="Ficou com a imobiliária"
+              meta="o que sobrou das parcelas recebidas, antes da estrutura"
+              valor={<Valor valor={entrou.imobiliaria} posto="linha" forte />}
+            />
+          </Cartao.Lista>
+          <Cartao.Rodape>
+            <p className="max-w-[72ch]">
+              Cada coluna é a comissão que a construtora pagou naquele mês, pela data em que o dinheiro caiu. As três
+              linhas acima somam exatamente essa comissão — é para onde ela foi. Comissão é receita irregular: o que
+              importa é o ritmo, não o mês isolado.
+            </p>
+          </Cartao.Rodape>
+        </Cartao>
+
+        <Cartao className="lg:col-span-5">
+          <Cartao.Cabecalho
+            titulo="Os próximos 6 meses"
+            icone={TrendingUp}
+            meta={`${formatCurrency(totalProximos)} previstos`}
+          />
+          <Cartao.Corpo>
+            <Colunas
+              tom="info"
+              itens={proximos.map((p) => ({
+                rotulo: formatMonthTiny(p.mes),
+                valor: p.total,
+                descricao: `${formatMonthYear(p.mes)}: ${formatCurrency(p.total)} previstos em ${p.itens.length === 1 ? '1 parcela' : `${p.itens.length} parcelas`}`,
+                ativo: monthKey(p.mes) === chaveMes,
+              }))}
+              rotuloAcessivel={`Comissão prevista mês a mês nos próximos 6 meses. Total de ${formatCurrency(totalProximos)}.`}
+              aoClicar={(i) => {
+                const p = proximos[i]
+                abrir({
+                  rotulo: 'Previsto',
+                  titulo: `Previsto para ${formatMonthYear(p.mes)}`,
+                  explica:
+                    'Parcelas de comissão com vencimento neste mês. A data depende da construtora pagar — é previsão, não caixa.',
+                  total: p.total,
+                  itens: comp(p.itens),
+                  vazio: 'Nenhuma parcela prevista para este mês.',
+                })
+              }}
+            />
+          </Cartao.Corpo>
+          <Cartao.Rodape>
+            <p className="max-w-[72ch]">
+              O que a carteira promete, mês a mês. Toque numa coluna para ver de quais vendas ela vem.
+            </p>
+          </Cartao.Rodape>
+        </Cartao>
 
         {/*
          * PESSOA FÍSICA (21/09/2026). Duas vendas do PortoVelas foram feitas

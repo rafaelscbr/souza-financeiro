@@ -473,6 +473,117 @@ export interface DevelopmentResult {
   margin: number
 }
 
+/*
+ * VOLUME DE VENDAS: VGV e VGL, mês a mês.
+ *
+ * VGV é o valor dos IMÓVEIS vendidos — o tamanho do que a imobiliária
+ * colocou na rua. Não é receita dela: a receita é a comissão, que é uma
+ * fração disso. VGL é o mesmo número depois de tirar os distratos: o que
+ * sobrou de venda firme.
+ *
+ * Duas honestidades embutidas:
+ *   · venda sem o valor do imóvel informado NÃO vira zero. Ela é contada à
+ *     parte, para a tela poder dizer "3 vendas sem valor informado" em vez
+ *     de mostrar um VGV menor do que a verdade;
+ *   · venda de pessoa física fica fora — quem decide isso é quem chama.
+ */
+export interface VolumeDoMes {
+  mes: Date
+  /** Valor dos imóveis vendidos no mês, inclusive os que depois caíram. */
+  vgv: number
+  /** O mesmo, sem as vendas canceladas. */
+  vgl: number
+  vendas: number
+  distratos: number
+  /** Vendas do mês sem o valor do imóvel informado. */
+  semValor: number
+}
+
+export interface VolumeDeVendas {
+  meses: VolumeDoMes[]
+  vgv: number
+  vgl: number
+  vendas: number
+  distratos: number
+  semValor: number
+  /** VGL dividido pelas vendas firmes que têm valor informado. */
+  ticket: number
+}
+
+export function volumeDeVendas(vendas: SaleView[], meses: Date[]): VolumeDeVendas {
+  const chave = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  const porMes = new Map<string, VolumeDoMes>()
+  for (const m of meses) porMes.set(chave(m), { mes: m, vgv: 0, vgl: 0, vendas: 0, distratos: 0, semValor: 0 })
+
+  let comValorFirme = 0
+  for (const v of vendas) {
+    const alvo = porMes.get(v.sale_date.slice(0, 7))
+    if (!alvo) continue
+    const cancelada = v.status === 'cancelada'
+    alvo.vendas += 1
+    if (cancelada) alvo.distratos += 1
+    if (v.property_value == null) {
+      alvo.semValor += 1
+      continue
+    }
+    alvo.vgv = r2(alvo.vgv + v.property_value)
+    if (!cancelada) {
+      alvo.vgl = r2(alvo.vgl + v.property_value)
+      comValorFirme += 1
+    }
+  }
+
+  const lista = [...porMes.values()]
+  const soma = (fn: (m: VolumeDoMes) => number) => r2(lista.reduce((s, m) => s + fn(m), 0))
+  const vgl = soma((m) => m.vgl)
+  return {
+    meses: lista,
+    vgv: soma((m) => m.vgv),
+    vgl,
+    vendas: lista.reduce((s, m) => s + m.vendas, 0),
+    distratos: lista.reduce((s, m) => s + m.distratos, 0),
+    semValor: lista.reduce((s, m) => s + m.semValor, 0),
+    ticket: comValorFirme > 0 ? r2(vgl / comValorFirme) : 0,
+  }
+}
+
+/*
+ * O QUE ENTROU, mês a mês: a comissão que a construtora de fato pagou, pela
+ * data em que o dinheiro caiu. É o ritmo real do negócio, e não se confunde
+ * com o que foi vendido — uma venda de hoje pode só pagar daqui a um ano.
+ */
+export interface EntradaDoMes {
+  mes: Date
+  /** Comissão bruta que entrou no mês. */
+  total: number
+  parcelas: number
+  /** E de quem ela foi: as três partes, gravadas em cada parcela. */
+  imposto: number
+  corretor: number
+  imobiliaria: number
+}
+
+export function entradasPorMes(vendas: SaleView[], meses: Date[]): EntradaDoMes[] {
+  const chave = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  const porMes = new Map<string, EntradaDoMes>()
+  for (const m of meses)
+    porMes.set(chave(m), { mes: m, total: 0, parcelas: 0, imposto: 0, corretor: 0, imobiliaria: 0 })
+  for (const v of vendas) {
+    for (const i of v.installments) {
+      if (i.status !== 'recebida' || !i.received_date) continue
+      const alvo = porMes.get(i.received_date.slice(0, 7))
+      if (!alvo) continue
+      alvo.total = r2(alvo.total + i.amount)
+      alvo.parcelas += 1
+      alvo.imposto = r2(alvo.imposto + i.iss_amount + i.simples_amount)
+      // O que saiu de fato para o corretor: com desconto combinado, é menos.
+      alvo.corretor = r2(alvo.corretor + i.broker_amount - i.broker_adjustment)
+      alvo.imobiliaria = r2(alvo.imobiliaria + i.net_amount)
+    }
+  }
+  return [...porMes.values()]
+}
+
 export function developmentResults(vendas: SaleView[]): DevelopmentResult[] {
   const mapa = new Map<string, DevelopmentResult>()
   for (const v of vendas) {

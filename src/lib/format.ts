@@ -68,6 +68,17 @@ export function formatMonthYear(date: Date): string {
 }
 
 /** Rótulo curto de mês para gráficos: jun/26 */
+/**
+ * O mês em três letras, para caber embaixo de uma coluna estreita: "out".
+ * Em janeiro vem com o ano ("jan/27"), que é onde a série vira de ano e a
+ * pessoa precisa do marco. O nome por extenso vai no balão e no leitor de
+ * tela — aqui só cabe a etiqueta.
+ */
+export function formatMonthTiny(date: Date): string {
+  const mes = date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  return date.getMonth() === 0 ? `${mes}/${String(date.getFullYear()).slice(2)}` : mes
+}
+
 export function formatMonthShort(date: Date): string {
   return date
     .toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
