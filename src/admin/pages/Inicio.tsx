@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Banknote, BarChart3, CalendarRange, CircleCheck, Clock, Handshake, Hourglass, ListChecks, ReceiptText, TrendingUp, UserRound } from 'lucide-react'
+import { Banknote, BarChart3, Building2, CalendarRange, CircleCheck, Clock, Handshake, Hourglass, ListChecks, PieChart, ReceiptText, TrendingUp, UserRound } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
@@ -8,6 +8,7 @@ import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
 import { Kpi } from '@/components/ui/Kpi'
 import { Colunas } from '@/components/ui/Colunas'
+import { Barra } from '@/components/ui/Barra'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { Selo } from '@/components/ui/Selo'
@@ -194,6 +195,39 @@ export function Inicio() {
     [proximos],
   )
 
+  /*
+   * O RAIO-X DA CARTEIRA — a pergunta de CFO (21/09/2026).
+   *
+   * Não é "quanto entra", é "como é a economia deste negócio": de cada real
+   * de comissão contratada, quanto vira imposto, quanto vira comissão de
+   * corretor e quanto fica de fato com a imobiliária. E de quem depende essa
+   * carteira — concentração é risco: construtora que atrasa leva junto a
+   * fatia dela.
+   *
+   * Tudo sai da cascata JÁ GRAVADA em cada parcela. A tela não recalcula
+   * imposto nem comissão.
+   */
+  const raioX = useMemo(() => {
+    const r2 = (n: number) => Math.round(n * 100) / 100
+    const daEmpresa = vendas.filter((v) => !v.is_personal && v.status !== 'cancelada')
+    const comissao = r2(daEmpresa.reduce((s, v) => s + v.cascade.commission, 0))
+    const imposto = r2(daEmpresa.reduce((s, v) => s + v.cascade.iss + v.cascade.simples, 0))
+    const corretor = r2(daEmpresa.reduce((s, v) => s + v.cascade.broker, 0))
+    const imobiliaria = r2(daEmpresa.reduce((s, v) => s + v.cascade.net, 0))
+
+    const porConstrutora = new Map<string, number>()
+    for (const v of daEmpresa) {
+      const nome = v.developer ?? v.development ?? 'Sem construtora'
+      porConstrutora.set(nome, r2((porConstrutora.get(nome) ?? 0) + v.cascade.commission))
+    }
+    const construtoras = [...porConstrutora.entries()]
+      .map(([nome, valor]) => ({ nome, valor, fatia: comissao > 0 ? valor / comissao : 0 }))
+      .sort((a, b) => b.valor - a.valor)
+
+    const pct = (v: number) => (comissao > 0 ? Math.round((v / comissao) * 100) : 0)
+    return { comissao, imposto, corretor, imobiliaria, construtoras, pct, vendas: daEmpresa.length }
+  }, [vendas])
+
   /** O que entra pra você, fora da imobiliária: parcela cheia, sem desconto. */
   const pessoais = useMemo(() => {
     const linhas = vendas
@@ -320,305 +354,380 @@ export function Inicio() {
         />
       </div>
 
+      {/*
+       * O QUADRO (21/09/2026). Duas colunas declaradas, e não seis cartões
+       * soltos numa grade automática: com `lg:col-span-7/5` o navegador
+       * decidia o encaixe pela ordem, e um cartão condicional (a fila da nota,
+       * a venda de pessoa física) abria buraco na fileira. Agora cada coluna é
+       * uma pilha — a esquerda é o trabalho e o histórico, a direita é o mês e
+       * o que vem pela frente — e nada escorrega quando um cartão some.
+       */}
       <div className="grid items-start gap-bloco lg:grid-cols-12">
-        {/* Trabalho primeiro. */}
-        <Cartao className="lg:col-span-7">
-          <Cartao.Cabecalho
-            titulo="Precisa de atenção"
-            icone={ListChecks}
-            meta={atencao.length > 0 ? contagemAtencao : undefined}
-          />
-          {atencao.length === 0 ? (
+        <div className="flex min-w-0 flex-col gap-bloco lg:col-span-7">
+          {/* Trabalho primeiro. */}
+          <Cartao>
+            <Cartao.Cabecalho
+              titulo="Precisa de atenção"
+              icone={ListChecks}
+              meta={atencao.length > 0 ? contagemAtencao : undefined}
+            />
+            {atencao.length === 0 ? (
+              <Cartao.Corpo>
+                <EstadoVazio
+                  icone={CircleCheck}
+                  titulo="Tudo em dia"
+                  descricao="Nada vencido, nenhuma comissão liberada esperando e nenhum imposto em aberto."
+                />
+              </Cartao.Corpo>
+            ) : (
+              <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Precisa de atenção">
+                {atencao.map((a) => (
+                  <Linha
+                    key={a.id}
+                    goteira={
+                      <Selo
+                        situacao={a.tone === 'critical' ? 'vencida' : a.tone === 'warning' ? 'liberada' : 'prevista'}
+                      />
+                    }
+                    titulo={a.title}
+                    meta={a.detail}
+                    valor={<Valor valor={a.amount} posto="linha" />}
+                    para={a.to}
+                  />
+                ))}
+              </Cartao.Lista>
+            )}
+            {vendasAtivas.some((v) => v.hasOverdue) && (
+              <Cartao.Rodape>
+                <p className="max-w-[72ch]">
+                  Parcela vencida quase sempre é a construtora atrasando, não o cliente. Reagende na ficha da venda para a
+                  previsão voltar a fazer sentido — o corretor vê a data nova na hora.
+                </p>
+              </Cartao.Rodape>
+            )}
+          </Cartao>
+
+          <Cartao>
+            <Cartao.Cabecalho
+              titulo="Entrou por mês"
+              icone={BarChart3}
+              meta={`${formatCurrency(entrou.total)} nos últimos 12 meses`}
+            />
             <Cartao.Corpo>
-              <EstadoVazio
-                icone={CircleCheck}
-                titulo="Tudo em dia"
-                descricao="Nada vencido, nenhuma comissão liberada esperando e nenhum imposto em aberto."
+              <Colunas
+                tom="sucesso"
+                itens={entradas.map((e) => ({
+                  rotulo: formatMonthTiny(e.mes),
+                  valor: e.total,
+                  descricao: `${formatMonthYear(e.mes)}: ${formatCurrency(e.total)} em ${e.parcelas === 1 ? '1 parcela' : `${e.parcelas} parcelas`}`,
+                  ativo: monthKey(e.mes) === chaveMes,
+                }))}
+                rotuloAcessivel={`Comissão recebida mês a mês nos últimos 12 meses. Total de ${formatCurrency(entrou.total)}.`}
               />
             </Cartao.Corpo>
-          ) : (
-            <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Precisa de atenção">
-              {atencao.map((a) => (
-                <Linha
-                  key={a.id}
-                  goteira={
-                    <Selo
-                      situacao={a.tone === 'critical' ? 'vencida' : a.tone === 'warning' ? 'liberada' : 'prevista'}
-                    />
-                  }
-                  titulo={a.title}
-                  meta={a.detail}
-                  valor={<Valor valor={a.amount} posto="linha" />}
-                  para={a.to}
-                />
-              ))}
-            </Cartao.Lista>
-          )}
-          {vendasAtivas.some((v) => v.hasOverdue) && (
-            <Cartao.Rodape>
-              <p className="max-w-[72ch]">
-                Parcela vencida quase sempre é a construtora atrasando, não o cliente. Reagende na ficha da venda para a
-                previsão voltar a fazer sentido — o corretor vê a data nova na hora.
-              </p>
-            </Cartao.Rodape>
-          )}
-        </Cartao>
-
-        <Cartao className="lg:col-span-5">
-          <Cartao.Cabecalho titulo="O mês" icone={CalendarRange} meta={tituloDoMes} />
-          <Cartao.Lista colunas={{ situacao: true, valor: '10rem', fim: true }} rotuloAcessivel="O mês">
-            <LinhaGrupo rotulo="Entra" />
-            <Linha
-              titulo="A receber"
-              meta={
-                vencido.length > 0
-                  ? `${aReceber.length} ${aReceber.length === 1 ? 'parcela' : 'parcelas'} neste mês · ${vencido.length} em atraso`
-                  : `${aReceber.length} ${aReceber.length === 1 ? 'parcela' : 'parcelas'} neste mês, mais o que está em atraso`
-              }
-              valor={<Valor valor={soma(aReceber)} posto="linha" />}
-              aoClicar={() =>
-                abrir({
-                  rotulo: 'A receber',
-                  titulo: 'A receber neste mês, mais o vencido',
-                  explica:
-                    'Parcelas de comissão que a imobiliária ainda vai receber. Inclui o vencido de meses anteriores, porque é o que precisa de cobrança.',
-                  total: soma(aReceber),
-                  itens: comp(aReceber),
-                  vazio: 'Nada a receber neste mês.',
-                })
-              }
-            />
-            <LinhaGrupo rotulo="Sai" />
-            <Linha
-              titulo="Devido agora"
-              meta="comissão já liberada, imposto de parcela recebida e despesa"
-              valor={<Valor valor={soma(devido)} posto="linha" />}
-              aoClicar={() =>
-                abrir({
-                  rotulo: 'Devido agora',
-                  titulo: 'O que é obrigação hoje',
-                  explica:
-                    'Só o que a imobiliária de fato deve: comissão de parcela já recebida, imposto de parcela já recebida e despesa lançada.',
-                  total: soma(devido),
-                  itens: comp(devido),
-                  nota: 'Comissão de parcela que a construtora ainda não pagou não entra aqui. Ela aparece abaixo, como previsão.',
-                  vazio: 'Nada devido agora.',
-                })
-              }
-            />
             {/*
-             * A previsão aparece, porque esconder informação não é honestidade —
-             * mas em linha própria, com a palavra "depende", e sem cor tônica.
-             * Nunca somada ao devido.
+             * DE QUEM FOI O QUE ENTROU. O gráfico diz quanto; estas três linhas
+             * dizem para onde foi. Elas somam exatamente a comissão recebida,
+             * porque saem gravadas de cada parcela — imposto, corretor e o que
+             * sobrou para a imobiliária.
              */}
-            <Linha
-              titulo="Previsto, depende do recebimento"
-              meta="comissão e imposto de parcela que a construtora ainda não pagou"
-              situacao={<ChipSituacao situacao="prevista" />}
-              valor={<Valor valor={soma(previsto)} posto="linha" previsto />}
-              aoClicar={() =>
-                abrir({
-                  rotulo: 'Previsto',
-                  titulo: 'Previsão, não dívida',
-                  explica:
-                    'Estes valores só passam a ser devidos quando a construtora pagar a parcela. Até lá não são obrigação e não entram em nenhum total de dívida.',
-                  total: soma(previsto),
-                  itens: comp(previsto),
-                  vazio: 'Nenhuma previsão em aberto.',
-                })
-              }
-            />
-            <LinhaGrupo rotulo="Carteira" />
-            <Linha
-              titulo="Vendas em carteira"
-              meta={`${vendasAtivas.length} ${vendasAtivas.length === 1 ? 'venda ativa' : 'vendas ativas'}`}
-              valor={<Valor valor={soma(receber)} posto="linha" previsto />}
-              aoClicar={() =>
-                abrir({
-                  rotulo: 'Vendas em carteira',
-                  titulo: 'Comissão contratada que ainda não entrou',
-                  explica: 'Toda a comissão contratada que ainda não entrou, somando todos os meses.',
-                  total: soma(receber),
-                  itens: comp(receber),
-                  vazio: 'Nada a receber.',
-                })
-              }
-            />
-          </Cartao.Lista>
-          {/* A carteira não depende do mês; a frase leva às vendas, como a linha. */}
-          <Cartao.Rodape>
-            <Link to="/vendas" className="min-h-11 py-3 hover:text-t2">
-              <Valor valor={soma(receber)} posto="fato" /> é toda a comissão contratada que ainda não entrou, somando
-              todos os meses.
-            </Link>
-          </Cartao.Rodape>
-        </Cartao>
+            <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="De quem foi a comissão que entrou">
+              <LinhaGrupo rotulo="De quem foi" />
+              <Linha
+                titulo="Imposto sobre essa comissão"
+                meta="ISS retido na fonte e Simples das parcelas recebidas"
+                valor={<Valor valor={entrou.imposto} posto="linha" />}
+              />
+              <Linha
+                titulo="Repassado aos corretores"
+                meta="a comissão deles nas parcelas que entraram"
+                valor={<Valor valor={entrou.corretor} posto="linha" />}
+              />
+              <Linha
+                titulo="Ficou com a imobiliária"
+                meta="o que sobrou das parcelas recebidas, antes da estrutura"
+                valor={<Valor valor={entrou.imobiliaria} posto="linha" forte />}
+              />
+            </Cartao.Lista>
+            <Cartao.Rodape>
+              <p className="max-w-[72ch]">
+                Cada coluna é a comissão que a construtora pagou naquele mês, pela data em que o dinheiro caiu. As três
+                linhas acima somam exatamente essa comissão — é para onde ela foi. Comissão é receita irregular: o que
+                importa é o ritmo, não o mês isolado.
+              </p>
+            </Cartao.Rodape>
+          </Cartao>
 
-        {(filaDaNota.emitir.length > 0 || filaDaNota.esperando.length > 0) && (
-          <Cartao className="lg:col-span-7">
+          {(filaDaNota.emitir.length > 0 || filaDaNota.esperando.length > 0) && (
+            <Cartao>
+              <Cartao.Cabecalho
+                titulo="Nota fiscal"
+                icone={ReceiptText}
+                meta={
+                  filaDaNota.emitir.length > 0
+                    ? `${filaDaNota.emitir.length} ${filaDaNota.emitir.length === 1 ? 'comissão liberada' : 'comissões liberadas'} esperando nota`
+                    : 'notas emitidas esperando pagamento'
+                }
+              />
+              <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Fila da nota fiscal">
+                {filaDaNota.emitir.length > 0 && <LinhaGrupo rotulo="Emitir nota" contador={`${filaDaNota.emitir.length}`} />}
+                {filaDaNota.emitir.map(({ p, venda }) => (
+                  <Linha
+                    key={p.id}
+                    goteira={<IconeTom icone={ReceiptText} tom="atencao" tamanho="sm" />}
+                    titulo={venda?.title ?? 'Parcela de comissão'}
+                    meta={fraseDaEtapa(p, hoje)}
+                    valor={<Valor valor={p.amount} posto="linha" />}
+                    para={venda ? `/vendas/${venda.id}?parcela=${p.id}` : undefined}
+                  />
+                ))}
+                {filaDaNota.esperando.length > 0 && (
+                  <LinhaGrupo rotulo="Nota emitida, passou do prazo" contador={`${filaDaNota.esperando.length}`} />
+                )}
+                {filaDaNota.esperando.map(({ p, venda }) => (
+                  <Linha
+                    key={p.id}
+                    goteira={<IconeTom icone={Clock} tom="risco" tamanho="sm" />}
+                    titulo={venda?.title ?? 'Parcela de comissão'}
+                    meta={fraseDaEtapa(p, hoje)}
+                    valor={<Valor valor={p.amount} posto="linha" />}
+                    para={venda ? `/vendas/${venda.id}?parcela=${p.id}` : undefined}
+                  />
+                ))}
+              </Cartao.Lista>
+              <Cartao.Rodape>
+                <p className="max-w-[72ch]">
+                  A comissão liberada só vira dinheiro depois da nota. O prazo de cada construtora fica em
+                  Configurações.
+                </p>
+              </Cartao.Rodape>
+            </Cartao>
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-bloco lg:col-span-5">
+          <Cartao>
+            <Cartao.Cabecalho titulo="O mês" icone={CalendarRange} meta={tituloDoMes} />
+            <Cartao.Lista colunas={{ situacao: true, valor: '10rem', fim: true }} rotuloAcessivel="O mês">
+              <LinhaGrupo rotulo="Entra" />
+              <Linha
+                titulo="A receber"
+                meta={
+                  vencido.length > 0
+                    ? `${aReceber.length} ${aReceber.length === 1 ? 'parcela' : 'parcelas'} neste mês · ${vencido.length} em atraso`
+                    : `${aReceber.length} ${aReceber.length === 1 ? 'parcela' : 'parcelas'} neste mês, mais o que está em atraso`
+                }
+                valor={<Valor valor={soma(aReceber)} posto="linha" />}
+                aoClicar={() =>
+                  abrir({
+                    rotulo: 'A receber',
+                    titulo: 'A receber neste mês, mais o vencido',
+                    explica:
+                      'Parcelas de comissão que a imobiliária ainda vai receber. Inclui o vencido de meses anteriores, porque é o que precisa de cobrança.',
+                    total: soma(aReceber),
+                    itens: comp(aReceber),
+                    vazio: 'Nada a receber neste mês.',
+                  })
+                }
+              />
+              <LinhaGrupo rotulo="Sai" />
+              <Linha
+                titulo="Devido agora"
+                meta="comissão já liberada, imposto de parcela recebida e despesa"
+                valor={<Valor valor={soma(devido)} posto="linha" />}
+                aoClicar={() =>
+                  abrir({
+                    rotulo: 'Devido agora',
+                    titulo: 'O que é obrigação hoje',
+                    explica:
+                      'Só o que a imobiliária de fato deve: comissão de parcela já recebida, imposto de parcela já recebida e despesa lançada.',
+                    total: soma(devido),
+                    itens: comp(devido),
+                    nota: 'Comissão de parcela que a construtora ainda não pagou não entra aqui. Ela aparece abaixo, como previsão.',
+                    vazio: 'Nada devido agora.',
+                  })
+                }
+              />
+              {/*
+               * A previsão aparece, porque esconder informação não é honestidade —
+               * mas em linha própria, com a palavra "depende", e sem cor tônica.
+               * Nunca somada ao devido.
+               */}
+              <Linha
+                titulo="Previsto, depende do recebimento"
+                meta="comissão e imposto de parcela que a construtora ainda não pagou"
+                situacao={<ChipSituacao situacao="prevista" />}
+                valor={<Valor valor={soma(previsto)} posto="linha" previsto />}
+                aoClicar={() =>
+                  abrir({
+                    rotulo: 'Previsto',
+                    titulo: 'Previsão, não dívida',
+                    explica:
+                      'Estes valores só passam a ser devidos quando a construtora pagar a parcela. Até lá não são obrigação e não entram em nenhum total de dívida.',
+                    total: soma(previsto),
+                    itens: comp(previsto),
+                    vazio: 'Nenhuma previsão em aberto.',
+                  })
+                }
+              />
+              <LinhaGrupo rotulo="Carteira" />
+              <Linha
+                titulo="Vendas em carteira"
+                meta={`${vendasAtivas.length} ${vendasAtivas.length === 1 ? 'venda ativa' : 'vendas ativas'}`}
+                valor={<Valor valor={soma(receber)} posto="linha" previsto />}
+                aoClicar={() =>
+                  abrir({
+                    rotulo: 'Vendas em carteira',
+                    titulo: 'Comissão contratada que ainda não entrou',
+                    explica: 'Toda a comissão contratada que ainda não entrou, somando todos os meses.',
+                    total: soma(receber),
+                    itens: comp(receber),
+                    vazio: 'Nada a receber.',
+                  })
+                }
+              />
+            </Cartao.Lista>
+            {/* A carteira não depende do mês; a frase leva às vendas, como a linha. */}
+            <Cartao.Rodape>
+              <Link to="/vendas" className="min-h-11 py-3 hover:text-t2">
+                <Valor valor={soma(receber)} posto="fato" /> é toda a comissão contratada que ainda não entrou, somando
+                todos os meses.
+              </Link>
+            </Cartao.Rodape>
+          </Cartao>
+
+          <Cartao>
             <Cartao.Cabecalho
-              titulo="Nota fiscal"
-              icone={ReceiptText}
-              meta={
-                filaDaNota.emitir.length > 0
-                  ? `${filaDaNota.emitir.length} ${filaDaNota.emitir.length === 1 ? 'comissão liberada' : 'comissões liberadas'} esperando nota`
-                  : 'notas emitidas esperando pagamento'
-              }
+              titulo="Os próximos 6 meses"
+              icone={TrendingUp}
+              meta={`${formatCurrency(totalProximos)} previstos`}
             />
-            <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Fila da nota fiscal">
-              {filaDaNota.emitir.length > 0 && <LinhaGrupo rotulo="Emitir nota" contador={`${filaDaNota.emitir.length}`} />}
-              {filaDaNota.emitir.map(({ p, venda }) => (
-                <Linha
-                  key={p.id}
-                  goteira={<IconeTom icone={ReceiptText} tom="atencao" tamanho="sm" />}
-                  titulo={venda?.title ?? 'Parcela de comissão'}
-                  meta={fraseDaEtapa(p, hoje)}
-                  valor={<Valor valor={p.amount} posto="linha" />}
-                  para={venda ? `/vendas/${venda.id}?parcela=${p.id}` : undefined}
-                />
-              ))}
-              {filaDaNota.esperando.length > 0 && (
-                <LinhaGrupo rotulo="Nota emitida, passou do prazo" contador={`${filaDaNota.esperando.length}`} />
-              )}
-              {filaDaNota.esperando.map(({ p, venda }) => (
-                <Linha
-                  key={p.id}
-                  goteira={<IconeTom icone={Clock} tom="risco" tamanho="sm" />}
-                  titulo={venda?.title ?? 'Parcela de comissão'}
-                  meta={fraseDaEtapa(p, hoje)}
-                  valor={<Valor valor={p.amount} posto="linha" />}
-                  para={venda ? `/vendas/${venda.id}?parcela=${p.id}` : undefined}
-                />
-              ))}
-            </Cartao.Lista>
+            <Cartao.Corpo>
+              <Colunas
+                tom="info"
+                itens={proximos.map((p) => ({
+                  rotulo: formatMonthTiny(p.mes),
+                  valor: p.total,
+                  descricao: `${formatMonthYear(p.mes)}: ${formatCurrency(p.total)} previstos em ${p.itens.length === 1 ? '1 parcela' : `${p.itens.length} parcelas`}`,
+                  ativo: monthKey(p.mes) === chaveMes,
+                }))}
+                rotuloAcessivel={`Comissão prevista mês a mês nos próximos 6 meses. Total de ${formatCurrency(totalProximos)}.`}
+                aoClicar={(i) => {
+                  const p = proximos[i]
+                  abrir({
+                    rotulo: 'Previsto',
+                    titulo: `Previsto para ${formatMonthYear(p.mes)}`,
+                    explica:
+                      'Parcelas de comissão com vencimento neste mês. A data depende da construtora pagar — é previsão, não caixa.',
+                    total: p.total,
+                    itens: comp(p.itens),
+                    vazio: 'Nenhuma parcela prevista para este mês.',
+                  })
+                }}
+              />
+            </Cartao.Corpo>
             <Cartao.Rodape>
               <p className="max-w-[72ch]">
-                A comissão liberada só vira dinheiro depois da nota. O prazo de cada construtora fica em
-                Configurações.
+                O que a carteira promete, mês a mês. Toque numa coluna para ver de quais vendas ela vem.
               </p>
             </Cartao.Rodape>
           </Cartao>
-        )}
 
-        <Cartao className="lg:col-span-7">
-          <Cartao.Cabecalho
-            titulo="Entrou por mês"
-            icone={BarChart3}
-            meta={`${formatCurrency(entrou.total)} nos últimos 12 meses`}
-          />
-          <Cartao.Corpo>
-            <Colunas
-              tom="sucesso"
-              itens={entradas.map((e) => ({
-                rotulo: formatMonthTiny(e.mes),
-                valor: e.total,
-                descricao: `${formatMonthYear(e.mes)}: ${formatCurrency(e.total)} em ${e.parcelas === 1 ? '1 parcela' : `${e.parcelas} parcelas`}`,
-                ativo: monthKey(e.mes) === chaveMes,
-              }))}
-              rotuloAcessivel={`Comissão recebida mês a mês nos últimos 12 meses. Total de ${formatCurrency(entrou.total)}.`}
-            />
-          </Cartao.Corpo>
+          {raioX.comissao > 0 && (
+            <Cartao>
+              <Cartao.Cabecalho
+                titulo="Raio-X da carteira"
+                icone={PieChart}
+                meta={`${formatCurrency(raioX.comissao)} de comissão contratada`}
+              />
+              <Cartao.Corpo>
+                <Barra
+                  segmentos={[
+                    { valor: raioX.imobiliaria, tom: 'marca' },
+                    { valor: raioX.corretor, tom: 'atencao' },
+                    { valor: raioX.imposto, tom: 'info' },
+                  ]}
+                  rotuloAcessivel={`De ${formatCurrency(raioX.comissao)} de comissão contratada, ${formatCurrency(raioX.imobiliaria)} ficam com a imobiliária, ${formatCurrency(raioX.corretor)} vão para os corretores e ${formatCurrency(raioX.imposto)} para o imposto.`}
+                />
+              </Cartao.Corpo>
+              <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="De cada real de comissão">
+                <Linha
+                  titulo="Fica com a imobiliária"
+                  meta={`${raioX.pct(raioX.imobiliaria)}% da comissão contratada`}
+                  valor={<Valor valor={raioX.imobiliaria} posto="linha" forte />}
+                />
+                <Linha
+                  titulo="Vai para os corretores"
+                  meta={`${raioX.pct(raioX.corretor)}% — custo da venda`}
+                  valor={<Valor valor={raioX.corretor} posto="linha" />}
+                />
+                <Linha
+                  titulo="Vai para o imposto"
+                  meta={`${raioX.pct(raioX.imposto)}% — ISS retido e Simples`}
+                  valor={<Valor valor={raioX.imposto} posto="linha" />}
+                />
+                <LinhaGrupo rotulo="De quem depende" contador={`${raioX.construtoras.length}`} />
+                {raioX.construtoras.slice(0, 4).map((c) => (
+                  <Linha
+                    key={c.nome}
+                    goteira={<IconeTom icone={Building2} tom="neutro" tamanho="sm" />}
+                    titulo={c.nome}
+                    meta={
+                      <span className="flex flex-col gap-2">
+                        <span>{Math.round(c.fatia * 100)}% da comissão contratada</span>
+                        <Barra
+                          animarEntrada={false}
+                          valor={c.fatia}
+                          tom="info"
+                          rotuloAcessivel={`${c.nome}: ${Math.round(c.fatia * 100)}% da comissão contratada.`}
+                        />
+                      </span>
+                    }
+                    valor={<Valor valor={c.valor} posto="linha" />}
+                  />
+                ))}
+              </Cartao.Lista>
+              <Cartao.Rodape>
+                <p className="max-w-[72ch]">
+                  De cada R$ 100 de comissão contratada, {raioX.pct(raioX.imobiliaria)} ficam com a imobiliária. O
+                  resto já tem dono antes de o dinheiro entrar. A lista de baixo é concentração: quanto da carteira
+                  depende de cada construtora — se uma atrasa, é essa fatia que atrasa junto.
+                </p>
+              </Cartao.Rodape>
+            </Cartao>
+          )}
+
           {/*
-           * DE QUEM FOI O QUE ENTROU. O gráfico diz quanto; estas três linhas
-           * dizem para onde foi. Elas somam exatamente a comissão recebida,
-           * porque saem gravadas de cada parcela — imposto, corretor e o que
-           * sobrou para a imobiliária.
+           * PESSOA FÍSICA (21/09/2026). Duas vendas do PortoVelas foram feitas
+           * quando o Rafael ainda estava em outra imobiliária: a comissão é dele,
+           * não da Souza. Elas não têm lançamento no razão da empresa, então não
+           * aparecem em nenhum número acima — mas continuam sendo previsão de
+           * dinheiro, e previsão escondida não ajuda ninguém.
            */}
-          <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="De quem foi a comissão que entrou">
-            <LinhaGrupo rotulo="De quem foi" />
-            <Linha
-              titulo="Imposto sobre essa comissão"
-              meta="ISS retido na fonte e Simples das parcelas recebidas"
-              valor={<Valor valor={entrou.imposto} posto="linha" />}
-            />
-            <Linha
-              titulo="Repassado aos corretores"
-              meta="a comissão deles nas parcelas que entraram"
-              valor={<Valor valor={entrou.corretor} posto="linha" />}
-            />
-            <Linha
-              titulo="Ficou com a imobiliária"
-              meta="o que sobrou das parcelas recebidas, antes da estrutura"
-              valor={<Valor valor={entrou.imobiliaria} posto="linha" forte />}
-            />
-          </Cartao.Lista>
-          <Cartao.Rodape>
-            <p className="max-w-[72ch]">
-              Cada coluna é a comissão que a construtora pagou naquele mês, pela data em que o dinheiro caiu. As três
-              linhas acima somam exatamente essa comissão — é para onde ela foi. Comissão é receita irregular: o que
-              importa é o ritmo, não o mês isolado.
-            </p>
-          </Cartao.Rodape>
-        </Cartao>
-
-        <Cartao className="lg:col-span-5">
-          <Cartao.Cabecalho
-            titulo="Os próximos 6 meses"
-            icone={TrendingUp}
-            meta={`${formatCurrency(totalProximos)} previstos`}
-          />
-          <Cartao.Corpo>
-            <Colunas
-              tom="info"
-              itens={proximos.map((p) => ({
-                rotulo: formatMonthTiny(p.mes),
-                valor: p.total,
-                descricao: `${formatMonthYear(p.mes)}: ${formatCurrency(p.total)} previstos em ${p.itens.length === 1 ? '1 parcela' : `${p.itens.length} parcelas`}`,
-                ativo: monthKey(p.mes) === chaveMes,
-              }))}
-              rotuloAcessivel={`Comissão prevista mês a mês nos próximos 6 meses. Total de ${formatCurrency(totalProximos)}.`}
-              aoClicar={(i) => {
-                const p = proximos[i]
-                abrir({
-                  rotulo: 'Previsto',
-                  titulo: `Previsto para ${formatMonthYear(p.mes)}`,
-                  explica:
-                    'Parcelas de comissão com vencimento neste mês. A data depende da construtora pagar — é previsão, não caixa.',
-                  total: p.total,
-                  itens: comp(p.itens),
-                  vazio: 'Nenhuma parcela prevista para este mês.',
-                })
-              }}
-            />
-          </Cartao.Corpo>
-          <Cartao.Rodape>
-            <p className="max-w-[72ch]">
-              O que a carteira promete, mês a mês. Toque numa coluna para ver de quais vendas ela vem.
-            </p>
-          </Cartao.Rodape>
-        </Cartao>
-
-        {/*
-         * PESSOA FÍSICA (21/09/2026). Duas vendas do PortoVelas foram feitas
-         * quando o Rafael ainda estava em outra imobiliária: a comissão é dele,
-         * não da Souza. Elas não têm lançamento no razão da empresa, então não
-         * aparecem em nenhum número acima — mas continuam sendo previsão de
-         * dinheiro, e previsão escondida não ajuda ninguém.
-         */}
-        {pessoais.linhas.length > 0 && (
-          <Cartao className="lg:col-span-5">
-            <Cartao.Cabecalho titulo="Entra pra você" icone={UserRound} meta="pessoa física" />
-            <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Comissão de pessoa física">
-              {pessoais.linhas.map(({ v, p }) => (
-                <Linha
-                  key={p.id}
-                  goteira={<IconeTom icone={UserRound} tom="neutro" tamanho="sm" />}
-                  titulo={v.title}
-                  meta={fraseDaEtapa(p, hoje)}
-                  valor={<Valor valor={p.amount} posto="linha" previsto />}
-                  para={`/vendas/${v.id}`}
-                />
-              ))}
-            </Cartao.Lista>
-            <Cartao.Rodape>
-              <p className="max-w-[72ch]">
-                <Valor valor={pessoais.total} posto="fato" previsto /> de vendas anteriores à Souza. O dinheiro é seu: não
-                entra em A receber, não gera imposto da imobiliária e não aparece no resultado dela.
-              </p>
-            </Cartao.Rodape>
-          </Cartao>
-        )}
-
+          {pessoais.linhas.length > 0 && (
+            <Cartao>
+              <Cartao.Cabecalho titulo="Entra pra você" icone={UserRound} meta="pessoa física" />
+              <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Comissão de pessoa física">
+                {pessoais.linhas.map(({ v, p }) => (
+                  <Linha
+                    key={p.id}
+                    goteira={<IconeTom icone={UserRound} tom="neutro" tamanho="sm" />}
+                    titulo={v.title}
+                    meta={fraseDaEtapa(p, hoje)}
+                    valor={<Valor valor={p.amount} posto="linha" previsto />}
+                    para={`/vendas/${v.id}`}
+                  />
+                ))}
+              </Cartao.Lista>
+              <Cartao.Rodape>
+                <p className="max-w-[72ch]">
+                  <Valor valor={pessoais.total} posto="fato" previsto /> de vendas anteriores à Souza. O dinheiro é seu: não
+                  entra em A receber, não gera imposto da imobiliária e não aparece no resultado dela.
+                </p>
+              </Cartao.Rodape>
+            </Cartao>
+          )}
+        </div>
       </div>
     </PageLayout>
   )

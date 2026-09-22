@@ -200,7 +200,16 @@ interface Item {
 }
 
 export function Recebimentos() {
-  const { parcelas, carregando, erro, recarregar, ano } = useCorretor()
+  const { parcelas, carregando, erro, recarregar, ano, anosDisponiveis, setAno } = useCorretor()
+  /*
+   * O PERÍODO (21/09/2026, pedido do Rafael: "que o corretor veja TUDO que
+   * tem para receber, filtrar por período").
+   *
+   * `tudo` mostra o cronograma inteiro, de qualquer ano — inclusive o que
+   * vence lá na frente. Um ano específico recorta. O período muda a lista e
+   * o calendário; NUNCA o herói, que continua respondendo "quanto é meu
+   * agora", venha de que ano vier.
+   */
   const { abrir } = useComposicao()
   const [params, setParams] = useSearchParams()
   const filtro = filtroDaUrl(params.get('foco'))
@@ -242,7 +251,28 @@ export function Recebimentos() {
    * O filtro muda o cronograma, NUNCA o herói. "A receber agora" é a resposta da
    * tela e não pode depender de qual botão está apertado.
    */
-  const lista = useMemo(() => todas.filter(({ s }) => passa(filtro, s)), [todas, filtro])
+  const periodo = params.get('ano') === 'tudo' ? 'tudo' : String(ano)
+  const noPeriodo = useMemo(
+    () => (periodo === 'tudo' ? todas : todas.filter((it) => it.quando.slice(0, 4) === periodo)),
+    [todas, periodo],
+  )
+  const lista = useMemo(() => noPeriodo.filter(({ s }) => passa(filtro, s)), [noPeriodo, filtro])
+
+  const trocarPeriodo = useCallback(
+    (v: string) => {
+      if (v !== 'tudo') setAno(Number(v))
+      setParams(
+        (atual) => {
+          const p = new URLSearchParams(atual)
+          if (v === 'tudo') p.set('ano', 'tudo')
+          else p.delete('ano')
+          return p
+        },
+        { replace: true },
+      )
+    },
+    [setAno, setParams],
+  )
 
   const meses = useMemo(() => {
     const m = new Map<string, Item[]>()
@@ -505,7 +535,7 @@ export function Recebimentos() {
 
       <CalendarioDoAno
         ano={ano}
-        itens={todas}
+        itens={periodo === 'tudo' ? todas.filter((it) => it.quando.slice(0, 4) === String(ano)) : noPeriodo}
         hoje={hoje}
         aoAbrirMes={(nome, itens) =>
           compor(nome, `Recebimentos de ${nome}`, itens, 'Cada parcela pela data em que ela cai — ou pela data em que caiu, se já foi paga.')
@@ -614,7 +644,23 @@ export function Recebimentos() {
       </div>
     </>,
     subtitulo,
-    <FiltrosRapidos filtros={filtros} ativo={filtro} aoMudar={setFiltro} rotuloAcessivel="O que mostrar no cronograma" />,
+    <div className="flex min-w-0 flex-col gap-3">
+      <FiltrosRapidos filtros={filtros} ativo={filtro} aoMudar={setFiltro} rotuloAcessivel="O que mostrar no cronograma" />
+      {/* O período: os anos que existem no cronograma, mais o "Tudo". */}
+      <FiltrosRapidos
+        rotuloAcessivel="Período do cronograma"
+        ativo={periodo}
+        aoMudar={trocarPeriodo}
+        filtros={[
+          ...anosDisponiveis.map((a) => ({
+            id: String(a),
+            rotulo: String(a),
+            contador: todas.filter((it) => it.quando.slice(0, 4) === String(a)).length,
+          })),
+          { id: 'tudo', rotulo: 'Todos os anos', contador: todas.length, dica: 'Tudo o que você tem para receber, de qualquer ano' },
+        ]}
+      />
+    </div>,
   )
 }
 
