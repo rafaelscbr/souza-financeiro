@@ -42,6 +42,11 @@ export type ChaveLinha =
   /* Só a tela de Simulação usa estas duas: a estrutura entra na conta dela. */
   | 'estrutura'
   | 'nova'
+  /* A conta do VGL (22/09/2026): VGV firme − parceria − nota. */
+  | 'vgv'
+  | 'parceria'
+  | 'notaFiscal'
+  | 'vgl'
 
 export interface LinhaDemonstrativo {
   chave: ChaveLinha

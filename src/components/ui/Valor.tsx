@@ -396,6 +396,47 @@ export function ValorComOrigem(props: ValorComOrigemProps) {
 }
 
 /**
+ * O MESMO BOTÃO, para número que não é dinheiro.
+ *
+ * Contagem ("3 vendas") e percentual ("61%") também precisam abrir no que os
+ * compõe — a regra de 7.10 é sobre número, não sobre moeda. Desenho idêntico
+ * ao de `ValorComOrigem`: chevron à direita, sublinhado no hover, alvo de
+ * toque inteiro. Quem chama entrega o texto já formatado.
+ */
+export function NumeroComOrigem({
+  texto,
+  aoAbrir,
+  rotuloAcessivel,
+  className,
+}: {
+  texto: string
+  aoAbrir: () => void
+  rotuloAcessivel: string
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={aoAbrir}
+      aria-label={rotuloAcessivel}
+      data-origem
+      className={cn(
+        'group/origem inline-flex min-h-toque shrink-0 items-center gap-1 whitespace-nowrap rounded-controle',
+        'cursor-pointer text-left',
+        className,
+      )}
+    >
+      <span className="num text-t1 decoration-1 underline-offset-4 group-hover/origem:underline">{texto}</span>
+      <Icone
+        icone={ChevronRight}
+        tamanho={16}
+        className="text-t-meta transition-colors duration-micro ease-cor group-hover/origem:text-t2"
+      />
+    </button>
+  )
+}
+
+/**
  * DEPRECADO — apagar na limpeza final (usado só por kit/Kit.tsx).
  * Rótulo + valor empilhados; o herói e os apoios de 7.5 substituem.
  */

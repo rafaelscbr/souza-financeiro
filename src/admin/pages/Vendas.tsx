@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Field'
 import { FilaDeAcao, type ItemFila } from '@/components/shared/FilaDeAcao'
 import { brokerStatusOf, volumeDeVendas, type SaleView } from '@/lib/sales'
+import { composicaoDoVgl } from '@/lib/composicaoDoVgl'
 import { lastNMonths, monthKey } from '@/lib/finance'
 import { diasEntre, situacaoDeTela, type Situacao } from '@/lib/situacao'
 import { formatCurrency, formatDateShort, formatMonthTiny, formatMonthYear } from '@/lib/format'
@@ -320,6 +321,29 @@ export function Vendas() {
       .join(' · ')
 
   /** Um mês do VGV, aberto nas vendas daquele mês. */
+  /*
+   * O VGL é o VGV que é da Souza: parceria entra dividida e a nota sai (regra
+   * de 22/09/2026, em lib/composicaoDoVgl.ts). Como o número já não é "o VGV
+   * sem distrato", a linha diz o que foi descontado — e abre a conta inteira.
+   */
+  const metaDoVgl = [
+    volume.descontoParceria > 0 ? 'sem a parte do parceiro' : null,
+    volume.descontoNota > 0 ? 'sem a nota fiscal' : null,
+    volume.distratos > 0 ? `sem ${volume.distratos === 1 ? 'o distrato' : `os ${volume.distratos} distratos`}` : null,
+  ]
+    .filter(Boolean)
+    .join(' e ') || 'nada a descontar no período: igual ao VGV'
+
+  const abrirVgl = () =>
+    abrir(
+      composicaoDoVgl({
+        volume,
+        vendas: vendas.filter((v) => !v.is_personal),
+        chavesDosMeses: doze.map(monthKey),
+        periodo: `nos 12 meses até ${formatMonthYear(mes).toLowerCase()}`,
+      }),
+    )
+
   const abrirMesDoVgv = (i: number) => {
     const m = volume.meses[i]
     if (!m) return
@@ -597,16 +621,20 @@ export function Vendas() {
           />
           <Linha
             titulo="VGL"
-            meta={
-              volume.distratos === 0
-                ? 'o mesmo valor: nenhum distrato no período'
-                : `sem os ${volume.distratos === 1 ? 'distrato' : `${volume.distratos} distratos`} do período`
+            meta={metaDoVgl}
+            valor={
+              <ValorComOrigem
+                valor={volume.vgl}
+                posto="linha"
+                forte
+                rotuloAcessivel="Ver a conta do VGL, venda por venda"
+                aoAbrir={abrirVgl}
+              />
             }
-            valor={<Valor valor={volume.vgl} posto="linha" forte />}
           />
           <Linha
             titulo="Ticket médio"
-            meta="VGL dividido pelas vendas firmes com valor informado"
+            meta="VGV dividido pelas vendas firmes com valor informado"
             valor={<Valor valor={volume.ticket} posto="linha" />}
           />
           <Linha
@@ -623,7 +651,8 @@ export function Vendas() {
           <p className="max-w-[72ch]">
             VGV é o tamanho do que foi vendido, não o dinheiro da imobiliária — dele ela recebe a comissão, que é o
             número do topo desta tela. Venda sem o valor do imóvel informado não entra no VGV: ela é contada à parte,
-            para o total não parecer menor do que a realidade.
+            para o total não parecer menor do que a realidade. O VGL é o VGV que é de fato da Souza: na venda em
+            parceria entra só a fatia dela, e do que sobra sai a nota fiscal — o ISS retido não entra nessa conta.
           </p>
         </Cartao.Rodape>
       </Cartao>

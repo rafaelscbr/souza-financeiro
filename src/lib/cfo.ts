@@ -96,6 +96,11 @@ export interface PontoDeEquilibrio {
   comissaoMedia: number
   /** Quantos dos meses da janela cobriram a estrutura. */
   mesesQueCobriram: number
+  /**
+   * Os meses que formaram a média, um a um. A tela precisa deles para abrir
+   * o número: média é conta sobre lista, e a lista tem que estar à mão.
+   */
+  mesesDaEstrutura: { chave: string; total: number }[]
 }
 
 /**
@@ -144,12 +149,25 @@ export function pontoDeEquilibrio(params: {
     comissaoNecessaria,
     comissaoMedia,
     mesesQueCobriram,
+    mesesDaEstrutura: chaves
+      .map((chave) => ({ chave, total: porMes.get(chave) ?? 0 }))
+      .filter((m) => m.total > 0),
   }
 }
 
 // ---------------------------------------------------------------------------
 // 3. Aging da carteira
 // ---------------------------------------------------------------------------
+
+/** Uma parcela dentro de uma faixa — o suficiente para a tela abrir o número. */
+export interface ParcelaDoAging {
+  saleId: string
+  installmentId: string
+  titulo: string
+  empreendimento: string | null
+  data: string
+  valor: number
+}
 
 export interface FaixaDeAging {
   rotulo: string
@@ -158,6 +176,8 @@ export interface FaixaDeAging {
   total: number
   parcelas: number
   fatia: number
+  /** As parcelas que a faixa soma, da mais próxima para a mais distante. */
+  itens: ParcelaDoAging[]
 }
 
 /**
@@ -170,11 +190,11 @@ export interface FaixaDeAging {
  */
 export function agingDaCarteira(vendas: SaleView[], hoje = toDateOnly(new Date())): FaixaDeAging[] {
   const faixas: FaixaDeAging[] = [
-    { rotulo: 'Em atraso', ate: 0, total: 0, parcelas: 0, fatia: 0 },
-    { rotulo: 'Até 90 dias', ate: 90, total: 0, parcelas: 0, fatia: 0 },
-    { rotulo: '91 a 180 dias', ate: 180, total: 0, parcelas: 0, fatia: 0 },
-    { rotulo: '181 a 360 dias', ate: 360, total: 0, parcelas: 0, fatia: 0 },
-    { rotulo: 'Mais de um ano', ate: null, total: 0, parcelas: 0, fatia: 0 },
+    { rotulo: 'Em atraso', ate: 0, total: 0, parcelas: 0, fatia: 0, itens: [] },
+    { rotulo: 'Até 90 dias', ate: 90, total: 0, parcelas: 0, fatia: 0, itens: [] },
+    { rotulo: '91 a 180 dias', ate: 180, total: 0, parcelas: 0, fatia: 0, itens: [] },
+    { rotulo: '181 a 360 dias', ate: 360, total: 0, parcelas: 0, fatia: 0, itens: [] },
+    { rotulo: 'Mais de um ano', ate: null, total: 0, parcelas: 0, fatia: 0, itens: [] },
   ]
   const dias = (iso: string) => Math.round((Date.parse(iso) - Date.parse(hoje)) / 86400000)
 
@@ -186,8 +206,20 @@ export function agingDaCarteira(vendas: SaleView[], hoje = toDateOnly(new Date()
       const faixa = faixas.find((f) => f.ate !== null && d <= f.ate) ?? faixas[faixas.length - 1]
       faixa.total = r2(faixa.total + p.amount)
       faixa.parcelas += 1
+      faixa.itens.push({
+        saleId: v.id,
+        installmentId: p.id,
+        titulo: v.title,
+        empreendimento: v.development,
+        data: p.expected_date,
+        valor: p.amount,
+      })
     }
   }
   const total = r2(faixas.reduce((s, f) => s + f.total, 0))
-  return faixas.map((f) => ({ ...f, fatia: total > 0 ? f.total / total : 0 }))
+  return faixas.map((f) => ({
+    ...f,
+    itens: [...f.itens].sort((a, b) => a.data.localeCompare(b.data)),
+    fatia: total > 0 ? f.total / total : 0,
+  }))
 }

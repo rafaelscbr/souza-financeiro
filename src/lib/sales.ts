@@ -495,8 +495,23 @@ export interface DevelopmentResult {
  *
  * VGV é o valor dos IMÓVEIS vendidos — o tamanho do que a imobiliária
  * colocou na rua. Não é receita dela: a receita é a comissão, que é uma
- * fração disso. VGL é o mesmo número depois de tirar os distratos: o que
- * sobrou de venda firme.
+ * fração disso.
+ *
+ * VGL é a regra do dono, dita em 22/09/2026: "o VGL é o VGV descontando
+ * nota fiscal, divide o VGV que foi parceria". São duas operações, nesta
+ * ordem, e nenhuma delas mexe em real nenhum do razão — VGL é indicador de
+ * produção, não linha de caixa:
+ *
+ *   1. PARCERIA DIVIDE. Na venda em parceria, do VGV entra só a fatia da
+ *      Souza (`partner_share_pct`). Os 23,5% do Itajaí Urban Club 2ª Fase
+ *      que ficaram com a Araujo não são venda da Souza.
+ *   2. NOTA DESCONTA. Do que sobrou sai o imposto da nota — `simples_pct`,
+ *      e só quando a venda emite nota. O ISS retido NÃO entra: ele foi
+ *      excluído por decisão dele, na mesma conversa.
+ *
+ * Distrato fica fora do VGL: venda que caiu não é venda líquida. O ticket
+ * médio continua sendo VGV por venda firme — ticket é o tamanho do imóvel,
+ * e não pode encolher por causa de imposto.
  *
  * Duas honestidades embutidas:
  *   · venda sem o valor do imóvel informado NÃO vira zero. Ela é contada à
@@ -504,12 +519,49 @@ export interface DevelopmentResult {
  *     de mostrar um VGV menor do que a verdade;
  *   · venda de pessoa física fica fora — quem decide isso é quem chama.
  */
+
+/** O VGL de UMA venda, com as duas deduções abertas. */
+export interface VglDaVenda {
+  vgv: number
+  /** A fatia do VGV que é da Souza: em parceria, só a parte dela. */
+  daCasa: number
+  /** Quanto do VGV saiu por ser do parceiro. */
+  parceria: number
+  /** Quanto saiu na nota fiscal (Simples; nunca ISS). */
+  nota: number
+  /** daCasa − nota. */
+  vgl: number
+  emParceria: boolean
+}
+
+/**
+ * A conta do VGL de uma venda. Devolve `null` quando o valor do imóvel não
+ * foi informado: sem VGV não há VGL, e zero seria mentira.
+ */
+export function vglDaVenda(v: SaleView): VglDaVenda | null {
+  if (v.property_value == null) return null
+  const vgv = v.property_value
+  const fatia = v.partner_share_pct == null ? 1 : v.partner_share_pct / 100
+  const daCasa = r2(vgv * fatia)
+  const nota = v.issues_invoice ? r2(daCasa * (v.simples_pct / 100)) : 0
+  return {
+    vgv,
+    daCasa,
+    parceria: r2(vgv - daCasa),
+    nota,
+    vgl: r2(daCasa - nota),
+    emParceria: v.partner_share_pct != null,
+  }
+}
+
 export interface VolumeDoMes {
   mes: Date
   /** Valor dos imóveis vendidos no mês, inclusive os que depois caíram. */
   vgv: number
-  /** O mesmo, sem as vendas canceladas. */
+  /** O mesmo, sem distrato, só na fatia da Souza e já sem a nota. */
   vgl: number
+  /** VGV das vendas firmes — a base do ticket médio. */
+  vgvFirme: number
   vendas: number
   distratos: number
   /** Vendas do mês sem o valor do imóvel informado. */
@@ -520,47 +572,67 @@ export interface VolumeDeVendas {
   meses: VolumeDoMes[]
   vgv: number
   vgl: number
+  vgvFirme: number
   vendas: number
   distratos: number
   semValor: number
-  /** VGL dividido pelas vendas firmes que têm valor informado. */
+  /** Quanto do VGV firme saiu por ser do parceiro. */
+  descontoParceria: number
+  /** Quanto do VGV firme saiu na nota fiscal. */
+  descontoNota: number
+  /** Quantas das vendas firmes foram em parceria. */
+  vendasEmParceria: number
+  /** VGV firme dividido pelas vendas firmes que têm valor informado. */
   ticket: number
 }
 
 export function volumeDeVendas(vendas: SaleView[], meses: Date[]): VolumeDeVendas {
   const chave = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   const porMes = new Map<string, VolumeDoMes>()
-  for (const m of meses) porMes.set(chave(m), { mes: m, vgv: 0, vgl: 0, vendas: 0, distratos: 0, semValor: 0 })
+  for (const m of meses)
+    porMes.set(chave(m), { mes: m, vgv: 0, vgl: 0, vgvFirme: 0, vendas: 0, distratos: 0, semValor: 0 })
 
   let comValorFirme = 0
+  let descontoParceria = 0
+  let descontoNota = 0
+  let vendasEmParceria = 0
   for (const v of vendas) {
     const alvo = porMes.get(v.sale_date.slice(0, 7))
     if (!alvo) continue
     const cancelada = v.status === 'cancelada'
     alvo.vendas += 1
     if (cancelada) alvo.distratos += 1
-    if (v.property_value == null) {
+    const conta = vglDaVenda(v)
+    if (!conta) {
       alvo.semValor += 1
       continue
     }
-    alvo.vgv = r2(alvo.vgv + v.property_value)
+    alvo.vgv = r2(alvo.vgv + conta.vgv)
     if (!cancelada) {
-      alvo.vgl = r2(alvo.vgl + v.property_value)
+      alvo.vgvFirme = r2(alvo.vgvFirme + conta.vgv)
+      alvo.vgl = r2(alvo.vgl + conta.vgl)
+      descontoParceria = r2(descontoParceria + conta.parceria)
+      descontoNota = r2(descontoNota + conta.nota)
+      if (conta.emParceria) vendasEmParceria += 1
       comValorFirme += 1
     }
   }
 
   const lista = [...porMes.values()]
   const soma = (fn: (m: VolumeDoMes) => number) => r2(lista.reduce((s, m) => s + fn(m), 0))
-  const vgl = soma((m) => m.vgl)
+  const vgvFirme = soma((m) => m.vgvFirme)
   return {
     meses: lista,
     vgv: soma((m) => m.vgv),
-    vgl,
+    vgl: soma((m) => m.vgl),
+    vgvFirme,
     vendas: lista.reduce((s, m) => s + m.vendas, 0),
     distratos: lista.reduce((s, m) => s + m.distratos, 0),
     semValor: lista.reduce((s, m) => s + m.semValor, 0),
-    ticket: comValorFirme > 0 ? r2(vgl / comValorFirme) : 0,
+    descontoParceria,
+    descontoNota,
+    vendasEmParceria,
+    ticket: comValorFirme > 0 ? r2(vgvFirme / comValorFirme) : 0,
   }
 }
 
