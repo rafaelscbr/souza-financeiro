@@ -480,6 +480,9 @@ export interface DevelopmentResult {
   name: string
   developer: string | null
   sales: number
+  /** VGV das vendas com o valor do imóvel informado. */
+  vgv: number
+  salesWithoutVgv: number
   commission: number
   tax: number
   brokerCost: number
@@ -610,6 +613,8 @@ export function developmentResults(vendas: SaleView[]): DevelopmentResult[] {
         name: v.development ?? 'Sem empreendimento',
         developer: v.developer,
         sales: 0,
+        vgv: 0,
+        salesWithoutVgv: 0,
         commission: 0,
         tax: 0,
         brokerCost: 0,
@@ -617,6 +622,8 @@ export function developmentResults(vendas: SaleView[]): DevelopmentResult[] {
         margin: 0,
       } satisfies DevelopmentResult)
     atual.sales += 1
+    if (v.property_value == null) atual.salesWithoutVgv += 1
+    else atual.vgv = r2(atual.vgv + v.property_value)
     atual.commission = r2(atual.commission + v.cascade.commission)
     atual.tax = r2(atual.tax + v.cascade.iss + v.cascade.simples)
     atual.brokerCost = r2(atual.brokerCost + v.cascade.broker)

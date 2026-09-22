@@ -1,10 +1,13 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { BarChart3, Building2, CalendarRange, Download, Landmark, PieChart, Receipt, Users } from 'lucide-react'
+import { Banknote, BarChart3, Building2, CalendarRange, Download, Hourglass, Landmark, PieChart, Receipt, Scale, TrendingUp, Users } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
+import { Kpi } from '@/components/ui/Kpi'
+import { Colunas } from '@/components/ui/Colunas'
+import { Barra } from '@/components/ui/Barra'
 import { Linha } from '@/components/ui/Lista'
 import { Tabela, type ColunaTabela } from '@/components/ui/Tabela'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
@@ -16,10 +19,13 @@ import { ACCOUNT_TYPE_LABEL, treasurySummary } from '@/lib/treasury'
 import {
   brokerProduction,
   developmentResults,
+  entradasPorMes,
+  volumeDeVendas,
   type BrokerProduction,
   type DevelopmentResult,
 } from '@/lib/sales'
-import { formatCurrency, formatDate, formatMonthShort, formatMonthYear, formatPercent } from '@/lib/format'
+import { agingDaCarteira, pontoDeEquilibrio, previsaoDeCaixa } from '@/lib/cfo'
+import { formatCurrency, formatDate, formatMonthShort, formatMonthTiny, formatMonthYear, formatPercent } from '@/lib/format'
 import type { Transaction } from '@/types'
 
 type Regime = 'caixa' | 'competencia'
@@ -45,7 +51,7 @@ const FRASE_HEROI =
  * os de antes; todo total continua abrindo no que o compõe até a venda.
  */
 export function Relatorios() {
-  const { transactions, accounts, transfers, mes, vendas, contacts, contatosComAcesso } = useAdmin()
+  const { transactions, accounts, transfers, mes, vendas, contacts, contatosComAcesso, receber, pagar, hoje } = useAdmin()
   const { abrir } = useComposicao()
   const [regime, setRegime] = useState<Regime>('caixa')
 
@@ -96,6 +102,51 @@ export function Relatorios() {
     }
     return [...m.entries()].map(([nome, valor]) => ({ nome, valor })).sort((a, b) => b.valor - a.valor)
   }, [doMes])
+
+  /*
+   * AS CONTAS DE CFO (21/09/2026). Todas em src/lib/cfo.ts, todas lendo o que
+   * já está gravado. Esta tela não recalcula imposto, comissão nem resultado.
+   */
+  // `r2` desta tela é declarado mais abaixo; aqui vale a mesma conta com nome
+  // próprio, porque const não existe antes da linha que o declara.
+  const cent = (n: number) => Math.round(n * 100) / 100
+
+  const doze = useMemo(() => lastNMonths(mes, 12), [mes])
+  const volume = useMemo(() => volumeDeVendas(vendasDaEmpresa, doze), [vendasDaEmpresa, doze])
+  const entradas = useMemo(() => entradasPorMes(vendasDaEmpresa, doze), [vendasDaEmpresa, doze])
+
+  /** A economia da carteira: quanto de cada real de comissão sobra de fato. */
+  const carteira = useMemo(() => {
+    const ativas = vendasDaEmpresa.filter((v) => v.status !== 'cancelada')
+    const comissao = cent(ativas.reduce((s, v) => s + v.cascade.commission, 0))
+    const liquido = cent(ativas.reduce((s, v) => s + v.cascade.net, 0))
+    return { comissao, liquido, margem: comissao > 0 ? liquido / comissao : 0 }
+  }, [vendasDaEmpresa])
+
+  const proximos3 = useMemo(
+    () => [0, 1, 2].map((i) => new Date(mes.getFullYear(), mes.getMonth() + i, 1)),
+    [mes],
+  )
+  const caixa = useMemo(
+    () => previsaoDeCaixa({ saldoHoje: tesouraria.available, receber, pagar, meses: proximos3, hoje }),
+    [tesouraria.available, receber, pagar, proximos3, hoje],
+  )
+
+  /* O mês corrente fica fora: ele entra pela metade e puxa a média para baixo. */
+  const mesesFechados = useMemo(() => doze.slice(0, 11), [doze])
+  const equilibrio = useMemo(
+    () =>
+      pontoDeEquilibrio({
+        transactions,
+        meses: mesesFechados,
+        margem: carteira.margem,
+        entradasPorMes: entradas,
+      }),
+    [transactions, mesesFechados, carteira.margem, entradas],
+  )
+
+  const aging = useMemo(() => agingDaCarteira(vendas, hoje), [vendas, hoje])
+  const carteiraAReceber = useMemo(() => cent(aging.reduce((s, f) => s + f.total, 0)), [aging])
 
   function exportarDre() {
     const linhas = [
@@ -310,6 +361,259 @@ export function Relatorios() {
         />
       )}
 
+      {/*
+       * OS DESTAQUES (21/09/2026). Quatro números que resumem o negócio antes
+       * de qualquer tabela: o tamanho do que foi vendido (VGV), o que sobrou
+       * firme (VGL), a comissão contratada da carteira e a margem — quanto de
+       * cada real de comissão fica de fato com a imobiliária.
+       */}
+      <div className="grid gap-bloco sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi
+          rotulo="VGV · 12 meses"
+          icone={Building2}
+          tom="neutro"
+          valor={volume.vgv}
+          nota={`${volume.vendas} ${volume.vendas === 1 ? 'venda' : 'vendas'} no período${volume.semValor > 0 ? ` · ${volume.semValor} sem valor informado` : ''}`}
+          para="/vendas"
+        />
+        <Kpi
+          rotulo="VGL · 12 meses"
+          icone={Scale}
+          tom="marca"
+          valor={volume.vgl}
+          nota={
+            volume.distratos === 0
+              ? 'nenhum distrato no período'
+              : `sem os ${volume.distratos === 1 ? 'distrato' : `${volume.distratos} distratos`}`
+          }
+          para="/vendas"
+        />
+        <Kpi
+          rotulo="Comissão contratada"
+          icone={Banknote}
+          tom="info"
+          valor={carteira.comissao}
+          nota="todas as vendas ativas, recebido e a receber"
+          para="/vendas"
+        />
+        <Kpi
+          rotulo="Margem da imobiliária"
+          icone={PieChart}
+          tom="sucesso"
+          valor={0}
+          texto={formatPercent(carteira.margem, 0)}
+          nota={`${formatCurrency(carteira.liquido)} sobram depois do imposto e do corretor`}
+        />
+      </div>
+
+      {/* ------------------------------------------------ previsão de caixa */}
+      <Cartao>
+        <Cartao.Cabecalho
+          titulo="Previsão de caixa"
+          icone={TrendingUp}
+          meta={`Três meses, partindo de ${formatCurrency(tesouraria.available)} em conta`}
+        />
+        <Cartao.Corpo>
+          <Colunas
+            tom={caixa.menorSaldo && caixa.menorSaldo.saldo < 0 ? 'risco' : 'sucesso'}
+            itens={caixa.meses.map((m) => ({
+              rotulo: formatMonthTiny(m.mes),
+              valor: Math.max(m.saldo, 0),
+              descricao: `${formatMonthYear(m.mes)}: entra ${formatCurrency(m.entra)}, sai ${formatCurrency(m.sai)}, saldo projetado ${formatCurrency(m.saldo)}`,
+              ativo: monthKey(m.mes) === monthKey(mes),
+            }))}
+            rotuloAcessivel={`Saldo projetado mês a mês nos próximos três meses, partindo de ${formatCurrency(tesouraria.available)}.`}
+          />
+        </Cartao.Corpo>
+        <Tabela
+          rotuloAcessivel="Previsão de caixa dos próximos três meses"
+          linhas={caixa.meses}
+          chave={(m) => monthKey(m.mes)}
+          colunas={[
+            { id: 'mes', rotulo: 'Mês', celula: (m) => <Nome nome={formatMonthShort(m.mes)} /> },
+            {
+              id: 'entra',
+              rotulo: 'Entra',
+              numerica: true,
+              celula: (m) => (
+                <ValorComOrigem
+                  valor={m.entra}
+                  posto="linha"
+                  rotuloAcessivel={`Ver o que entra em ${formatMonthYear(m.mes)}`}
+                  aoAbrir={() =>
+                    abrir({
+                      rotulo: 'Entra',
+                      titulo: `O que entra em ${formatMonthYear(m.mes)}`,
+                      explica: 'Parcelas de comissão previstas para este mês. O vencido de meses anteriores entra no primeiro mês da janela.',
+                      total: m.entra,
+                      itens: m.entradas.map((i) => ({
+                        id: i.tx.id,
+                        titulo: i.label,
+                        meta: i.sale?.development ?? i.tx.category,
+                        valor: i.amount,
+                        para: i.sale ? `/vendas/${i.sale.id}` : undefined,
+                      })),
+                      vazio: 'Nada previsto para entrar neste mês.',
+                    })
+                  }
+                />
+              ),
+            },
+            {
+              id: 'sai',
+              rotulo: 'Sai',
+              numerica: true,
+              celula: (m) => (
+                <ValorComOrigem
+                  valor={m.sai}
+                  posto="linha"
+                  rotuloAcessivel={`Ver o que sai em ${formatMonthYear(m.mes)}`}
+                  aoAbrir={() =>
+                    abrir({
+                      rotulo: 'Sai',
+                      titulo: `O que sai em ${formatMonthYear(m.mes)}`,
+                      explica: 'Comissão de corretor, imposto e despesa com vencimento neste mês.',
+                      total: m.sai,
+                      itens: m.saidas.map((i) => ({
+                        id: i.tx.id,
+                        titulo: i.label,
+                        meta: i.sale?.development ?? i.tx.category,
+                        valor: i.amount,
+                        para: i.sale ? `/vendas/${i.sale.id}` : undefined,
+                      })),
+                      vazio: 'Nada previsto para sair neste mês.',
+                    })
+                  }
+                />
+              ),
+            },
+            {
+              id: 'saldo',
+              rotulo: 'Saldo projetado',
+              numerica: true,
+              celula: (m) =>
+                m.saldo < 0 ? (
+                  <Valor valor={m.saldo} posto="linha" estado="negativo" />
+                ) : (
+                  <Valor valor={m.saldo} posto="linha" forte />
+                ),
+            },
+          ]}
+        />
+        <Cartao.Rodape>
+          <p className="max-w-[72ch]">
+            {caixa.menorSaldo && caixa.menorSaldo.saldo < 0 ? (
+              <>
+                Atenção: a projeção fica negativa em {formatMonthYear(caixa.menorSaldo.mes).toLowerCase()} (
+                <Valor valor={caixa.menorSaldo.saldo} posto="fato" estado="negativo" />
+                ). É o mês para antecipar recebimento ou adiar saída.
+              </>
+            ) : (
+              <>
+                O saldo projetado não fica negativo nos três meses. A conta parte do que existe hoje em conta e usa as
+                datas prometidas em A receber e A pagar — se uma construtora atrasar, o mês dela muda.
+              </>
+            )}
+          </p>
+        </Cartao.Rodape>
+      </Cartao>
+
+      {/* ------------------------------------------------ ponto de equilíbrio */}
+      {equilibrio.custoFixo > 0 && (
+        <Cartao>
+          <Cartao.Cabecalho
+            titulo="Ponto de equilíbrio"
+            icone={Scale}
+            meta={`Estrutura média de ${formatCurrency(equilibrio.custoFixo)} por mês`}
+          />
+          <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="Ponto de equilíbrio">
+            <Linha
+              titulo="Estrutura por mês"
+              meta={`média dos ${equilibrio.mesesUsados} ${equilibrio.mesesUsados === 1 ? 'mês' : 'meses'} com despesa lançada — aluguel, contabilidade, ferramentas`}
+              valor={<Valor valor={equilibrio.custoFixo} posto="linha" />}
+            />
+            <Linha
+              titulo="Comissão que precisa entrar"
+              meta={`com margem de ${formatPercent(equilibrio.margem, 0)}, cada real de estrutura exige ${formatCurrency(equilibrio.margem > 0 ? 1 / equilibrio.margem : 0)} de comissão`}
+              valor={<Valor valor={equilibrio.comissaoNecessaria} posto="linha" forte />}
+            />
+            <Linha
+              titulo="Comissão que entrou, na média"
+              meta={`média dos últimos ${mesesFechados.length} meses fechados · ${equilibrio.mesesQueCobriram} ${equilibrio.mesesQueCobriram === 1 ? 'mês cobriu' : 'meses cobriram'} a estrutura`}
+              valor={
+                equilibrio.comissaoMedia >= equilibrio.comissaoNecessaria ? (
+                  <Valor valor={equilibrio.comissaoMedia} posto="linha" estado="recebido" />
+                ) : (
+                  <Valor valor={equilibrio.comissaoMedia} posto="linha" estado="vencido" />
+                )
+              }
+            />
+          </Cartao.Lista>
+          <Cartao.Rodape>
+            <p className="max-w-[72ch]">
+              {equilibrio.comissaoMedia >= equilibrio.comissaoNecessaria ? (
+                <>
+                  Na média, a comissão que entra cobre a estrutura. Sobra{' '}
+                  <Valor valor={equilibrio.comissaoMedia - equilibrio.comissaoNecessaria} posto="fato" /> de folga por
+                  mês — é dela que sai reserva, investimento e retirada.
+                </>
+              ) : (
+                <>
+                  Na média, falta{' '}
+                  <Valor valor={equilibrio.comissaoNecessaria - equilibrio.comissaoMedia} posto="fato" /> de comissão
+                  por mês para cobrir a estrutura. Comissão é receita irregular: o que importa é se o ano fecha, mas mês abaixo da
+                  linha consome reserva.
+                </>
+              )}{' '}
+              Imposto e comissão de corretor não entram na estrutura — eles só existem quando há venda, e já estão
+              descontados na margem.
+            </p>
+          </Cartao.Rodape>
+        </Cartao>
+      )}
+
+      {/* ------------------------------------------------ aging da carteira */}
+      {carteiraAReceber > 0 && (
+        <Cartao>
+          <Cartao.Cabecalho
+            titulo="Quando a carteira vira dinheiro"
+            icone={Hourglass}
+            meta={`${formatCurrency(carteiraAReceber)} a receber, por distância`}
+          />
+          <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="Aging da carteira">
+            {aging
+              .filter((f) => f.total > 0)
+              .map((f) => (
+                <Linha
+                  key={f.rotulo}
+                  titulo={f.rotulo}
+                  meta={
+                    <span className="flex flex-col gap-2">
+                      <span>
+                        {Math.round(f.fatia * 100)}% da carteira · {f.parcelas}{' '}
+                        {f.parcelas === 1 ? 'parcela' : 'parcelas'}
+                      </span>
+                      <Barra
+                        animarEntrada={false}
+                        valor={f.fatia}
+                        tom={f.rotulo === 'Em atraso' ? 'atencao' : f.ate === null ? 'neutro' : 'info'}
+                        rotuloAcessivel={`${f.rotulo}: ${Math.round(f.fatia * 100)}% da carteira.`}
+                      />
+                    </span>
+                  }
+                  valor={<Valor valor={f.total} posto="linha" previsto />}
+                />
+              ))}
+          </Cartao.Lista>
+          <Cartao.Rodape>
+            <p className="max-w-[72ch]">
+              Carteira longa não é defeito — parcela de 2027 é venda assinada. Mas é caixa que não existe: quem decide
+              contratar, comprar ou antecipar precisa saber quanto está perto e quanto está longe.
+            </p>
+          </Cartao.Rodape>
+        </Cartao>
+      )}
+
       <Cartao>
         <Cartao.Cabecalho
           titulo="Como o resultado se forma"
@@ -414,6 +718,17 @@ export function Relatorios() {
             colunas={[
               { id: 'nome', rotulo: 'Empreendimento', celula: (d) => <Nome nome={d.name} meta={d.developer} /> },
               { id: 'vendas', rotulo: 'Vendas', numerica: true, celula: (d) => <span className="num">{d.sales}</span> },
+              {
+                id: 'vgv',
+                rotulo: 'VGV',
+                numerica: true,
+                celula: (d) =>
+                  d.vgv > 0 ? (
+                    <Valor valor={d.vgv} posto="linha" />
+                  ) : (
+                    <span className="text-nota text-t4">não informado</span>
+                  ),
+              },
               {
                 id: 'comissao',
                 rotulo: 'Comissão',
