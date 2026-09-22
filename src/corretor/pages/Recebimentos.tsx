@@ -200,7 +200,7 @@ interface Item {
 }
 
 export function Recebimentos() {
-  const { parcelas, carregando, erro, recarregar, ano, anosDisponiveis, setAno } = useCorretor()
+  const { parcelas, carregando, erro, recarregar, anosDisponiveis, setAno } = useCorretor()
   /*
    * O PERÍODO (21/09/2026, pedido do Rafael: "que o corretor veja TUDO que
    * tem para receber, filtrar por período").
@@ -251,7 +251,14 @@ export function Recebimentos() {
    * O filtro muda o cronograma, NUNCA o herói. "A receber agora" é a resposta da
    * tela e não pode depender de qual botão está apertado.
    */
-  const periodo = params.get('ano') === 'tudo' ? 'tudo' : String(ano)
+  /*
+   * O PADRÃO É TUDO (22/09/2026): "tá puxando somente o ano de 2026, quero que
+   * puxe o máximo que ele tem de recebimento para ele poder ver". Sem `?ano=`
+   * na URL, o cronograma mostra todos os anos; um ano só existe quando ele
+   * escolhe um. Antes era o contrário, e a parcela de 2027 ficava escondida
+   * atrás de um filtro que ninguém sabia que estava ligado.
+   */
+  const periodo = params.get('ano') ?? 'tudo'
   const noPeriodo = useMemo(
     () => (periodo === 'tudo' ? todas : todas.filter((it) => it.quando.slice(0, 4) === periodo)),
     [todas, periodo],
@@ -264,8 +271,8 @@ export function Recebimentos() {
       setParams(
         (atual) => {
           const p = new URLSearchParams(atual)
-          if (v === 'tudo') p.set('ano', 'tudo')
-          else p.delete('ano')
+          if (v === 'tudo') p.delete('ano')
+          else p.set('ano', v)
           return p
         },
         { replace: true },
@@ -289,6 +296,18 @@ export function Recebimentos() {
         itens: [...itens].sort((a, b) => (a.quando === b.quando ? a.p.idx - b.p.idx : a.quando < b.quando ? -1 : 1)),
       }))
   }, [lista])
+
+  /*
+   * Os anos que ganham calendário: os que têm parcela. Ano sem nada não vira
+   * um cartão vazio, e o ano corrente aparece mesmo sem parcela — é onde ele
+   * está olhando.
+   */
+  const anosDoCalendario = useMemo(() => {
+    if (periodo !== 'tudo') return [Number(periodo)]
+    const anos = new Set<number>([new Date().getFullYear()])
+    for (const it of todas) anos.add(Number(it.quando.slice(0, 4)))
+    return [...anos].sort((a, b) => a - b)
+  }, [periodo, todas])
 
   const quadro = (conteudo: ReactNode, subtitulo?: ReactNode, faixa?: ReactNode) => (
     <PageLayout icone={CalendarDays} titulo="Recebimentos" subtitulo={subtitulo} faixa={faixa}>
@@ -533,14 +552,22 @@ export function Recebimentos() {
         ]}
       />
 
-      <CalendarioDoAno
-        ano={ano}
-        itens={periodo === 'tudo' ? todas.filter((it) => it.quando.slice(0, 4) === String(ano)) : noPeriodo}
-        hoje={hoje}
-        aoAbrirMes={(nome, itens) =>
-          compor(nome, `Recebimentos de ${nome}`, itens, 'Cada parcela pela data em que ela cai — ou pela data em que caiu, se já foi paga.')
-        }
-      />
+      {/*
+        * Com "todos os anos" (o padrão), é um calendário POR ANO, do mais
+        * antigo para o mais novo: ele precisa ver 2027 e 2028 sem trocar
+        * filtro nenhum. Com um ano escolhido, só o dele.
+        */}
+      {anosDoCalendario.map((a) => (
+        <CalendarioDoAno
+          key={a}
+          ano={a}
+          itens={noPeriodo.filter((it) => it.quando.slice(0, 4) === String(a))}
+          hoje={hoje}
+          aoAbrirMes={(nome, itens) =>
+            compor(nome, `Recebimentos de ${nome}`, itens, 'Cada parcela pela data em que ela cai — ou pela data em que caiu, se já foi paga.')
+          }
+        />
+      ))}
 
 
       <Cartao>
