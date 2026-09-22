@@ -14,6 +14,7 @@ import { Icone } from '@/components/ui/Icone'
 import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
 import { BarraTrilha, LegendaTrilha } from '@/components/ui/Barra'
 import { EstadoVazio } from '@/components/ui/Estados'
+import { Dica } from '@/components/ui/Dica'
 import { situacaoDeTela, fraseDeTempo, type Situacao } from '@/lib/situacao'
 import { formatCurrency, parseDateOnly, toDateOnly } from '@/lib/format'
 
@@ -140,7 +141,7 @@ export function CorretorInicio() {
               ? 'nada liberado no momento'
               : `${liberadas.length} ${liberadas.length === 1 ? 'parcela' : 'parcelas'} que a imobiliária já recebeu`
           }
-          para="/recebimentos?filtro=aReceber"
+          para="/recebimentos?foco=a-receber"
         />
         <Kpi
           rotulo="Ainda prevista"
@@ -222,6 +223,19 @@ export function CorretorInicio() {
             rotuloAcessivel={`De ${formatCurrency(soma(doAno))} em ${ano}: ${formatCurrency(soma(recebidas))} recebido, ${formatCurrency(soma(liberadas))} liberado a receber e ${formatCurrency(soma(previstas))} dependendo da construtora.`}
           />
           <LegendaTrilha />
+          {/*
+           * A ressalva que o total não dá sozinho (22/09/2026): parte desta
+           * comissão vem de venda de pessoa física, que nunca passou pelo caixa
+           * da imobiliária. Sem isto escrito, dois dinheiros diferentes viram um
+           * número só.
+           */}
+          {p.personal_total > 0 && (
+            <Dica>
+              Deste total, <Valor valor={p.personal_total} posto="fato" forte /> vem de{' '}
+              {p.personal_count === 1 ? 'uma venda' : `${p.personal_count} vendas`} de pessoa física: comissão sua que
+              não passa pelo caixa da imobiliária, e por isso não espera repasse.
+            </Dica>
+          )}
         </Cartao.Corpo>
         <Cartao.Lista rotuloAcessivel={`Sua comissão em ${ano}`} colunas={{ goteira: true, situacao: true, valor: true }}>
           <Linha

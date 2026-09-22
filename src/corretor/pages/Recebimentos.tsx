@@ -352,6 +352,7 @@ export function Recebimentos() {
     id: p.id,
     titulo: p.sale_title,
     meta: [
+      p.is_personal ? 'pessoa física' : null,
       p.development,
       fraseDeTempo(s, { prevista: p.expected_date, liberada: p.received_date, recebida: p.paid_date }),
     ]
@@ -706,6 +707,8 @@ function linhaDaParcela({ p, s }: Item) {
       titulo={p.sale_title}
       meta={
         <>
+          {/* Pessoa física vem dito primeiro: é comissão dele que nunca passa pela imobiliária. */}
+          {p.is_personal && 'pessoa física · '}
           {p.count > 1 && `parcela ${p.idx}/${p.count} · `}
           <FraseDeTempo situacao={s} prevista={p.expected_date} liberada={p.received_date} recebida={p.paid_date} />
         </>

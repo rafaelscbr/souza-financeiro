@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/auth/AuthContext'
 import { LoginPage, NovaSenhaPage, SemAcessoPage } from '@/auth/LoginPage'
 import { ThemeProvider } from '@/context/ThemeContext'
@@ -95,6 +95,30 @@ function Portao() {
   )
 }
 
+/*
+ * ELE TAMBÉM É CORRETOR (22/09/2026, migração 035).
+ *
+ * O contato de corretor do Rafael ficou ligado ao perfil de administrador
+ * dele, então as funções broker_* do banco já respondem por ele. Faltava só a
+ * tela: as três do corretor passam a existir DENTRO do app do administrador,
+ * na seção "Minhas comissões".
+ *
+ * Elas continuam nos mesmos caminhos do app do corretor (/minhas-vendas,
+ * /recebimentos) de propósito — os links internos das telas apontam para lá e
+ * assim funcionam igual nos dois apps. Só o Início virou /minhas-comissoes,
+ * porque "/" no administrador já é o Início da imobiliária.
+ *
+ * O provedor de dados do corretor envolve só estas rotas: quem abre o Pagar
+ * não paga três chamadas de RPC que não vai usar.
+ */
+function MinhasComissoes() {
+  return (
+    <CorretorDataProvider>
+      <Outlet />
+    </CorretorDataProvider>
+  )
+}
+
 function AppAdministrador() {
   return (
     <AdminDataProvider>
@@ -110,6 +134,12 @@ function AppAdministrador() {
           <Route path="/relatorios" element={<AdminRelatorios />} />
           <Route path="/simulacao" element={<AdminSimulacao />} />
           <Route path="/config" element={<AdminConfig />} />
+          <Route element={<MinhasComissoes />}>
+            <Route path="/minhas-comissoes" element={<CorretorInicio />} />
+            <Route path="/minhas-vendas" element={<MinhasVendas />} />
+            <Route path="/minhas-vendas/:id" element={<MinhaVenda />} />
+            <Route path="/recebimentos" element={<Recebimentos />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

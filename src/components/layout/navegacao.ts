@@ -3,12 +3,14 @@ import {
   ArrowUpCircle,
   CalendarDays,
   Calculator,
+  HandCoins,
   Handshake,
   Home,
   PieChart,
   Receipt,
   Settings,
   Users,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react'
 import type { Tom } from '@/components/ui/tom'
@@ -89,6 +91,20 @@ export function navAdmin({ vencidos, esperando }: { vencidos: number; esperando:
       itens: [
         { para: '/relatorios', rotulo: 'Relatórios', icone: PieChart },
         { para: '/simulacao', rotulo: 'Simulação', icone: Calculator },
+      ],
+    },
+    /*
+     * ELE TAMBÉM É CORRETOR (22/09/2026, migração 035). O mesmo login, duas
+     * visões: estas três telas são as do corretor, lendo só as vendas em que
+     * ele é o corretor — inclusive as de pessoa física, que não passam pelo
+     * caixa da imobiliária e por isso vêm marcadas.
+     */
+    {
+      rotulo: 'Minhas comissões',
+      itens: [
+        { para: '/minhas-comissoes', rotulo: 'Resumo', icone: Wallet },
+        { para: '/minhas-vendas', rotulo: 'Minhas vendas', icone: HandCoins },
+        { para: '/recebimentos', rotulo: 'Meus recebimentos', icone: CalendarDays },
       ],
     },
     {
@@ -188,6 +204,18 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
   { padrao: '/relatorios', icone: PieChart, titulo: 'Relatórios', usaMes: true, faixa: true },
   { padrao: '/simulacao', icone: Calculator, titulo: 'Simulação', usaMes: false, faixa: false },
   { padrao: '/config', icone: Settings, titulo: 'Configurações', usaMes: false, faixa: true },
+  /* As telas do corretor dentro do app do administrador (035). */
+  { padrao: '/minhas-comissoes', icone: Wallet, titulo: 'Minhas comissões', usaMes: false, faixa: false },
+  { padrao: '/minhas-vendas', icone: HandCoins, titulo: 'Minhas vendas', usaMes: false, faixa: false },
+  {
+    padrao: '/minhas-vendas/:id',
+    icone: HandCoins,
+    titulo: 'Minha venda',
+    usaMes: false,
+    faixa: false,
+    voltar: { para: '/minhas-vendas', rotulo: 'Minhas vendas' },
+  },
+  { padrao: '/recebimentos', icone: CalendarDays, titulo: 'Meus recebimentos', usaMes: false, faixa: true },
 ]
 
 export const ROTAS_CORRETOR: RotaDeclarada[] = [

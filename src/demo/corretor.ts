@@ -46,6 +46,7 @@ export const parcelasCorretor: CorretorParcela[] = installments
       status: brokerStatusOf(i, statusPorTx),
       paid_date: tx && tx.status === 'settled' ? tx.settled_date : null,
       notes: i.notes,
+      is_personal: Boolean(s.is_personal),
     }
   })
   .sort((a, b) => (a.expected_date < b.expected_date ? -1 : 1))
@@ -71,6 +72,7 @@ export const vendasCorretor: CorretorVenda[] = minhas
       commission_expected: soma(ps.filter((p) => p.status === 'prevista').map((p) => p.broker_amount)),
       installments: ps.length,
       next_date: abertas[0] ?? null,
+      is_personal: Boolean(s.is_personal),
     }
   })
   .sort((a, b) => (a.sale_date < b.sale_date ? 1 : -1))
@@ -98,6 +100,8 @@ export function painelCorretor(ano: number, hoje: string): CorretorPainel {
     commission_received: soma(doAno.filter((p) => p.status === 'recebida').map(liquido)),
     commission_released: soma(doAno.filter((p) => p.status === 'liberada').map((p) => p.broker_amount)),
     commission_expected: soma(doAno.filter((p) => p.status === 'prevista').map((p) => p.broker_amount)),
+    personal_total: soma(doAno.filter((p) => p.is_personal).map(liquido)),
+    personal_count: vendas.filter((v) => v.is_personal).length,
     overdue_amount: soma(atrasadas.map((p) => p.broker_amount)),
     overdue_count: atrasadas.length,
     next: proxima

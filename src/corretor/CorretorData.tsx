@@ -37,6 +37,12 @@ export interface CorretorVenda {
   commission_expected: number
   installments: number
   next_date: string | null
+  /**
+   * Venda de pessoa física (026): é comissão dele, mas nunca passou pelo caixa
+   * da imobiliária. A tela precisa dizer isso — somar as duas coisas sem
+   * distinção é como o total engana.
+   */
+  is_personal: boolean
 }
 
 export interface CorretorParcela {
@@ -58,6 +64,8 @@ export interface CorretorParcela {
   status: BrokerStatus
   paid_date: string | null
   notes: string | null
+  /** A parcela veio de venda de pessoa física: dinheiro fora da imobiliária. */
+  is_personal: boolean
 }
 
 export interface CorretorPainel {
@@ -69,6 +77,9 @@ export interface CorretorPainel {
   commission_received: number
   commission_released: number
   commission_expected: number
+  /** Quanto do ano vem de venda de pessoa física. */
+  personal_total: number
+  personal_count: number
   overdue_amount: number
   overdue_count: number
   next: {
@@ -135,6 +146,8 @@ export function CorretorDataProvider({ children }: { children: ReactNode }) {
             commission_received: n(h.commission_received),
             commission_released: n(h.commission_released),
             commission_expected: n(h.commission_expected),
+            personal_total: n(h.personal_total),
+            personal_count: n(h.personal_count),
             overdue_amount: n(h.overdue_amount),
             next: h.next ? { ...h.next, amount: n(h.next.amount) } : null,
             by_month: (h.by_month ?? []).map((m) => ({
@@ -154,6 +167,7 @@ export function CorretorDataProvider({ children }: { children: ReactNode }) {
         commission_received: n(v.commission_received),
         commission_released: n(v.commission_released),
         commission_expected: n(v.commission_expected),
+        is_personal: Boolean(v.is_personal),
       })),
     )
     setParcelas(
@@ -165,6 +179,7 @@ export function CorretorDataProvider({ children }: { children: ReactNode }) {
         broker_pct: p.broker_pct == null ? null : n(p.broker_pct),
         broker_amount: n(p.broker_amount),
         broker_adjustment: n(p.broker_adjustment),
+        is_personal: Boolean(p.is_personal),
       })),
     )
   }, [ano])

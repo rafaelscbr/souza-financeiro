@@ -263,7 +263,13 @@ export function MinhasVendas() {
               titulo={c.v.title}
               meta={
                 <>
-                  {[c.v.client_name, c.v.development, `vendida em ${formatDate(c.v.sale_date)}`]
+                  {[
+                    /* Venda de pessoa física (026): comissão dele, fora do caixa da imobiliária. */
+                    c.v.is_personal ? 'pessoa física' : null,
+                    c.v.client_name,
+                    c.v.development,
+                    `vendida em ${formatDate(c.v.sale_date)}`,
+                  ]
                     .filter(Boolean)
                     .join(' · ')}
                   {c.previsto > 0 && (
@@ -288,7 +294,12 @@ export function MinhasVendas() {
         titulo={aberta?.v.title ?? ''}
         subtitulo={
           aberta
-            ? [aberta.v.client_name, aberta.v.development, `vendida em ${formatDate(aberta.v.sale_date)}`]
+            ? [
+                aberta.v.is_personal ? 'pessoa física' : null,
+                aberta.v.client_name,
+                aberta.v.development,
+                `vendida em ${formatDate(aberta.v.sale_date)}`,
+              ]
                 .filter(Boolean)
                 .join(' · ')
             : undefined

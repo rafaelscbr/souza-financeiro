@@ -1,5 +1,5 @@
 import { Suspense, useMemo, useState, type ContextType, type ReactNode } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AuthContext } from '@/auth/AuthContext'
 import { LoginPage, NovaSenhaPage, SemAcessoPage } from '@/auth/LoginPage'
 import { TrocarSenha } from '@/auth/TrocarSenha'
@@ -146,6 +146,19 @@ function AppAdministrador() {
           <Route path="/relatorios" element={<AdminRelatorios />} />
           <Route path="/simulacao" element={<AdminSimulacao />} />
           <Route path="/config" element={<AdminConfig />} />
+          {/* O administrador também é corretor (035): as telas dele, aqui dentro. */}
+          <Route
+            element={
+              <CorretorFalso>
+                <Outlet />
+              </CorretorFalso>
+            }
+          >
+            <Route path="/minhas-comissoes" element={<CorretorInicio />} />
+            <Route path="/minhas-vendas" element={<MinhasVendas />} />
+            <Route path="/minhas-vendas/:id" element={<MinhaVenda />} />
+            <Route path="/recebimentos" element={<Recebimentos />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
