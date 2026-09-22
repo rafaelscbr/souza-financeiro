@@ -63,10 +63,15 @@ export function Simulacao() {
     const comissao = r2(ativas.reduce((s, v) => s + v.cascade.commission, 0))
     const liquido = r2(ativas.reduce((s, v) => s + v.cascade.net, 0))
     /*
-     * O percentual sugerido é a média PONDERADA da carteira: comissão ÷ VGV.
-     * E só entra na conta a venda que tem o valor do imóvel informado — do
-     * contrário a comissão dela contaria no numerador sem o VGV no
-     * denominador, e a média sairia mais baixa do que a realidade.
+     * O PERCENTUAL DA SIMULAÇÃO É 5% (decisão do Rafael em 21/09/2026).
+     *
+     * A tela começava na média ponderada da carteira, e a média é um número
+     * do passado: ela carrega a venda em parceria (onde só 76,5% da comissão
+     * é da Souza) e a do Lago, lançada a 2,5%. Para simular o futuro, o que
+     * vale é o percentual que a imobiliária pratica em contrato — 5%.
+     *
+     * A média continua calculada, mas só como contexto na dica do campo:
+     * serve para ele ver a distância entre o que assina e o que realiza.
      */
     const comValor = ativas.filter((v) => v.property_value != null)
     const vgvComValor = r2(comValor.reduce((s, v) => s + (v.property_value ?? 0), 0))
@@ -82,7 +87,8 @@ export function Simulacao() {
     return {
       vgv: volume.vgv > 0 ? volume.vgv : 1000000,
       ticket: volume.ticket > 0 ? volume.ticket : 500000,
-      pctComissao: pct > 0 ? pct : 5,
+      pctComissao: 5,
+      pctDaCarteira: pct,
       pctCorretor: Number(corretor),
       estrutura: equilibrio.custoFixo,
       margem: comissao > 0 ? liquido / comissao : 0,
@@ -369,7 +375,7 @@ export function Simulacao() {
               <FormField
                 label="% de comissão"
                 htmlFor="s-com"
-                hint={`sobre o VGV. Começa em ${formatPercent(real.pctComissao / 100, 2)}, que é a média ponderada da sua carteira — não o percentual de um contrato`}
+                hint={`sobre o VGV. Começa em 5%, o padrão dos contratos${real.pctDaCarteira > 0 ? ` — a média que a carteira de hoje realiza é ${formatPercent(real.pctDaCarteira / 100, 2)}` : ''}`}
               >
                 <PercentInput id="s-com" value={pctComissao} onChange={setPctComissao} />
               </FormField>
