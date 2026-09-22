@@ -420,6 +420,15 @@ export interface BrokerProduction {
   released: number
   expected: number
   hasAccess: boolean
+  /*
+   * VENDA DE PESSOA FÍSICA (21/09/2026). Ela é 100% do corretor e o dinheiro
+   * não passa pela imobiliária: a empresa não deve nada dela. Por isso fica
+   * SEPARADA dos números acima — se entrasse em `released`, a tela de A pagar
+   * passaria a cobrar um repasse que não existe.
+   */
+  personalSales: number
+  personalTotal: number
+  personalReceived: number
 }
 
 export function brokerProduction(params: {
@@ -435,12 +444,14 @@ export function brokerProduction(params: {
   return contacts
     .filter((c) => c.type === 'broker')
     .map<BrokerProduction>((contact) => {
-      const minhas = vendas.filter(
+      const doCorretor = vendas.filter(
         (v) =>
           v.broker_id === contact.id &&
           v.status !== 'cancelada' &&
           (ano === null || Number(v.sale_date.slice(0, 4)) === ano),
       )
+      const minhas = doCorretor.filter((v) => !v.is_personal)
+      const pessoais = doCorretor.filter((v) => v.is_personal)
       return {
         contact,
         sales: minhas.length,
@@ -451,9 +462,12 @@ export function brokerProduction(params: {
         released: soma(minhas.map((v) => v.brokerReleased)),
         expected: soma(minhas.map((v) => r2(v.brokerToPay - v.brokerReleased))),
         hasAccess: comAcesso.has(contact.id),
+        personalSales: pessoais.length,
+        personalTotal: soma(pessoais.map((v) => v.cascade.commission)),
+        personalReceived: soma(pessoais.map((v) => v.received)),
       }
     })
-    .filter((p) => p.sales > 0 || p.hasAccess)
+    .filter((p) => p.sales > 0 || p.personalSales > 0 || p.hasAccess)
     .sort((a, b) => b.commissionTotal - a.commissionTotal)
 }
 

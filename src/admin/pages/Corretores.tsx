@@ -404,6 +404,24 @@ function MetaDoCorretor({ p, liberado, previsto }: { p: BrokerProduction; libera
           </>
         )}
       </span>
+      {/*
+       * VENDA DE PESSOA FÍSICA (21/09/2026): é 100% dele e o dinheiro não
+       * passa pela imobiliária. Fica nesta linha à parte, fora da trilha
+       * acima, justamente para ninguém somar com o que a empresa deve.
+       */}
+      {p.personalSales > 0 && (
+        <span className="flex flex-wrap items-baseline gap-x-1 text-t3">
+          <span>
+            {p.personalSales === 1 ? 'mais 1 venda como pessoa física' : `mais ${p.personalSales} vendas como pessoa física`}
+          </span>
+          <span aria-hidden>·</span>
+          <span className="inline-flex items-baseline gap-1 whitespace-nowrap">
+            <Valor valor={p.personalTotal} posto="fato" /> 100% dele
+          </span>
+          <span aria-hidden>·</span>
+          <span>pagamento direto, fora da imobiliária</span>
+        </span>
+      )}
       <BarraTrilha
         className="w-full max-w-[20rem]"
         recebido={p.paid}

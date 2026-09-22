@@ -12,13 +12,126 @@ import { Valor } from '@/components/ui/Valor'
 import { ParAgoraPrevisto } from '@/components/ui/ParAgoraPrevisto'
 import { Selo } from '@/components/ui/Selo'
 import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
-import { BarraTrilha, LegendaTrilha } from '@/components/ui/Barra'
+import { Barra, BarraTrilha, LegendaTrilha } from '@/components/ui/Barra'
 import { FiltrosRapidos, type FiltroRapido } from '@/components/ui/FiltrosRapidos'
 import { Dica } from '@/components/ui/Dica'
 import { Button } from '@/components/ui/Button'
 import { EstadoErro, EstadoVazio, EsqueletoLista } from '@/components/ui/Estados'
 import { diasEntre, fraseDeTempo, situacaoDeTela, type Situacao } from '@/lib/situacao'
 import { formatCurrency, formatDate, parseDateOnly, toDateOnly } from '@/lib/format'
+import { cn } from '@/lib/utils'
+
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+const MESES_LONGOS = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+]
+
+/*
+ * O CALENDÁRIO DO ANO (21/09/2026, pedido do Rafael: "melhorar a visualização
+ * de recebimento do corretor, talvez em um calendário, mais dinâmico").
+ *
+ * Doze células, uma por mês, com o que cai em cada uma e a trilha dos três
+ * estados. É a mesma informação da lista abaixo — a diferença é que aqui ela
+ * cabe de uma vez só na tela, e o corretor vê o ANO inteiro: onde tem
+ * dinheiro, onde tem buraco, e em que mês está a próxima entrada.
+ *
+ * Mês vazio continua desenhado, apagado: buraco no cronograma é informação.
+ * Tocar num mês abre as parcelas dele.
+ */
+function CalendarioDoAno({
+  ano,
+  itens,
+  hoje,
+  aoAbrirMes,
+}: {
+  ano: number
+  itens: Item[]
+  hoje: string
+  aoAbrirMes: (nome: string, itens: Item[]) => void
+}) {
+  const mesAtual = hoje.slice(0, 4) === String(ano) ? Number(hoje.slice(5, 7)) - 1 : -1
+  const celulas = MESES_CURTOS.map((nome, i) => {
+    const chave = `${ano}-${String(i + 1).padStart(2, '0')}`
+    const doMes = itens.filter((it) => it.quando.slice(0, 7) === chave)
+    const por = (fn: (s: Situacao) => boolean) =>
+      c2(doMes.filter(({ s }) => fn(s)).reduce((t, { p }) => t + p.broker_amount - p.broker_adjustment, 0))
+    return {
+      i,
+      nome,
+      itens: doMes,
+      total: c2(doMes.reduce((t, { p }) => t + p.broker_amount - p.broker_adjustment, 0)),
+      recebido: por((s) => s === 'recebida'),
+      liberado: por((s) => s === 'liberada' || s === 'vencida'),
+      previsto: por((s) => s === 'prevista'),
+    }
+  })
+  const totalDoAno = c2(celulas.reduce((t, c) => t + c.total, 0))
+
+  return (
+    <Cartao>
+      <Cartao.Cabecalho
+        titulo={`Calendário de ${ano}`}
+        icone={CalendarDays}
+        meta={`${formatCurrency(totalDoAno)} no ano, mês a mês`}
+      />
+      <Cartao.Corpo>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {celulas.map((c) => {
+            const vazio = c.total === 0
+            const conteudo = (
+              <>
+                <span className="flex items-center justify-between gap-2">
+                  <span className="font-label uppercase text-rotulo">{c.nome}</span>
+                  {c.i === mesAtual && <span className="font-label text-brand-text text-rotulo">hoje</span>}
+                </span>
+                {vazio ? (
+                  <span className="text-nota text-t4">sem parcela</span>
+                ) : (
+                  <>
+                    <Valor valor={c.total} posto="fato" forte />
+                    <Barra
+                      animarEntrada={false}
+                      segmentos={[
+                        { valor: c.recebido, tom: 'sucesso' },
+                        { valor: c.liberado, tom: 'atencao' },
+                        { valor: c.previsto, tom: 'info' },
+                      ]}
+                      rotuloAcessivel={`${MESES_LONGOS[c.i]}: ${formatCurrency(c.recebido)} recebido, ${formatCurrency(c.liberado)} a receber e ${formatCurrency(c.previsto)} previsto.`}
+                    />
+                    <span className="text-nota text-t-meta">{plural(c.itens.length, 'parcela', 'parcelas')}</span>
+                  </>
+                )}
+              </>
+            )
+            const classes = cn(
+              'flex min-w-0 flex-col gap-2 rounded-caixa border p-4 text-left',
+              c.i === mesAtual ? 'border-borda-ouro' : 'border-fio-linha',
+              vazio ? 'text-t4' : 'text-t2',
+            )
+            return vazio ? (
+              <span key={c.nome} className={classes}>
+                {conteudo}
+              </span>
+            ) : (
+              <button
+                key={c.nome}
+                type="button"
+                onClick={() => aoAbrirMes(`${MESES_LONGOS[c.i]} de ${ano}`, c.itens)}
+                className={cn(classes, 'hover:bg-linha-hover')}
+              >
+                {conteudo}
+              </button>
+            )
+          })}
+        </div>
+      </Cartao.Corpo>
+      <Cartao.Rodape>
+        <LegendaTrilha />
+      </Cartao.Rodape>
+    </Cartao>
+  )
+}
 
 /*
  * O CRONOGRAMA (9.8): cada recebimento, de qual venda vem, em que situação está.
@@ -87,7 +200,7 @@ interface Item {
 }
 
 export function Recebimentos() {
-  const { parcelas, carregando, erro, recarregar } = useCorretor()
+  const { parcelas, carregando, erro, recarregar, ano } = useCorretor()
   const { abrir } = useComposicao()
   const [params, setParams] = useSearchParams()
   const filtro = filtroDaUrl(params.get('foco'))
@@ -389,6 +502,16 @@ export function Recebimentos() {
           },
         ]}
       />
+
+      <CalendarioDoAno
+        ano={ano}
+        itens={todas}
+        hoje={hoje}
+        aoAbrirMes={(nome, itens) =>
+          compor(nome, `Recebimentos de ${nome}`, itens, 'Cada parcela pela data em que ela cai — ou pela data em que caiu, se já foi paga.')
+        }
+      />
+
 
       <Cartao>
         <Cartao.Cabecalho
