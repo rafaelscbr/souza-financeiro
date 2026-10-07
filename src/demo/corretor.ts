@@ -47,6 +47,8 @@ export const parcelasCorretor: CorretorParcela[] = installments
       paid_date: tx && tx.status === 'settled' ? tx.settled_date : null,
       notes: i.notes,
       is_personal: Boolean(s.is_personal),
+      trigger_met_date: i.trigger_met_date,
+      invoice_issued_date: i.invoice_issued_date,
     }
   })
   .sort((a, b) => (a.expected_date < b.expected_date ? -1 : 1))

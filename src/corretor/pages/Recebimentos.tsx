@@ -1,7 +1,8 @@
 import { Fragment, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CalendarClock, CalendarDays, CircleCheck, Clock, ListChecks, TriangleAlert, type LucideIcon } from 'lucide-react'
+import { CalendarClock, CalendarDays, CircleCheck, Clock, HandCoins, ListChecks, Route, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { useCorretor, type CorretorParcela } from '../CorretorData'
+import { ChipDaParcela, FraseDaParcela, ICONE_DA_ETAPA, TOM_DA_ETAPA, fraseDaParcela } from '../EtapaDaParcela'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
@@ -11,13 +12,13 @@ import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { ParAgoraPrevisto } from '@/components/ui/ParAgoraPrevisto'
 import { Selo } from '@/components/ui/Selo'
-import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
 import { Barra, BarraTrilha, LegendaTrilha } from '@/components/ui/Barra'
 import { FiltrosRapidos, type FiltroRapido } from '@/components/ui/FiltrosRapidos'
 import { Dica } from '@/components/ui/Dica'
 import { Button } from '@/components/ui/Button'
 import { EstadoErro, EstadoVazio, EsqueletoLista } from '@/components/ui/Estados'
-import { diasEntre, fraseDeTempo, situacaoDeTela, type Situacao } from '@/lib/situacao'
+import { diasEntre, situacaoDeTela, type Situacao } from '@/lib/situacao'
+import { ETAPA_DO_CORRETOR, etapaDoCorretor, type EtapaDoCorretor } from '@/lib/etapas'
 import { formatCurrency, formatDate, parseDateOnly, toDateOnly } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -354,7 +355,7 @@ export function Recebimentos() {
     meta: [
       p.is_personal ? 'pessoa física' : null,
       p.development,
-      fraseDeTempo(s, { prevista: p.expected_date, liberada: p.received_date, recebida: p.paid_date }),
+      fraseDaParcela(p, s, hoje),
     ]
       .filter(Boolean)
       .join(' · '),
@@ -553,6 +554,8 @@ export function Recebimentos() {
         ]}
       />
 
+      <EmQuePeEsta todas={todas} hoje={hoje} aoAbrir={compor} />
+
       {/*
         * Com "todos os anos" (o padrão), é um calendário POR ANO, do mais
         * antigo para o mais novo: ele precisa ver 2027 e 2028 sem trocar
@@ -710,10 +713,10 @@ function linhaDaParcela({ p, s }: Item) {
           {/* Pessoa física vem dito primeiro: é comissão dele que nunca passa pela imobiliária. */}
           {p.is_personal && 'pessoa física · '}
           {p.count > 1 && `parcela ${p.idx}/${p.count} · `}
-          <FraseDeTempo situacao={s} prevista={p.expected_date} liberada={p.received_date} recebida={p.paid_date} />
+          <FraseDaParcela p={p} s={s} />
         </>
       }
-      situacao={<ChipSituacao situacao={s} perfil="corretor" />}
+      situacao={<ChipDaParcela p={p} s={s} />}
       valor={
         s === 'prevista' ? (
           <Valor valor={valor} posto="linha" previsto />
@@ -727,5 +730,119 @@ function linhaDaParcela({ p, s }: Item) {
       }
       para={`/minhas-vendas?venda=${p.sale_id}`}
     />
+  )
+}
+
+/*
+ * EM QUE PÉ ESTÁ (07/10/2026, pedido do Rafael: "deixar mais nítida a
+ * situação de cada parcela… o que está aguardando pagamento do cliente, o que
+ * já foi emitido a NF").
+ *
+ * O caminho do dinheiro, na ordem em que ele anda, com quantas parcelas e
+ * quanto de comissão estão em cada degrau. Todas as parcelas, de qualquer
+ * ano — como o herói, o período não recorta esta resposta. Degrau vazio
+ * continua desenhado: o caminho é o mesmo para toda venda.
+ */
+type Degrau = {
+  id: string
+  palavra: string
+  meta: string
+  icone: LucideIcon
+  tom: 'info' | 'atencao' | 'sucesso'
+  itens: Item[]
+  previsto: boolean
+}
+
+const META_DA_ETAPA: Record<EtapaDoCorretor, string> = {
+  aguardando_cliente: 'o cliente ainda não pagou o que libera a comissão',
+  gatilho_atingido: 'a imobiliária emite a nota fiscal',
+  nota_emitida: 'no prazo de pagamento da construtora',
+  em_atraso: 'a construtora passou do prazo; a imobiliária cobra',
+}
+
+function EmQuePeEsta({
+  todas,
+  hoje,
+  aoAbrir,
+}: {
+  todas: Item[]
+  hoje: string
+  aoAbrir: (rotulo: string, titulo: string, itens: Item[], explica?: string) => void
+}) {
+  const previstas = todas.filter(({ s }) => s === 'prevista')
+  const daEtapa = (e: EtapaDoCorretor) => previstas.filter(({ p }) => etapaDoCorretor(p, hoje) === e)
+
+  const etapa = (e: EtapaDoCorretor): Degrau => ({
+    id: e,
+    palavra: ETAPA_DO_CORRETOR[e].palavra,
+    meta: META_DA_ETAPA[e],
+    icone: ICONE_DA_ETAPA[e],
+    tom: TOM_DA_ETAPA[e] as Degrau['tom'],
+    itens: daEtapa(e),
+    previsto: true,
+  })
+
+  const emAtraso = etapa('em_atraso')
+  const degraus: Degrau[] = [
+    etapa('aguardando_cliente'),
+    etapa('gatilho_atingido'),
+    etapa('nota_emitida'),
+    // "Em atraso" só aparece quando existe: é exceção, não degrau do caminho.
+    ...(emAtraso.itens.length > 0 ? [emAtraso] : []),
+    {
+      id: 'a-receber',
+      palavra: 'A receber',
+      meta: 'a construtora pagou a imobiliária; falta o seu repasse',
+      icone: HandCoins,
+      tom: 'atencao',
+      itens: todas.filter(({ s }) => s === 'liberada' || s === 'vencida'),
+      previsto: false,
+    },
+    {
+      id: 'recebida',
+      palavra: 'Recebida',
+      meta: 'já caiu para você',
+      icone: CircleCheck,
+      tom: 'sucesso',
+      itens: todas.filter(({ s }) => s === 'recebida'),
+      previsto: false,
+    },
+  ]
+
+  const soma = (l: Item[]) => c2(l.reduce((t, { p }) => t + p.broker_amount - p.broker_adjustment, 0))
+  const explica: Record<string, string | undefined> = {
+    ...Object.fromEntries(
+      (Object.keys(ETAPA_DO_CORRETOR) as EtapaDoCorretor[]).map((e) => [e, ETAPA_DO_CORRETOR[e].explica]),
+    ),
+    'a-receber': 'A imobiliária já recebeu estas parcelas da construtora. É dinheiro seu, esperando o repasse.',
+  }
+
+  return (
+    <Cartao>
+      <Cartao.Cabecalho titulo="Em que pé está cada parcela" icone={Route} meta="do pagamento do cliente até a sua conta" />
+      <Cartao.Lista rotuloAcessivel="Em que pé está cada parcela" colunas={{ goteira: true, valor: true, fim: true }}>
+        {degraus.map((d) => {
+          const vazio = d.itens.length === 0
+          return (
+            <Linha
+              key={d.id}
+              goteira={<IconeTom icone={d.icone} tom={vazio ? 'neutro' : d.tom} tamanho="sm" />}
+              titulo={d.palavra}
+              meta={`${vazio ? 'nenhuma parcela agora' : plural(d.itens.length, 'parcela', 'parcelas')} · ${d.meta}`}
+              valor={
+                vazio ? undefined : d.previsto ? (
+                  <Valor valor={soma(d.itens)} posto="linha" previsto />
+                ) : d.id === 'recebida' ? (
+                  <Valor valor={soma(d.itens)} posto="linha" estado="recebido" />
+                ) : (
+                  <Valor valor={soma(d.itens)} posto="linha" />
+                )
+              }
+              aoClicar={vazio ? undefined : () => aoAbrir(d.palavra, d.palavra, d.itens, explica[d.id])}
+            />
+          )
+        })}
+      </Cartao.Lista>
+    </Cartao>
   )
 }

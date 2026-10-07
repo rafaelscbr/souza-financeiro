@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Banknote, CalendarDays, Timer, Handshake, HandCoins, Hourglass, TriangleAlert, Wallet } from 'lucide-react'
 import { useCorretor, type CorretorParcela } from '../CorretorData'
+import { ChipDaParcela, FraseDaParcela, fraseDaParcela } from '../EtapaDaParcela'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
@@ -15,7 +16,7 @@ import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
 import { BarraTrilha, LegendaTrilha } from '@/components/ui/Barra'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { Dica } from '@/components/ui/Dica'
-import { situacaoDeTela, fraseDeTempo, type Situacao } from '@/lib/situacao'
+import { situacaoDeTela, type Situacao } from '@/lib/situacao'
 import { formatCurrency, parseDateOnly, toDateOnly } from '@/lib/format'
 
 /*
@@ -45,7 +46,7 @@ export function CorretorInicio() {
   const item = ({ p, s }: { p: CorretorParcela; s: Situacao }) => ({
     id: p.id,
     titulo: p.sale_title,
-    meta: [p.development, fraseDeTempo(s, { prevista: p.expected_date, liberada: p.received_date, recebida: p.paid_date })]
+    meta: [p.development, fraseDaParcela(p, s, hoje)]
       .filter(Boolean)
       .join(' · '),
     valor: p.broker_amount - p.broker_adjustment,
@@ -73,6 +74,10 @@ export function CorretorInicio() {
   }
 
   const p = painel
+  /** A próxima parcela, com os marcos do gatilho e da nota que o painel não traz. */
+  const proxima = p.next
+    ? parcelas.find((x) => x.sale_title === p.next!.sale_title && x.idx === p.next!.idx)
+    : undefined
   const liberadas = por((s) => s === 'liberada' || s === 'vencida')
   const recebidas = por((s) => s === 'recebida')
   const previstas = por((s) => s === 'prevista')
@@ -205,8 +210,20 @@ export function CorretorInicio() {
                 />
               }
               titulo={p.next.sale_title}
-              meta={<FraseDeTempo situacao={situacaoDeTela(p.next.status, p.next.date, hoje)} prevista={p.next.date} />}
-              situacao={<ChipSituacao situacao={situacaoDeTela(p.next.status, p.next.date, hoje)} perfil="corretor" />}
+              meta={
+                proxima ? (
+                  <FraseDaParcela p={proxima} s={situacaoDeTela(p.next.status, p.next.date, hoje)} />
+                ) : (
+                  <FraseDeTempo situacao={situacaoDeTela(p.next.status, p.next.date, hoje)} prevista={p.next.date} />
+                )
+              }
+              situacao={
+                proxima ? (
+                  <ChipDaParcela p={proxima} s={situacaoDeTela(p.next.status, p.next.date, hoje)} />
+                ) : (
+                  <ChipSituacao situacao={situacaoDeTela(p.next.status, p.next.date, hoje)} perfil="corretor" />
+                )
+              }
               valor={<Valor valor={p.next.amount} posto="linha" />}
             />
           </Cartao.Lista>

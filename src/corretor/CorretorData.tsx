@@ -66,6 +66,9 @@ export interface CorretorParcela {
   notes: string | null
   /** A parcela veio de venda de pessoa física: dinheiro fora da imobiliária. */
   is_personal: boolean
+  /** Os dois marcos do caminho do dinheiro (037): o cliente atingiu o gatilho, a nota saiu. */
+  trigger_met_date: string | null
+  invoice_issued_date: string | null
 }
 
 export interface CorretorPainel {
@@ -180,6 +183,8 @@ export function CorretorDataProvider({ children }: { children: ReactNode }) {
         broker_amount: n(p.broker_amount),
         broker_adjustment: n(p.broker_adjustment),
         is_personal: Boolean(p.is_personal),
+        trigger_met_date: p.trigger_met_date ?? null,
+        invoice_issued_date: p.invoice_issued_date ?? null,
       })),
     )
   }, [ano])

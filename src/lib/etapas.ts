@@ -137,3 +137,75 @@ export function previsaoAPartirDaNota(dataDaNota: string, construtora: Developer
   }
   return toDateOnly(base)
 }
+
+/*
+ * AS MESMAS ETAPAS, COMO O CORRETOR LÊ (pedido do Rafael, 07/10/2026: "deixar
+ * mais nítida a situação de cada parcela… o que está aguardando pagamento do
+ * cliente, o que já foi emitido a NF… para o corretor").
+ *
+ * Só vale para a parcela que o corretor vê como PREVISTA — a imobiliária ainda
+ * não recebeu. Depois disso a situação dele (a receber, atrasada, recebida)
+ * já diz tudo. As palavras são de quem espera, não de quem age: "emitir nota"
+ * é tarefa do administrador; o corretor lê "gatilho atingido".
+ *
+ * "Em atraso" é a construtora que passou do prazo depois da nota — âmbar,
+ * nunca vermelho, e nunca "vencida": não é dívida da imobiliária com ele.
+ */
+export type EtapaDoCorretor = 'aguardando_cliente' | 'gatilho_atingido' | 'nota_emitida' | 'em_atraso'
+
+export interface MarcosDaParcela {
+  expected_date: string
+  trigger_met_date: string | null
+  invoice_issued_date: string | null
+}
+
+export const ETAPA_DO_CORRETOR: Record<EtapaDoCorretor, { palavra: string; explica: string }> = {
+  aguardando_cliente: {
+    palavra: 'Aguardando cliente',
+    explica:
+      'O cliente ainda não pagou à construtora o que o contrato exige para liberar esta comissão (o gatilho). A data é uma estimativa pelo cronograma dele.',
+  },
+  gatilho_atingido: {
+    palavra: 'Gatilho atingido',
+    explica:
+      'O cliente já pagou o que o contrato exige. A imobiliária emite a nota fiscal para a construtora, e daí corre o prazo de pagamento.',
+  },
+  nota_emitida: {
+    palavra: 'Nota emitida',
+    explica:
+      'A nota fiscal já foi emitida. Agora corre o prazo da construtora para pagar a imobiliária; depois disso vem o seu repasse.',
+  },
+  em_atraso: {
+    palavra: 'Em atraso',
+    explica:
+      'A nota foi emitida e a construtora passou do prazo de pagamento. A imobiliária está cobrando: é atraso da construtora, não da imobiliária com você.',
+  },
+}
+
+export function etapaDoCorretor(p: MarcosDaParcela, hoje = toDateOnly(new Date())): EtapaDoCorretor {
+  if (p.invoice_issued_date) return p.expected_date < hoje ? 'em_atraso' : 'nota_emitida'
+  if (p.trigger_met_date) return 'gatilho_atingido'
+  return 'aguardando_cliente'
+}
+
+export function fraseDaEtapaDoCorretor(p: MarcosDaParcela, hoje = toDateOnly(new Date())): string {
+  const d = (iso: string) => parseDateOnly(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  switch (etapaDoCorretor(p, hoje)) {
+    case 'em_atraso': {
+      const n = dias(p.expected_date, hoje)
+      return `nota de ${d(p.invoice_issued_date!)} · a construtora passou ${n} dia${n === 1 ? '' : 's'} do prazo`
+    }
+    case 'nota_emitida': {
+      const nota = `nota emitida em ${d(p.invoice_issued_date!)}`
+      return p.expected_date === hoje
+        ? `${nota} · a construtora paga hoje`
+        : `${nota} · a construtora paga até ${d(p.expected_date)}`
+    }
+    case 'gatilho_atingido':
+      return `gatilho atingido em ${d(p.trigger_met_date!)} · nota fiscal em emissão`
+    default:
+      return p.expected_date < hoje
+        ? `aguardando o pagamento do cliente · a estimativa era ${d(p.expected_date)}`
+        : `aguardando o pagamento do cliente · estimada para ${d(p.expected_date)}`
+  }
+}

@@ -10,13 +10,14 @@ import { Lista, Linha } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { Selo } from '@/components/ui/Selo'
 import { Rotulo } from '@/components/ui/Rotulo'
-import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
+import { ChipSituacao } from '@/components/ui/Situacao'
+import { ChipDaParcela, FraseDaParcela, explicaDaParcela } from '../EtapaDaParcela'
 import { BarraTrilha, LegendaTrilha } from '@/components/ui/Barra'
 import { Demonstrativo } from '@/components/ui/Demonstrativo'
 import { SidePanel, useParamPainel } from '@/components/ui/SidePanel'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { linhasDaParcela } from '@/lib/linhasDaVenda'
-import { VOCABULARIO, situacaoDeTela, type Situacao } from '@/lib/situacao'
+import { situacaoDeTela, type Situacao } from '@/lib/situacao'
 import { formatCurrency, formatDate, toDateOnly } from '@/lib/format'
 
 /*
@@ -374,7 +375,7 @@ function FichaDaVenda({
             perfil="corretor"
             rotuloAcessivel={`Conta da ${nomeDaParcela(escolhida.p).toLowerCase()}`}
           />
-          <p className="text-texto-meta text-t-meta">{VOCABULARIO[escolhida.s].explica}</p>
+          <p className="text-texto-meta text-t-meta">{explicaDaParcela(escolhida.p, escolhida.s)}</p>
           {escolhida.p.notes && <p className="text-texto-meta text-t-meta">{escolhida.p.notes}</p>}
         </section>
       )}
@@ -394,10 +395,8 @@ function FichaDaVenda({
               chegada={p.id === parcelaAberta}
               goteira={<Selo situacao={s} idx={p.idx} count={p.count} />}
               titulo={nomeDaParcela(p)}
-              meta={
-                <FraseDeTempo situacao={s} prevista={p.expected_date} liberada={p.received_date} recebida={p.paid_date} />
-              }
-              situacao={<ChipSituacao situacao={s} perfil="corretor" />}
+              meta={<FraseDaParcela p={p} s={s} />}
+              situacao={<ChipDaParcela p={p} s={s} />}
               valor={<ValorDaParcela valor={c2(p.broker_amount - p.broker_adjustment)} s={s} />}
               aoClicar={() => aoEscolherParcela(p.id)}
             />
