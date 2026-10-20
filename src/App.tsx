@@ -29,6 +29,9 @@ const AdminInicio = pagina(() => import('@/admin/pages/Inicio').then((m) => ({ d
 const AdminVendas = pagina(() => import('@/admin/pages/Vendas').then((m) => ({ default: m.Vendas })))
 const AdminVenda = pagina(() => import('@/admin/pages/Venda').then((m) => ({ default: m.Venda })))
 const AdminReceber = pagina(() => import('@/admin/pages/Receber').then((m) => ({ default: m.Receber })))
+const AdminRecebimentos = pagina(() =>
+  import('@/admin/pages/Recebimentos').then((m) => ({ default: m.Recebimentos })),
+)
 const AdminPagar = pagina(() => import('@/admin/pages/Pagar').then((m) => ({ default: m.Pagar })))
 const AdminDespesas = pagina(() => import('@/admin/pages/Despesas').then((m) => ({ default: m.Despesas })))
 const AdminCorretores = pagina(() =>
@@ -128,6 +131,7 @@ function AppAdministrador() {
           <Route path="/vendas" element={<AdminVendas />} />
           <Route path="/vendas/:id" element={<AdminVenda />} />
           <Route path="/receber" element={<AdminReceber />} />
+          <Route path="/recebimentos-imobiliaria" element={<AdminRecebimentos />} />
           <Route path="/pagar" element={<AdminPagar />} />
           <Route path="/despesas" element={<AdminDespesas />} />
           <Route path="/corretores" element={<AdminCorretores />} />

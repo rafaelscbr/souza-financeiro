@@ -10,6 +10,7 @@ import { Inicio as AdminInicio } from '@/admin/pages/Inicio'
 import { Vendas as AdminVendas } from '@/admin/pages/Vendas'
 import { Venda as AdminVenda } from '@/admin/pages/Venda'
 import { Receber as AdminReceber } from '@/admin/pages/Receber'
+import { Recebimentos as AdminRecebimentos } from '@/admin/pages/Recebimentos'
 import { Pagar as AdminPagar } from '@/admin/pages/Pagar'
 import { Despesas as AdminDespesas } from '@/admin/pages/Despesas'
 import { Corretores as AdminCorretores } from '@/admin/pages/Corretores'
@@ -140,6 +141,7 @@ function AppAdministrador() {
           <Route path="/vendas" element={<AdminVendas />} />
           <Route path="/vendas/:id" element={<AdminVenda />} />
           <Route path="/receber" element={<AdminReceber />} />
+          <Route path="/recebimentos-imobiliaria" element={<AdminRecebimentos />} />
           <Route path="/pagar" element={<AdminPagar />} />
           <Route path="/despesas" element={<AdminDespesas />} />
           <Route path="/corretores" element={<AdminCorretores />} />
