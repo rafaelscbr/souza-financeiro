@@ -1,6 +1,7 @@
 import { toDateOnly } from '@/lib/format'
 import type {
   Account,
+  BudgetLine,
   Category,
   Company,
   Contact,
@@ -136,6 +137,21 @@ export const categories: Category[] = [
 
 export const transfers: Transfer[] = [
   { id: 'tr-1', from_account_id: 'ac-pj', to_account_id: 'ac-reserva', amount: 5000, date: dia(-35), description: 'Reserva do mês (exemplo)', created_at: CRIADO },
+]
+
+/** Primeiro dia do mês a `n` meses de hoje. */
+function mesDaqui(n: number): string {
+  const h = new Date()
+  return toDateOnly(new Date(h.getFullYear(), h.getMonth() + n, 1))
+}
+
+/** O orçamento de exemplo (039): dois confirmados, um que muda de valor e um possível. */
+export const orcamento: BudgetLine[] = [
+  { id: 'or-sala-1', company_id: EMPRESA_ID, description: 'Sala (exemplo)', category: 'Aluguel', amount: 2800, start_month: mesDaqui(-3), end_month: mesDaqui(2), status: 'confirmado', notes: null, created_at: CRIADO },
+  { id: 'or-sala-2', company_id: EMPRESA_ID, description: 'Sala (exemplo)', category: 'Aluguel', amount: 3200, start_month: mesDaqui(3), end_month: mesDaqui(14), status: 'confirmado', notes: 'reajuste (exemplo)', created_at: CRIADO },
+  { id: 'or-contab', company_id: EMPRESA_ID, description: 'Contabilidade (exemplo)', category: 'Contabilidade', amount: 650, start_month: mesDaqui(-3), end_month: null, status: 'confirmado', notes: null, created_at: CRIADO },
+  { id: 'or-anuncios', company_id: EMPRESA_ID, description: 'Anúncios (exemplo)', category: 'Marketing', amount: 1500, start_month: mesDaqui(-3), end_month: mesDaqui(14), status: 'confirmado', notes: null, created_at: CRIADO },
+  { id: 'or-assistente', company_id: EMPRESA_ID, description: 'Assistente (exemplo)', category: 'Salários', amount: 2000, start_month: mesDaqui(2), end_month: null, status: 'possivel', notes: null, created_at: CRIADO },
 ]
 
 export const usuarios: UsuarioDoSistema[] = [

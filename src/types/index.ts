@@ -257,6 +257,28 @@ export interface Transfer {
 
 export type TransferInput = Omit<Transfer, 'id' | 'created_at'>
 
+/**
+ * Uma linha do orçamento de custos (039): um gasto com valor por mês e
+ * vigência. `possivel` é o gasto que o Rafael está pensando em ter; o
+ * relatório mostra o cenário com e sem ele.
+ */
+export interface BudgetLine {
+  id: string
+  company_id: string
+  description: string
+  /** Nome da categoria de despesa, o mesmo de `Transaction.category`. */
+  category: string
+  /** Valor por mês. */
+  amount: number
+  /** Primeiro dia do primeiro mês (YYYY-MM-01). */
+  start_month: string
+  /** Primeiro dia do último mês, incluso. `null` = sem fim. */
+  end_month: string | null
+  status: 'confirmado' | 'possivel'
+  notes: string | null
+  created_at: string
+}
+
 /** Objetivo com custo: alugar uma sala, contratar alguém, comprar um carro. */
 export interface Objective {
   id: string

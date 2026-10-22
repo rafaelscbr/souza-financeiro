@@ -20,6 +20,7 @@ import {
 } from '@/lib/sales'
 import type {
   Account,
+  BudgetLine,
   Category,
   Company,
   Contact,
@@ -65,6 +66,8 @@ interface AdminValue {
   developers: Developer[]
   transfers: Transfer[]
   usuarios: UsuarioDoSistema[]
+  /** Orçamento de custos (039). Vazio enquanto a tabela não existe. */
+  orcamento: BudgetLine[]
 
   /** Vendas com cascata, situação e vínculos prontos para a tela. */
   vendas: SaleView[]
@@ -123,6 +126,8 @@ interface AdminValue {
    */
   marcarNota: (installmentId: string, data: string | null, numero?: string | null) => Promise<string | null>
   salvarCategoria: (c: Partial<Category> & { id?: string }) => Promise<void>
+  salvarOrcamento: (l: Partial<BudgetLine> & { id?: string }) => Promise<void>
+  excluirOrcamento: (id: string) => Promise<void>
   salvarImposto: (regime: string, aliquota: number | null) => Promise<void>
   salvarAcesso: (p: {
     userId: string
@@ -155,6 +160,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const [developers, setDevelopers] = useState<Developer[]>([])
   const [transfers, setTransfers] = useState<Transfer[]>([])
   const [usuarios, setUsuarios] = useState<UsuarioDoSistema[]>([])
+  const [orcamento, setOrcamento] = useState<BudgetLine[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [mes, setMes] = useState<Date>(inicioDoMes())
@@ -175,7 +181,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }
     const cid = (empresa.data as Company).id
 
-    const [vendasRes, parcelasRes, txRes, contasRes, contatosRes, catsRes, ccRes, constRes, trfRes, perfisRes] =
+    const [vendasRes, parcelasRes, txRes, contasRes, contatosRes, catsRes, ccRes, constRes, trfRes, perfisRes, orcRes] =
       await Promise.all([
         supabase.from('sales').select('*').eq('company_id', cid).order('sale_date', { ascending: false }),
         supabase.from('sale_installments').select('*').order('idx'),
@@ -187,6 +193,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         supabase.from('developers').select('*').eq('company_id', cid).order('name'),
         supabase.from('transfers').select('*').order('date', { ascending: false }),
         supabase.from('profiles').select('*'),
+        supabase.from('budget_lines').select('*').eq('company_id', cid).order('start_month'),
       ])
 
     const primeiroErro =
@@ -254,6 +261,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     setCostCenters((ccRes.data as CostCenter[]) ?? [])
     setDevelopers((constRes.data as Developer[]) ?? [])
     setTransfers(((trfRes.data as Transfer[]) ?? []).map((t) => ({ ...t, amount: num(t.amount) })))
+    // Sem a migração 039 a tabela não existe: o orçamento fica vazio e o resto do app segue.
+    setOrcamento(orcRes.error ? [] : ((orcRes.data as BudgetLine[]) ?? []).map((l) => ({ ...l, amount: num(l.amount) })))
 
     // E-mail e último acesso ficam em auth.users, que o app não lê. O perfil
     // basta para a tela de acesso; o e-mail aparece quando o próprio perfil o
@@ -309,6 +318,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       developers,
       transfers,
       usuarios,
+      orcamento,
       vendas,
       receber,
       pagar,
@@ -460,6 +470,20 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         if (error) throw new Error(traduzirErro(error.message))
         await recarregar()
       },
+      async salvarOrcamento(l) {
+        if (!company) throw new Error('Empresa não carregada.')
+        const { id, ...resto } = l
+        const { error } = id
+          ? await supabase.from('budget_lines').update(resto).eq('id', id)
+          : await supabase.from('budget_lines').insert({ company_id: company.id, ...resto })
+        if (error) throw new Error(traduzirErro(error.message))
+        await recarregar()
+      },
+      async excluirOrcamento(id) {
+        const { error } = await supabase.from('budget_lines').delete().eq('id', id)
+        if (error) throw new Error(traduzirErro(error.message))
+        await recarregar()
+      },
       async salvarImposto(regime, aliquota) {
         if (!company) throw new Error('Empresa não carregada.')
         const { error } = await supabase
@@ -479,7 +503,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }),
     [
       company, sales, installments, transactions, accounts, contacts, categories, costCenters, developers,
-      transfers, usuarios, vendas, receber, pagar, atencao, contatosComAcesso, mes, hoje,
+      transfers, usuarios, orcamento, vendas, receber, pagar, atencao, contatosComAcesso, mes, hoje,
       carregando, erro, recarregar, chamar,
     ],
   )

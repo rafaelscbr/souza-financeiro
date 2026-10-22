@@ -17,6 +17,7 @@ import { Corretores as AdminCorretores } from '@/admin/pages/Corretores'
 import { Relatorios as AdminRelatorios } from '@/admin/pages/Relatorios'
 import { RelatorioDre as AdminRelatorioDre } from '@/admin/pages/RelatorioDre'
 import { RelatorioCaixa as AdminRelatorioCaixa } from '@/admin/pages/RelatorioCaixa'
+import { RelatorioOrcamento as AdminRelatorioOrcamento } from '@/admin/pages/RelatorioOrcamento'
 import { Simulacao as AdminSimulacao } from '@/admin/pages/Simulacao'
 import { Config as AdminConfig } from '@/admin/pages/Config'
 import { CorretorShell } from '@/corretor/CorretorShell'
@@ -92,7 +93,7 @@ function AdminFalso({ children }: { children: ReactNode }) {
       company: fx.company, sales: fx.sales, installments: fx.installments, transactions: fx.transactions,
       accounts: fx.accounts, contacts: fx.contacts, categories: fx.categories, costCenters: fx.costCenters,
       developers: fx.developers,
-      transfers: fx.transfers, usuarios: fx.usuarios,
+      transfers: fx.transfers, usuarios: fx.usuarios, orcamento: fx.orcamento,
       vendas, receber, pagar, atencao, contatosComAcesso,
       mes, hoje,
       irParaMes: (d) => setMes(inicioDoMes(d)),
@@ -105,7 +106,7 @@ function AdminFalso({ children }: { children: ReactNode }) {
       pagarComissoes: semBanco, reagendarParcela: semBanco, cancelarVenda: semBanco, editarVenda: semBanco,
       criarLancamento: semBanco, baixarLancamento: semBanco, estornarLancamento: semBanco,
       excluirLancamento: semBanco, salvarContato: semBanco, salvarConta: semBanco,
-      salvarEmpreendimento: semBanco, salvarConstrutora: semBanco, salvarCategoria: semBanco, salvarImposto: semBanco,
+      salvarEmpreendimento: semBanco, salvarConstrutora: semBanco, salvarCategoria: semBanco, salvarOrcamento: semBanco, excluirOrcamento: semBanco, salvarImposto: semBanco,
       salvarAcesso: semBanco,
       marcarGatilho: semBanco, marcarNota: async () => { await semBanco(); return null },
     }),
@@ -150,6 +151,7 @@ function AppAdministrador() {
           <Route path="/relatorios" element={<AdminRelatorios />} />
           <Route path="/relatorios/dre" element={<AdminRelatorioDre />} />
           <Route path="/relatorios/caixa" element={<AdminRelatorioCaixa />} />
+          <Route path="/relatorios/orcamento" element={<AdminRelatorioOrcamento />} />
           <Route path="/simulacao" element={<AdminSimulacao />} />
           <Route path="/config" element={<AdminConfig />} />
           {/* O administrador também é corretor (035): as telas dele, aqui dentro. */}

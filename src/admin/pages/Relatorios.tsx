@@ -1,4 +1,4 @@
-import { BarChart3, Landmark } from 'lucide-react'
+import { BarChart3, Landmark, Target } from 'lucide-react'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
@@ -26,6 +26,7 @@ interface OpcaoDeRelatorio {
  * Os dois relatórios que dizem a saúde da empresa (decisão de 22/10/2026):
  * o DRE responde "ela dá lucro?" e o Fluxo de caixa, "ela tem dinheiro?".
  * Empresa com lucro e sem caixa quebra; com caixa e sem lucro, se consome.
+ * O Orçamento, do mesmo dia, mede os dois contra o plano de custos dele.
  */
 const RELATORIOS: OpcaoDeRelatorio[] = [
   {
@@ -39,6 +40,12 @@ const RELATORIOS: OpcaoDeRelatorio[] = [
     icone: Landmark,
     titulo: 'Fluxo de caixa · A imobiliária tem dinheiro?',
     meta: 'Quanto dinheiro entrou e saiu das contas dela, e com quanto ela começou e terminou o período.',
+  },
+  {
+    para: '/relatorios/orcamento',
+    icone: Target,
+    titulo: 'Orçamento · As vendas cobrem a estrutura?',
+    meta: 'Os custos que você planejou, confirmados e possíveis, contra o que as vendas deixam. E quantas vendas faltam.',
   },
 ]
 

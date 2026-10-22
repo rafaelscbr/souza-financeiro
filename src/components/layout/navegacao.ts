@@ -227,6 +227,14 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
     faixa: true,
     voltar: { para: '/relatorios', rotulo: 'Relatórios' },
   },
+  {
+    padrao: '/relatorios/orcamento',
+    icone: PieChart,
+    titulo: 'Orçamento',
+    usaMes: true,
+    faixa: true,
+    voltar: { para: '/relatorios', rotulo: 'Relatórios' },
+  },
   { padrao: '/simulacao', icone: Calculator, titulo: 'Simulação', usaMes: false, faixa: false },
   { padrao: '/config', icone: Settings, titulo: 'Configurações', usaMes: false, faixa: true },
   /* As telas do corretor dentro do app do administrador (035). */
