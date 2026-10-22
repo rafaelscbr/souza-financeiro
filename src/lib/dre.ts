@@ -1,4 +1,4 @@
-import type { Transaction } from '@/types'
+import type { SaleInstallment, Transaction } from '@/types'
 import { computeKpis, dreGroupOf, monthKey, PRO_LABORE_CATEGORIES } from './finance'
 
 /*
@@ -92,6 +92,39 @@ export function montarDre(txs: Transaction[]): LinhaDoDre[] {
     { id: 'distribuicao', tipo: 'grupo', rotulo: '(−) Distribuição de lucros', valor: -k.profitDistribution, contas: ['distribuicao'], explica: 'Retiradas do sócio. Remuneram o capital e saem depois do lucro, nunca antes.' },
     { id: 'retido', tipo: 'resultado', rotulo: 'Lucro retido', valor: k.retainedProfit, contas: ['comissoes', 'outras-receitas', 'impostos', 'corretores', 'comerciais', 'administrativas', 'pessoal', 'distribuicao'], explica: 'O que fica na imobiliária depois das retiradas.' },
   ]
+}
+
+// ---------------------------------------------------------------------------
+// Competência: quando a comissão vira receita
+// ---------------------------------------------------------------------------
+
+/*
+ * DECISÃO DO RAFAEL EM 22/10/2026: no DRE, a comissão vira receita quando
+ * fica devida — gatilho atingido e nota emitida —, não na data da venda.
+ * Assinar o contrato não dá direito à comissão; o gatilho dá. Com a regra
+ * antiga, 2026 mostrava R$ 293 mil de receita, R$ 222,9 mil dela só para
+ * 2027 e ainda sujeita a distrato.
+ *
+ * A receita da parcela e tudo o que nasce dela (ISS, Simples, corretor,
+ * parte do sócio) andam juntos, na mesma data: é o confronto da receita com
+ * o custo que ela gera. Nada é regravado no banco; o `competence_date` dos
+ * lançamentos continua sendo a data da venda, e só o DRE lê esta data.
+ */
+
+/**
+ * A data em que a comissão da parcela fica devida. Nota emitida manda; sem
+ * ela, o gatilho; sem os dois, o recebimento (venda sem nota, como a Rogga);
+ * e, enquanto nada disso aconteceu, a data prevista — é previsão, e o DRE a
+ * mostra como tal.
+ */
+export function dataDeReconhecimento(p: SaleInstallment): string {
+  return p.invoice_issued_date ?? p.trigger_met_date ?? p.received_date ?? p.expected_date
+}
+
+/** A competência do lançamento no DRE: a da parcela de origem, quando há; senão a gravada. */
+export function competenciaNoDre(t: Transaction, parcelas: Map<string, SaleInstallment>): string {
+  const p = t.sale_installment_id ? parcelas.get(t.sale_installment_id) : undefined
+  return p ? dataDeReconhecimento(p) : t.competence_date
 }
 
 // ---------------------------------------------------------------------------

@@ -15,6 +15,8 @@ import { Pagar as AdminPagar } from '@/admin/pages/Pagar'
 import { Despesas as AdminDespesas } from '@/admin/pages/Despesas'
 import { Corretores as AdminCorretores } from '@/admin/pages/Corretores'
 import { Relatorios as AdminRelatorios } from '@/admin/pages/Relatorios'
+import { RelatorioDre as AdminRelatorioDre } from '@/admin/pages/RelatorioDre'
+import { RelatorioCaixa as AdminRelatorioCaixa } from '@/admin/pages/RelatorioCaixa'
 import { Simulacao as AdminSimulacao } from '@/admin/pages/Simulacao'
 import { Config as AdminConfig } from '@/admin/pages/Config'
 import { CorretorShell } from '@/corretor/CorretorShell'
@@ -146,6 +148,8 @@ function AppAdministrador() {
           <Route path="/despesas" element={<AdminDespesas />} />
           <Route path="/corretores" element={<AdminCorretores />} />
           <Route path="/relatorios" element={<AdminRelatorios />} />
+          <Route path="/relatorios/dre" element={<AdminRelatorioDre />} />
+          <Route path="/relatorios/caixa" element={<AdminRelatorioCaixa />} />
           <Route path="/simulacao" element={<AdminSimulacao />} />
           <Route path="/config" element={<AdminConfig />} />
           {/* O administrador também é corretor (035): as telas dele, aqui dentro. */}
