@@ -85,7 +85,7 @@ export function ContaDoRelatorio<L extends LinhaDaConta>({
         return (
           <Fragment key={l.id}>
             {total && i > 0 && (
-              <hr aria-hidden className={cn('my-1 border-0 border-t border-fio-caixa', comBase ? 'col-span-3' : 'col-span-2')} />
+              <hr aria-hidden className={cn('border-0 border-t border-fio-caixa', comBase ? 'col-span-3' : 'col-span-2')} />
             )}
             <dt className={cn('flex min-w-0 flex-col py-2', conta && 'pl-5')}>
               <span className={cn(conta ? 'text-texto text-t2' : 'text-texto-titulo text-t1', total && 'font-semibold')}>

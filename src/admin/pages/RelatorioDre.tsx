@@ -132,7 +132,7 @@ export function RelatorioDre() {
     bruta > 0 ? (
       <>
         De cada R$ 100,00 faturados, sobraram{' '}
-        <strong className="font-semibold text-t1">{formatCurrency(Math.max(0, (liquido / bruta) * 100))}</strong>.
+        <Valor valor={Math.max(0, (liquido / bruta) * 100)} posto="fato" forte />.
       </>
     ) : (
       <>Nenhuma comissão ficou devida neste período.</>

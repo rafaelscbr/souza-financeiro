@@ -106,7 +106,7 @@ export function RelatorioCaixa() {
 
   const fraseDoHeroi = (
     <>
-      Começou com {formatCurrency(inicial)}.{' '}
+      Começou com <Valor valor={inicial} posto="fato" />.{' '}
       {gerado >= 0 ? 'O negócio gerou caixa no período.' : 'O negócio gastou mais do que recebeu no período.'}
     </>
   )
