@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button'
 import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { computeKpis, dreGroupOf, lastNMonths, monthKey } from '@/lib/finance'
+import { contaDoDre, montarDre, noPeriodo, periodosDoDre, type PeriodoDre, type TipoPeriodo } from '@/lib/dre'
 import { ACCOUNT_TYPE_LABEL, treasurySummary } from '@/lib/treasury'
 import {
   brokerProduction,
@@ -57,6 +58,7 @@ export function Relatorios() {
   const { transactions, accounts, transfers, mes, vendas, contacts, contatosComAcesso, receber, pagar, hoje } = useAdmin()
   const { abrir } = useComposicao()
   const [regime, setRegime] = useState<Regime>('caixa')
+  const [tipoPeriodo, setTipoPeriodo] = useState<TipoPeriodo>('mes')
 
   const dataDoRegime = (t: Transaction): string | null => {
     if (regime === 'competencia') return t.competence_date
@@ -394,16 +396,54 @@ export function Relatorios() {
       vazio: 'Nenhum lançamento neste mês.',
     })
 
-  /* As mesmas linhas e os mesmos números da tabela de antes, na mesma ordem. */
-  const linhasDre: LinhaDre[] = [
-    { id: 'receita', rotulo: 'Receita de comissões', valor: kpis.revenue, grupos: ['revenue'], explica: 'As comissões que a imobiliária faturou no mês, pelo regime escolhido acima.' },
-    { id: 'impostos', rotulo: '(−) Impostos sobre o faturamento', valor: -kpis.taxDeductions, grupos: ['tax'], explica: 'Simples e ISS sobre a comissão. Não é despesa da estrutura: é dedução da receita.' },
-    { id: 'liquida', rotulo: 'Receita líquida', valor: kpis.netRevenue, total: true, grupos: ['revenue', 'tax'], explica: 'A receita depois do imposto sobre o faturamento.' },
-    { id: 'comissoes', rotulo: '(−) Comissões de corretores', valor: -kpis.costOfSale, grupos: ['cost_of_sale'], explica: 'O custo direto da venda: a parte do corretor. Só existe quando há venda.' },
-    { id: 'bruto', rotulo: 'Lucro bruto', valor: kpis.grossProfit, total: true, grupos: ['revenue', 'tax', 'cost_of_sale'], explica: 'Receita líquida menos a comissão dos corretores — o que sobra para pagar a estrutura.' },
-    { id: 'fixas', rotulo: '(−) Despesas fixas', valor: -kpis.operatingExpense, grupos: ['operating_expense'], explica: 'A estrutura: aluguel, contabilidade, ferramentas, pró-labore. Existe com ou sem venda.' },
-    { id: 'variaveis', rotulo: '(−) Despesas variáveis', valor: -(kpis.variableExpense + kpis.otherExpense), grupos: ['variable_expense'], explica: 'Marketing, comercial e o que não se encaixa na estrutura.' },
-  ]
+  /*
+   * O DRE (22/10/2026): estrutura de `lib/dre.ts`, num período que pode ser o
+   * mês, o trimestre, o ano ou o acumulado do ano, ao lado do período
+   * anterior. Os totais continuam os de `computeKpis`. Todo valor abre nos
+   * lançamentos que o formam, e o lançamento de venda leva à ficha da venda.
+   */
+  const periodos = useMemo(() => periodosDoDre(mes, tipoPeriodo), [mes, tipoPeriodo])
+  const doPeriodo = (p: PeriodoDre) =>
+    transactions.filter((t) => {
+      const d = dataDoRegime(t)
+      return d !== null && noPeriodo(d.slice(0, 7), p)
+    })
+  const dre = useMemo(
+    () => {
+      const atual = montarDre(doPeriodo(periodos.atual))
+      const anterior = new Map(montarDre(doPeriodo(periodos.anterior)).map((l) => [l.id, l.valor]))
+      return atual
+        .map((l) => ({ ...l, anterior: anterior.get(l.id) ?? 0 }))
+        // Conta folha sem movimento nos dois períodos não ocupa linha; total nunca some.
+        .filter((l) => l.tipo !== 'conta' || l.valor !== 0 || l.anterior !== 0)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [transactions, periodos, regime],
+  )
+  type LinhaDreTela = (typeof dre)[number]
+  const brutaAtual = dre.find((l) => l.id === 'bruta')?.valor ?? 0
+  const valorDe = (id: string) => dre.find((l) => l.id === id)?.valor ?? 0
+
+  const abrirLinhaDre = (l: LinhaDreTela, p: PeriodoDre, valor: number) =>
+    abrir({
+      rotulo: l.rotulo.replace('(−) ', ''),
+      titulo: `${l.rotulo.replace('(−) ', '')} · ${p.rotulo}`,
+      explica: l.explica,
+      total: valor,
+      itens: compLancamentos(
+        doPeriodo(p)
+          .filter((t) => l.contas.includes(contaDoDre(t)))
+          .sort((a, b) => (dataDoRegime(a) ?? '').localeCompare(dataDoRegime(b) ?? '')),
+      ),
+      vazio: 'Nenhum lançamento neste período.',
+    })
+
+  /**
+   * Variação contra o período anterior, no tamanho da linha: imposto que cai
+   * mostra queda, não "+100%". Se a queda é boa ou ruim, a linha já diz.
+   */
+  const variacao = (l: LinhaDreTela) =>
+    l.anterior === 0 ? null : (Math.abs(l.valor) - Math.abs(l.anterior)) / Math.abs(l.anterior)
 
   type Mes = (typeof serie)[number]
   const serieVisivel = serie.filter(
@@ -874,64 +914,119 @@ export function Relatorios() {
 
       <Cartao>
         <Cartao.Cabecalho
-          titulo="Como o resultado se forma"
+          titulo="Demonstração do resultado"
           icone={BarChart3}
-          meta={
+          meta={`${periodos.atual.rotulo} contra ${periodos.anterior.rotulo} · ${
             regime === 'caixa'
-              ? 'Caixa: conta no mês em que o dinheiro se moveu.'
-              : 'Competência: conta no mês da venda, mesmo que o dinheiro entre depois.'
+              ? 'caixa: conta quando o dinheiro se moveu'
+              : 'competência: conta na data da venda, mesmo que o dinheiro entre depois'
+          }`}
+          extra={
+            <FiltrosRapidos
+              rotuloAcessivel="Período do DRE"
+              ativo={tipoPeriodo}
+              aoMudar={setTipoPeriodo}
+              filtros={[
+                { id: 'mes', rotulo: 'Mês' },
+                { id: 'trimestre', rotulo: 'Trimestre' },
+                { id: 'ano', rotulo: 'Ano' },
+                { id: 'acumulado', rotulo: 'Acumulado', dica: 'De janeiro até o mês escolhido.' },
+              ]}
+            />
           }
         />
         <Tabela
-          rotuloAcessivel={`Demonstração do resultado de ${formatMonthYear(mes)}`}
-          linhas={linhasDre}
+          rotuloAcessivel={`Demonstração do resultado de ${periodos.atual.rotulo}`}
+          linhas={dre}
           chave={(l) => l.id}
           colunas={[
             {
               id: 'conta',
               rotulo: 'Conta',
-              celula: (l) => <span className={l.total ? 'font-semibold text-t1' : 'text-t2'}>{l.rotulo}</span>,
-              total: 'Resultado',
+              celula: (l) => (
+                <span
+                  className={
+                    l.tipo === 'conta'
+                      ? 'pl-4 text-t2'
+                      : l.tipo === 'grupo'
+                        ? 'text-t1'
+                        : 'font-semibold text-t1'
+                  }
+                >
+                  {l.rotulo}
+                </span>
+              ),
             },
             {
-              id: 'mes',
-              rotulo: 'No mês',
+              id: 'atual',
+              rotulo: periodos.atual.rotulo,
               numerica: true,
-              /* Cada linha do DRE abre nos lançamentos que a formaram. */
-              celula: (l) => (
-                <ValorComOrigem
-                  valor={l.valor}
-                  posto="linha"
-                  forte={l.total}
-                  estado={l.valor < 0 ? 'negativo' : undefined}
-                  rotuloAcessivel={`Ver os lançamentos de ${l.rotulo.replace('(−) ', '')} em ${formatMonthYear(mes)}`}
-                  aoAbrir={() =>
-                    abrirGrupo({
-                      rotulo: l.rotulo.replace('(−) ', ''),
-                      grupos: l.grupos,
-                      quando: mes,
-                      total: l.valor,
-                      explica: l.explica,
-                    })
-                  }
-                />
-              ),
-              total:
-                kpis.netProfit < 0 ? (
-                  <Valor valor={kpis.netProfit} posto="destaque" estado="negativo" />
+              /* Cada valor abre nos lançamentos que o formaram; o de venda leva à venda. */
+              /* Zero não abre nada: botão que abre folha vazia é promessa quebrada. */
+              celula: (l) =>
+                l.valor === 0 ? (
+                  l.tipo === 'conta' ? <Traco /> : <Valor valor={0} posto="linha" forte={l.tipo !== 'grupo'} />
                 ) : (
-                  <Valor valor={kpis.netProfit} posto="destaque" />
+                  <ValorComOrigem
+                    valor={l.valor}
+                    posto="linha"
+                    forte={l.tipo === 'subtotal' || l.tipo === 'resultado'}
+                    estado={l.valor < 0 ? 'negativo' : undefined}
+                    rotuloAcessivel={`Ver os lançamentos de ${l.rotulo.replace('(−) ', '')} em ${periodos.atual.rotulo}`}
+                    aoAbrir={() => abrirLinhaDre(l, periodos.atual, l.valor)}
+                  />
                 ),
+            },
+            {
+              id: 'av',
+              rotulo: '% receita',
+              numerica: true,
+              celula: (l) =>
+                brutaAtual === 0 || l.valor === 0 ? (
+                  <Traco />
+                ) : (
+                  <span className="text-t2">{formatPercent(l.valor / brutaAtual, 1)}</span>
+                ),
+            },
+            {
+              id: 'anterior',
+              rotulo: periodos.anterior.rotulo,
+              numerica: true,
+              celula: (l) =>
+                l.anterior === 0 ? (
+                  <Traco />
+                ) : (
+                  <ValorComOrigem
+                    valor={l.anterior}
+                    posto="linha"
+                    estado={l.anterior < 0 ? 'negativo' : undefined}
+                    rotuloAcessivel={`Ver os lançamentos de ${l.rotulo.replace('(−) ', '')} em ${periodos.anterior.rotulo}`}
+                    aoAbrir={() => abrirLinhaDre(l, periodos.anterior, l.anterior)}
+                  />
+                ),
+            },
+            {
+              id: 'variacao',
+              rotulo: 'Variação',
+              numerica: true,
+              celula: (l) => {
+                const v = variacao(l)
+                if (v === null || l.valor === l.anterior) return <Traco />
+                return <span className="text-t2">{`${v > 0 ? '+' : ''}${formatPercent(v, 0)}`}</span>
+              },
             },
           ]}
         />
-        {(kpis.revenue > 0 || kpis.profitDistribution > 0) && (
+        {brutaAtual > 0 && (
           <Cartao.Rodape>
             <span>
-              {kpis.profitDistribution > 0 &&
-                `Retiradas do sócio no mês: ${formatCurrency(kpis.profitDistribution)}. Saem depois do resultado — são remuneração do capital, não custo da operação.`}
+              Toque num valor para ver os lançamentos; o de venda leva à venda. Distribuição de lucros sai
+              depois do lucro líquido: é remuneração do capital, não custo da operação.
             </span>
-            {kpis.revenue > 0 && <span>margem {formatPercent(kpis.netMargin, 0)}</span>}
+            <span>
+              margem bruta {formatPercent(valorDe('bruto') / brutaAtual, 0)} · líquida{' '}
+              {formatPercent(valorDe('liquido') / brutaAtual, 0)}
+            </span>
           </Cartao.Rodape>
         )}
       </Cartao>
@@ -1343,17 +1438,6 @@ export function Relatorios() {
       )}
     </PageLayout>
   )
-}
-
-/** Uma linha do DRE: a conta, o valor e se fecha um total. */
-interface LinhaDre {
-  id: string
-  rotulo: string
-  valor: number
-  total?: boolean
-  /** Os grupos do DRE que a linha soma — é neles que ela abre. */
-  grupos: DreGroup[]
-  explica: string
 }
 
 /** Ausência de movimento na coluna. Zero conhecido continua sendo escrito como zero. */
