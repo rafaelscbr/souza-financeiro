@@ -10,59 +10,48 @@ import { Valor } from '@/components/ui/Valor'
 import { Button } from '@/components/ui/Button'
 import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import { EstadoVazio } from '@/components/ui/Estados'
-import { FiltrosDePeriodo } from '../RelatorioPecas'
 import { GastoDoOrcamento } from '../GastoDoOrcamento'
 import { dreGroupOf } from '@/lib/finance'
-import { competenciaNoDre, periodosDoDre, type TipoPeriodo } from '@/lib/dre'
-import {
-  apurarOrcamento,
-  comissaoMedia,
-  custoNoPeriodo,
-  margemDaCarteira,
-  type Cenario,
-  type CategoriaDoOrcamento,
-} from '@/lib/orcamento'
-import { formatCurrency, formatDate, formatPercent } from '@/lib/format'
+import { competenciaNoDre } from '@/lib/dre'
+import { custoNoPeriodo, orcamentoMesAMes, type Cenario } from '@/lib/orcamento'
+import { formatCurrency, formatDate } from '@/lib/format'
 import type { BudgetLine, Transaction } from '@/types'
 
 /*
- * ORÇAMENTO — "estou dentro do plano?" (22/10/2026).
+ * ORÇAMENTO — "as vendas cobrem a estrutura?" (22/10/2026).
  *
- * Parte dos custos que o Rafael cadastra (confirmados e possíveis) e mede
- * contra o DRE: quanto a estrutura orçada custa, quanto as vendas deixam para
- * a imobiliária e quanto sobra ou falta. Quando falta, diz quantas vendas a
- * mais cobririam. As contas moram em lib/orcamento.ts; esta tela só mostra.
+ * Refeito no mesmo dia: a primeira versão tinha filtro de período, três
+ * números no destaque, orçado × gasto por categoria e "quanto precisa
+ * vender", e o Rafael achou difícil de entender. Agora se lê como uma
+ * planilha: um resultado no topo, uma linha por mês (custo, o que as vendas
+ * deixam e o que sobra ou falta) e a lista dos gastos. Tocar num mês abre a
+ * conta daquele mês. As contas moram em lib/orcamento.ts.
  */
 
-const NOMES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-const mesCurto = (data: string) => `${NOMES[Number(data.slice(5, 7)) - 1]}/${data.slice(0, 4)}`
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+const CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+const nomeDoMes = (m: string) => `${MESES[Number(m.slice(5, 7)) - 1]} de ${m.slice(0, 4)}`
+const mesCurto = (m: string) => `${CURTOS[Number(m.slice(5, 7)) - 1]}/${m.slice(0, 4)}`
 
 export function RelatorioOrcamento() {
-  const { orcamento, transactions, installments, sales, mes } = useAdmin()
+  const { orcamento, transactions, installments, hoje } = useAdmin()
   const { abrir } = useComposicao()
-  const [tipo, setTipo] = useState<TipoPeriodo>('mes')
   const [cenario, setCenario] = useState<Cenario>('confirmado')
   const [editando, setEditando] = useState<BudgetLine | null>(null)
   const [cadastroAberto, setCadastroAberto] = useState(false)
 
   const parcelas = useMemo(() => new Map(installments.map((p) => [p.id, p])), [installments])
-  const periodo = useMemo(() => periodosDoDre(mes, tipo).atual, [mes, tipo])
-  const a = useMemo(
-    () => apurarOrcamento({ linhas: orcamento, transactions, parcelas, periodo, cenario }),
-    [orcamento, transactions, parcelas, periodo, cenario],
+  const meses = useMemo(
+    () => orcamentoMesAMes({ linhas: orcamento, transactions, parcelas, cenario, hoje: new Date(`${hoje}T12:00:00`) }),
+    [orcamento, transactions, parcelas, cenario, hoje],
   )
-  const margem = useMemo(() => margemDaCarteira(installments), [installments])
-  const media = useMemo(() => comissaoMedia(sales), [sales])
   const temPossiveis = orcamento.some((l) => l.status === 'possivel')
 
-  /** Quanto de comissão devida cobre um valor, e quantas vendas médias isso é. */
-  const comissaoPara = (v: number) => (margem > 0 ? v / margem : 0)
-  const vendasPara = (v: number) => (media > 0 ? comissaoPara(v) / media : 0)
-  const emVendas = (n: number) => {
-    if (n <= 0) return 'nenhuma venda'
-    const arred = Math.round(n * 10) / 10
-    return `${arred.toLocaleString('pt-BR')} ${arred <= 1 ? 'venda' : 'vendas'}`
-  }
+  const custoTotal = meses.reduce((s, m) => s + m.apuracao.orcado, 0)
+  const vendasTotal = meses.reduce((s, m) => s + m.apuracao.vendasDeixam, 0)
+  const resultado = Math.round((vendasTotal - custoTotal) * 100) / 100
+  const noVermelho = meses.filter((m) => m.apuracao.sobra < 0)
+  const intervalo = meses.length ? `${mesCurto(meses[0].mes)} a ${mesCurto(meses[meses.length - 1].mes)}` : ''
 
   /* ------------------------------------------------------------ abrir */
 
@@ -70,101 +59,51 @@ export function RelatorioOrcamento() {
     t.status === 'settled'
       ? `${dreGroupOf(t) === 'revenue' ? 'recebido' : 'pago'} em ${formatDate(t.settled_date ?? t.competence_date)}`
       : `previsto para ${formatDate(competenciaNoDre(t, parcelas))}`
-  const itensDe = (txs: Transaction[]) =>
-    [...txs]
-      .sort((x, y) => competenciaNoDre(x, parcelas).localeCompare(competenciaNoDre(y, parcelas)))
-      .map((t) => ({
-        id: t.id,
-        titulo: t.description || t.category,
-        meta: `${frase(t)} · ${t.category}`,
-        valor: dreGroupOf(t) === 'revenue' ? t.amount : -t.amount,
-        para: t.sale_id ? `/vendas/${t.sale_id}` : undefined,
-      }))
-  const itensDoOrcamento = (linhas: BudgetLine[]) =>
-    linhas.map((l) => ({
-      id: l.id,
-      titulo: `${l.description}${l.status === 'possivel' ? ' (possível)' : ''}`,
-      meta: `${formatCurrency(l.amount)} por mês · ${l.category}`,
-      valor: -custoNoPeriodo(l, periodo),
-    }))
 
-  const abrirVendas = () =>
+  /** A conta de um mês: os gastos orçados (−) e o que as vendas deixam (+), item por item. */
+  const abrirMes = (m: (typeof meses)[number]) => {
+    const a = m.apuracao
     abrir({
-      rotulo: 'As vendas deixam',
-      titulo: `O que as vendas deixam · ${periodo.rotulo}`,
-      explica:
-        'A comissão que ficou devida no período menos o imposto e a parte dos corretores: o que sobra das vendas para pagar a estrutura.',
-      total: a.vendasDeixam,
-      itens: itensDe(a.lancamentosDasVendas),
-      vazio: 'Nenhuma comissão ficou devida neste período.',
-    })
-  const abrirOrcado = () =>
-    abrir({
-      rotulo: 'Estrutura orçada',
-      titulo: `Estrutura orçada · ${periodo.rotulo}`,
-      explica: 'Cada gasto do orçamento, pelo valor do mês vezes os meses em que ele vale no período.',
-      total: -a.orcado,
-      itens: itensDoOrcamento(a.linhasDoPeriodo),
-      vazio: 'Nenhum gasto orçado neste período.',
-    })
-  const abrirGasto = (c?: CategoriaDoOrcamento) => {
-    const txs = c ? c.lancamentos : a.categorias.flatMap((x) => x.lancamentos)
-    abrir({
-      rotulo: c ? c.categoria : 'Gasto de verdade',
-      titulo: `${c ? c.categoria : 'Gasto de verdade'} · ${periodo.rotulo}`,
-      explica: c
-        ? `Orçado: ${formatCurrency(c.orcado)}. Abaixo, o que foi lançado nesta categoria no período.`
-        : 'As despesas da estrutura lançadas no período: comerciais, administrativas e pessoal.',
-      total: -(c ? c.gasto : a.gasto),
-      itens: itensDe(txs),
-      vazio: 'Nada lançado neste período.',
+      rotulo: a.sobra >= 0 ? 'Sobra' : 'Falta',
+      titulo: nomeDoMes(m.mes),
+      explica: `As vendas deixam ${formatCurrency(a.vendasDeixam)} e a estrutura orçada custa ${formatCurrency(a.orcado)}. Abaixo, cada gasto e cada comissão do mês, já sem imposto e corretor.`,
+      total: a.sobra,
+      itens: [
+        ...a.linhasDoPeriodo.map((l) => ({
+          id: l.id,
+          titulo: `${l.description}${l.status === 'possivel' ? ' (possível)' : ''}`,
+          meta: `gasto orçado · ${l.category}`,
+          valor: -custoNoPeriodo(l, m.periodo),
+        })),
+        ...[...a.lancamentosDasVendas]
+          .sort((x, y) => competenciaNoDre(x, parcelas).localeCompare(competenciaNoDre(y, parcelas)))
+          .map((t) => ({
+            id: t.id,
+            titulo: t.description || t.category,
+            meta: `${frase(t)} · ${t.category}`,
+            valor: dreGroupOf(t) === 'revenue' ? t.amount : -t.amount,
+            para: t.sale_id ? `/vendas/${t.sale_id}` : undefined,
+          })),
+      ],
+      nota: a.temPrevisto ? 'Parte das comissões ainda é previsão: depende de a construtora pagar no prazo.' : undefined,
+      vazio: 'Nada orçado nem vendido neste mês.',
     })
   }
 
-  /* ------------------------------------------------------------ texto */
-
-  const falta = -a.sobra
-  const fraseDoHeroi = (
-    <>
-      As vendas deixam <Valor valor={a.vendasDeixam} posto="fato" /> e a estrutura orçada custa{' '}
-      <Valor valor={a.orcado} posto="fato" />.{' '}
-      {a.sobra >= 0 ? (
-        a.gasto > a.orcado ? (
-          <>
-            Os custos orçados estão cobertos, mas o gasto de verdade passou do orçado em{' '}
-            <Valor valor={a.gasto - a.orcado} posto="fato" />.
-          </>
-        ) : (
-          'Os custos do período estão cobertos.'
-        )
-      ) : (
-        <>
-          Para cobrir, faltam <Valor valor={comissaoPara(falta)} posto="fato" /> de comissão: cerca de{' '}
-          {emVendas(vendasPara(falta))}.
-        </>
-      )}
-    </>
-  )
-  const rotulo = `${a.sobra >= 0 ? 'Sobra' : 'Falta'} depois da estrutura · ${periodo.rotulo}`
-  const heroiComum = {
-    valor: a.sobra,
-    rotuloAcessivel: `Ver a estrutura orçada de ${periodo.rotulo}`,
-    aoAbrir: abrirOrcado,
-    frase: fraseDoHeroi,
-    apoios: [
-      { rotulo: 'As vendas deixam', valor: a.vendasDeixam, rotuloAcessivel: 'Ver o que as vendas deixam', aoAbrir: abrirVendas },
-      { rotulo: 'Estrutura orçada', valor: -a.orcado, rotuloAcessivel: 'Ver a estrutura orçada', aoAbrir: abrirOrcado },
-      { rotulo: 'Gasto de verdade', valor: -a.gasto, rotuloAcessivel: 'Ver o gasto de verdade', aoAbrir: () => abrirGasto() },
-    ].filter((x) => x.valor !== 0),
-  }
-
-  const situacaoDaCategoria = (c: CategoriaDoOrcamento) => {
-    if (c.orcado === 0) return 'fora do orçamento'
-    if (c.gasto === 0) return 'nada lançado ainda'
-    const d = c.gasto - c.orcado
-    if (Math.abs(d) < 0.005) return 'igual ao orçado'
-    return d > 0 ? `passou ${formatCurrency(d)}` : `${formatCurrency(-d)} abaixo do orçado`
-  }
+  const abrirTodos = () =>
+    abrir({
+      rotulo: resultado >= 0 ? 'Sobra' : 'Falta',
+      titulo: `Orçamento · ${intervalo}`,
+      explica: 'Mês a mês: o que as vendas deixam menos o que a estrutura orçada custa.',
+      total: resultado,
+      itens: meses.map((m) => ({
+        id: m.mes,
+        titulo: nomeDoMes(m.mes),
+        meta: `custos ${formatCurrency(m.apuracao.orcado)} · vendas deixam ${formatCurrency(m.apuracao.vendasDeixam)}`,
+        valor: m.apuracao.sobra,
+      })),
+      vazio: 'Nenhum mês com gasto orçado.',
+    })
 
   const linhasOrdenadas = [...orcamento].sort(
     (x, y) => x.start_month.localeCompare(y.start_month) || x.description.localeCompare(y.description),
@@ -174,27 +113,24 @@ export function RelatorioOrcamento() {
     <PageLayout
       subtitulo="O que a estrutura vai custar e se as vendas cobrem."
       faixa={
-        <>
-          <FiltrosDePeriodo ativo={tipo} aoMudar={setTipo} />
-          {temPossiveis && (
-            <FiltrosRapidos
-              rotuloAcessivel="Cenário"
-              ativo={cenario}
-              aoMudar={setCenario}
-              filtros={[
-                { id: 'confirmado', rotulo: 'Só o confirmado' },
-                { id: 'com-possiveis', rotulo: 'Com os possíveis', dica: 'Soma também os gastos que você ainda está pensando em ter.' },
-              ]}
-            />
-          )}
-        </>
+        temPossiveis ? (
+          <FiltrosRapidos
+            rotuloAcessivel="Cenário"
+            ativo={cenario}
+            aoMudar={setCenario}
+            filtros={[
+              { id: 'confirmado', rotulo: 'Só o confirmado' },
+              { id: 'com-possiveis', rotulo: 'Com os possíveis', dica: 'Soma também os gastos que você ainda está pensando em ter.' },
+            ]}
+          />
+        ) : undefined
       }
     >
       {orcamento.length === 0 ? (
         <EstadoVazio
           icone={Plus}
           titulo="Nenhum gasto no orçamento"
-          descricao="Cadastre os custos que a imobiliária tem ou vai ter, como coworking, tráfego e contabilidade. O relatório diz se as vendas cobrem."
+          descricao="Cadastre os custos que a imobiliária tem ou vai ter, como coworking, tráfego e contabilidade. A tela mostra, mês a mês, se as vendas cobrem."
           acao={
             <Button variant="primario" onClick={() => setCadastroAberto(true)}>
               Adicionar gasto
@@ -203,60 +139,45 @@ export function RelatorioOrcamento() {
         />
       ) : (
         <>
-          {/* Com comissão prevista no período, o herói é previsão: rotulado e nunca ouro (13/09). */}
-          {a.temPrevisto ? (
-            <Heroi variante="previsto" rotulo={`${rotulo} · inclui o previsto`} {...heroiComum} />
-          ) : a.sobra < 0 ? (
-            <Heroi variante="ouro" estado="negativo" rotulo={rotulo} {...heroiComum} />
-          ) : (
-            <Heroi variante="ouro" rotulo={rotulo} {...heroiComum} />
-          )}
+          {/* O orçamento olha para a frente: é previsão, rotulado e nunca ouro (regra de 13/09). */}
+          <Heroi
+            variante="previsto"
+            rotulo={`${resultado >= 0 ? 'Sobra prevista' : 'Falta prevista'} · ${intervalo}`}
+            valor={resultado}
+            rotuloAcessivel="Ver o resultado de cada mês"
+            aoAbrir={abrirTodos}
+            frase={
+              <>
+                A estrutura custa <Valor valor={custoTotal} posto="fato" /> no período e as vendas já fechadas devem
+                deixar <Valor valor={vendasTotal} posto="fato" />.{' '}
+                {noVermelho.length === 0
+                  ? 'Todos os meses ficam cobertos.'
+                  : noVermelho.length <= 3
+                    ? `${noVermelho.length === 1 ? 'Um mês fica' : `${noVermelho.length} meses ficam`} no vermelho: ${noVermelho.map((m) => mesCurto(m.mes)).join(', ')}.`
+                    : `${noVermelho.length} de ${meses.length} meses ficam no vermelho, o primeiro em ${mesCurto(noVermelho[0].mes)}.`}
+              </>
+            }
+          />
 
           <Cartao>
-            <Cartao.Cabecalho
-              titulo="Orçado × gasto"
-              meta="Por categoria. Toque para ver o que foi lançado."
-            />
-            {a.categorias.length === 0 ? (
-              <Cartao.Corpo>
-                <p className="text-texto text-t2">Nenhum gasto orçado nem lançado neste período.</p>
-              </Cartao.Corpo>
-            ) : (
-              <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Orçado e gasto por categoria">
-                {a.categorias.map((c) => (
-                  <Linha
-                    key={c.categoria}
-                    titulo={c.categoria}
-                    meta={c.orcado === 0 ? 'fora do orçamento' : `orçado ${formatCurrency(c.orcado)} · ${situacaoDaCategoria(c)}`}
-                    valor={<Valor valor={-c.gasto} posto="linha" estado={c.gasto > 0 ? 'negativo' : undefined} />}
-                    metaValor="gasto"
-                    aoClicar={() => abrirGasto(c)}
-                  />
-                ))}
-              </Cartao.Lista>
-            )}
-          </Cartao>
-
-          <Cartao>
-            <Cartao.Cabecalho titulo="Quanto precisa vender" />
-            <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Quanto precisa vender">
-              <Linha
-                titulo="Comissão que cobre a estrutura"
-                meta={`a imobiliária fica com ${formatPercent(margem, 0)} de cada comissão, depois de imposto e corretor`}
-                valor={<Valor valor={comissaoPara(a.orcado)} posto="linha" />}
-                aoClicar={abrirOrcado}
-              />
-              <Linha
-                titulo="Em vendas"
-                meta={`com a comissão média de ${formatCurrency(media)} por venda`}
-                valor={<span className="text-texto-titulo text-t1">{emVendas(vendasPara(a.orcado))}</span>}
-              />
+            <Cartao.Cabecalho titulo="Mês a mês" meta="Custos × o que as vendas deixam. Toque num mês para ver a conta." />
+            <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Orçamento mês a mês">
+              {meses.map((m) => (
+                <Linha
+                  key={m.mes}
+                  titulo={nomeDoMes(m.mes)}
+                  meta={`custos ${formatCurrency(m.apuracao.orcado)} · vendas deixam ${formatCurrency(m.apuracao.vendasDeixam)}`}
+                  valor={<Valor valor={m.apuracao.sobra} posto="linha" estado={m.apuracao.sobra < 0 ? 'negativo' : undefined} />}
+                  metaValor={m.apuracao.sobra < 0 ? 'falta' : 'sobra'}
+                  aoClicar={() => abrirMes(m)}
+                />
+              ))}
             </Cartao.Lista>
           </Cartao>
 
           <Cartao>
             <Cartao.Cabecalho
-              titulo="Seus gastos orçados"
+              titulo="Seus gastos"
               meta="Toque num gasto para mudar ou apagar."
               extra={
                 <Button variant="secundario" size="sm" onClick={() => setCadastroAberto(true)}>
@@ -269,7 +190,7 @@ export function RelatorioOrcamento() {
                 <Linha
                   key={l.id}
                   titulo={`${l.description}${l.status === 'possivel' ? ' · possível' : ''}`}
-                  meta={`${l.category} · ${mesCurto(l.start_month)} ${l.end_month ? `a ${mesCurto(l.end_month)}` : 'em diante'}`}
+                  meta={`${mesCurto(l.start_month)} ${l.end_month ? `a ${mesCurto(l.end_month)}` : 'em diante'}`}
                   valor={<Valor valor={l.amount} posto="linha" />}
                   metaValor="por mês"
                   aoClicar={() => setEditando(l)}

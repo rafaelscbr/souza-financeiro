@@ -231,7 +231,8 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
     padrao: '/relatorios/orcamento',
     icone: PieChart,
     titulo: 'Orçamento',
-    usaMes: true,
+    // Mês a mês na própria tela: o seletor de mês só confundiria.
+    usaMes: false,
     faixa: true,
     voltar: { para: '/relatorios', rotulo: 'Relatórios' },
   },

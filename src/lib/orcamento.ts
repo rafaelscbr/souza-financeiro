@@ -145,6 +145,30 @@ export function apurarOrcamento(params: {
 }
 
 /**
+ * O orçamento mês a mês, do primeiro ao último mês com gasto orçado (gasto
+ * sem fim conta até 12 meses depois do mês de hoje). É a leitura que o Rafael
+ * pediu: uma linha por mês, custo × o que as vendas deixam × o que sobra.
+ */
+export function orcamentoMesAMes(params: {
+  linhas: BudgetLine[]
+  transactions: Transaction[]
+  parcelas: Map<string, SaleInstallment>
+  cenario: Cenario
+  hoje: Date
+}): { mes: string; periodo: PeriodoDre; apuracao: ApuracaoDoOrcamento }[] {
+  const linhas = linhasDoCenario(params.linhas, params.cenario)
+  if (linhas.length === 0) return []
+  const limite = new Date(params.hoje.getFullYear(), params.hoje.getMonth() + 12, 1)
+  const chaveLimite = `${limite.getFullYear()}-${String(limite.getMonth() + 1).padStart(2, '0')}`
+  const de = linhas.map((l) => l.start_month.slice(0, 7)).sort()[0]
+  const ate = linhas.map((l) => l.end_month?.slice(0, 7) ?? chaveLimite).sort().reverse()[0]
+  return mesesDoPeriodo({ de, ate, rotulo: '' }).map((mes) => {
+    const periodo: PeriodoDre = { de: mes, ate: mes, rotulo: mes }
+    return { mes, periodo, apuracao: apurarOrcamento({ ...params, periodo }) }
+  })
+}
+
+/**
  * Quanto de cada real de comissão fica para a imobiliária, pela carteira de
  * vendas ativas: comissão menos ISS, Simples e corretor. A parte do sócio não
  * desconta — ela sai do lucro, não do custo da venda.
