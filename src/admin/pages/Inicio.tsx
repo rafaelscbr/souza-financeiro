@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Banknote, BarChart3, Building2, CalendarRange, CircleCheck, Clock, Handshake, Hourglass, ListChecks, PieChart, ReceiptText, TrendingUp, UserRound } from 'lucide-react'
 import { useAdmin } from '../AdminData'
+import { CartaoDoTeto } from '../CartaoDoTeto'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
@@ -506,6 +507,8 @@ export function Inicio() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-bloco lg:col-span-5">
+          {/* O teto de gastos (040) abre a coluna do mês: quanto ainda dá para gastar. */}
+          <CartaoDoTeto />
           <Cartao>
             <Cartao.Cabecalho titulo="O mês" icone={CalendarRange} meta={tituloDoMes} />
             <Cartao.Lista colunas={{ situacao: true, valor: '10rem', fim: true }} rotuloAcessivel="O mês">

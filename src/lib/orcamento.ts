@@ -144,6 +144,89 @@ export function apurarOrcamento(params: {
   }
 }
 
+// ---------------------------------------------------------------------------
+// O teto de gastos (040)
+// ---------------------------------------------------------------------------
+
+/*
+ * O X do Rafael (22/10/2026): um teto de gastos por mês, o mesmo todo mês, e
+ * o sistema gira em torno dele. Os gastos orçados mostram onde o teto vai:
+ *
+ *   teto = gasto (lançado no mês) + reservado (orçado e ainda não lançado) + livre
+ *
+ * Lançar o coworking não diminui o livre: consome a reserva dele. Só gasto
+ * além do planejado come o livre — e é isso que o lançamento e o sino avisam.
+ */
+
+export interface ReservaDoTeto {
+  categoria: string
+  /** Orçado confirmado para a categoria no mês. */
+  orcado: number
+  /** O que ainda falta lançar dela no mês. */
+  falta: number
+  linhas: BudgetLine[]
+}
+
+export interface SituacaoDoTeto {
+  teto: number
+  gasto: number
+  reservado: number
+  /** teto − gasto − reservado. Negativo = o mês vai passar do teto. */
+  livre: number
+  lancamentos: Transaction[]
+  reservas: ReservaDoTeto[]
+}
+
+export function situacaoDoTeto(params: {
+  teto: number
+  linhas: BudgetLine[]
+  transactions: Transaction[]
+  parcelas: Map<string, SaleInstallment>
+  /** `YYYY-MM`. */
+  mes: string
+}): SituacaoDoTeto {
+  const { teto, transactions, parcelas, mes } = params
+  const periodo: PeriodoDre = { de: mes, ate: mes, rotulo: mes }
+  const lancamentos = gastosDoPeriodo(transactions, parcelas, periodo)
+  const gasto = r2(lancamentos.reduce((s, t) => s + t.amount, 0))
+
+  const porCategoria = new Map<string, ReservaDoTeto>()
+  for (const l of params.linhas) {
+    if (l.status !== 'confirmado' || !vigente(l, mes)) continue
+    const r = porCategoria.get(l.category) ?? { categoria: l.category, orcado: 0, falta: 0, linhas: [] }
+    r.orcado = r2(r.orcado + l.amount)
+    r.linhas.push(l)
+    porCategoria.set(l.category, r)
+  }
+  for (const r of porCategoria.values()) {
+    const lancado = lancamentos.filter((t) => t.category === r.categoria).reduce((s, t) => s + t.amount, 0)
+    r.falta = r2(Math.max(0, r.orcado - lancado))
+  }
+  const reservas = [...porCategoria.values()].sort((a, b) => b.orcado - a.orcado)
+  const reservado = r2(reservas.reduce((s, r) => s + r.falta, 0))
+  return { teto, gasto, reservado, livre: r2(teto - gasto - reservado), lancamentos, reservas }
+}
+
+/**
+ * O teto depois de um gasto que ainda vai ser lançado: o mesmo cálculo com o
+ * gasto incluído, para o formulário dizer quanto fica livre antes de salvar.
+ */
+export function tetoDepoisDe(
+  params: Parameters<typeof situacaoDoTeto>[0],
+  gasto: { categoria: string; valor: number; data: string; dreGroup: Transaction['dre_group'] },
+): SituacaoDoTeto {
+  const hipotetico = {
+    id: 'hipotetico',
+    kind: 'expense',
+    category: gasto.categoria,
+    dre_group: gasto.dreGroup,
+    amount: gasto.valor,
+    competence_date: gasto.data,
+    status: 'pending',
+  } as Transaction
+  return situacaoDoTeto({ ...params, transactions: [...params.transactions, hipotetico] })
+}
+
 /**
  * O orçamento mês a mês, do primeiro ao último mês com gasto orçado (gasto
  * sem fim conta até 12 meses depois do mês de hoje). É a leitura que o Rafael

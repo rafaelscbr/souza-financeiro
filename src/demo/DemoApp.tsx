@@ -106,7 +106,7 @@ function AdminFalso({ children }: { children: ReactNode }) {
       pagarComissoes: semBanco, reagendarParcela: semBanco, cancelarVenda: semBanco, editarVenda: semBanco,
       criarLancamento: semBanco, baixarLancamento: semBanco, estornarLancamento: semBanco,
       excluirLancamento: semBanco, salvarContato: semBanco, salvarConta: semBanco,
-      salvarEmpreendimento: semBanco, salvarConstrutora: semBanco, salvarCategoria: semBanco, salvarOrcamento: semBanco, excluirOrcamento: semBanco, salvarImposto: semBanco,
+      salvarEmpreendimento: semBanco, salvarConstrutora: semBanco, salvarCategoria: semBanco, salvarOrcamento: semBanco, salvarTeto: semBanco, excluirOrcamento: semBanco, salvarImposto: semBanco,
       salvarAcesso: semBanco,
       marcarGatilho: semBanco, marcarNota: async () => { await semBanco(); return null },
     }),

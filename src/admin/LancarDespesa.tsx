@@ -7,7 +7,10 @@ import { FormField, Input, Select } from '@/components/ui/Field'
 import { CurrencyInput } from '@/components/ui/MoneyInput'
 import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import { useToast } from '@/components/ui/Toast'
-import { formatCurrency, toDateOnly } from '@/lib/format'
+import { formatCurrency, formatMonthYear, toDateOnly } from '@/lib/format'
+import { tetoDepoisDe } from '@/lib/orcamento'
+import { Dica } from '@/components/ui/Dica'
+import { Valor } from '@/components/ui/Valor'
 import { BlocoDaFolha, DobraDaFolha, EscolhaDaFolha, RodapeDaFolha } from './FolhaDeLancamento'
 
 /** O erro de validação sabe de qual campo é; o de gravação não é de campo nenhum. */
@@ -37,7 +40,8 @@ type Erro = { campo?: 'valor' | 'categoria'; texto: string }
  * como resolver.
  */
 export function LancarDespesa({ aberto, onFechar }: { aberto: boolean; onFechar: () => void }) {
-  const { categories, contacts, accounts, costCenters, company, criarLancamento } = useAdmin()
+  const { categories, contacts, accounts, costCenters, company, criarLancamento, orcamento, transactions, installments } =
+    useAdmin()
   const { showToast } = useToast()
 
   const [tipo, setTipo] = useState<'expense' | 'income'>('expense')
@@ -63,6 +67,28 @@ export function LancarDespesa({ aberto, onFechar }: { aberto: boolean; onFechar:
         .sort((a, b) => a.sort_order - b.sort_order),
     [categories, tipo, company],
   )
+  /*
+   * O teto de gastos (040) antes de salvar: quanto fica livre no mês do
+   * lançamento depois deste gasto. Só para despesa da estrutura — imposto e
+   * comissão nascem da venda e não contam no teto.
+   */
+  const teto = company?.monthly_budget ?? null
+  const depoisDoGasto = useMemo(() => {
+    if (!teto || tipo !== 'expense' || !valor || valor <= 0 || !categoria || !data) return null
+    const cat = disponiveis.find((c) => c.name === categoria)
+    const grupo = cat?.dre_group ?? 'variable_expense'
+    if (grupo !== 'operating_expense' && grupo !== 'variable_expense') return null
+    return tetoDepoisDe(
+      {
+        teto,
+        linhas: orcamento,
+        transactions,
+        parcelas: new Map(installments.map((p) => [p.id, p])),
+        mes: data.slice(0, 7),
+      },
+      { categoria, valor, data, dreGroup: grupo },
+    )
+  }, [teto, tipo, valor, categoria, data, disponiveis, orcamento, transactions, installments])
   const contas = useMemo(() => accounts.filter((a) => a.is_active), [accounts])
   const fornecedores = useMemo(() => contacts.filter((c) => c.is_active), [contacts])
   const empreendimentos = useMemo(() => costCenters.filter((c) => c.is_active), [costCenters])
@@ -234,6 +260,22 @@ export function LancarDespesa({ aberto, onFechar }: { aberto: boolean; onFechar:
               ))}
             </Select>
           </FormField>
+
+          {depoisDoGasto && (
+            <Dica tom={depoisDoGasto.livre < 0 ? 'atencao' : 'info'}>
+              {depoisDoGasto.livre < 0 ? (
+                <>
+                  Com este gasto, {formatMonthYear(new Date(`${data}T12:00:00`)).toLowerCase()} passa do teto de{' '}
+                  <Valor valor={depoisDoGasto.teto} posto="fato" /> em <Valor valor={-depoisDoGasto.livre} posto="fato" />.
+                </>
+              ) : (
+                <>
+                  Depois deste gasto, ficam <Valor valor={depoisDoGasto.livre} posto="fato" /> livres do teto de{' '}
+                  <Valor valor={depoisDoGasto.teto} posto="fato" /> em {formatMonthYear(new Date(`${data}T12:00:00`)).toLowerCase()}.
+                </>
+              )}
+            </Dica>
+          )}
 
           <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
             <EscolhaDaFolha rotulo="Situação">

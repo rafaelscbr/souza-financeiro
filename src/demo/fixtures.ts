@@ -80,6 +80,7 @@ export const company: Company = {
   is_personal: false,
   tax_regime: 'simples',
   tax_rate: 6,
+  monthly_budget: 6000,
   created_at: CRIADO,
 }
 

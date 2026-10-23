@@ -38,6 +38,11 @@ export interface Company {
    * `null` = não configurada; o DRE avisa em vez de assumir zero.
    */
   tax_rate: number | null
+  /**
+   * Teto de gastos da estrutura por mês (040). O mesmo em todos os meses.
+   * `null` = sem teto: as telas caem no orçamento das linhas.
+   */
+  monthly_budget?: number | null
   created_at: string
 }
 

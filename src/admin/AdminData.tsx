@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { supabase } from '@/lib/supabase'
-import { toDateOnly } from '@/lib/format'
+import { formatCurrency, toDateOnly } from '@/lib/format'
 import {
   attentionOf,
   buildSaleViews,
@@ -18,6 +18,7 @@ import {
   type MoneyItem,
   type SaleView,
 } from '@/lib/sales'
+import { situacaoDoTeto } from '@/lib/orcamento'
 import type {
   Account,
   BudgetLine,
@@ -127,6 +128,8 @@ interface AdminValue {
   marcarNota: (installmentId: string, data: string | null, numero?: string | null) => Promise<string | null>
   salvarCategoria: (c: Partial<Category> & { id?: string }) => Promise<void>
   salvarOrcamento: (l: Partial<BudgetLine> & { id?: string }) => Promise<void>
+  /** Grava o teto de gastos do mês (040). `null` tira o teto. */
+  salvarTeto: (valor: number | null) => Promise<void>
   excluirOrcamento: (id: string) => Promise<void>
   salvarImposto: (regime: string, aliquota: number | null) => Promise<void>
   salvarAcesso: (p: {
@@ -210,7 +213,11 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    setCompany({ ...(empresa.data as Company), tax_rate: empresa.data.tax_rate == null ? null : num(empresa.data.tax_rate) })
+    setCompany({
+      ...(empresa.data as Company),
+      tax_rate: empresa.data.tax_rate == null ? null : num(empresa.data.tax_rate),
+      monthly_budget: empresa.data.monthly_budget == null ? null : num(empresa.data.monthly_budget),
+    })
     setSales(
       ((vendasRes.data as Sale[]) ?? []).map((s) => ({
         ...s,
@@ -288,7 +295,44 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   )
   const receber = useMemo(() => receivablesOf(transactions, vendas, hoje), [transactions, vendas, hoje])
   const pagar = useMemo(() => payablesOf(transactions, vendas, hoje), [transactions, vendas, hoje])
-  const atencao = useMemo(() => attentionOf({ vendas, receber, pagar, today: hoje }), [vendas, receber, pagar, hoje])
+  /*
+   * O teto de gastos (040) entra na mesma lista do Início e do sino. Não há
+   * aviso aos 80%: o teto foi feito sobre os gastos fixos, que sozinhos já
+   * ocupam quase tudo, e o aviso tocaria todo mês. Avisa quando o mês VAI
+   * passar (gasto + fixos que faltam lançar > teto) e quando JÁ passou.
+   */
+  const atencao = useMemo(() => {
+    const itens = attentionOf({ vendas, receber, pagar, today: hoje })
+    const teto = company?.monthly_budget ?? null
+    if (!teto) return itens
+    const s = situacaoDoTeto({
+      teto,
+      linhas: orcamento,
+      transactions,
+      parcelas: new Map(installments.map((p) => [p.id, p])),
+      mes: hoje.slice(0, 7),
+    })
+    if (s.gasto > teto) {
+      itens.unshift({
+        id: 'teto-passou',
+        tone: 'critical',
+        title: 'Passou do teto de gastos do mês',
+        detail: `gasto de ${formatCurrency(s.gasto)} para um teto de ${formatCurrency(teto)}; passou`,
+        amount: Math.round((s.gasto - teto) * 100) / 100,
+        to: '/relatorios/orcamento',
+      })
+    } else if (s.livre < 0) {
+      itens.unshift({
+        id: 'teto-vai-passar',
+        tone: 'warning',
+        title: 'O mês vai passar do teto de gastos',
+        detail: 'contando os gastos fixos que faltam lançar, passa',
+        amount: -s.livre,
+        to: '/relatorios/orcamento',
+      })
+    }
+    return itens
+  }, [vendas, receber, pagar, hoje, company, orcamento, transactions, installments])
   const contatosComAcesso = useMemo(
     () => new Set(usuarios.filter((u) => u.is_active && u.contact_id).map((u) => u.contact_id as string)),
     [usuarios],
@@ -476,6 +520,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         const { error } = id
           ? await supabase.from('budget_lines').update(resto).eq('id', id)
           : await supabase.from('budget_lines').insert({ company_id: company.id, ...resto })
+        if (error) throw new Error(traduzirErro(error.message))
+        await recarregar()
+      },
+      async salvarTeto(valor) {
+        if (!company) throw new Error('Empresa não carregada.')
+        const { error } = await supabase.from('companies').update({ monthly_budget: valor }).eq('id', company.id)
         if (error) throw new Error(traduzirErro(error.message))
         await recarregar()
       },
