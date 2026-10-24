@@ -253,9 +253,9 @@ regra de manutenção. Rascunho já existe em `git stash` ("metas de VGV (041)")
 | Fase | Entrega | Mexe no banco? | Validação |
 |---|---|---|---|
 | **0** | Backup + valores de referência | não | ✅ feito em 23/10 |
-| **1** | Regras de comissão (níveis, gestor), metas e cadastro de metas, gestor calculado no lançamento | aditivo: tabelas de metas, níveis e gestão | reconciliação com a seção 1.4 |
-| **2** | Design system claro + navegação nova | não | vitrine nos dois temas, desktop e celular |
-| **3** | Painel executivo (saldo, recebido, a receber, resultado, a pagar, VGV, saúde, previsão de caixa, metas, atenção) | não | cada número contra o motor |
+| **1** | Regras de comissão (níveis, gestor), metas e cadastro de metas, gestor calculado no lançamento | aditivo: tabelas de metas, níveis e gestão | ✅ 23/10 (041, df5349a; brinde no repasse afd963a) |
+| **2** | Design system claro + navegação nova | não | ✅ 23/10 (tema Mesa, 8dd6c23) |
+| **3** | Painel executivo (saldo, recebido, a receber, resultado, a pagar, VGV, saúde, previsão de caixa, metas, atenção) | não | ✅ 23/10 (Início: resultado, a pagar, previsão de caixa, fôlego, meta) |
 | **4** | Dinheiro: receber, pagar, fluxo (realizado/previsto/consolidado), contas | não | saldo = extrato |
 | **5** | Comissões e repasses: relatórios e ficha com memória do cálculo | não | soma por corretor = razão |
 | **6** | Relatórios, indicadores, ajuda contextual, exportação | não | totais exportados = tela |

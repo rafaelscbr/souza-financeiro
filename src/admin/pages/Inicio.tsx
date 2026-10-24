@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Banknote, BarChart3, Building2, CalendarRange, CircleCheck, Clock, Handshake, Hourglass, ListChecks, PieChart, ReceiptText, TrendingUp, UserRound } from 'lucide-react'
+import { ArrowUpCircle, Banknote, BarChart3, Building2, CalendarRange, CircleCheck, Clock, Handshake, ListChecks, PieChart, ReceiptText, Scale, Target, UserRound, Wallet } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { CartaoDoTeto } from '../CartaoDoTeto'
 import { useComposicao } from '@/components/composicao/Composicao'
@@ -18,6 +18,8 @@ import { ChipSituacao } from '@/components/ui/Situacao'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { formatCurrency, formatMonthTiny, formatMonthYear } from '@/lib/format'
 import { lastNMonths, monthKey } from '@/lib/finance'
+import { folegoDoCaixa, previsaoDeCaixa, resultadoDoMes } from '@/lib/painel'
+import { situacaoDaMeta } from '@/lib/comissao'
 import { entradasPorMes } from '@/lib/sales'
 import { accountBalance } from '@/lib/treasury'
 import { situacaoDeTela } from '@/lib/situacao'
@@ -62,7 +64,9 @@ import type { SaleInstallment } from '@/types'
  * vem primeiro, com a ação na própria linha.
  */
 export function Inicio() {
-  const { transactions, transfers, accounts, atencao, receber, pagar, vendas, installments, hoje, mes } = useAdmin()
+  const {
+    company, sales, metas, perfis, orcamento, transactions, transfers, accounts, atencao, receber, pagar, vendas, installments, hoje, mes,
+  } = useAdmin()
   const { abrir } = useComposicao()
 
   const chaveMes = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`
@@ -183,17 +187,27 @@ export function Inicio() {
     }
   }, [entradas])
 
-  const proximos = useMemo(() => {
-    const meses = Array.from({ length: 6 }, (_, i) => new Date(mes.getFullYear(), mes.getMonth() + i, 1))
-    return meses.map((m) => {
-      const chave = monthKey(m)
-      const itens = receber.filter((r) => r.date.slice(0, 7) === chave)
-      return { mes: m, itens, total: Math.round(itens.reduce((s, r) => s + r.amount, 0) * 100) / 100 }
-    })
-  }, [receber, mes])
-  const totalProximos = useMemo(
-    () => Math.round(proximos.reduce((s, p) => s + p.total, 0) * 100) / 100,
-    [proximos],
+  /*
+   * O PAINEL EXECUTIVO (Fase 3, 23/10/2026): o resultado do mês no DRE, a
+   * meta de VGV, o caixa andando seis meses e o fôlego. Tudo sai de
+   * lib/painel.ts e lib/comissao.ts — a tela só arruma.
+   */
+  const parcelas = useMemo(() => new Map(installments.map((p) => [p.id, p])), [installments])
+  const resultado = useMemo(() => resultadoDoMes(transactions, parcelas, chaveMes), [transactions, parcelas, chaveMes])
+  const teto = company?.monthly_budget ?? null
+  const inicioDaPrevisao = useMemo(() => {
+    const h = new Date(`${hoje}T12:00:00`)
+    return new Date(h.getFullYear(), h.getMonth(), 1)
+  }, [hoje])
+  const previsao = useMemo(
+    () => previsaoDeCaixa({ saldo, receber, pagar, orcamento, teto, transactions, parcelas, inicio: inicioDaPrevisao }),
+    [saldo, receber, pagar, orcamento, teto, transactions, parcelas, inicioDaPrevisao],
+  )
+  const folego = folegoDoCaixa(saldo, teto)
+  const menorSaldo = previsao.reduce((m, p) => Math.min(m, p.saldoFim), saldo)
+  const meta = useMemo(
+    () => situacaoDaMeta({ sales, perfis, metas, mes: chaveMes, contactId: null }),
+    [sales, perfis, metas, chaveMes],
   )
 
   /*
@@ -310,15 +324,20 @@ export function Inicio() {
         frase="O que existe hoje, somando as contas ativas. Não entra nada previsto."
       />
 
+      {/*
+       * A fileira do dono (Fase 3): ganhou, entrou, vai entrar, tem de sair.
+       * "Vendas ativas" e "Em atraso" continuam no cartão do mês e na lista
+       * de atenção; aqui ficam os quatro números que fecham o mês.
+       */}
       <div className="grid gap-bloco sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
-          rotulo="Vendas ativas"
-          icone={Handshake}
-          tom="neutro"
-          valor={0}
-          texto={String(vendasAtivas.length)}
-          nota={`${formatCurrency(soma(receber))} de comissão ainda por entrar`}
-          para="/vendas"
+          rotulo="Resultado do mês"
+          icone={Scale}
+          tom={resultado.lucro < 0 ? 'risco' : 'sucesso'}
+          valor={resultado.lucro}
+          estado={resultado.lucro < 0 ? 'negativo' : undefined}
+          nota="lucro líquido no DRE, só com a comissão já devida"
+          para="/relatorios/dre"
         />
         <Kpi
           rotulo="Entrou no mês"
@@ -338,21 +357,116 @@ export function Inicio() {
           icone={CalendarRange}
           tom="info"
           valor={soma(aReceber)}
-          nota="neste mês, mais o que está em atraso"
+          nota={
+            vencido.length > 0
+              ? `neste mês, com ${formatCurrency(soma(vencido))} em atraso`
+              : 'neste mês, mais o que está em atraso'
+          }
           para="/receber"
         />
         <Kpi
-          rotulo="Em atraso"
-          icone={Hourglass}
-          tom={vencido.length > 0 ? 'atencao' : 'neutro'}
-          valor={soma(vencido)}
-          nota={
-            vencido.length === 0
-              ? 'nenhuma parcela em atraso'
-              : `${vencido.length} ${vencido.length === 1 ? 'parcela' : 'parcelas'} que a construtora não pagou`
-          }
-          para="/receber?janela=vencidas"
+          rotulo="A pagar agora"
+          icone={ArrowUpCircle}
+          tom={devido.length > 0 ? 'atencao' : 'neutro'}
+          valor={soma(devido)}
+          nota="comissão liberada, imposto e despesa já devidos"
+          para="/pagar"
         />
+      </div>
+
+      <div className="grid items-start gap-bloco lg:grid-cols-12">
+        <Cartao className="lg:col-span-7">
+          <Cartao.Cabecalho
+            titulo="Previsão de caixa"
+            icone={Wallet}
+            meta={
+              folego == null
+                ? 'os próximos 6 meses'
+                : `o caixa de hoje paga ${folego.toLocaleString('pt-BR')} ${folego === 1 ? 'mês' : 'meses'} de estrutura sem venda nova`
+            }
+          />
+          <Cartao.Lista colunas={{ valor: '10rem', fim: true }} rotuloAcessivel="Previsão de caixa mês a mês">
+            {previsao.map((p, k) => {
+              const nome = formatMonthYear(new Date(`${p.mes}-01T12:00:00`))
+              return (
+                <Linha
+                  key={p.mes}
+                  titulo={k === 0 ? `${nome} · até o fim do mês` : nome}
+                  meta={`entra ${formatCurrency(p.entra)} · sai ${formatCurrency(p.sai)}`}
+                  valor={
+                    p.saldoFim < 0 ? (
+                      <Valor valor={p.saldoFim} posto="linha" estado="negativo" />
+                    ) : (
+                      <Valor valor={p.saldoFim} posto="linha" previsto />
+                    )
+                  }
+                  aoClicar={() =>
+                    abrir({
+                      rotulo: 'Entra menos sai',
+                      titulo: `O caixa em ${nome}`,
+                      explica: `O que deve entrar e sair no mês: parcelas a receber, contas e comissões a pagar e o custo do orçamento que ainda não foi lançado. Com isso, o saldo termina o mês em ${formatCurrency(p.saldoFim)}. A data das parcelas depende da construtora — é previsão.`,
+                      total: Math.round((p.entra - p.sai) * 100) / 100,
+                      itens: [
+                        ...comp(p.entradas),
+                        ...comp(p.saidas).map((i) => ({ ...i, valor: -i.valor })),
+                        ...(p.reservado > 0
+                          ? [{ id: `reservado-${p.mes}`, titulo: 'Orçamento ainda não lançado', meta: 'gastos fixos confirmados', valor: -p.reservado }]
+                          : []),
+                      ],
+                      nota: k === 0 ? 'O primeiro mês inclui o que está em atraso, a receber e a pagar.' : undefined,
+                      vazio: 'Nada previsto para este mês.',
+                    })
+                  }
+                />
+              )
+            })}
+          </Cartao.Lista>
+          <Cartao.Rodape>
+            <p className="max-w-[72ch]">
+              {menorSaldo < 0
+                ? 'Em algum mês o caixa fica negativo: antecipe recebimento ou segure gasto antes de chegar lá.'
+                : 'Saldo de hoje mais o que entra, menos o que sai, mês a mês. Retirada do sócio fica de fora.'}
+            </p>
+          </Cartao.Rodape>
+        </Cartao>
+
+        <Cartao className="lg:col-span-5">
+          <Cartao.Cabecalho titulo="Meta do mês" icone={Target} meta={tituloDoMes} />
+          <Cartao.Corpo>
+            {meta.meta == null ? (
+              <p className="text-texto-corrido text-t3">Nenhuma meta de VGV para este mês. Cadastre em Metas.</p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <Valor valor={meta.vgv} posto="kpi" />
+                  <span className="text-texto-meta text-t-meta">
+                    de <Valor valor={meta.meta} posto="fato" /> · {Math.round((meta.atingido ?? 0) * 100)}%
+                  </span>
+                </div>
+                <Barra
+                  rotuloAcessivel={`${Math.round((meta.atingido ?? 0) * 100)}% da meta de VGV do mês`}
+                  valor={meta.atingido ?? 0}
+                  tom={meta.bateu ? 'sucesso' : 'marca'}
+                />
+                <p className="text-texto-meta text-t-meta">
+                  {meta.bateu ? (
+                    'Meta batida: a gestão do gestor sobe para o bônus.'
+                  ) : (
+                    <>
+                      Faltam <Valor valor={meta.falta} posto="fato" /> de VGV · {meta.vendas.length}{' '}
+                      {meta.vendas.length === 1 ? 'venda' : 'vendas'} no mês
+                    </>
+                  )}
+                </p>
+              </>
+            )}
+          </Cartao.Corpo>
+          <Cartao.Rodape>
+            <Link to="/metas" className="min-h-11 py-3 hover:text-t2">
+              Ver a meta de cada corretor
+            </Link>
+          </Cartao.Rodape>
+        </Cartao>
       </div>
 
       {/*
@@ -596,43 +710,6 @@ export function Inicio() {
                 <Valor valor={soma(receber)} posto="fato" /> é toda a comissão contratada que ainda não entrou, somando
                 todos os meses.
               </Link>
-            </Cartao.Rodape>
-          </Cartao>
-
-          <Cartao>
-            <Cartao.Cabecalho
-              titulo="Os próximos 6 meses"
-              icone={TrendingUp}
-              meta={`${formatCurrency(totalProximos)} previstos`}
-            />
-            <Cartao.Corpo>
-              <Colunas
-                tom="info"
-                itens={proximos.map((p) => ({
-                  rotulo: formatMonthTiny(p.mes),
-                  valor: p.total,
-                  descricao: `${formatMonthYear(p.mes)}: ${formatCurrency(p.total)} previstos em ${p.itens.length === 1 ? '1 parcela' : `${p.itens.length} parcelas`}`,
-                  ativo: monthKey(p.mes) === chaveMes,
-                }))}
-                rotuloAcessivel={`Comissão prevista mês a mês nos próximos 6 meses. Total de ${formatCurrency(totalProximos)}.`}
-                aoClicar={(i) => {
-                  const p = proximos[i]
-                  abrir({
-                    rotulo: 'Previsto',
-                    titulo: `Previsto para ${formatMonthYear(p.mes)}`,
-                    explica:
-                      'Parcelas de comissão com vencimento neste mês. A data depende da construtora pagar — é previsão, não caixa.',
-                    total: p.total,
-                    itens: comp(p.itens),
-                    vazio: 'Nenhuma parcela prevista para este mês.',
-                  })
-                }}
-              />
-            </Cartao.Corpo>
-            <Cartao.Rodape>
-              <p className="max-w-[72ch]">
-                O que a carteira promete, mês a mês. Toque numa coluna para ver de quais vendas ela vem.
-              </p>
             </Cartao.Rodape>
           </Cartao>
 
