@@ -3,6 +3,7 @@ import { Building, Building2, Check, HardHat, KeyRound, Landmark, Percent, Plus,
 import { useAuth } from '@/auth/AuthContext'
 import { TrocarSenha } from '@/auth/TrocarSenha'
 import { useAdmin } from '../AdminData'
+import { HistoricoDeAlteracoes } from '../HistoricoDeAlteracoes'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Abas, PainelAba } from '@/components/ui/Abas'
 import { Button } from '@/components/ui/Button'
@@ -19,7 +20,7 @@ import { ACCOUNT_TYPE_LABEL, accountBalance } from '@/lib/treasury'
 import { formatDate, toDateOnly } from '@/lib/format'
 import type { Account, CostCenter, Developer } from '@/types'
 
-type Aba = 'contas' | 'construtoras' | 'empreendimentos' | 'categorias' | 'imposto' | 'conta'
+type Aba = 'contas' | 'construtoras' | 'empreendimentos' | 'categorias' | 'imposto' | 'historico' | 'conta'
 
 /*
  * CONFIGURAÇÕES (planta 9.7) — cadastros e regras.
@@ -57,6 +58,7 @@ export function Config() {
         { id: 'empreendimentos', rotulo: 'Empreendimentos' },
         { id: 'categorias', rotulo: 'Categorias' },
         { id: 'imposto', rotulo: 'Imposto' },
+        { id: 'historico', rotulo: 'Histórico' },
         { id: 'conta', rotulo: 'Minha conta' },
       ]}
     />
@@ -74,6 +76,7 @@ export function Config() {
         {aba === 'empreendimentos' && <Empreendimentos />}
         {aba === 'categorias' && <Categorias />}
         {aba === 'imposto' && <Imposto />}
+        {aba === 'historico' && <HistoricoDeAlteracoes />}
         {aba === 'conta' && <MinhaConta />}
       </PainelAba>
     </PageLayout>
