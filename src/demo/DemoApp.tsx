@@ -28,6 +28,7 @@ import { CorretorShell } from '@/corretor/CorretorShell'
 import { CorretorInicio } from '@/corretor/pages/Inicio'
 import { MinhaVenda, MinhasVendas } from '@/corretor/pages/MinhasVendas'
 import { Recebimentos } from '@/corretor/pages/Recebimentos'
+import { MeuPlano } from '@/corretor/pages/MeuPlano'
 import { FullPageLoader } from '@/components/ui/Spinner'
 import { toDateOnly } from '@/lib/format'
 import { attentionOf, buildSaleViews, payablesOf, receivablesOf } from '@/lib/sales'
@@ -133,6 +134,12 @@ function CorretorFalso({ children }: { children: ReactNode }) {
   const value = useMemo<CorretorValue>(
     () => ({
       painel: painelCorretor(ano, hoje), vendas: vendasCorretor, parcelas: parcelasCorretor,
+      plano: {
+        perfil: fx.perfis.find((p) => p.contact_id === fx.CORRETORA_ID) ?? null,
+        gestor: null,
+        configuracoes: fx.configuracoes,
+        metas: fx.metas.filter((m) => m.contact_id === fx.CORRETORA_ID),
+      },
       ano, anosDisponiveis, setAno, carregando: false, erro: null, recarregar: async () => {},
     }),
     [ano, hoje, anosDisponiveis],
@@ -192,6 +199,7 @@ function AppCorretor() {
           <Route path="/minhas-vendas" element={<MinhasVendas />} />
           <Route path="/minhas-vendas/:id" element={<MinhaVenda />} />
           <Route path="/recebimentos" element={<Recebimentos />} />
+          <Route path="/meu-plano" element={<MeuPlano />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

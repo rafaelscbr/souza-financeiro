@@ -143,12 +143,13 @@ export function navCorretor(): SecaoNav[] {
         { para: '/', rotulo: 'Início', icone: Home, fim: true },
         { para: '/minhas-vendas', rotulo: 'Vendas', icone: Handshake },
         { para: '/recebimentos', rotulo: 'Recebimentos', icone: CalendarDays },
+        { para: '/meu-plano', rotulo: 'Metas e nível', icone: Target },
       ],
     },
   ]
 }
 
-export const POLEGAR_CORRETOR = ['/', '/minhas-vendas', '/recebimentos']
+export const POLEGAR_CORRETOR = ['/', '/minhas-vendas', '/recebimentos', '/meu-plano']
 
 export function itensDe(secoes: SecaoNav[]): ItemNav[] {
   return secoes.flatMap((s) => s.itens)
@@ -294,6 +295,7 @@ export const ROTAS_CORRETOR: RotaDeclarada[] = [
     voltar: { para: '/minhas-vendas', rotulo: 'Vendas' },
   },
   { padrao: '/recebimentos', icone: CalendarDays, titulo: 'Recebimentos', usaMes: false, faixa: true },
+  { padrao: '/meu-plano', icone: Target, titulo: 'Metas e nível', usaMes: false, faixa: false },
 ]
 
 function casaPadrao(padrao: string, pathname: string): boolean {

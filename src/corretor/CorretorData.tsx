@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { BrokerStatus } from '@/types'
+import type { BrokerProfile, BrokerStatus, CommissionSettings, SalesGoal } from '@/types'
 
 /**
  * Os dados do corretor.
@@ -96,8 +96,21 @@ export interface CorretorPainel {
   by_month: { month: string; amount: number; received: number }[]
 }
 
+/**
+ * O plano de carreira do próprio corretor (042, broker_my_plan): o perfil dele,
+ * os percentuais vigentes e as metas DELE. As regras são as de lib/comissao.ts.
+ */
+export interface PlanoDoCorretor {
+  perfil: BrokerProfile | null
+  gestor: string | null
+  configuracoes: CommissionSettings[]
+  metas: SalesGoal[]
+}
+
 interface CorretorValue {
   painel: CorretorPainel | null
+  /** Nulo enquanto o banco não tem a 042 ou o login não é de corretor. */
+  plano: PlanoDoCorretor | null
   vendas: CorretorVenda[]
   parcelas: CorretorParcela[]
   ano: number
@@ -117,17 +130,34 @@ export function CorretorDataProvider({ children }: { children: ReactNode }) {
   const [painel, setPainel] = useState<CorretorPainel | null>(null)
   const [vendas, setVendas] = useState<CorretorVenda[]>([])
   const [parcelas, setParcelas] = useState<CorretorParcela[]>([])
+  const [plano, setPlano] = useState<PlanoDoCorretor | null>(null)
   const [ano, setAno] = useState(new Date().getFullYear())
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
 
   const recarregar = useCallback(async () => {
     setErro(null)
-    const [homeRes, vendasRes, parcelasRes] = await Promise.all([
+    const [homeRes, vendasRes, parcelasRes, planoRes] = await Promise.all([
       supabase.rpc('broker_home', { p_year: ano }),
       supabase.rpc('broker_sales'),
       supabase.rpc('broker_installments'),
+      supabase.rpc('broker_my_plan'),
     ])
+
+    // O plano é um extra: se a função ainda não existir, o resto da área segue.
+    const pl = planoRes.error ? null : (planoRes.data as Record<string, unknown> | null)
+    if (pl) {
+      const num = <T extends Record<string, unknown>>(o: T, campos: string[]): T =>
+        Object.fromEntries(Object.entries(o).map(([k, v]) => [k, campos.includes(k) && v != null ? Number(v) : v])) as T
+      setPlano({
+        perfil: pl.profile ? num(pl.profile as BrokerProfile & Record<string, unknown>, ['pct_override']) : null,
+        gestor: (pl.manager_name as string | null) ?? null,
+        configuracoes: ((pl.settings as Record<string, unknown>[]) ?? []).map(
+          (c) => num(c, Object.keys(c).filter((k) => k.endsWith('_pct') || k.endsWith('_vgv') || k.endsWith('_12m'))) as unknown as CommissionSettings,
+        ),
+        metas: ((pl.goals as Record<string, unknown>[]) ?? []).map((g) => num(g, ['monthly_vgv']) as unknown as SalesGoal),
+      })
+    } else setPlano(null)
 
     if (homeRes.error || vendasRes.error || parcelasRes.error) {
       const msg = homeRes.error?.message ?? vendasRes.error?.message ?? parcelasRes.error?.message ?? ''
@@ -202,8 +232,8 @@ export function CorretorDataProvider({ children }: { children: ReactNode }) {
   }, [vendas, parcelas])
 
   const value = useMemo<CorretorValue>(
-    () => ({ painel, vendas, parcelas, ano, anosDisponiveis, setAno, carregando, erro, recarregar }),
-    [painel, vendas, parcelas, ano, anosDisponiveis, carregando, erro, recarregar],
+    () => ({ painel, plano, vendas, parcelas, ano, anosDisponiveis, setAno, carregando, erro, recarregar }),
+    [painel, plano, vendas, parcelas, ano, anosDisponiveis, carregando, erro, recarregar],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

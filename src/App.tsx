@@ -80,6 +80,7 @@ const MinhaVenda = pagina(() =>
 const Recebimentos = pagina(() =>
   import('@/corretor/pages/Recebimentos').then((m) => ({ default: m.Recebimentos })),
 )
+const MeuPlano = pagina(() => import('@/corretor/pages/MeuPlano').then((m) => ({ default: m.MeuPlano })))
 const CorretorDataProvider = pagina(() =>
   import('@/corretor/CorretorData').then((m) => ({ default: m.CorretorDataProvider })),
 )
@@ -184,6 +185,7 @@ function AppCorretor() {
           <Route path="/minhas-vendas" element={<MinhasVendas />} />
           <Route path="/minhas-vendas/:id" element={<MinhaVenda />} />
           <Route path="/recebimentos" element={<Recebimentos />} />
+          <Route path="/meu-plano" element={<MeuPlano />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

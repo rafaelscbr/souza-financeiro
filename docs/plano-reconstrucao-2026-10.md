@@ -259,7 +259,7 @@ regra de manutenção. Rascunho já existe em `git stash` ("metas de VGV (041)")
 | **4** | Dinheiro: receber, pagar, fluxo (realizado/previsto/consolidado), contas | não | ✅ 23/10 (tela Contas com extrato; previsão no Fluxo de caixa; Bradesco PJ = R$ 7.391,60) |
 | **5** | Comissões e repasses: relatórios e ficha com memória do cálculo | não | ✅ 23/10 (gestão na ficha e na cascata; relatório por pessoa = razão: R$ 35.847,29 pago + R$ 108.883,09 previsto = R$ 144.730,38) |
 | **6** | Relatórios, indicadores, ajuda contextual, exportação | não | ✅ 23/10 (Planilha e PDF em DRE, Fluxo, Comissões, Orçamento e Indicadores; planilha do DRE conferida linha a linha com a tela) |
-| **7** | Área do corretor + revisão de RLS | políticas | teste com a chave pública e com login de corretor |
+| **7** | Área do corretor + revisão de RLS | políticas | ✅ 23/10 (042 e 043: funções fechadas a anônimo; Metas e nível do corretor; testado como Dionata, como admin e de fora com a chave pública) |
 | **8** | Marketing e ROI, cenários, ponto de equilíbrio | aditivo: origem da venda, investimentos | — |
 | **9** | Testes finais e aceite | não | os 17 critérios do prompt |
 
