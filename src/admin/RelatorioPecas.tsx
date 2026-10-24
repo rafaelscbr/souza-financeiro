@@ -1,5 +1,8 @@
 import { Fragment } from 'react'
+import { Download, Printer } from 'lucide-react'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
+import { Button } from '@/components/ui/Button'
+import { baixarPlanilha, imprimirRelatorio, type Celula } from '@/lib/exportar'
 import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import type { TipoPeriodo } from '@/lib/dre'
 import { formatPercent } from '@/lib/format'
@@ -10,6 +13,38 @@ import { cn } from '@/lib/utils'
  * e a conta escrita de cima para baixo. Os dois relatórios se leem do mesmo
  * jeito — quem aprendeu um, lê o outro.
  */
+
+/**
+ * Os dois botões de exportar (Fase 6): planilha e PDF. A planilha é montada na
+ * hora do clique, das mesmas linhas que a tela desenha — o total do arquivo é
+ * o da tela.
+ */
+export function ExportarRelatorio({
+  nome,
+  planilha,
+}: {
+  nome: string
+  planilha: () => { cabecalho: string[]; linhas: Celula[][] }
+}) {
+  return (
+    <div data-nao-imprimir className="flex items-center gap-2">
+      <Button
+        variant="secundario"
+        size="sm"
+        icone={Download}
+        onClick={() => {
+          const p = planilha()
+          baixarPlanilha(nome, p.cabecalho, p.linhas)
+        }}
+      >
+        Planilha
+      </Button>
+      <Button variant="secundario" size="sm" icone={Printer} onClick={imprimirRelatorio}>
+        PDF
+      </Button>
+    </div>
+  )
+}
 
 export function FiltrosDePeriodo({ ativo, aoMudar }: { ativo: TipoPeriodo; aoMudar: (t: TipoPeriodo) => void }) {
   return (

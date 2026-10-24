@@ -6,7 +6,7 @@ import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
-import { ContaDoRelatorio, FiltrosDePeriodo, variacaoEmPalavras } from '../RelatorioPecas'
+import { ContaDoRelatorio, ExportarRelatorio, FiltrosDePeriodo, variacaoEmPalavras } from '../RelatorioPecas'
 import { dreGroupOf } from '@/lib/finance'
 import {
   competenciaNoDre,
@@ -207,6 +207,31 @@ export function RelatorioDre() {
     <PageLayout
       subtitulo="Quanto entrou, quanto saiu e quanto sobrou para a imobiliária."
       faixa={<FiltrosDePeriodo ativo={tipo} aoMudar={setTipo} />}
+      acoes={
+        <ExportarRelatorio
+          nome={`DRE ${periodos.atual.rotulo}`}
+          planilha={() => ({
+            cabecalho: ['DRE', periodos.atual.rotulo, '% da receita', periodos.anterior.rotulo],
+            linhas: [
+              ...atual.map((l) => [
+                l.tipo === 'conta' ? `   ${l.rotulo}` : l.rotulo,
+                l.valor,
+                bruta ? Math.round((l.valor / bruta) * 10000) / 100 : null,
+                anterior.get(l.id) ?? 0,
+              ]),
+              ...(previstos.length > 0
+                ? [
+                    [],
+                    ['Previsto, ainda não devido (fora do resultado)'],
+                    ['Comissão prevista', previstoBruta],
+                    ['Impostos, corretores e gestão', previstoBruto - previstoBruta],
+                    ['Fica para a imobiliária', previstoBruto],
+                  ]
+                : []),
+            ],
+          })}
+        />
+      }
     >
       {/*
        * Período com parcela que ainda não ficou devida inclui previsão: aí o

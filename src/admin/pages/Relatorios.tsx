@@ -1,4 +1,4 @@
-import { BarChart3, HandCoins, Landmark, Target } from 'lucide-react'
+import { Activity, BarChart3, HandCoins, Landmark, Target } from 'lucide-react'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
@@ -46,6 +46,12 @@ const RELATORIOS: OpcaoDeRelatorio[] = [
     icone: HandCoins,
     titulo: 'Comissões e repasses · Quanto foi para cada corretor?',
     meta: 'O que a imobiliária repassou no período a cada corretor e ao gestor, e o que ainda deve a cada um.',
+  },
+  {
+    para: '/relatorios/indicadores',
+    icone: Activity,
+    titulo: 'Indicadores · Como está a saúde do negócio?',
+    meta: 'VGV, ticket, margem, prazo de recebimento, atraso, concentração e fôlego, cada um com a conta escrita.',
   },
   {
     para: '/relatorios/orcamento',

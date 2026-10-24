@@ -8,7 +8,7 @@ import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { Dica } from '@/components/ui/Dica'
-import { ContaDoRelatorio, FiltrosDePeriodo, variacaoEmPalavras } from '../RelatorioPecas'
+import { ContaDoRelatorio, ExportarRelatorio, FiltrosDePeriodo, variacaoEmPalavras } from '../RelatorioPecas'
 import { dreGroupOf } from '@/lib/finance'
 import { periodosDoDre, type PeriodoDre, type TipoPeriodo } from '@/lib/dre'
 import { montarFluxoDeCaixa, type LinhaDoCaixa } from '@/lib/fluxoDeCaixa'
@@ -124,6 +124,15 @@ export function RelatorioCaixa() {
     <PageLayout
       subtitulo="Quanto dinheiro entrou, quanto saiu e quanto ficou em conta."
       faixa={<FiltrosDePeriodo ativo={tipo} aoMudar={setTipo} />}
+      acoes={
+        <ExportarRelatorio
+          nome={`Fluxo de caixa ${periodos.atual.rotulo}`}
+          planilha={() => ({
+            cabecalho: ['Fluxo de caixa', periodos.atual.rotulo, periodos.anterior.rotulo],
+            linhas: linhas.map((l) => [l.tipo === 'conta' ? `   ${l.rotulo}` : l.rotulo, l.valor, valorDe(l.id, anterior)]),
+          })}
+        />
+      }
     >
       <Heroi
         variante="ouro"

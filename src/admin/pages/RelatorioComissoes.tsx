@@ -7,7 +7,7 @@ import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
-import { FiltrosDePeriodo } from '../RelatorioPecas'
+import { ExportarRelatorio, FiltrosDePeriodo } from '../RelatorioPecas'
 import { CATEGORIA_GESTAO, periodosDoDre, type TipoPeriodo } from '@/lib/dre'
 import { repassesPorPessoa, totaisDosRepasses, type RepassesDaPessoa } from '@/lib/repasses'
 import { formatCurrency, formatDate } from '@/lib/format'
@@ -79,6 +79,18 @@ export function RelatorioComissoes() {
     <PageLayout
       subtitulo="O que a imobiliária repassou a cada corretor e ao gestor, e o que ainda deve a cada um."
       faixa={<FiltrosDePeriodo ativo={tipo} aoMudar={setTipo} />}
+      acoes={
+        <ExportarRelatorio
+          nome={`Comissoes e repasses ${periodo.rotulo}`}
+          planilha={() => ({
+            cabecalho: ['Pessoa', `Comissão paga · ${periodo.rotulo}`, 'Gestão paga', 'Total repassado', 'Liberado hoje', 'Previsto hoje'],
+            linhas: [
+              ...pessoas.map((l) => [l.nome, l.pagoComissao, l.pagoGestao, l.pago, l.liberado, l.previsto]),
+              ['Total', total.pagoComissao, total.pagoGestao, total.pago, total.liberado, total.previsto],
+            ],
+          })}
+        />
+      }
     >
       <Heroi
         variante="ouro"

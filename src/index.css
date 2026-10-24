@@ -1016,3 +1016,18 @@ html.trocando-tema *::after {
   }
   .esqueleto { animation: none !important; opacity: .7; }
 }
+
+/*
+ * IMPRESSÃO E PDF (Fase 6, 23/10/2026). O relatório sai como folha: sem
+ * menu, sem botões, sem fundo, sem sombra, e a caixa não se parte entre
+ * páginas. O tema claro é ligado por imprimirRelatorio() (lib/exportar.ts).
+ */
+@media print {
+  @page { margin: 14mm; }
+  aside, nav, [data-nao-imprimir], .cabecalho button, [role="status"] { display: none !important; }
+  html, body, .fundo-app { background: #fff !important; background-image: none !important; }
+  .fundo-app::after { display: none !important; }
+  .cabecalho { position: static !important; }
+  [data-caixa] { box-shadow: none !important; background-image: none !important; break-inside: avoid; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

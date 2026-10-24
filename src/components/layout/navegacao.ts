@@ -250,6 +250,14 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
     voltar: { para: '/relatorios', rotulo: 'Relatórios' },
   },
   {
+    padrao: '/relatorios/indicadores',
+    icone: PieChart,
+    titulo: 'Indicadores',
+    usaMes: true,
+    faixa: true,
+    voltar: { para: '/relatorios', rotulo: 'Relatórios' },
+  },
+  {
     padrao: '/relatorios/orcamento',
     icone: PieChart,
     titulo: 'Orçamento',

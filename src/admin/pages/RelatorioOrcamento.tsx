@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
+import { ExportarRelatorio } from '../RelatorioPecas'
 import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
@@ -143,6 +144,15 @@ export function RelatorioOrcamento() {
   return (
     <PageLayout
       subtitulo="O que a estrutura vai custar e se as vendas cobrem."
+      acoes={
+        <ExportarRelatorio
+          nome="Orcamento mes a mes"
+          planilha={() => ({
+            cabecalho: ['Mês', teto ? 'Teto' : 'Custos', 'Vendas deixam', 'Sobra'],
+            linhas: meses.map((m) => [nomeDoMes(m.mes), custoDe(m), m.apuracao.vendasDeixam, sobraDe(m)]),
+          })}
+        />
+      }
       faixa={
         temPossiveis ? (
           <FiltrosRapidos
