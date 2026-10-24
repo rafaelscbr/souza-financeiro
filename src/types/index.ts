@@ -105,6 +105,8 @@ export interface Transaction {
   is_recurring: boolean
   /** Corretor (repasse) ou fornecedor (despesa). */
   contact_id: string | null
+  /** Canal da despesa de marketing (044). Nulo = sem canal. */
+  marketing_channel?: 'trafego_pago' | 'indicacao' | 'portais' | 'carteira' | null
   /** Texto livre de contraparte (legado / quando não há contato). */
   counterparty: string | null
   /** Valor do imóvel vendido (comissões). */
@@ -412,6 +414,8 @@ export interface Sale {
   is_personal: boolean
   /** Lançamento (comissão padrão 5%) ou imóvel de terceiros (6%) — 041. */
   product_type?: 'lancamento' | 'terceiros' | null
+  /** De onde veio o cliente (044). Nulo = não informado. */
+  origin?: 'trafego_pago' | 'indicacao' | 'portais' | 'carteira' | null
   /** O gestor que ganha gestão sobre esta venda (041). Nunca o próprio corretor. */
   manager_id?: string | null
   /** % da gestão sobre a base: o base (3%) ou, com a meta geral batida, o bônus (8%). */
@@ -495,6 +499,8 @@ export interface NewSale {
   broker_pct: number | null
   /** Venda que entra para o Rafael como pessoa física: fora do razão da empresa. */
   is_personal?: boolean
+  /** De onde veio o cliente (044); gravado logo depois da venda. */
+  origin?: 'trafego_pago' | 'indicacao' | 'portais' | 'carteira' | null
   product_type?: 'lancamento' | 'terceiros' | null
   manager_id?: string | null
   manager_pct?: number | null

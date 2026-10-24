@@ -22,6 +22,7 @@ import { Metas as AdminMetas } from '@/admin/pages/Metas'
 import { Contas as AdminContas } from '@/admin/pages/Contas'
 import { RelatorioComissoes as AdminRelatorioComissoes } from '@/admin/pages/RelatorioComissoes'
 import { RelatorioIndicadores as AdminRelatorioIndicadores } from '@/admin/pages/RelatorioIndicadores'
+import { RelatorioMarketing as AdminRelatorioMarketing } from '@/admin/pages/RelatorioMarketing'
 import { Simulacao as AdminSimulacao } from '@/admin/pages/Simulacao'
 import { Config as AdminConfig } from '@/admin/pages/Config'
 import { CorretorShell } from '@/corretor/CorretorShell'
@@ -167,6 +168,7 @@ function AppAdministrador() {
           <Route path="/relatorios/caixa" element={<AdminRelatorioCaixa />} />
           <Route path="/relatorios/comissoes" element={<AdminRelatorioComissoes />} />
           <Route path="/relatorios/indicadores" element={<AdminRelatorioIndicadores />} />
+          <Route path="/relatorios/marketing" element={<AdminRelatorioMarketing />} />
           <Route path="/relatorios/orcamento" element={<AdminRelatorioOrcamento />} />
           <Route path="/simulacao" element={<AdminSimulacao />} />
           <Route path="/config" element={<AdminConfig />} />

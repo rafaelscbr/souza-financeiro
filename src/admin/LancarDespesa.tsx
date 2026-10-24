@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { FormField, Input, Select } from '@/components/ui/Field'
 import { CurrencyInput } from '@/components/ui/MoneyInput'
 import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
+import { ORIGENS, ehCategoriaDeMarketing, type Origem } from '@/lib/origens'
 import { useToast } from '@/components/ui/Toast'
 import { formatCurrency, formatMonthYear, toDateOnly } from '@/lib/format'
 import { tetoDepoisDe } from '@/lib/orcamento'
@@ -47,6 +48,7 @@ export function LancarDespesa({ aberto, onFechar }: { aberto: boolean; onFechar:
   const [tipo, setTipo] = useState<'expense' | 'income'>('expense')
   const [valor, setValor] = useState<number | null>(null)
   const [categoria, setCategoria] = useState('')
+  const [canal, setCanal] = useState<Origem>('trafego_pago')
   const [situacao, setSituacao] = useState<'settled' | 'pending'>('settled')
   const [data, setData] = useState(toDateOnly(new Date()))
   const [descricao, setDescricao] = useState('')
@@ -98,6 +100,7 @@ export function LancarDespesa({ aberto, onFechar }: { aberto: boolean; onFechar:
     setTipo('expense')
     setValor(null)
     setCategoria('')
+    setCanal('trafego_pago')
     setSituacao('settled')
     setData(toDateOnly(new Date()))
     setDescricao('')
@@ -144,6 +147,7 @@ export function LancarDespesa({ aberto, onFechar }: { aberto: boolean; onFechar:
         contact_id: fornecedor || null,
         account_id: situacao === 'settled' ? contaId || null : null,
         cost_center_id: empreendimento || null,
+        marketing_channel: tipo === 'expense' && ehCategoriaDeMarketing(categoria) ? canal : null,
       })
       showToast({
         message: situacao === 'settled' ? 'Lançamento registrado' : 'Vai para A pagar',
@@ -260,6 +264,18 @@ export function LancarDespesa({ aberto, onFechar }: { aberto: boolean; onFechar:
               ))}
             </Select>
           </FormField>
+
+          {/* Fase 8: o canal liga o gasto às vendas que ele trouxe (relatório de Marketing). */}
+          {tipo === 'expense' && ehCategoriaDeMarketing(categoria) && (
+            <EscolhaDaFolha rotulo="Canal do marketing">
+              <FiltrosRapidos
+                rotuloAcessivel="Canal do marketing"
+                ativo={canal}
+                aoMudar={setCanal}
+                filtros={ORIGENS.map((o) => ({ id: o.id, rotulo: o.rotulo }))}
+              />
+            </EscolhaDaFolha>
+          )}
 
           {depoisDoGasto && (
             <Dica tom={depoisDoGasto.livre < 0 ? 'atencao' : 'info'}>

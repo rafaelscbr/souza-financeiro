@@ -88,6 +88,11 @@ export function calcularIndicadores(p: {
   }
   const maior = [...porConstrutora.entries()].sort((a, b) => b[1] - a[1])[0]
 
+  // Ponto de equilíbrio (Fase 8): quanto cada real de VGV deixa, e quanto VGV paga o teto.
+  const comVgv = ativas.filter((v) => (v.property_value ?? 0) > 0)
+  const vgvCarteira = comVgv.reduce((s, v) => s + vgvDaVenda(v), 0)
+  const ficaPorVgv = vgvCarteira > 0 ? comVgv.reduce((s, v) => s + v.cascade.net, 0) / vgvCarteira : 0
+
   return [
     { id: 'vgv', grupo: 'Vendas', nome: 'VGV · 12 meses', valor: vgv, formato: 'moeda', formula: 'Soma do valor inteiro dos imóveis vendidos nos últimos 12 meses, pela data do contrato.' },
     { id: 'vlv', grupo: 'Vendas', nome: 'VLV · 12 meses', valor: vlv, formato: 'moeda', formula: 'Valor Líquido Vendido: o VGV vezes a fatia da Souza em cada venda (em parceria, só a parte dela).' },
@@ -108,7 +113,8 @@ export function calcularIndicadores(p: {
     { id: 'saldo', grupo: 'Caixa', nome: 'Saldo em conta', valor: r2(p.saldo), formato: 'moeda', formula: 'Soma das contas ativas da imobiliária hoje, sem o cartão de crédito.' },
     { id: 'folego', grupo: 'Caixa', nome: 'Fôlego', valor: p.teto ? r2(p.saldo / p.teto) : null, formato: 'meses', formula: 'Saldo ÷ teto de gastos do mês: quantos meses de estrutura o caixa paga sem venda nova.', falta: 'teto de gastos não definido' },
 
-    { id: 'cac', grupo: 'Dados insuficientes', nome: 'Custo por venda (CAC) e ROI do marketing', valor: null, formato: 'moeda', formula: 'Investimento em marketing ÷ vendas que ele trouxe.', falta: 'a origem de cada venda (canal ou campanha) ainda não é registrada' },
+    { id: 'equilibrio', grupo: 'Caixa', nome: 'Ponto de equilíbrio · VGV por mês', valor: p.teto && ficaPorVgv > 0 ? r2(p.teto / ficaPorVgv) : null, formato: 'moeda', formula: `Teto de gastos ÷ o que cada R$ 1 de VGV deixa para a imobiliária (${ficaPorVgv > 0 ? `R$ ${(ficaPorVgv * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} a cada R$ 100` : 'sem carteira'}). É a venda mensal que paga a estrutura — e o dinheiro dela entra ao longo dos meses.`, falta: 'teto de gastos não definido ou carteira sem valor de imóvel' },
+
     { id: 'liquidez', grupo: 'Dados insuficientes', nome: 'Liquidez e endividamento', valor: null, formato: 'percentual', formula: 'Ativos ÷ passivos da empresa.', falta: 'o balanço (bens, dívidas e patrimônio) não está no sistema' },
   ]
 }

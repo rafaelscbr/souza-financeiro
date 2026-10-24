@@ -10,6 +10,7 @@ import {
   Percent,
   Plus,
   type LucideIcon,
+  Megaphone,
 } from 'lucide-react'
 import { useAdmin } from './AdminData'
 import { SidePanel } from '@/components/ui/SidePanel'
@@ -18,6 +19,7 @@ import { Button } from '@/components/ui/Button'
 import { FormField, Input, Select, Textarea } from '@/components/ui/Field'
 import { CurrencyInput, PercentInput } from '@/components/ui/MoneyInput'
 import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
+import { ORIGENS, type Origem } from '@/lib/origens'
 import { useToast } from '@/components/ui/Toast'
 import { Demonstrativo } from '@/components/ui/Demonstrativo'
 import { Icone } from '@/components/ui/Icone'
@@ -101,6 +103,7 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
    * dele; se ele tem gestor no time, a venda já nasce com a gestão do gestor.
    */
   const [tipo, setTipo] = useState<'lancamento' | 'terceiros'>('lancamento')
+  const [origem, setOrigem] = useState<Origem | 'nao_sei'>('nao_sei')
   const [pctGestao, setPctGestao] = useState<number | null>(null)
 
   // passo 3
@@ -137,6 +140,7 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
     setCorretor('')
     setPctCorretor(null)
     setTipo('lancamento')
+    setOrigem('nao_sei')
     setPctGestao(null)
     setPctComissao(configVigente(configuracoes, toDateOnly(new Date())).launch_commission_pct)
     setParcelas([])
@@ -275,6 +279,7 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
         broker_pct: pessoaFisica || !corretor ? null : pctCorretor,
         is_personal: pessoaFisica,
         product_type: tipo,
+        origin: origem === 'nao_sei' ? null : origem,
         manager_id: pessoaFisica || !gestorId || !pctGestao ? null : gestorId,
         manager_pct: pessoaFisica || !gestorId || !pctGestao ? null : pctGestao,
         notes: observacao || null,
@@ -509,6 +514,21 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
 
           {passo === 2 && (
             <>
+              {/* Fase 8: é a origem que liga o marketing às vendas que ele trouxe. */}
+              <Bloco titulo="De onde veio o cliente" icone={Megaphone}>
+                <Escolha
+                  rotulo="Como esse cliente chegou?"
+                  hint="é assim que o relatório de Marketing sabe quanto cada canal trouxe"
+                >
+                  <FiltrosRapidos
+                    rotuloAcessivel="Origem da venda"
+                    ativo={origem}
+                    aoMudar={setOrigem}
+                    filtros={[...ORIGENS.map((o) => ({ id: o.id, rotulo: o.rotulo })), { id: 'nao_sei' as const, rotulo: 'Não sei' }]}
+                  />
+                </Escolha>
+              </Bloco>
+
               <Bloco titulo="A comissão" icone={Percent}>
                 <Escolha
                   rotulo="É lançamento ou imóvel de terceiros?"

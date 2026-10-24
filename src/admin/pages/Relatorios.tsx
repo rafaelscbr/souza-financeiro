@@ -1,4 +1,4 @@
-import { Activity, BarChart3, HandCoins, Landmark, Target } from 'lucide-react'
+import { Activity, BarChart3, HandCoins, Landmark, Megaphone, Target } from 'lucide-react'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
@@ -52,6 +52,12 @@ const RELATORIOS: OpcaoDeRelatorio[] = [
     icone: Activity,
     titulo: 'Indicadores · Como está a saúde do negócio?',
     meta: 'VGV, ticket, margem, prazo de recebimento, atraso, concentração e fôlego, cada um com a conta escrita.',
+  },
+  {
+    para: '/relatorios/marketing',
+    icone: Megaphone,
+    titulo: 'Marketing · Quanto cada canal trouxe?',
+    meta: 'O investido em cada canal contra as vendas e a comissão que ele trouxe, com custo por venda e retorno.',
   },
   {
     para: '/relatorios/orcamento',

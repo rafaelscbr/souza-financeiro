@@ -260,7 +260,7 @@ regra de manutenção. Rascunho já existe em `git stash` ("metas de VGV (041)")
 | **5** | Comissões e repasses: relatórios e ficha com memória do cálculo | não | ✅ 23/10 (gestão na ficha e na cascata; relatório por pessoa = razão: R$ 35.847,29 pago + R$ 108.883,09 previsto = R$ 144.730,38) |
 | **6** | Relatórios, indicadores, ajuda contextual, exportação | não | ✅ 23/10 (Planilha e PDF em DRE, Fluxo, Comissões, Orçamento e Indicadores; planilha do DRE conferida linha a linha com a tela) |
 | **7** | Área do corretor + revisão de RLS | políticas | ✅ 23/10 (042 e 043: funções fechadas a anônimo; Metas e nível do corretor; testado como Dionata, como admin e de fora com a chave pública) |
-| **8** | Marketing e ROI, cenários, ponto de equilíbrio | aditivo: origem da venda, investimentos | — |
+| **8** | Marketing e ROI, cenários, ponto de equilíbrio | aditivo: origem da venda, investimentos | ✅ 23/10 (044; origem na venda, canal na despesa, relatório Marketing, ponto de equilíbrio ≈ R$ 247 mil de VGV/mês) |
 | **9** | Testes finais e aceite | não | os 17 critérios do prompt |
 
 Cada fase: um ou mais commits na `main`, verificador + tipos + build antes do

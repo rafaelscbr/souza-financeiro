@@ -429,8 +429,15 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       recarregar,
 
       async registrarVenda(venda) {
-        const id = await chamar('register_sale', { p: venda })
-        return String(id)
+        // A origem (044) não é da cascata: vai na venda já criada, logo depois.
+        const { origin, ...semOrigem } = venda
+        const id = String(await chamar('register_sale', { p: semOrigem }))
+        if (origin) {
+          const { error } = await supabase.from('sales').update({ origin }).eq('id', id)
+          if (error) throw new Error(`A venda foi registrada, mas a origem não: ${traduzirErro(error.message)}`)
+          await recarregar()
+        }
+        return id
       },
       async receberParcela({ installmentId, date, accountId, received, iss, other, note }) {
         await chamar('receive_installment', {
