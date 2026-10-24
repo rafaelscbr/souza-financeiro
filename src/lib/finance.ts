@@ -21,6 +21,7 @@ export const COST_OF_SALE_CATEGORIES = new Set([
   'Comissões de Corretores',
   'Repasse a Corretores',
   'Repasse de Comissão',
+  'Gestão de Equipe',
 ])
 
 /**

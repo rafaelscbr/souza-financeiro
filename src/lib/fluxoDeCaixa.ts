@@ -122,7 +122,7 @@ export function montarFluxoDeCaixa(params: {
   const comissoes = de('comissoes')
   const outras = de('outras-receitas')
   const impostos = de('impostos')
-  const corretores = de('corretores')
+  const corretores = de('corretores', 'gestao')
   const despesas = de('comerciais', 'administrativas', 'pessoal')
   const retiradas = de('distribuicao')
 
@@ -140,7 +140,7 @@ export function montarFluxoDeCaixa(params: {
     { id: 'outras-receitas', tipo: 'conta', rotulo: 'Outros recebimentos', valor: soma(outras), explica: 'Entradas que não vieram de venda.', lancamentos: outras },
     { id: 'pagamentos', tipo: 'grupo', rotulo: '(−) Pagamentos da operação', valor: -pago, explica: 'O dinheiro que saiu para tocar a imobiliária.', lancamentos: [...impostos, ...corretores, ...despesas] },
     { id: 'impostos', tipo: 'conta', rotulo: 'Impostos pagos', valor: -soma(impostos), explica: 'Guias do Simples e ISS pagos ou retidos.', lancamentos: impostos },
-    { id: 'corretores', tipo: 'conta', rotulo: 'Comissões pagas aos corretores', valor: -soma(corretores), explica: 'O repasse aos corretores.', lancamentos: corretores },
+    { id: 'corretores', tipo: 'conta', rotulo: 'Comissões pagas aos corretores', valor: -soma(corretores), explica: 'O repasse aos corretores e a gestão do gestor de equipe.', lancamentos: corretores },
     { id: 'despesas', tipo: 'conta', rotulo: 'Despesas pagas', valor: -soma(despesas), explica: 'Marketing, brindes, sistemas e estrutura.', lancamentos: despesas },
     { id: 'gerado', tipo: 'subtotal', rotulo: 'Caixa gerado pela operação', valor: gerado, explica: 'Recebimentos menos pagamentos: o caixa que o próprio negócio produziu.', lancamentos: [...comissoes, ...outras, ...impostos, ...corretores, ...despesas] },
     { id: 'retiradas', tipo: 'grupo', rotulo: '(−) Retiradas do sócio', valor: -soma(retiradas), explica: 'O que o sócio tirou da empresa. Sai depois da operação.', lancamentos: retiradas },

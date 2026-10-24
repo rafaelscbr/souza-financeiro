@@ -18,6 +18,7 @@ import { Relatorios as AdminRelatorios } from '@/admin/pages/Relatorios'
 import { RelatorioDre as AdminRelatorioDre } from '@/admin/pages/RelatorioDre'
 import { RelatorioCaixa as AdminRelatorioCaixa } from '@/admin/pages/RelatorioCaixa'
 import { RelatorioOrcamento as AdminRelatorioOrcamento } from '@/admin/pages/RelatorioOrcamento'
+import { Metas as AdminMetas } from '@/admin/pages/Metas'
 import { Simulacao as AdminSimulacao } from '@/admin/pages/Simulacao'
 import { Config as AdminConfig } from '@/admin/pages/Config'
 import { CorretorShell } from '@/corretor/CorretorShell'
@@ -93,7 +94,7 @@ function AdminFalso({ children }: { children: ReactNode }) {
       company: fx.company, sales: fx.sales, installments: fx.installments, transactions: fx.transactions,
       accounts: fx.accounts, contacts: fx.contacts, categories: fx.categories, costCenters: fx.costCenters,
       developers: fx.developers,
-      transfers: fx.transfers, usuarios: fx.usuarios, orcamento: fx.orcamento,
+      transfers: fx.transfers, usuarios: fx.usuarios, orcamento: fx.orcamento, configuracoes: fx.configuracoes, metas: fx.metas, perfis: fx.perfis,
       vendas, receber, pagar, atencao, contatosComAcesso,
       mes, hoje,
       irParaMes: (d) => setMes(inicioDoMes(d)),
@@ -106,7 +107,8 @@ function AdminFalso({ children }: { children: ReactNode }) {
       pagarComissoes: semBanco, reagendarParcela: semBanco, cancelarVenda: semBanco, editarVenda: semBanco,
       criarLancamento: semBanco, baixarLancamento: semBanco, estornarLancamento: semBanco,
       excluirLancamento: semBanco, salvarContato: semBanco, salvarConta: semBanco,
-      salvarEmpreendimento: semBanco, salvarConstrutora: semBanco, salvarCategoria: semBanco, salvarOrcamento: semBanco, salvarTeto: semBanco, excluirOrcamento: semBanco, salvarImposto: semBanco,
+      salvarEmpreendimento: semBanco, salvarConstrutora: semBanco, salvarCategoria: semBanco, salvarOrcamento: semBanco, salvarTeto: semBanco, excluirOrcamento: semBanco, salvarConfiguracao: semBanco, salvarMeta: semBanco, excluirMeta: semBanco,
+      salvarPerfil: semBanco, aplicarBonusGestor: async () => { await semBanco(); return 0 }, salvarImposto: semBanco,
       salvarAcesso: semBanco,
       marcarGatilho: semBanco, marcarNota: async () => { await semBanco(); return null },
     }),
@@ -149,6 +151,7 @@ function AppAdministrador() {
           <Route path="/despesas" element={<AdminDespesas />} />
           <Route path="/corretores" element={<AdminCorretores />} />
           <Route path="/relatorios" element={<AdminRelatorios />} />
+          <Route path="/metas" element={<AdminMetas />} />
           <Route path="/relatorios/dre" element={<AdminRelatorioDre />} />
           <Route path="/relatorios/caixa" element={<AdminRelatorioCaixa />} />
           <Route path="/relatorios/orcamento" element={<AdminRelatorioOrcamento />} />

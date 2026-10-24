@@ -410,6 +410,12 @@ export interface Sale {
    * lançamento nenhum no razão da empresa: só a previsão do que entra pra ele.
    */
   is_personal: boolean
+  /** Lançamento (comissão padrão 5%) ou imóvel de terceiros (6%) — 041. */
+  product_type?: 'lancamento' | 'terceiros' | null
+  /** O gestor que ganha gestão sobre esta venda (041). Nunca o próprio corretor. */
+  manager_id?: string | null
+  /** % da gestão sobre a base: o base (3%) ou, com a meta geral batida, o bônus (8%). */
+  manager_pct?: number | null
   created_at: string
   updated_at: string
 }
@@ -428,6 +434,9 @@ export interface SaleInstallment {
   /** Desconto combinado com o corretor, se houve. */
   broker_adjustment: number
   owner_amount: number
+  /** Gestão do gestor nesta parcela (041). */
+  manager_amount?: number
+  manager_tx_id?: string | null
   net_amount: number
   status: InstallmentStatus
   /**
@@ -486,6 +495,65 @@ export interface NewSale {
   broker_pct: number | null
   /** Venda que entra para o Rafael como pessoa física: fora do razão da empresa. */
   is_personal?: boolean
+  product_type?: 'lancamento' | 'terceiros' | null
+  manager_id?: string | null
+  manager_pct?: number | null
   notes: string | null
   installments: NewInstallment[]
+}
+
+/**
+ * Os percentuais do negócio, com vigência (041). Mudar um % cria (ou corrige)
+ * a linha do mês; venda já lançada guarda o que foi usado nela.
+ */
+export interface CommissionSettings {
+  id: string
+  company_id: string
+  valid_from: string
+  launch_commission_pct: number
+  resale_commission_pct: number
+  iss_pct: number
+  das_pct: number
+  manager_base_pct: number
+  manager_bonus_pct: number
+  level1_pct: number
+  level2_pct: number
+  level3_pct: number
+  level2_from_vgv: number
+  level3_from_vgv: number
+  maintenance_vgv_12m: number
+  notes: string | null
+  created_at: string
+}
+
+/** Meta de VGV por mês, com vigência (041). `contact_id` nulo = a meta geral da imobiliária. */
+export interface SalesGoal {
+  id: string
+  company_id: string
+  contact_id: string | null
+  monthly_vgv: number
+  start_month: string
+  end_month: string | null
+  notes: string | null
+  created_at: string
+}
+
+export type NivelCorretor = 'corretor' | 'pleno' | 'senior'
+
+/** O plano de carreira de um corretor (041). */
+export interface BrokerProfile {
+  contact_id: string
+  company_id: string
+  /** O gestor do time deste corretor. */
+  manager_id: string | null
+  is_manager: boolean
+  /** Nível por decisão da diretoria. Nulo = sai do VGV acumulado. */
+  level_override: NivelCorretor | null
+  /** % próprio, acima do nível. */
+  pct_override: number | null
+  /** As vendas do Rafael não contam para meta. */
+  counts_for_goals: boolean
+  started_at: string | null
+  notes: string | null
+  created_at: string
 }

@@ -26,6 +26,7 @@ import { Selo } from '@/components/ui/Selo'
 import { FraseDeTempo } from '@/components/ui/Situacao'
 import { formatCurrency, toDateOnly } from '@/lib/format'
 import { previewCascade, suggestInstallments } from '@/lib/sales'
+import { comissaoPadrao, configVigente, gestorDoCorretor, NOME_DO_NIVEL, nivelDoCorretor, vgvAcumulado } from '@/lib/comissao'
 import type { LinhaDemonstrativo } from '@/lib/linhasDaVenda'
 import { cn } from '@/lib/utils'
 import type { NewInstallment } from '@/types'
@@ -53,7 +54,7 @@ import type { NewInstallment } from '@/types'
  * validação foi afrouxada; o payload é o mesmo.
  */
 export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar: () => void }) {
-  const { costCenters, contacts, registrarVenda } = useAdmin()
+  const { costCenters, contacts, registrarVenda, configuracoes, perfis, sales } = useAdmin()
   const { showToast } = useToast()
   const navigate = useNavigate()
 
@@ -94,6 +95,13 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
   const [pctIss, setPctIss] = useState<number | null>(3)
   const [corretor, setCorretor] = useState('')
   const [pctCorretor, setPctCorretor] = useState<number | null>(null)
+  /*
+   * PLANO DE CARREIRA (Fase 1, 23/10/2026). Lançamento paga 5% e imóvel de
+   * terceiros 6% (padrões editáveis em Metas); o % do corretor sai do nível
+   * dele; se ele tem gestor no time, a venda já nasce com a gestão do gestor.
+   */
+  const [tipo, setTipo] = useState<'lancamento' | 'terceiros'>('lancamento')
+  const [pctGestao, setPctGestao] = useState<number | null>(null)
 
   // passo 3
   const [parcelas, setParcelas] = useState<NewInstallment[]>([])
@@ -128,6 +136,9 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
     setPctIss(3)
     setCorretor('')
     setPctCorretor(null)
+    setTipo('lancamento')
+    setPctGestao(null)
+    setPctComissao(configVigente(configuracoes, toDateOnly(new Date())).launch_commission_pct)
     setParcelas([])
     setObservacao('')
   }, [aberto])
@@ -145,12 +156,29 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
     if (cc.default_commission_pct != null && pctComissao == null) setPctComissao(Number(cc.default_commission_pct))
   }
 
+  const cfg = configVigente(configuracoes, dataVenda)
+  const gestorId = gestorDoCorretor(perfis, corretor || null)
+  const nomeGestor = contacts.find((c) => c.id === gestorId)?.name ?? null
+  const nivel = corretor
+    ? nivelDoCorretor({ perfil: perfis.find((p) => p.contact_id === corretor), vgv: vgvAcumulado(sales, corretor, dataVenda), cfg })
+    : null
+
+  function escolherTipo(t: 'lancamento' | 'terceiros') {
+    setTipo(t)
+    setPctComissao(comissaoPadrao(cfg, t))
+    // Imóvel de terceiros: quem paga não retém ISS (decisão de 23/10); sai só o DAS.
+    if (t === 'terceiros') setRetemIss(false)
+  }
+
   function escolherCorretor(id: string) {
     setCorretor(id)
-    const c = contacts.find((x) => x.id === id) as
-      | (typeof contacts)[number] & { default_broker_pct?: number | null }
-      | undefined
-    if (c?.default_broker_pct != null) setPctCorretor(Number(c.default_broker_pct))
+    if (!id) {
+      setPctGestao(null)
+      return
+    }
+    const perfil = perfis.find((p) => p.contact_id === id)
+    setPctCorretor(nivelDoCorretor({ perfil, vgv: vgvAcumulado(sales, id, dataVenda), cfg }).pct)
+    setPctGestao(gestorDoCorretor(perfis, id) ? cfg.manager_base_pct : null)
   }
 
   const comissaoNegocio =
@@ -176,8 +204,9 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
         retainsIss: pessoaFisica ? false : retemIss,
         issPct: pessoaFisica ? 0 : pctIss ?? 0,
         brokerPct: pessoaFisica || !corretor ? null : pctCorretor,
+        managerPct: pessoaFisica || !gestorId ? null : pctGestao,
       }),
-    [comissao, pessoaFisica, temNota, pctSimples, retemIss, pctIss, corretor, pctCorretor],
+    [comissao, pessoaFisica, temNota, pctSimples, retemIss, pctIss, corretor, pctCorretor, gestorId, pctGestao],
   )
 
   function gerarParcelas(n: number) {
@@ -245,6 +274,9 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
         broker_id: pessoaFisica ? null : corretor || null,
         broker_pct: pessoaFisica || !corretor ? null : pctCorretor,
         is_personal: pessoaFisica,
+        product_type: tipo,
+        manager_id: pessoaFisica || !gestorId || !pctGestao ? null : gestorId,
+        manager_pct: pessoaFisica || !gestorId || !pctGestao ? null : pctGestao,
         notes: observacao || null,
         installments: parcelas,
       })
@@ -303,6 +335,8 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
     pctSimples: pessoaFisica ? 0 : pctSimples,
     pctIss: pessoaFisica ? 0 : pctIss,
     pctCorretor: pessoaFisica ? null : pctCorretor,
+    pctGestao: pessoaFisica || !gestorId ? null : pctGestao,
+    nomeGestor,
   }
 
   return (
@@ -476,6 +510,20 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
           {passo === 2 && (
             <>
               <Bloco titulo="A comissão" icone={Percent}>
+                <Escolha
+                  rotulo="É lançamento ou imóvel de terceiros?"
+                  hint={`a comissão padrão é ${formatarPct(cfg.launch_commission_pct)} em lançamento e ${formatarPct(cfg.resale_commission_pct)} em imóvel de terceiros; dá para ajustar abaixo`}
+                >
+                  <FiltrosRapidos
+                    rotuloAcessivel="Tipo do imóvel"
+                    ativo={tipo}
+                    aoMudar={escolherTipo}
+                    filtros={[
+                      { id: 'lancamento', rotulo: 'Lançamento' },
+                      { id: 'terceiros', rotulo: 'Imóvel de terceiros' },
+                    ]}
+                  />
+                </Escolha>
                 <FormField
                   label="% da comissão"
                   htmlFor="v-pct"
@@ -576,9 +624,22 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
                       <FormField
                         label="% do corretor"
                         htmlFor="v-corrpct"
-                        hint="em %, sobre a base — a comissão já descontada de ISS e Simples, nunca sobre o bruto"
+                        hint={
+                          nivel
+                            ? `${NOME_DO_NIVEL[nivel.nivel]} no plano de carreira${nivel.origem === 'decisao' ? ', por decisão' : ''}: ${formatarPct(nivel.pct)} da base (comissão menos ISS e DAS)`
+                            : 'em %, sobre a base — a comissão já descontada de ISS e DAS, nunca sobre o bruto'
+                        }
                       >
                         <PercentInput id="v-corrpct" value={pctCorretor} onChange={setPctCorretor} />
+                      </FormField>
+                    )}
+                    {corretor && gestorId && (
+                      <FormField
+                        label={`Gestão de ${nomeGestor ?? 'gestor'}`}
+                        htmlFor="v-gestao"
+                        hint={`${nomeGestor ?? 'O gestor'} é o gestor do time deste corretor: ganha ${formatarPct(cfg.manager_base_pct)} da base, ${formatarPct(cfg.manager_bonus_pct)} se a imobiliária bater a meta do mês (aplicado em Metas). Vazio = sem gestão`}
+                      >
+                        <PercentInput id="v-gestao" value={pctGestao} onChange={setPctGestao} />
                       </FormField>
                     )}
                   </div>
@@ -975,14 +1036,18 @@ function PreviaDaConta({
   pctSimples,
   pctIss,
   pctCorretor,
+  pctGestao,
+  nomeGestor,
 }: {
-  previa: { iss: number; simples: number; base: number; broker: number; net: number }
+  previa: { iss: number; simples: number; base: number; broker: number; gestao: number; net: number }
   comissao: number
   temNota: boolean
   retemIss: boolean
   pctSimples: number | null
   pctIss: number | null
   pctCorretor: number | null
+  pctGestao: number | null
+  nomeGestor: string | null
 }) {
   if (comissao <= 0) return null
   const fatia = Math.round((previa.net / comissao) * 100)
@@ -1005,7 +1070,7 @@ function PreviaDaConta({
       sinal: '−',
       valor: previa.simples,
     })
-  if (previa.broker > 0) {
+  if (previa.broker > 0 || previa.gestao > 0) {
     linhas.push({ chave: 'base', rotulo: 'Base depois do imposto', sinal: '=', valor: previa.base })
     linhas.push({
       chave: 'corretor',
@@ -1015,6 +1080,14 @@ function PreviaDaConta({
       valor: previa.broker,
     })
   }
+  if (previa.gestao > 0)
+    linhas.push({
+      chave: 'gestao',
+      rotulo: `Gestão de ${nomeGestor ?? 'gestor'}`,
+      detalhe: `base × ${formatarPct(pctGestao)}`,
+      sinal: '−',
+      valor: previa.gestao,
+    })
   linhas.push({ chave: 'fica', rotulo: 'Fica para a imobiliária', sinal: '=', valor: previa.net })
   return (
     <Bloco titulo="O que sobra desta venda" icone={Calculator} separado>

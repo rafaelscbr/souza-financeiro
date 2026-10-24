@@ -11,6 +11,7 @@ import { dreGroupOf } from '@/lib/finance'
 import {
   competenciaNoDre,
   contaDoDre,
+  lancamentoDevido,
   montarDre,
   noPeriodo,
   periodosDoDre,
@@ -18,7 +19,7 @@ import {
   type PeriodoDre,
   type TipoPeriodo,
 } from '@/lib/dre'
-import { formatCurrency, formatDate } from '@/lib/format'
+import { formatCurrency, formatDate, toDateOnly } from '@/lib/format'
 import type { Transaction } from '@/types'
 
 /*
@@ -33,6 +34,10 @@ import type { Transaction } from '@/types'
  * Feita para ler de cima para baixo sem saber contabilidade: o herói diz
  * quanto sobrou, a conta abaixo mostra como se chegou nele, linha por linha,
  * em palavras simples, e o último cartão compara com o período anterior.
+ *
+ * Só entra a comissão já DEVIDA (nota, gatilho ou dinheiro — decisão C6 de
+ * 23/10/2026, CPC 47). A parcela que ainda espera o gatilho é previsão: fica
+ * num cartão à parte e nunca soma no lucro.
  *
  * Os números vêm inteiros de `montarDre` (lib/dre.ts), que só abre o que
  * `computeKpis` já somou. Esta tela não soma nada por fora. Todo valor abre
@@ -61,16 +66,25 @@ export function RelatorioDre() {
   const dataDoRegime = (t: Transaction): string => competenciaNoDre(t, parcelas)
 
   const periodos = useMemo(() => periodosDoDre(mes, tipo), [mes, tipo])
-  const doPeriodo = (p: PeriodoDre) => transactions.filter((t) => noPeriodo(dataDoRegime(t).slice(0, 7), p))
+  const doMes = (p: PeriodoDre) => transactions.filter((t) => noPeriodo(dataDoRegime(t).slice(0, 7), p))
+  /** O realizado: só o que já é devido. */
+  const doPeriodo = (p: PeriodoDre) => doMes(p).filter((t) => lancamentoDevido(t, parcelas))
+  /** A previsão: parcelas do período que ainda esperam gatilho ou nota. */
+  const previstoDe = (p: PeriodoDre) => doMes(p).filter((t) => !lancamentoDevido(t, parcelas))
 
-  const { atual, anterior, temPrevisto } = useMemo(
+  const { atual, anterior, temPrevisto, previsto, previstos } = useMemo(
     () => {
       const txs = doPeriodo(periodos.atual)
+      const hoje = toDateOnly(new Date())
+      const prev = previstoDe(periodos.atual)
       return {
         // Conta folha zerada não ocupa linha; total nunca some.
         atual: montarDre(txs).filter((l) => l.tipo !== 'conta' || l.valor !== 0),
         anterior: new Map(montarDre(doPeriodo(periodos.anterior)).map((l) => [l.id, l.valor])),
-        temPrevisto: txs.some((t) => t.status !== 'settled'),
+        // Despesa lançada para depois de hoje ainda não aconteceu.
+        temPrevisto: txs.some((t) => t.status !== 'settled' && dataDoRegime(t) > hoje),
+        previsto: montarDre(prev),
+        previstos: prev,
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -84,6 +98,10 @@ export function RelatorioDre() {
   const saiu = -(valorDe('impostos') + valorDe('corretores') + valorDe('despesas'))
   const distribuicao = -valorDe('distribuicao')
 
+  const previstoDe_ = (id: string) => previsto.find((l) => l.id === id)?.valor ?? 0
+  const previstoBruta = previstoDe_('bruta')
+  const previstoBruto = previstoDe_('bruto')
+
   /* ------------------------------------------------------------ abrir */
 
   const frase = (t: Transaction) => {
@@ -95,14 +113,14 @@ export function RelatorioDre() {
   }
 
   /** A linha aberta nos lançamentos do período; receita positiva, o resto negativo, como na conta. */
-  const abrirLinha = (l: LinhaDoDre, p: PeriodoDre, total: number) => {
+  const abrirLinha = (l: LinhaDoDre, p: PeriodoDre, total: number, deOnde = doPeriodo) => {
     const nome = l.rotulo.replace('(−) ', '')
     abrir({
       rotulo: nome,
       titulo: `${nome} · ${p.rotulo}`,
       explica: l.explica,
       total,
-      itens: doPeriodo(p)
+      itens: deOnde(p)
         .filter((t) => l.contas.includes(contaDoDre(t)))
         .sort((a, b) => dataDoRegime(a).localeCompare(dataDoRegime(b)))
         .map((t) => ({
@@ -122,8 +140,18 @@ export function RelatorioDre() {
     rotulo: 'Saiu',
     tipo: 'grupo',
     valor: -saiu,
-    contas: ['impostos', 'corretores', 'comerciais', 'administrativas', 'pessoal'],
+    contas: ['impostos', 'corretores', 'gestao', 'comerciais', 'administrativas', 'pessoal'],
     explica: 'Impostos sobre o faturamento, comissão dos corretores e despesas da imobiliária no período.',
+  }
+
+  /** O que a previsão deixa para a imobiliária: receita − impostos − corretores − gestão. */
+  const linhaPrevistaCusto: LinhaDoDre = {
+    id: 'previsto-custo',
+    rotulo: 'Impostos, corretores e gestão',
+    tipo: 'grupo',
+    valor: previstoBruto - previstoBruta,
+    contas: ['impostos', 'corretores', 'gestao'],
+    explica: 'O que vai sair de cada parcela prevista quando ela ficar devida.',
   }
 
   /* ------------------------------------------------------------ texto */
@@ -207,6 +235,35 @@ export function RelatorioDre() {
           />
         </Cartao.Corpo>
       </Cartao>
+
+      {previstos.length > 0 && (
+        <Cartao>
+          <Cartao.Cabecalho
+            titulo="Previsto, ainda não devido"
+            meta="Parcelas deste período que ainda esperam o gatilho ou a nota. Não entram no lucro até ficarem devidas."
+          />
+          <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Previsto, ainda não devido">
+            <Linha
+              titulo="Comissão prevista"
+              meta="A parte da imobiliária nas parcelas"
+              valor={<Valor valor={previstoBruta} posto="linha" previsto />}
+              aoClicar={() => abrirLinha({ ...previsto.find((l) => l.id === 'bruta')!, rotulo: 'Comissão prevista' }, periodos.atual, previstoBruta, previstoDe)}
+            />
+            <Linha
+              titulo="Impostos, corretores e gestão"
+              meta="O que sai delas quando ficarem devidas"
+              valor={<Valor valor={previstoBruto - previstoBruta} posto="linha" previsto />}
+              aoClicar={() => abrirLinha(linhaPrevistaCusto, periodos.atual, previstoBruto - previstoBruta, previstoDe)}
+            />
+            <Linha
+              titulo="Fica para a imobiliária"
+              meta="Antes das despesas"
+              valor={<Valor valor={previstoBruto} posto="linha" previsto />}
+              aoClicar={() => abrirLinha({ ...previsto.find((l) => l.id === 'bruto')!, rotulo: 'Fica para a imobiliária' }, periodos.atual, previstoBruto, previstoDe)}
+            />
+          </Cartao.Lista>
+        </Cartao>
+      )}
 
       <Cartao>
         <Cartao.Cabecalho titulo={`Comparado com ${periodos.anterior.rotulo}`} />

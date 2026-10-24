@@ -21,8 +21,10 @@ import {
 import { situacaoDoTeto } from '@/lib/orcamento'
 import type {
   Account,
+  BrokerProfile,
   BudgetLine,
   Category,
+  CommissionSettings,
   Company,
   Contact,
   CostCenter,
@@ -31,6 +33,7 @@ import type {
   Profile,
   Sale,
   SaleInstallment,
+  SalesGoal,
   Transaction,
   Transfer,
 } from '@/types'
@@ -69,6 +72,12 @@ interface AdminValue {
   usuarios: UsuarioDoSistema[]
   /** Orçamento de custos (039). Vazio enquanto a tabela não existe. */
   orcamento: BudgetLine[]
+  /** Percentuais do negócio com vigência (041), mais antigo primeiro. */
+  configuracoes: CommissionSettings[]
+  /** Metas de VGV da imobiliária e dos corretores (041). */
+  metas: SalesGoal[]
+  /** Plano de carreira de cada corretor (041). */
+  perfis: BrokerProfile[]
 
   /** Vendas com cascata, situação e vínculos prontos para a tela. */
   vendas: SaleView[]
@@ -131,6 +140,13 @@ interface AdminValue {
   /** Grava o teto de gastos do mês (040). `null` tira o teto. */
   salvarTeto: (valor: number | null) => Promise<void>
   excluirOrcamento: (id: string) => Promise<void>
+  /** Grava os % a partir do mês informado (cria a linha ou corrige a do mesmo mês). */
+  salvarConfiguracao: (c: Partial<CommissionSettings> & { valid_from: string }) => Promise<void>
+  salvarMeta: (m: Partial<SalesGoal> & { id?: string }) => Promise<void>
+  excluirMeta: (id: string) => Promise<void>
+  salvarPerfil: (p: Partial<BrokerProfile> & { contact_id: string }) => Promise<void>
+  /** Aplica (ou desfaz) o % de gestão nas vendas do mês; devolve quantas parcelas já estavam pagas. */
+  aplicarBonusGestor: (mes: string, pct: number) => Promise<number>
   salvarImposto: (regime: string, aliquota: number | null) => Promise<void>
   salvarAcesso: (p: {
     userId: string
@@ -164,6 +180,9 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const [transfers, setTransfers] = useState<Transfer[]>([])
   const [usuarios, setUsuarios] = useState<UsuarioDoSistema[]>([])
   const [orcamento, setOrcamento] = useState<BudgetLine[]>([])
+  const [configuracoes, setConfiguracoes] = useState<CommissionSettings[]>([])
+  const [metas, setMetas] = useState<SalesGoal[]>([])
+  const [perfis, setPerfis] = useState<BrokerProfile[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [mes, setMes] = useState<Date>(inicioDoMes())
@@ -184,7 +203,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }
     const cid = (empresa.data as Company).id
 
-    const [vendasRes, parcelasRes, txRes, contasRes, contatosRes, catsRes, ccRes, constRes, trfRes, perfisRes, orcRes] =
+    const [vendasRes, parcelasRes, txRes, contasRes, contatosRes, catsRes, ccRes, constRes, trfRes, perfisRes, orcRes, cfgRes, metasRes, perfisCorretorRes] =
       await Promise.all([
         supabase.from('sales').select('*').eq('company_id', cid).order('sale_date', { ascending: false }),
         supabase.from('sale_installments').select('*').order('idx'),
@@ -197,6 +216,9 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         supabase.from('transfers').select('*').order('date', { ascending: false }),
         supabase.from('profiles').select('*'),
         supabase.from('budget_lines').select('*').eq('company_id', cid).order('start_month'),
+        supabase.from('commission_settings').select('*').eq('company_id', cid).order('valid_from'),
+        supabase.from('sales_goals').select('*').eq('company_id', cid).order('start_month'),
+        supabase.from('broker_profiles').select('*').eq('company_id', cid),
       ])
 
     const primeiroErro =
@@ -229,6 +251,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         iss_pct: num(s.iss_pct),
         broker_pct: s.broker_pct == null ? null : num(s.broker_pct),
         owner_profit_pct: s.owner_profit_pct == null ? null : num(s.owner_profit_pct),
+        manager_pct: s.manager_pct == null ? null : num(s.manager_pct),
       })),
     )
     const idsDeVenda = new Set(((vendasRes.data as Sale[]) ?? []).map((s) => s.id))
@@ -243,6 +266,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           broker_amount: num(i.broker_amount),
           broker_adjustment: num(i.broker_adjustment),
           owner_amount: num(i.owner_amount),
+          manager_amount: num(i.manager_amount),
           net_amount: num(i.net_amount),
           received_amount: i.received_amount == null ? null : num(i.received_amount),
         })),
@@ -270,6 +294,30 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     setTransfers(((trfRes.data as Transfer[]) ?? []).map((t) => ({ ...t, amount: num(t.amount) })))
     // Sem a migração 039 a tabela não existe: o orçamento fica vazio e o resto do app segue.
     setOrcamento(orcRes.error ? [] : ((orcRes.data as BudgetLine[]) ?? []).map((l) => ({ ...l, amount: num(l.amount) })))
+    // Plano de carreira (041). Sem a migração, tudo vazio e o resto segue.
+    const NUMEROS_CFG = [
+      'launch_commission_pct', 'resale_commission_pct', 'iss_pct', 'das_pct', 'manager_base_pct',
+      'manager_bonus_pct', 'level1_pct', 'level2_pct', 'level3_pct', 'level2_from_vgv', 'level3_from_vgv',
+      'maintenance_vgv_12m',
+    ] as const
+    setConfiguracoes(
+      cfgRes.error
+        ? []
+        : ((cfgRes.data as CommissionSettings[]) ?? []).map((c) => {
+            const out = { ...c }
+            for (const k of NUMEROS_CFG) out[k] = num(c[k])
+            return out
+          }),
+    )
+    setMetas(metasRes.error ? [] : ((metasRes.data as SalesGoal[]) ?? []).map((m) => ({ ...m, monthly_vgv: num(m.monthly_vgv) })))
+    setPerfis(
+      perfisCorretorRes.error
+        ? []
+        : ((perfisCorretorRes.data as BrokerProfile[]) ?? []).map((p) => ({
+            ...p,
+            pct_override: p.pct_override == null ? null : num(p.pct_override),
+          })),
+    )
 
     // E-mail e último acesso ficam em auth.users, que o app não lê. O perfil
     // basta para a tela de acesso; o e-mail aparece quando o próprio perfil o
@@ -363,6 +411,9 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       transfers,
       usuarios,
       orcamento,
+      configuracoes,
+      metas,
+      perfis,
       vendas,
       receber,
       pagar,
@@ -529,6 +580,40 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         if (error) throw new Error(traduzirErro(error.message))
         await recarregar()
       },
+      async salvarConfiguracao(c) {
+        if (!company) throw new Error('Empresa não carregada.')
+        const { error } = await supabase
+          .from('commission_settings')
+          .upsert({ company_id: company.id, ...c }, { onConflict: 'company_id,valid_from' })
+        if (error) throw new Error(traduzirErro(error.message))
+        await recarregar()
+      },
+      async salvarMeta(m) {
+        if (!company) throw new Error('Empresa não carregada.')
+        const { id, ...resto } = m
+        const { error } = id
+          ? await supabase.from('sales_goals').update(resto).eq('id', id)
+          : await supabase.from('sales_goals').insert({ company_id: company.id, ...resto })
+        if (error) throw new Error(traduzirErro(error.message))
+        await recarregar()
+      },
+      async excluirMeta(id) {
+        const { error } = await supabase.from('sales_goals').delete().eq('id', id)
+        if (error) throw new Error(traduzirErro(error.message))
+        await recarregar()
+      },
+      async salvarPerfil(p) {
+        if (!company) throw new Error('Empresa não carregada.')
+        const { error } = await supabase
+          .from('broker_profiles')
+          .upsert({ company_id: company.id, ...p }, { onConflict: 'contact_id' })
+        if (error) throw new Error(traduzirErro(error.message))
+        await recarregar()
+      },
+      async aplicarBonusGestor(mes, pct) {
+        const pagas = await chamar('apply_manager_bonus', { p_month: mes, p_pct: pct })
+        return Number(pagas ?? 0)
+      },
       async excluirOrcamento(id) {
         const { error } = await supabase.from('budget_lines').delete().eq('id', id)
         if (error) throw new Error(traduzirErro(error.message))
@@ -553,7 +638,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     }),
     [
       company, sales, installments, transactions, accounts, contacts, categories, costCenters, developers,
-      transfers, usuarios, orcamento, vendas, receber, pagar, atencao, contatosComAcesso, mes, hoje,
+      transfers, usuarios, orcamento, configuracoes, metas, perfis, vendas, receber, pagar, atencao, contatosComAcesso, mes, hoje,
       carregando, erro, recarregar, chamar,
     ],
   )

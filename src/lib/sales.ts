@@ -203,7 +203,7 @@ export function buildSaleViews(params: {
 // ---------------------------------------------------------------------------
 
 /** De onde vem uma linha de "a pagar" — decide qual ação a tela oferece. */
-export type PayableKind = 'comissao' | 'imposto' | 'despesa' | 'socio'
+export type PayableKind = 'comissao' | 'gestao' | 'imposto' | 'despesa' | 'socio'
 
 export interface MoneyItem {
   tx: Transaction
@@ -276,7 +276,9 @@ export function payablesOf(
       const kind: PayableKind =
         t.category === 'Comissões de Corretores'
           ? 'comissao'
-          : t.category === 'Impostos e Taxas'
+          : t.category === 'Gestão de Equipe'
+            ? 'gestao'
+            : t.category === 'Impostos e Taxas'
             ? 'imposto'
             : t.kind === 'withdrawal'
               ? 'socio'
@@ -300,7 +302,13 @@ export function payablesOf(
          * Lançamento de imposto sem parcela (a guia do mês, a despesa avulsa)
          * é devido: ele só existe porque o dinheiro já entrou.
          */
-        released: kind === 'comissao' || kind === 'imposto' ? (parcela ? parcela.status === 'recebida' : true) : true,
+        // A gestão do gestor (041) segue a do corretor: só é devida quando a parcela entra.
+        released:
+          kind === 'comissao' || kind === 'gestao' || kind === 'imposto'
+            ? parcela
+              ? parcela.status === 'recebida'
+              : true
+            : true,
       }
     })
     .sort((a, b) => (a.date < b.date ? -1 : 1))
@@ -742,10 +750,13 @@ export function previewCascade(params: {
   retainsIss: boolean
   issPct: number
   brokerPct: number | null
-}): { iss: number; simples: number; base: number; broker: number; net: number } {
+  /** Gestão do gestor do time sobre a base (041). */
+  managerPct?: number | null
+}): { iss: number; simples: number; base: number; broker: number; gestao: number; net: number } {
   const iss = params.retainsIss ? r2((params.amount * params.issPct) / 100) : 0
   const simples = params.issuesInvoice ? r2(((params.amount - iss) * params.simplesPct) / 100) : 0
   const base = r2(params.amount - iss - simples)
   const broker = params.brokerPct ? r2((base * params.brokerPct) / 100) : 0
-  return { iss, simples, base, broker, net: r2(base - broker) }
+  const gestao = params.managerPct ? r2((base * params.managerPct) / 100) : 0
+  return { iss, simples, base, broker, gestao, net: r2(base - broker - gestao) }
 }

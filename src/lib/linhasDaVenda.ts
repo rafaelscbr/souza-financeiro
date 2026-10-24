@@ -36,6 +36,8 @@ export type ChaveLinha =
   | 'impostos'
   | 'base'
   | 'corretor'
+  /* A gestão do gestor sobre a venda do time (041). */
+  | 'gestao'
   | 'desconto'
   | 'socio'
   | 'fica'

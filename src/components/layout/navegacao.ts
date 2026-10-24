@@ -10,6 +10,7 @@ import {
   PieChart,
   Receipt,
   Settings,
+  Target,
   Users,
   Wallet,
   type LucideIcon,
@@ -92,6 +93,7 @@ export function navAdmin({ vencidos, esperando }: { vencidos: number; esperando:
       rotulo: 'Relatórios',
       itens: [
         { para: '/relatorios', rotulo: 'Relatórios', icone: PieChart },
+        { para: '/metas', rotulo: 'Metas', icone: Target },
         { para: '/simulacao', rotulo: 'Simulação', icone: Calculator },
       ],
     },
@@ -211,6 +213,7 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
   { padrao: '/despesas', icone: Receipt, titulo: 'Despesas', usaMes: true, faixa: true, cta: CTA_DESPESA },
   { padrao: '/corretores', icone: Users, titulo: 'Corretores', usaMes: false, faixa: false, cta: CTA_VENDA },
   { padrao: '/relatorios', icone: PieChart, titulo: 'Relatórios', usaMes: false, faixa: false },
+  { padrao: '/metas', icone: Target, titulo: 'Metas', usaMes: true, faixa: true },
   {
     padrao: '/relatorios/dre',
     icone: PieChart,

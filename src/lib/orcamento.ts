@@ -105,7 +105,7 @@ export function apurarOrcamento(params: {
   const doPeriodo = transactions.filter((t) => noPeriodo(competenciaNoDre(t, parcelas).slice(0, 7), periodo))
   const bruto = montarDre(doPeriodo).find((l) => l.id === 'bruto')?.valor ?? 0
   const lancamentosDasVendas = doPeriodo.filter((t) =>
-    ['comissoes', 'outras-receitas', 'impostos', 'corretores'].includes(contaDoDre(t)),
+    ['comissoes', 'outras-receitas', 'impostos', 'corretores', 'gestao'].includes(contaDoDre(t)),
   )
   const gastos = gastosDoPeriodo(transactions, parcelas, periodo)
 

@@ -24,12 +24,15 @@ export type ContaDre =
   | 'outras-receitas'
   | 'impostos'
   | 'corretores'
+  | 'gestao'
   | 'comerciais'
   | 'administrativas'
   | 'pessoal'
   | 'distribuicao'
 
 const OUTRAS_RECEITAS = new Set(['Outras Receitas'])
+/** A gestão do gestor de equipe (041): custo da venda, mas linha própria. */
+export const CATEGORIA_GESTAO = 'Gestão de Equipe'
 const PESSOAL = new Set(['Salários', ...PRO_LABORE_CATEGORIES])
 
 /** Em que conta do DRE o lançamento entra. Segue `dreGroupOf`, só que mais aberto. */
@@ -40,7 +43,7 @@ export function contaDoDre(t: Transaction): ContaDre {
     case 'tax':
       return 'impostos'
     case 'cost_of_sale':
-      return 'corretores'
+      return t.category === CATEGORIA_GESTAO ? 'gestao' : 'corretores'
     case 'operating_expense':
       return PESSOAL.has(t.category) ? 'pessoal' : 'administrativas'
     case 'withdrawal':
@@ -82,15 +85,17 @@ export function montarDre(txs: Transaction[]): LinhaDoDre[] {
     { id: 'outras-receitas', tipo: 'conta', rotulo: 'Outras receitas', valor: de('outras-receitas'), contas: ['outras-receitas'], explica: 'Entradas que não vieram de venda.' },
     { id: 'impostos', tipo: 'grupo', rotulo: '(−) Impostos sobre o faturamento', valor: -k.taxDeductions, contas: ['impostos'], explica: 'Simples Nacional e ISS retido pela construtora. É dedução da receita, não despesa da estrutura.' },
     { id: 'liquida', tipo: 'subtotal', rotulo: 'Receita líquida', valor: k.netRevenue, contas: ['comissoes', 'outras-receitas', 'impostos'], explica: 'A receita depois do imposto sobre o faturamento.' },
-    { id: 'corretores', tipo: 'grupo', rotulo: '(−) Comissões de corretores', valor: -k.costOfSale, contas: ['corretores'], explica: 'O custo direto da venda: a parte do corretor. Só existe quando há venda.' },
-    { id: 'bruto', tipo: 'subtotal', rotulo: 'Lucro bruto', valor: k.grossProfit, contas: ['comissoes', 'outras-receitas', 'impostos', 'corretores'], explica: 'O que sobra de cada venda para pagar a estrutura.' },
+    { id: 'corretores', tipo: 'grupo', rotulo: '(−) Comissões de corretores', valor: -k.costOfSale, contas: ['corretores', 'gestao'], explica: 'O custo direto da venda: a parte do corretor e a gestão do gestor de equipe. Só existe quando há venda.' },
+    { id: 'parte-corretor', tipo: 'conta', rotulo: 'Corretores', valor: -de('corretores'), contas: ['corretores'], explica: 'A parte de cada corretor nas vendas.' },
+    { id: 'gestao', tipo: 'conta', rotulo: 'Gestão de equipe', valor: -de('gestao'), contas: ['gestao'], explica: 'O que o gestor ganha sobre as vendas do time: 3% da base, 8% no mês em que a imobiliária bate a meta geral. Sai da parte da imobiliária.' },
+    { id: 'bruto', tipo: 'subtotal', rotulo: 'Lucro bruto', valor: k.grossProfit, contas: ['comissoes', 'outras-receitas', 'impostos', 'corretores', 'gestao'], explica: 'O que sobra de cada venda para pagar a estrutura.' },
     { id: 'despesas', tipo: 'grupo', rotulo: '(−) Despesas operacionais', valor: -despesas, contas: ['comerciais', 'administrativas', 'pessoal'], explica: 'O que a imobiliária gasta para funcionar, com ou sem venda no mês.' },
     { id: 'comerciais', tipo: 'conta', rotulo: 'Comerciais', valor: -de('comerciais'), contas: ['comerciais'], explica: 'Marketing, brindes de fechamento e premiações.' },
     { id: 'administrativas', tipo: 'conta', rotulo: 'Administrativas', valor: -de('administrativas'), contas: ['administrativas'], explica: 'Sistemas, material, contabilidade, aluguel.' },
     { id: 'pessoal', tipo: 'conta', rotulo: 'Pessoal', valor: -de('pessoal'), contas: ['pessoal'], explica: 'Pró-labore e salários. Pró-labore remunera o trabalho do sócio e entra antes do lucro.' },
-    { id: 'liquido', tipo: 'resultado', rotulo: 'Lucro líquido', valor: k.netProfit, contas: ['comissoes', 'outras-receitas', 'impostos', 'corretores', 'comerciais', 'administrativas', 'pessoal'], explica: 'O resultado da imobiliária no período. Não é saldo em conta.' },
+    { id: 'liquido', tipo: 'resultado', rotulo: 'Lucro líquido', valor: k.netProfit, contas: ['comissoes', 'outras-receitas', 'impostos', 'corretores', 'gestao', 'comerciais', 'administrativas', 'pessoal'], explica: 'O resultado da imobiliária no período. Não é saldo em conta.' },
     { id: 'distribuicao', tipo: 'grupo', rotulo: '(−) Distribuição de lucros', valor: -k.profitDistribution, contas: ['distribuicao'], explica: 'Retiradas do sócio. Remuneram o capital e saem depois do lucro, nunca antes.' },
-    { id: 'retido', tipo: 'resultado', rotulo: 'Lucro retido', valor: k.retainedProfit, contas: ['comissoes', 'outras-receitas', 'impostos', 'corretores', 'comerciais', 'administrativas', 'pessoal', 'distribuicao'], explica: 'O que fica na imobiliária depois das retiradas.' },
+    { id: 'retido', tipo: 'resultado', rotulo: 'Lucro retido', valor: k.retainedProfit, contas: ['comissoes', 'outras-receitas', 'impostos', 'corretores', 'gestao', 'comerciais', 'administrativas', 'pessoal', 'distribuicao'], explica: 'O que fica na imobiliária depois das retiradas.' },
   ]
 }
 
@@ -119,6 +124,25 @@ export function montarDre(txs: Transaction[]): LinhaDoDre[] {
  */
 export function dataDeReconhecimento(p: SaleInstallment): string {
   return p.invoice_issued_date ?? p.trigger_met_date ?? p.received_date ?? p.expected_date
+}
+
+/*
+ * DECISÃO DE 23/10/2026 (C6, CPC 47): o DRE realizado só leva a comissão que
+ * já é devida — nota, gatilho ou dinheiro. A parcela que ainda depende de um
+ * evento futuro é previsão: aparece à parte, nunca somada ao resultado.
+ */
+/** A parcela já virou direito da imobiliária? */
+export function parcelaDevida(p: SaleInstallment): boolean {
+  return Boolean(p.invoice_issued_date ?? p.trigger_met_date ?? p.received_date)
+}
+
+/**
+ * O lançamento entra no DRE realizado? Os de venda, só com a parcela devida;
+ * os outros (despesas, retiradas) sempre — despesa lançada é obrigação.
+ */
+export function lancamentoDevido(t: Transaction, parcelas: Map<string, SaleInstallment>): boolean {
+  const p = t.sale_installment_id ? parcelas.get(t.sale_installment_id) : undefined
+  return p ? parcelaDevida(p) : true
 }
 
 /** A competência do lançamento no DRE: a da parcela de origem, quando há; senão a gravada. */

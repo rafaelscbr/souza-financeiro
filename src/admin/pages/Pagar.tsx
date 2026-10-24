@@ -129,7 +129,8 @@ export function Pagar() {
     // Imposto de parcela que ainda não entrou é previsão, não dívida (21/09/2026).
     const impostos = pagar.filter((i) => i.kind === 'imposto' && i.released)
     const impostosPrevistos = pagar.filter((i) => i.kind === 'imposto' && !i.released)
-    const despesas = pagar.filter((i) => i.kind === 'despesa' || i.kind === 'socio')
+    // A gestão do gestor liberada (041) se paga como despesa: uma baixa por linha.
+    const despesas = pagar.filter((i) => i.kind === 'despesa' || i.kind === 'socio' || (i.kind === 'gestao' && i.released))
     return { liberadas, previstas, impostos, impostosPrevistos, despesas }
   }, [pagar])
 

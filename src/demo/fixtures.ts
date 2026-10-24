@@ -1,8 +1,10 @@
 import { toDateOnly } from '@/lib/format'
 import type {
   Account,
+  BrokerProfile,
   BudgetLine,
   Category,
+  CommissionSettings,
   Company,
   Contact,
   CostCenter,
@@ -10,6 +12,7 @@ import type {
   DreGroup,
   Sale,
   SaleInstallment,
+  SalesGoal,
   Transaction,
   TransactionKind,
   Transfer,
@@ -153,6 +156,25 @@ export const orcamento: BudgetLine[] = [
   { id: 'or-contab', company_id: EMPRESA_ID, description: 'Contabilidade (exemplo)', category: 'Contabilidade', amount: 650, start_month: mesDaqui(-3), end_month: null, status: 'confirmado', notes: null, created_at: CRIADO },
   { id: 'or-anuncios', company_id: EMPRESA_ID, description: 'Anúncios (exemplo)', category: 'Marketing', amount: 1500, start_month: mesDaqui(-3), end_month: mesDaqui(14), status: 'confirmado', notes: null, created_at: CRIADO },
   { id: 'or-assistente', company_id: EMPRESA_ID, description: 'Assistente (exemplo)', category: 'Salários', amount: 2000, start_month: mesDaqui(2), end_month: null, status: 'possivel', notes: null, created_at: CRIADO },
+]
+
+/** O plano de carreira de exemplo (041): os % de hoje, as metas e a Ana como gestora do Bruno. */
+export const configuracoes: CommissionSettings[] = [
+  {
+    id: 'cfg-1', company_id: EMPRESA_ID, valid_from: mesDaqui(-3), launch_commission_pct: 5, resale_commission_pct: 6,
+    iss_pct: 3, das_pct: 6, manager_base_pct: 3, manager_bonus_pct: 8, level1_pct: 40, level2_pct: 45, level3_pct: 50,
+    level2_from_vgv: 5000000, level3_from_vgv: 10000000, maintenance_vgv_12m: 2500000, notes: null, created_at: CRIADO,
+  },
+]
+export const metas: SalesGoal[] = [
+  { id: 'mt-geral', company_id: EMPRESA_ID, contact_id: null, monthly_vgv: 1000000, start_month: mesDaqui(-3), end_month: null, notes: null, created_at: CRIADO },
+  { id: 'mt-ana', company_id: EMPRESA_ID, contact_id: CORRETORA_ID, monthly_vgv: 750000, start_month: mesDaqui(-3), end_month: null, notes: null, created_at: CRIADO },
+  { id: 'mt-bruno-1', company_id: EMPRESA_ID, contact_id: 'ct-bruno', monthly_vgv: 420000, start_month: mesDaqui(-1), end_month: mesDaqui(0), notes: 'primeiros 2 meses', created_at: CRIADO },
+  { id: 'mt-bruno-2', company_id: EMPRESA_ID, contact_id: 'ct-bruno', monthly_vgv: 750000, start_month: mesDaqui(1), end_month: null, notes: null, created_at: CRIADO },
+]
+export const perfis: BrokerProfile[] = [
+  { contact_id: CORRETORA_ID, company_id: EMPRESA_ID, manager_id: null, is_manager: true, level_override: 'senior', pct_override: null, counts_for_goals: true, started_at: null, notes: null, created_at: CRIADO },
+  { contact_id: 'ct-bruno', company_id: EMPRESA_ID, manager_id: CORRETORA_ID, is_manager: false, level_override: null, pct_override: null, counts_for_goals: true, started_at: mesDaqui(-1), notes: null, created_at: CRIADO },
 ]
 
 export const usuarios: UsuarioDoSistema[] = [
