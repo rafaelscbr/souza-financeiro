@@ -180,8 +180,8 @@ export function Venda() {
     : !ativa
     ? 'Venda cancelada. O que já tinha sido recebido e pago continua registrado, e o imposto de parcela já recebida continua devido.'
     : venda.toReceive > 0
-      ? `${Math.round(c.netShare * 100)}% da comissão contratada, depois do imposto e da comissão do corretor. Não é caixa: ${formatCurrency(venda.toReceive)} desta venda ainda dependem da construtora pagar.`
-      : `${Math.round(c.netShare * 100)}% da comissão contratada, depois do imposto e da comissão do corretor. A comissão desta venda já entrou por inteiro.`
+      ? `${Math.round(c.netShare * 100)}% da comissão contratada, depois do imposto e da comissão do corretor${c.manager > 0 ? ' e da gestão' : ''}. Não é caixa: ${formatCurrency(venda.toReceive)} desta venda ainda dependem da construtora pagar.`
+      : `${Math.round(c.netShare * 100)}% da comissão contratada, depois do imposto e da comissão do corretor${c.manager > 0 ? ' e da gestão' : ''}. A comissão desta venda já entrou por inteiro.`
 
   /*
    * A conta da comissão, na ordem da migração 009 e com as mesmas linhas da
@@ -214,6 +214,14 @@ export function Venda() {
       conta.push({ chave: 'corretor', rotulo: `Comissão de ${nomeCorretor}`, detalhe: `base × ${venda.broker_pct ?? 0}%`, sinal: '−', valor: c.broker })
     }
   }
+  if (c.manager > 0)
+    conta.push({
+      chave: 'gestao',
+      rotulo: `Gestão de ${venda.managerName ?? 'gestor'}`,
+      detalhe: `base × ${venda.manager_pct ?? 0}% · sai da parte da imobiliária`,
+      sinal: '−',
+      valor: c.manager,
+    })
   if (c.owner > 0)
     conta.push({ chave: 'socio', rotulo: 'Distribuição ao sócio', detalhe: `${venda.owner_profit_pct ?? 0}% do que sobra depois da comissão do corretor`, sinal: '−', valor: c.owner })
   conta.push({
@@ -922,6 +930,8 @@ function valorDaLinhaNaParcela(l: LinhaDemonstrativo, p: SaleInstallment): numbe
     case 'corretor':
       // Com desconto, "Comissão de …" (+) é o contratado e "Pago ao corretor" (−) já vem sem o desconto.
       return l.sinal === '+' ? p.broker_amount : arredonda(p.broker_amount - p.broker_adjustment)
+    case 'gestao':
+      return p.manager_amount ?? 0
     case 'socio':
       return p.owner_amount
     default:

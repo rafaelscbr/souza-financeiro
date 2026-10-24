@@ -66,8 +66,10 @@ export interface Cascade {
   simples: number
   broker: number
   brokerAdjustment: number
+  /** A gestão do gestor de equipe (041): sai da parte da imobiliária. */
+  manager: number
   owner: number
-  /** Comissão − impostos − corretor − sócio. */
+  /** Comissão − impostos − corretor − gestão − sócio. */
   net: number
   /** Fatia da comissão que fica com a imobiliária (0–1). */
   netShare: number
@@ -80,14 +82,16 @@ export function cascadeOf(installments: SaleInstallment[]): Cascade {
   const simples = soma(vivas.map((i) => i.simples_amount))
   const brokerAdjustment = soma(vivas.map((i) => i.broker_adjustment))
   const broker = r2(soma(vivas.map((i) => i.broker_amount)) - brokerAdjustment)
+  const manager = soma(vivas.map((i) => i.manager_amount ?? 0))
   const owner = soma(vivas.map((i) => i.owner_amount))
-  const net = r2(commission - iss - simples - broker - owner)
+  const net = r2(commission - iss - simples - broker - manager - owner)
   return {
     commission,
     iss,
     simples,
     broker,
     brokerAdjustment,
+    manager,
     owner,
     net,
     netShare: commission > 0 ? net / commission : 0,
@@ -103,6 +107,8 @@ export interface SaleView extends Sale {
   development: string | null
   developer: string | null
   brokerName: string | null
+  /** O gestor que ganha gestão sobre esta venda (041), quando há. */
+  managerName: string | null
   cascade: Cascade
   /** Comissão já recebida pela imobiliária. */
   received: number
@@ -183,6 +189,7 @@ export function buildSaleViews(params: {
         development: s.cost_center_id ? cc.get(s.cost_center_id)?.name ?? null : null,
         developer: s.cost_center_id ? cc.get(s.cost_center_id)?.developer ?? null : null,
         brokerName: s.broker_id ? ct.get(s.broker_id)?.name ?? null : null,
+        managerName: s.manager_id ? ct.get(s.manager_id)?.name ?? null : null,
         cascade,
         received,
         toReceive: soma(pendentes.map((i) => i.amount)),

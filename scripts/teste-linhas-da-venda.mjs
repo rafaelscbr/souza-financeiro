@@ -122,4 +122,28 @@ caso('resumo admin: impostos, corretor, fica; corretor: sem fica', () => {
   semFicaDaImobiliaria(rc.linhas)
 })
 
+// Gestão de equipe (041): Bruno 40%, gestão da Ana 3% sobre a base. Base = 17.020,36 − 510,61 − 990,58 = 15.519,17.
+caso('admin: parcela com gestão mostra a linha do gestor, abaixo do corretor', () => {
+  const p = parcela({ broker_amount: 6207.67, manager_amount: 465.58, manager_tx_id: 'tx-ges', net_amount: 8845.92 })
+  const l = linhasDaParcela(p, 'admin', { venda: { ...vendaInfo, broker_pct: 40, manager_pct: 3, managerName: 'Ana' } })
+  assert.deepEqual(l.map((x) => x.chave), ['bruto', 'iss', 'simples', 'corretor', 'gestao', 'fica'])
+  const g = l.find((x) => x.chave === 'gestao')
+  assert.equal(g.rotulo, 'Gestão · Ana')
+  assert.equal(g.detalhe, '3% da base')
+  assert.equal(g.valor, 465.58)
+  assert.deepEqual(g.origem, { tipo: 'transacao', id: 'tx-ges' })
+  // A conta fecha: bruto − impostos − corretor − gestão = fica gravado.
+  assert.equal(Math.round((17020.36 - 510.61 - 990.58 - 6207.67 - 465.58) * 100) / 100, 8845.92)
+})
+
+caso('corretor nunca vê a gestão do gestor', () => {
+  const p = parcela({ manager_amount: 465.58, manager_tx_id: 'tx-ges' })
+  assert.equal(linhasDaParcela(p, 'corretor', { venda: vendaInfo }).some((x) => x.chave === 'gestao'), false)
+  const v = { ...venda, managerName: 'Ana', manager_pct: 3, cascade: { ...venda.cascade, manager: 931.16, net: 10107.18 } }
+  assert.equal(linhasDaVenda(v, 'corretor').some((x) => x.chave === 'gestao'), false)
+  const admin = linhasDaVenda(v, 'admin')
+  assert.deepEqual(admin.map((x) => x.chave), ['bruto', 'iss', 'simples', 'corretor', 'gestao', 'fica'])
+  assert.equal(admin.find((x) => x.chave === 'gestao').valor, 931.16)
+})
+
 console.log(`\n${passou} casos passaram.`)

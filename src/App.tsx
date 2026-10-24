@@ -47,6 +47,9 @@ const AdminRelatorioCaixa = pagina(() =>
   import('@/admin/pages/RelatorioCaixa').then((m) => ({ default: m.RelatorioCaixa })),
 )
 const AdminMetas = pagina(() => import('@/admin/pages/Metas').then((m) => ({ default: m.Metas })))
+const AdminRelatorioComissoes = pagina(() =>
+  import('@/admin/pages/RelatorioComissoes').then((m) => ({ default: m.RelatorioComissoes })),
+)
 const AdminContas = pagina(() => import('@/admin/pages/Contas').then((m) => ({ default: m.Contas })))
 const AdminRelatorioOrcamento = pagina(() =>
   import('@/admin/pages/RelatorioOrcamento').then((m) => ({ default: m.RelatorioOrcamento })),
@@ -151,6 +154,7 @@ function AppAdministrador() {
           <Route path="/metas" element={<AdminMetas />} />
           <Route path="/relatorios/dre" element={<AdminRelatorioDre />} />
           <Route path="/relatorios/caixa" element={<AdminRelatorioCaixa />} />
+          <Route path="/relatorios/comissoes" element={<AdminRelatorioComissoes />} />
           <Route path="/relatorios/orcamento" element={<AdminRelatorioOrcamento />} />
           <Route path="/simulacao" element={<AdminSimulacao />} />
           <Route path="/config" element={<AdminConfig />} />

@@ -74,7 +74,8 @@ export type ParcelaDaConta = SaleInstallment | CorretorParcela
 
 export interface OpcoesDaParcela {
   /** Percentuais gravados na venda, só para escrever o detalhe ("3%"). */
-  venda?: Pick<SaleView, 'iss_pct' | 'simples_pct' | 'broker_pct' | 'brokerName'>
+  venda?: Pick<SaleView, 'iss_pct' | 'simples_pct' | 'broker_pct' | 'brokerName'> &
+    Partial<Pick<SaleView, 'manager_pct' | 'managerName'>>
   /** Situação da comissão do corretor nesta parcela (a tela já a tem via situacaoDeTela). */
   situacaoCorretor?: Situacao
 }
@@ -149,6 +150,15 @@ export function linhasDaParcela(
       valor: r2(p.broker_amount - p.broker_adjustment),
       origem: p.broker_tx_id ? { tipo: 'transacao', id: p.broker_tx_id } : undefined,
       situacao: situacaoCorretor,
+    })
+  if ((p.manager_amount ?? 0) > 0)
+    linhas.push({
+      chave: 'gestao',
+      rotulo: venda?.managerName ? `Gestão · ${venda.managerName}` : 'Gestão de equipe',
+      detalhe: venda?.manager_pct != null ? `${venda.manager_pct}% da base` : undefined,
+      sinal: '−',
+      valor: p.manager_amount ?? 0,
+      origem: p.manager_tx_id ? { tipo: 'transacao', id: p.manager_tx_id } : undefined,
     })
   if (p.owner_amount > 0)
     linhas.push({
@@ -250,6 +260,14 @@ export function linhasDaVenda(venda: SaleView, perfil: Perfil): LinhaDemonstrati
       sinal: '−',
       valor: c.broker,
     })
+  if (c.manager > 0)
+    linhas.push({
+      chave: 'gestao',
+      rotulo: venda.managerName ? `Gestão · ${venda.managerName}` : 'Gestão de equipe',
+      detalhe: venda.manager_pct != null ? `${venda.manager_pct}% da base` : undefined,
+      sinal: '−',
+      valor: c.manager,
+    })
   if (c.owner > 0)
     linhas.push({
       chave: 'socio',
@@ -306,6 +324,8 @@ export function resumoDaParcela(
   if (impostos > 0)
     linhas.push({ chave: 'impostos', rotulo: 'Impostos', detalhe: 'ISS e Simples', sinal: '−', valor: impostos })
   if (linhaCorretor) linhas.push(linhaCorretor)
+  const gestao = completas.find((l) => l.chave === 'gestao')
+  if (gestao) linhas.push(gestao)
   const socio = completas.find((l) => l.chave === 'socio')
   if (socio) linhas.push(socio)
   if (linhaFica) linhas.push(linhaFica)
