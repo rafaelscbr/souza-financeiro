@@ -19,6 +19,7 @@ import { RelatorioDre as AdminRelatorioDre } from '@/admin/pages/RelatorioDre'
 import { RelatorioCaixa as AdminRelatorioCaixa } from '@/admin/pages/RelatorioCaixa'
 import { RelatorioOrcamento as AdminRelatorioOrcamento } from '@/admin/pages/RelatorioOrcamento'
 import { Metas as AdminMetas } from '@/admin/pages/Metas'
+import { Contas as AdminContas } from '@/admin/pages/Contas'
 import { Simulacao as AdminSimulacao } from '@/admin/pages/Simulacao'
 import { Config as AdminConfig } from '@/admin/pages/Config'
 import { CorretorShell } from '@/corretor/CorretorShell'
@@ -149,6 +150,7 @@ function AppAdministrador() {
           <Route path="/recebimentos-imobiliaria" element={<AdminRecebimentos />} />
           <Route path="/pagar" element={<AdminPagar />} />
           <Route path="/despesas" element={<AdminDespesas />} />
+          <Route path="/contas" element={<AdminContas />} />
           <Route path="/corretores" element={<AdminCorretores />} />
           <Route path="/relatorios" element={<AdminRelatorios />} />
           <Route path="/metas" element={<AdminMetas />} />

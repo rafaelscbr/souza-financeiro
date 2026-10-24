@@ -256,7 +256,7 @@ regra de manutenção. Rascunho já existe em `git stash` ("metas de VGV (041)")
 | **1** | Regras de comissão (níveis, gestor), metas e cadastro de metas, gestor calculado no lançamento | aditivo: tabelas de metas, níveis e gestão | ✅ 23/10 (041, df5349a; brinde no repasse afd963a) |
 | **2** | Design system claro + navegação nova | não | ✅ 23/10 (tema Mesa, 8dd6c23) |
 | **3** | Painel executivo (saldo, recebido, a receber, resultado, a pagar, VGV, saúde, previsão de caixa, metas, atenção) | não | ✅ 23/10 (Início: resultado, a pagar, previsão de caixa, fôlego, meta) |
-| **4** | Dinheiro: receber, pagar, fluxo (realizado/previsto/consolidado), contas | não | saldo = extrato |
+| **4** | Dinheiro: receber, pagar, fluxo (realizado/previsto/consolidado), contas | não | ✅ 23/10 (tela Contas com extrato; previsão no Fluxo de caixa; Bradesco PJ = R$ 7.391,60) |
 | **5** | Comissões e repasses: relatórios e ficha com memória do cálculo | não | soma por corretor = razão |
 | **6** | Relatórios, indicadores, ajuda contextual, exportação | não | totais exportados = tela |
 | **7** | Área do corretor + revisão de RLS | políticas | teste com a chave pública e com login de corretor |

@@ -7,6 +7,7 @@ import {
   HandCoins,
   Handshake,
   Home,
+  Landmark,
   PieChart,
   Receipt,
   Settings,
@@ -88,6 +89,7 @@ export function navAdmin({ vencidos, esperando }: { vencidos: number; esperando:
         },
         { para: '/recebimentos-imobiliaria', rotulo: 'Recebimentos', icone: CalendarRange },
         { para: '/despesas', rotulo: 'Despesas', icone: Receipt },
+        { para: '/contas', rotulo: 'Contas', icone: Landmark },
       ],
     },
     {
@@ -219,6 +221,7 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
   },
   { padrao: '/pagar', icone: ArrowUpCircle, titulo: 'Pagar', usaMes: true, faixa: true, cta: CTA_VENDA },
   { padrao: '/despesas', icone: Receipt, titulo: 'Despesas', usaMes: true, faixa: true, cta: CTA_DESPESA },
+  { padrao: '/contas', icone: Landmark, titulo: 'Contas', usaMes: true, faixa: true },
   { padrao: '/corretores', icone: Users, titulo: 'Corretores', usaMes: false, faixa: false, cta: CTA_VENDA },
   { padrao: '/relatorios', icone: PieChart, titulo: 'Relatórios', usaMes: false, faixa: false },
   { padrao: '/metas', icone: Target, titulo: 'Metas', usaMes: true, faixa: true },

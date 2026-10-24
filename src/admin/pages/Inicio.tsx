@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpCircle, Banknote, BarChart3, Building2, CalendarRange, CircleCheck, Clock, Handshake, ListChecks, PieChart, ReceiptText, Scale, Target, UserRound, Wallet } from 'lucide-react'
+import { ArrowUpCircle, Banknote, BarChart3, Building2, CalendarRange, CircleCheck, Clock, Handshake, ListChecks, PieChart, ReceiptText, Scale, Target, UserRound } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { CartaoDoTeto } from '../CartaoDoTeto'
+import { CartaoPrevisaoDeCaixa } from '../CartaoPrevisaoDeCaixa'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
@@ -18,7 +19,7 @@ import { ChipSituacao } from '@/components/ui/Situacao'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { formatCurrency, formatMonthTiny, formatMonthYear } from '@/lib/format'
 import { lastNMonths, monthKey } from '@/lib/finance'
-import { folegoDoCaixa, previsaoDeCaixa, resultadoDoMes } from '@/lib/painel'
+import { resultadoDoMes } from '@/lib/painel'
 import { situacaoDaMeta } from '@/lib/comissao'
 import { entradasPorMes } from '@/lib/sales'
 import { accountBalance } from '@/lib/treasury'
@@ -65,7 +66,7 @@ import type { SaleInstallment } from '@/types'
  */
 export function Inicio() {
   const {
-    company, sales, metas, perfis, orcamento, transactions, transfers, accounts, atencao, receber, pagar, vendas, installments, hoje, mes,
+    sales, metas, perfis, transactions, transfers, accounts, atencao, receber, pagar, vendas, installments, hoje, mes,
   } = useAdmin()
   const { abrir } = useComposicao()
 
@@ -194,17 +195,6 @@ export function Inicio() {
    */
   const parcelas = useMemo(() => new Map(installments.map((p) => [p.id, p])), [installments])
   const resultado = useMemo(() => resultadoDoMes(transactions, parcelas, chaveMes), [transactions, parcelas, chaveMes])
-  const teto = company?.monthly_budget ?? null
-  const inicioDaPrevisao = useMemo(() => {
-    const h = new Date(`${hoje}T12:00:00`)
-    return new Date(h.getFullYear(), h.getMonth(), 1)
-  }, [hoje])
-  const previsao = useMemo(
-    () => previsaoDeCaixa({ saldo, receber, pagar, orcamento, teto, transactions, parcelas, inicio: inicioDaPrevisao }),
-    [saldo, receber, pagar, orcamento, teto, transactions, parcelas, inicioDaPrevisao],
-  )
-  const folego = folegoDoCaixa(saldo, teto)
-  const menorSaldo = previsao.reduce((m, p) => Math.min(m, p.saldoFim), saldo)
   const meta = useMemo(
     () => situacaoDaMeta({ sales, perfis, metas, mes: chaveMes, contactId: null }),
     [sales, perfis, metas, chaveMes],
@@ -375,60 +365,7 @@ export function Inicio() {
       </div>
 
       <div className="grid items-start gap-bloco lg:grid-cols-12">
-        <Cartao className="lg:col-span-7">
-          <Cartao.Cabecalho
-            titulo="Previsão de caixa"
-            icone={Wallet}
-            meta={
-              folego == null
-                ? 'os próximos 6 meses'
-                : `o caixa de hoje paga ${folego.toLocaleString('pt-BR')} ${folego === 1 ? 'mês' : 'meses'} de estrutura sem venda nova`
-            }
-          />
-          <Cartao.Lista colunas={{ valor: '10rem', fim: true }} rotuloAcessivel="Previsão de caixa mês a mês">
-            {previsao.map((p, k) => {
-              const nome = formatMonthYear(new Date(`${p.mes}-01T12:00:00`))
-              return (
-                <Linha
-                  key={p.mes}
-                  titulo={k === 0 ? `${nome} · até o fim do mês` : nome}
-                  meta={`entra ${formatCurrency(p.entra)} · sai ${formatCurrency(p.sai)}`}
-                  valor={
-                    p.saldoFim < 0 ? (
-                      <Valor valor={p.saldoFim} posto="linha" estado="negativo" />
-                    ) : (
-                      <Valor valor={p.saldoFim} posto="linha" previsto />
-                    )
-                  }
-                  aoClicar={() =>
-                    abrir({
-                      rotulo: 'Entra menos sai',
-                      titulo: `O caixa em ${nome}`,
-                      explica: `O que deve entrar e sair no mês: parcelas a receber, contas e comissões a pagar e o custo do orçamento que ainda não foi lançado. Com isso, o saldo termina o mês em ${formatCurrency(p.saldoFim)}. A data das parcelas depende da construtora — é previsão.`,
-                      total: Math.round((p.entra - p.sai) * 100) / 100,
-                      itens: [
-                        ...comp(p.entradas),
-                        ...comp(p.saidas).map((i) => ({ ...i, valor: -i.valor })),
-                        ...(p.reservado > 0
-                          ? [{ id: `reservado-${p.mes}`, titulo: 'Orçamento ainda não lançado', meta: 'gastos fixos confirmados', valor: -p.reservado }]
-                          : []),
-                      ],
-                      nota: k === 0 ? 'O primeiro mês inclui o que está em atraso, a receber e a pagar.' : undefined,
-                      vazio: 'Nada previsto para este mês.',
-                    })
-                  }
-                />
-              )
-            })}
-          </Cartao.Lista>
-          <Cartao.Rodape>
-            <p className="max-w-[72ch]">
-              {menorSaldo < 0
-                ? 'Em algum mês o caixa fica negativo: antecipe recebimento ou segure gasto antes de chegar lá.'
-                : 'Saldo de hoje mais o que entra, menos o que sai, mês a mês. Retirada do sócio fica de fora.'}
-            </p>
-          </Cartao.Rodape>
-        </Cartao>
+        <CartaoPrevisaoDeCaixa className="lg:col-span-7" />
 
         <Cartao className="lg:col-span-5">
           <Cartao.Cabecalho titulo="Meta do mês" icone={Target} meta={tituloDoMes} />

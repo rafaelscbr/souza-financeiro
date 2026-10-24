@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAdmin } from '../AdminData'
+import { CartaoPrevisaoDeCaixa } from '../CartaoPrevisaoDeCaixa'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
@@ -232,6 +233,13 @@ export function RelatorioCaixa() {
           })}
         </Cartao.Lista>
       </Cartao>
+
+      {/*
+       * O PREVISTO (Fase 4, 23/10/2026). Acima, o realizado do período; aqui,
+       * o caixa daqui para frente, a partir do saldo de hoje. Os dois juntos
+       * são o consolidado: o que já aconteceu e o que vem.
+       */}
+      <CartaoPrevisaoDeCaixa />
     </PageLayout>
   )
 }
