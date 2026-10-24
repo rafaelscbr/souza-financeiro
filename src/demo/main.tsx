@@ -23,7 +23,7 @@
  *     /demo.html?tela=trocar-senha&perfil=admin#/config  (modal aberto por cima do app)
  *   Também valem #/login e #/trocar-senha no lugar de ?tela=.
  *
- * Tema: localStorage 'sgf.theme' = 'dark' | 'light' (igual ao app). Nada grava:
+ * Tema: localStorage 'sgf.tema' = 'dark' | 'light' (igual ao app; sem nada, claro). Nada grava:
  * toda ação termina no erro "vitrine: sem banco" (ver semBanco.ts).
  */
 import './semBanco'

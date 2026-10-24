@@ -26,8 +26,8 @@ export default defineConfig({
         lang: 'pt-BR',
         // As cores da casca de hoje (5.1): o azul e o papel antigos ficaram
         // para trás e pintavam a tela de abertura no celular com outra marca.
-        theme_color: '#070B1A',
-        background_color: '#070B1A',
+        theme_color: '#F5F6F8',
+        background_color: '#F5F6F8',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',

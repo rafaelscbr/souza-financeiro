@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#070B1A" />
+    <meta name="theme-color" content="#F5F6F8" />
     <title>Vitrine de telas — Souza Imobiliária</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -16,15 +16,15 @@
       href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap"
     />
     <script>
-      // Vitrine só de desenvolvimento (fora do build, como kit.html). Anti-flash igual ao do index.html: escuro por padrão, html.light só com
-      // 'light' salvo, html.compacta só com 'compacta' salvo.
+      // Vitrine só de desenvolvimento (fora do build, como kit.html). Anti-flash igual ao do index.html: claro por padrão, escuro só com
+      // 'dark' escolhido, html.compacta só com 'compacta' salvo.
       (function () {
         var html = document.documentElement
         try {
-          var claro = localStorage.getItem('sgf.theme') === 'light'
+          var claro = localStorage.getItem('sgf.tema') !== 'dark'
           if (claro) html.classList.add('light')
           var meta = document.querySelector('meta[name="theme-color"]')
-          if (meta) meta.setAttribute('content', claro ? '#F6F3EC' : '#070B1A')
+          if (meta) meta.setAttribute('content', claro ? '#F5F6F8' : '#070B1A')
         } catch (e) {}
         try {
           if (localStorage.getItem('sgf.densidade') === 'compacta') html.classList.add('compacta')

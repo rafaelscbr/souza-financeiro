@@ -235,7 +235,7 @@ export function PagarComissao({
             Cancelar
           </Button>
           <Button variant="primario" size="lg" onClick={confirmar} carregando={salvando}>
-            Pagar <Valor valor={aPagar} posto="fato" tinta="text-brand-fill-text" />
+            Pagar <Valor valor={aPagar} posto="fato" tinta="text-acao-texto" />
           </Button>
         </RodapeDaFolha>
       }

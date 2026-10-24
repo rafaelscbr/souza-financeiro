@@ -41,7 +41,7 @@ const VARIANTE_LEGADA: Record<ButtonVariantLegado, ButtonVariante> = {
 }
 
 const variantes: Record<ButtonVariante, string> = {
-  primario: 'bg-brand-fill text-brand-fill-text font-heading hover:bg-brand-fill-hover',
+  primario: 'bg-acao text-acao-texto font-heading hover:bg-acao-hover',
   secundario: 'border border-fio-controle bg-surface text-t1 hover:bg-linha-hover',
   fantasma: 'text-t2 hover:bg-linha-hover hover:text-t1',
   perigo: 'border border-error-line bg-surface text-error-ink hover:bg-linha-hover',

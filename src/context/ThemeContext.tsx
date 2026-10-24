@@ -9,26 +9,26 @@ import {
 } from 'react'
 
 export type Theme = 'light' | 'dark'
-const KEY = 'sgf.theme'
+/*
+ * Chave nova em 23/10/2026. A antiga ('sgf.theme') era gravada a cada abertura,
+ * então TODO aparelho tinha 'dark' salvo sem ninguém ter escolhido. Esta só é
+ * gravada quando a pessoa escolhe no menu — assim o padrão novo chega a todos.
+ */
+export const CHAVE_TEMA = 'sgf.tema'
 
 /**
- * Preferência salva; se não houver, ESCURO.
- *
- * Não segue o sistema operacional de propósito. O escuro é o padrão da casa
- * (docs/souza-os.md, seção 2) — é o tema do iCRM que a imobiliária já usa todo
- * dia — e abrir claro num Mac configurado em claro faria o financeiro parecer
- * outro sistema. Quem preferir claro troca no menu, e a escolha fica salva.
- *
- * O valor salvo continua 'light' | 'dark', o mesmo de antes da troca de
- * mecanismo, então não há migração: quem tinha escolhido claro continua claro.
+ * Escolha salva; se não houver, CLARO (a Mesa, decisão do Rafael em
+ * 23/10/2026: "mais suave, minimalista, com cara de sistema financeiro").
+ * O escuro continua inteiro, a um toque no menu. Não segue o sistema
+ * operacional: o sistema tem uma cara só, a menos que a pessoa escolha outra.
  */
 function initialTheme(): Theme {
   try {
-    return localStorage.getItem(KEY) === 'light' ? 'light' : 'dark'
+    return localStorage.getItem(CHAVE_TEMA) === 'dark' ? 'dark' : 'light'
   } catch {
     /* sem localStorage */
   }
-  return 'dark'
+  return 'light'
 }
 
 interface ThemeValue {
@@ -56,15 +56,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const fundo = getComputedStyle(root).getPropertyValue('--page-bg').trim()
     if (fundo) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', fundo)
 
+  }, [theme])
+
+  /** Só a escolha da pessoa grava; abrir o app não grava nada. */
+  const escolher = useCallback((t: Theme) => {
     try {
-      localStorage.setItem(KEY, theme)
+      localStorage.setItem(CHAVE_TEMA, t)
     } catch {
       /* ignora */
     }
-  }, [theme])
-
-  const setTheme = useCallback((t: Theme) => setThemeState(t), [])
-  const toggle = useCallback(() => setThemeState((t) => (t === 'dark' ? 'light' : 'dark')), [])
+    setThemeState(t)
+  }, [])
+  const setTheme = escolher
+  const toggle = useCallback(() => escolher(theme === 'dark' ? 'light' : 'dark'), [escolher, theme])
   const value = useMemo(() => ({ theme, toggle, setTheme }), [theme, toggle, setTheme])
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

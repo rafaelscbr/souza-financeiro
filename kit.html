@@ -21,7 +21,7 @@
       (function () {
         var html = document.documentElement
         try {
-          var claro = localStorage.getItem('sgf.theme') === 'light'
+          var claro = localStorage.getItem('sgf.tema') !== 'dark'
           if (claro) html.classList.add('light')
           var meta = document.querySelector('meta[name="theme-color"]')
           if (meta) meta.setAttribute('content', claro ? '#F6F3EC' : '#070B1A')

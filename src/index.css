@@ -83,37 +83,44 @@
   --aurora-a:rgba(228,178,60,.14); --aurora-b:rgba(228,178,60,.09);
 }
 
-html.light { /* CLARO — Papel */
-  --brand:#A8791A; --brand-dark:#8A6210; --brand-tint:rgba(228,178,60,.16);
-  --brand-text:#8A6210; --brand-shadow:rgba(228,178,60,.30); --brand-btn-text:#0F1730;
+html.light { /* CLARO — Mesa (23/10/2026): padrão do sistema */
+  /*
+   * "Mais suave, minimalista, com cara de sistema financeiro" (Rafael,
+   * 23/10/2026). O papel quente virou mesa fria: cinzas neutros de banco,
+   * branco nas caixas, fio fino, sombra quase nenhuma. O ouro da Souza fica na
+   * marca e nos detalhes; o número é tinta, não ouro, e a ação principal é
+   * marinho. O escuro (:root) continua como era.
+   */
+  --brand:#9C7424; --brand-dark:#7E5C17; --brand-tint:rgba(196,146,42,.10);
+  --brand-text:#7E5C17; --brand-shadow:rgba(16,24,40,.10); --brand-btn-text:#FFFFFF;
   --brand-fill:#E4B23C; --brand-fill-hover:#D9A62F; --brand-fill-deep:#C2922A; --brand-fill-text:#0F1730;
   --grad-brand:linear-gradient(158deg,#F0CC78 0%,#E4B23C 62%); --grad-brand-text:#0F1730;
 
-  /* Os mesmos três planos, no claro: o papel da página é mais quente que o
-     branco do cartão, e o menu fica entre os dois. */
-  --page-bg:#EDE9DF; --surface:#FFFFFF; --surface-2:#F4F1E9; --surface-3:#E6E2D8;
+  /* Três planos, quase sem salto: o menu e o cartão brancos, a mesa cinza. */
+  --page-bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#F8F9FB; --surface-3:#EEF0F4;
 
-  --nav-bg:#F6F3EC; --nav-text:#2A3660; --nav-muted:#5A6480; --nav-active-text:#0F1730;
-  --nav-active-bg:rgba(15,23,48,.062); --nav-hover-bg:rgba(15,23,48,.035);
-  --nav-line:rgba(15,23,48,.10); --nav-logo:#0F1730; --nav-elev:#FFFFFF;
-  --nav-rail-sheen:linear-gradient(158deg,rgba(255,255,255,.85) 0%,rgba(255,255,255,0) 46%);
+  --nav-bg:#FFFFFF; --nav-text:#475467; --nav-muted:#7A8396; --nav-active-text:#101828;
+  --nav-active-bg:#F2F4F7; --nav-hover-bg:#F7F8FA;
+  --nav-line:#EAECF0; --nav-logo:#101828; --nav-elev:#FFFFFF;
+  --nav-rail-sheen:none;
 
-  --t1:#0F1730; --t2:#2A3660; --t3:#4A5573; --t4:#5A6480; --t5:#9AA0AE;
-  --line:rgba(15,23,48,.10); --line-strong:rgba(15,23,48,.18); --line-input:rgba(15,23,48,.15);
+  --t1:#101828; --t2:#344054; --t3:#475467; --t4:#667085; --t5:#98A2B3;
+  --line:rgba(16,24,40,.07); --line-strong:rgba(16,24,40,.10); --line-input:rgba(16,24,40,.16);
 
-  --success:#1F8A62; --success-bg:#E7F5ED; --success-line:#A8DCC4;
-  --warning:#BD7A12; --warning-bg:#FBF0DC; --warning-line:#E8C88A;
-  --error:#C7474F;   --error-bg:#FBEAEB;   --error-line:#EFB3B7;
-  --info:#236B73;    --info-bg:#E7F2F2;    --info-line:#A9CFD2;
+  --success:#067647; --success-bg:#ECFDF3; --success-line:#ABEFC6;
+  --warning:#B54708; --warning-bg:#FFFAEB; --warning-line:#FEDF89;
+  --error:#B42318;   --error-bg:#FEF3F2;   --error-line:#FECDCA;
+  --info:#175CD3;    --info-bg:#EFF8FF;    --info-line:#B2DDFF;
 
-  --shadow-card:0 1px 2px rgba(15,23,48,.06),0 12px 26px -18px rgba(15,23,48,.35);
-  --shadow-modal:0 25px 50px rgba(15,23,48,.18),0 10px 20px rgba(15,23,48,.10);
-  --shadow-dropdown:0 10px 30px rgba(15,23,48,.12),0 4px 10px rgba(15,23,48,.08);
+  /* Sombra de contato só: o cartão pousa na mesa, não flutua. */
+  --shadow-card:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.03);
+  --shadow-modal:0 24px 48px -12px rgba(16,24,40,.18);
+  --shadow-dropdown:0 12px 16px -4px rgba(16,24,40,.08),0 4px 6px -2px rgba(16,24,40,.03);
 
-  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.02'/%3E%3C/svg%3E");
-  --surface-sheen:linear-gradient(158deg,rgba(255,255,255,0) 45%,rgba(15,23,48,.030) 100%);
-  --sheen-start:color-mix(in srgb,var(--surface-2) 50%,var(--surface));
-  --aurora-a:rgba(228,178,60,.055); --aurora-b:rgba(196,146,42,.035);
+  --grain:none;
+  --surface-sheen:none;
+  --sheen-start:var(--surface);
+  --aurora-a:transparent; --aurora-b:transparent;
 }
 
 /*
@@ -134,9 +141,24 @@ html.light { /* CLARO — Papel */
   --scrollbar-thumb: #4A5573;
 }
 
+/*
+ * A AÇÃO PRINCIPAL E O NÚMERO DO HERÓI (23/10/2026). No escuro seguem o ouro
+ * da casa; na Mesa, o botão é marinho e o número é tinta — ouro só na marca.
+ */
+:root {
+  --serie: var(--brand-fill); --serie-suave: color-mix(in srgb, var(--brand-fill) 70%, transparent); --serie-apagada: .7;
+  --acao: var(--brand-fill); --acao-hover: var(--brand-fill-hover); --acao-texto: var(--brand-fill-text);
+  --heroi-numero: var(--brand-text); --heroi-moeda: var(--brand-text);
+}
+html.light {
+  --serie: #344054; --serie-suave: #D0D5DD; --serie-apagada: .32;
+  --acao: #101828; --acao-hover: #1D2939; --acao-texto: #FFFFFF;
+  --heroi-numero: var(--t1); --heroi-moeda: var(--t4);
+}
+
 html.light {
   color-scheme: light;
-  --scrollbar-thumb: rgba(15, 23, 48, 0.18);
+  --scrollbar-thumb: rgba(16, 24, 40, 0.16);
 }
 
 /*
@@ -195,8 +217,8 @@ html.light {
 
 /* 5.1 Tokens derivados — claro */
 html.light {
-  --fio-controle: color-mix(in srgb, var(--t1) 55%, var(--surface)); /* 3,97 branco / 3,59 papel */
-  --borda-ouro: var(--brand);                                        /* 3,88:1 sobre branco */
+  --fio-controle: color-mix(in srgb, var(--t1) 48%, var(--surface)); /* Mesa: 3,2:1 sobre branco, o mínimo do WCAG 1.4.11, e mais leve */
+  --borda-ouro: color-mix(in srgb, var(--brand) 38%, var(--surface)); /* Mesa: fio quente e fino, assinatura do herói */
   --t-meta: var(--t4);                                               /* ≥4,55 no pior fundo */
   --success-ink: color-mix(in srgb, var(--success) 75%, var(--t1));  /* 5,53 sobre success-bg */
   --warning-ink: color-mix(in srgb, var(--warning) 65%, var(--t1));  /* 5,62 sobre warning-bg */
@@ -206,18 +228,11 @@ html.light {
   --veu-modal: color-mix(in srgb, var(--t1) 45%, transparent);
   --sombra-rolagem: color-mix(in srgb, var(--t1) 14%, transparent);  /* 4.2 */
 
-  /* No claro a luz vem de cima e o degradê fecha em sombra, não em brilho. */
-  --grad-superficie: linear-gradient(158deg, rgba(255,255,255,.9) 0%, rgba(15,23,48,.012) 55%, rgba(15,23,48,.032) 100%);
-  --grad-heroi: linear-gradient(158deg, rgba(228,178,60,.16) 0%, rgba(228,178,60,.05) 45%, rgba(228,178,60,0) 78%);
-  --grad-trilha: linear-gradient(180deg, rgba(255,255,255,.75) 0%, rgba(255,255,255,0) 40%);
-
-  /* No claro o mesmo desenho, em papel: o halo é quente e quase não se vê. */
-  --grad-pagina:
-    radial-gradient(1400px 820px at 94% -10%, rgba(228,178,60,.62), transparent 58%),
-    radial-gradient(760px 520px at 78% 2%, rgba(240,204,120,.30), transparent 60%),
-    radial-gradient(1000px 640px at -8% -6%, rgba(86,124,222,.14), transparent 58%),
-    radial-gradient(1300px 820px at 40% 116%, rgba(228,178,60,.26), transparent 60%),
-    linear-gradient(180deg, #FCF9F1 0%, #F1EDE3 44%, #E6E1D4 100%);
+  /* Mesa: superfícies lisas. Nenhum halo, nenhum brilho; a profundidade é fio e tom. */
+  --grad-superficie: none;
+  --grad-heroi: none;
+  --grad-trilha: none;
+  --grad-pagina: none;
 }
 
 /* 3.2 Espaço semântico */

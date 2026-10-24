@@ -57,12 +57,19 @@ const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um :
  * a casca sempre fez; só a cor mudou de nome.
  */
 export function navAdmin({ vencidos, esperando }: { vencidos: number; esperando: number }): SecaoNav[] {
+  /*
+   * Agrupado pelo trabalho, não pela tela (23/10/2026): primeiro o panorama,
+   * depois o dinheiro que entra e sai, a venda e quem vende, e por fim a
+   * gestão. Os mesmos destinos de antes; só mudaram de grupo.
+   */
   return [
     {
-      rotulo: 'Operação',
+      rotulo: 'Visão geral',
+      itens: [{ para: '/', rotulo: 'Início', icone: Home, fim: true }],
+    },
+    {
+      rotulo: 'Dinheiro',
       itens: [
-        { para: '/', rotulo: 'Início', icone: Home, fim: true },
-        { para: '/vendas', rotulo: 'Vendas', icone: Handshake },
         {
           para: '/receber',
           rotulo: 'Receber',
@@ -71,7 +78,6 @@ export function navAdmin({ vencidos, esperando }: { vencidos: number; esperando:
           tomContador: 'risco',
           leituraContador: plural(vencidos, 'recebimento vencido', 'recebimentos vencidos'),
         },
-        { para: '/recebimentos-imobiliaria', rotulo: 'Recebimentos', icone: CalendarRange },
         {
           para: '/pagar',
           rotulo: 'Pagar',
@@ -80,20 +86,22 @@ export function navAdmin({ vencidos, esperando }: { vencidos: number; esperando:
           tomContador: 'atencao',
           leituraContador: plural(esperando, 'pagamento esperando', 'pagamentos esperando'),
         },
-      ],
-    },
-    {
-      rotulo: 'Financeiro',
-      itens: [
+        { para: '/recebimentos-imobiliaria', rotulo: 'Recebimentos', icone: CalendarRange },
         { para: '/despesas', rotulo: 'Despesas', icone: Receipt },
-        { para: '/corretores', rotulo: 'Corretores', icone: Users },
       ],
     },
     {
-      rotulo: 'Relatórios',
+      rotulo: 'Comercial',
+      itens: [
+        { para: '/vendas', rotulo: 'Vendas', icone: Handshake },
+        { para: '/corretores', rotulo: 'Corretores', icone: Users },
+        { para: '/metas', rotulo: 'Metas', icone: Target },
+      ],
+    },
+    {
+      rotulo: 'Gestão',
       itens: [
         { para: '/relatorios', rotulo: 'Relatórios', icone: PieChart },
-        { para: '/metas', rotulo: 'Metas', icone: Target },
         { para: '/simulacao', rotulo: 'Simulação', icone: Calculator },
       ],
     },

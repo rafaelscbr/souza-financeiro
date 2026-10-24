@@ -111,10 +111,15 @@ Regras de dado que acompanham o design:
 Logo: "S" Marinho num quadrado Areia com radius ~25%. Ponto final do lockup em
 Areia. Ícones Lucide com stroke 1.6. **Nunca emoji** na interface.
 
-Temas: `:root` é o **escuro (padrão da casa)**; `html.light` é o claro, completo
-e disponível num seletor "Claro / Escuro" (duas opções com marca, não
-interruptor). Persistir a escolha e ter script anti-flash no `index.html`.
-Se um dia mudar o padrão persistido, subir a `version` e escrever `migrate`.
+Temas: desde 23/10/2026 o **claro "Mesa" é o padrão** (decisão do Rafael:
+"mais suave, minimalista, com cara de sistema financeiro"). `html.light` é a
+Mesa: cinzas neutros (`#F5F6F8` a página, branco a caixa), tinta `#101828`,
+fio fino, sombra só de contato, nenhum degradê nem grão; número do herói em
+tinta, ação principal em marinho (`--acao`), ouro só na marca e no fio do
+herói. `:root` continua sendo o escuro da casa, inteiro, a um toque no seletor
+"Claro / Escuro". A escolha só é gravada quando a pessoa escolhe (chave
+`sgf.tema`); sem escolha, claro. A chave antiga `sgf.theme` foi abandonada
+porque era gravada a cada abertura.
 
 ---
 

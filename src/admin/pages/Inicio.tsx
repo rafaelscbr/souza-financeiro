@@ -310,7 +310,7 @@ export function Inicio() {
         frase="O que existe hoje, somando as contas ativas. Não entra nada previsto."
       />
 
-      <div className="grid gap-bloco sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-bloco sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
           rotulo="Vendas ativas"
           icone={Handshake}

@@ -7,6 +7,7 @@ import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { Button } from '@/components/ui/Button'
+import { Barra } from '@/components/ui/Barra'
 import { useToast } from '@/components/ui/Toast'
 import { FormMeta, FormPercentuais, FormPerfil } from '../FormulariosDeMetas'
 import {
@@ -136,6 +137,15 @@ export function Metas() {
         rotuloAcessivel={`Ver as vendas de ${nomeDoMes}`}
         aoAbrir={() => abrirVendas(`VGV de ${nomeDoMes}`, geral.vendas, geral.vgv, 'As vendas dos corretores no mês, pela data do contrato, com o valor inteiro do imóvel. As do Rafael não contam.')}
         frase={fraseDoHeroi}
+        barra={
+          geral.atingido != null ? (
+            <Barra
+              rotuloAcessivel={`${Math.round(geral.atingido * 100)}% da meta de ${formatCurrency(geral.meta ?? 0)}`}
+              valor={geral.atingido}
+              tom={geral.bateu ? 'sucesso' : 'marca'}
+            />
+          ) : undefined
+        }
         apoios={[
           ...(geral.meta != null
             ? [{ rotulo: geral.bateu ? 'Meta batida' : 'Falta', valor: geral.bateu ? geral.meta : geral.falta, rotuloAcessivel: 'Ver as vendas do mês', aoAbrir: () => abrirVendas(`VGV de ${nomeDoMes}`, geral.vendas, geral.vgv, 'As vendas que contam para a meta geral.') }]

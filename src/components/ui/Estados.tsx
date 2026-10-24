@@ -111,7 +111,7 @@ export function EsqueletoLista({ linhas = 5, goteira = true }: { linhas?: number
 /** Grade de KPIs carregando (7.4): rótulo, número e nota, na caixa do KPI. */
 export function EsqueletoCards({ quantos = 4 }: { quantos?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-bloco lg:grid-cols-4" aria-busy="true" aria-live="polite">
+    <div className="grid grid-cols-2 gap-bloco xl:grid-cols-4" aria-busy="true" aria-live="polite">
       <span className="sr-only">Carregando…</span>
       {Array.from({ length: quantos }).map((_, i) => (
         <div key={i} data-caixa className="flex flex-col gap-3 rounded-caixa border border-fio-caixa bg-surface p-recuo shadow-card" aria-hidden>

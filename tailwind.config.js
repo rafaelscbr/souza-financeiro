@@ -17,7 +17,7 @@ const c = (nome) => `color-mix(in srgb, var(${nome}) calc(<alpha-value> * 100%),
 
 export default {
   /*
-   * O escuro é o padrão da casa e o claro é `html.light`. Se alguém um dia
+   * O claro (Mesa) é o padrão desde 23/10/2026 e mora em `html.light`. Se alguém um dia
    * escrever `dark:`, que ele siga a mesma chave e não o sistema operacional.
    * Mas o caminho certo continua sendo o token, que troca sozinho.
    */
@@ -47,6 +47,13 @@ export default {
         'brand-fill-deep': c('--brand-fill-deep'),
         'brand-fill-text': c('--brand-fill-text'),
         page: c('--page-bg'),
+        serie: c('--serie'),
+        'serie-suave': c('--serie-suave'),
+        acao: c('--acao'),
+        'acao-hover': c('--acao-hover'),
+        'acao-texto': c('--acao-texto'),
+        'heroi-numero': c('--heroi-numero'),
+        'heroi-moeda': c('--heroi-moeda'),
         /*
          * `surface` é o nome do guia. As chaves 2 e 3 são ALIASES DEPRECADOS
          * (bg-surface-2, bg-surface-3) das telas antigas; o guia chama essas
@@ -200,10 +207,10 @@ export default {
        * Nenhum nome aqui repete um nome de `colors` (texto-meta é tamanho, t-meta é cor).
        */
       fontSize: {
-        'numero-heroi': ['34px', { lineHeight: '40px', letterSpacing: '-0.02em', fontWeight: '800' }],
-        'numero-heroi-m': ['28px', { lineHeight: '32px', letterSpacing: '-0.02em', fontWeight: '800' }],
-        'numero-kpi': ['28px', { lineHeight: '32px', letterSpacing: '-0.015em', fontWeight: '700' }],
-        'numero-kpi-m': ['22px', { lineHeight: '28px', letterSpacing: '-0.015em', fontWeight: '700' }],
+        'numero-heroi': ['36px', { lineHeight: '44px', letterSpacing: '-0.025em', fontWeight: '600' }],
+        'numero-heroi-m': ['30px', { lineHeight: '36px', letterSpacing: '-0.025em', fontWeight: '600' }],
+        'numero-kpi': ['26px', { lineHeight: '32px', letterSpacing: '-0.02em', fontWeight: '600' }],
+        'numero-kpi-m': ['22px', { lineHeight: '28px', letterSpacing: '-0.02em', fontWeight: '600' }],
         'titulo-pagina': ['19px', { lineHeight: '28px', letterSpacing: '-0.01em', fontWeight: '700' }],
         'titulo-pagina-m': ['17px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '700' }],
         'titulo-painel': ['16px', { lineHeight: '24px', letterSpacing: '-0.005em', fontWeight: '600' }],
@@ -216,7 +223,7 @@ export default {
         'texto-corrido': ['14px', { lineHeight: '22px', letterSpacing: '0', fontWeight: '400' }],
         'texto-meta': ['13px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '400' }],
         nota: ['12px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '400' }],
-        rotulo: ['11px', { lineHeight: '16px', letterSpacing: '0.14em', fontWeight: '500' }],
+        rotulo: ['11px', { lineHeight: '16px', letterSpacing: '0.08em', fontWeight: '500' }],
         chip: ['11px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '600' }],
         botao: ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '600' }],
         'botao-secundario': ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],

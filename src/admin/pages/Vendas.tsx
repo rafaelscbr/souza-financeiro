@@ -558,7 +558,7 @@ export function Vendas() {
        * Cada um abre venda por venda, com a mesma regra de origem do resto
        * da casa — número sem origem não existe aqui.
        */}
-      <div className="grid gap-bloco sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-bloco sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
           rotulo="Da imobiliária"
           icone={Building2}

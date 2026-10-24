@@ -14,8 +14,14 @@ import type { Tom } from './tom'
  * mês sem venda continuar existindo na série.
  */
 
+/*
+ * A série da marca tem duas cores (23/10/2026): o mês em foco em --serie e os
+ * outros em --serie-suave. No escuro é o ouro de sempre (o suave a 70%); na
+ * Mesa, os meses ficam em cinza de papel e o mês em foco em tinta — a leitura
+ * de extrato de banco, sem bloco de cor pesando na tela.
+ */
 const COR: Record<Tom, string> = {
-  marca: 'bg-brand-fill',
+  marca: 'bg-serie-suave',
   sucesso: 'bg-success',
   atencao: 'bg-warning',
   risco: 'bg-error',
@@ -58,7 +64,10 @@ export function Colunas({ itens, rotuloAcessivel, tom = 'marca', aoClicar, class
             <span className="flex h-32 w-full items-end">
               {fracao > 0 ? (
                 <span
-                  className={cn('w-full rounded-controle', COR[tom], !item.ativo && 'opacity-70')}
+                  className={cn(
+                    'mx-auto w-full max-w-10 rounded-t-badge',
+                    tom === 'marca' ? (item.ativo ? 'bg-serie' : 'bg-serie-suave') : [COR[tom], !item.ativo && 'opacity-[var(--serie-apagada)]'],
+                  )}
                   style={{ height: `${Math.max(fracao * 100, 2)}%` }}
                 />
               ) : (

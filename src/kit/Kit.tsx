@@ -194,7 +194,7 @@ function useTema() {
     html.classList.add('trocando-tema')
     html.classList.toggle('light', paraClaro)
     try {
-      localStorage.setItem('sgf.theme', paraClaro ? 'light' : 'dark')
+      localStorage.setItem('sgf.tema', paraClaro ? 'light' : 'dark')
     } catch {
       /* sem armazenamento: só esta visita */
     }
