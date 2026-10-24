@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BadgePercent, Calculator, HandCoins, Wallet } from 'lucide-react'
+import { BadgePercent, Calculator, Gift, HandCoins, Wallet } from 'lucide-react'
 import { useAdmin } from './AdminData'
 import { SidePanel } from '@/components/ui/SidePanel'
 import { Button } from '@/components/ui/Button'
@@ -13,6 +13,7 @@ import { Selo } from '@/components/ui/Selo'
 import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
 import { Dica } from '@/components/ui/Dica'
+import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import { formatCurrency, toDateOnly } from '@/lib/format'
 import type { LinhaDemonstrativo } from '@/lib/linhasDaVenda'
 import { situacaoDeTela } from '@/lib/situacao'
@@ -70,7 +71,16 @@ function ordinal(rotulo: string): { idx?: number; count?: number } {
  * confirma; em falha, data, conta e desconto continuam como foram digitados.
  *
  * O RPC continua sendo `pagarComissoes`, com o mesmo payload.
+ *
+ * TEVE BRINDE? (23/10/2026). Com uma parcela só, a folha pergunta. O brinde é
+ * meio a meio (decisão de 23/10): metade sai deste repasse, como desconto do
+ * corretor, e o brinde inteiro vira despesa da venda, paga na mesma data e
+ * conta. A imobiliária fica, assim, com a outra metade.
  */
+
+/** Prefixo da despesa de brinde: é por ele que a folha sabe que a venda já teve um. */
+const BRINDE = 'Brinde'
+const r2 = (v: number) => Math.round(v * 100) / 100
 export function PagarComissao({
   itens,
   onFechar,
@@ -78,7 +88,7 @@ export function PagarComissao({
   itens: ComissaoAPagar[] | null
   onFechar: () => void
 }) {
-  const { accounts, pagarComissoes, hoje } = useAdmin()
+  const { accounts, sales, transactions, pagarComissoes, criarLancamento, hoje } = useAdmin()
   const { showToast } = useToast()
   const navigate = useNavigate()
 
@@ -86,6 +96,8 @@ export function PagarComissao({
   const [contaId, setContaId] = useState('')
   const [desconto, setDesconto] = useState<number | null>(null)
   const [nota, setNota] = useState('')
+  const [teveBrinde, setTeveBrinde] = useState(false)
+  const [brinde, setBrinde] = useState<number | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -98,14 +110,23 @@ export function PagarComissao({
     setContaId(contas[0]?.id ?? '')
     setDesconto(null)
     setNota('')
+    setTeveBrinde(false)
+    setBrinde(null)
     setErro(null)
   }, [itens, contas])
 
   if (!itens || itens.length === 0) return null
 
-  const total = Math.round(itens.reduce((s, i) => s + i.amount, 0) * 100) / 100
-  const aPagar = Math.round((total - (unica ? desconto ?? 0 : 0)) * 100) / 100
+  const total = r2(itens.reduce((s, i) => s + i.amount, 0))
+  const valorBrinde = unica && teveBrinde ? brinde ?? 0 : 0
+  const metadeBrinde = r2(valorBrinde / 2)
+  const aPagar = r2(total - (unica ? desconto ?? 0 : 0) - metadeBrinde)
   const corretor = itens[0].brokerName
+  const venda = unica && itens[0].saleId ? sales.find((s) => s.id === itens[0].saleId) : undefined
+  /** Brinde já lançado nesta venda: a folha avisa, para não descontar duas vezes. */
+  const brindeAnterior = venda
+    ? transactions.filter((t) => t.sale_id === venda.id && t.description?.startsWith(BRINDE))
+    : []
 
   /*
    * A origem do total, em palavras: quantas parcelas, de quais vendas. É o que
@@ -127,6 +148,9 @@ export function PagarComissao({
     ...((desconto ?? 0) > 0 && unica
       ? [{ chave: 'desconto', rotulo: 'Desconto combinado', detalhe: nota || undefined, sinal: '−', valor: desconto ?? 0 } as LinhaDemonstrativo]
       : []),
+    ...(metadeBrinde > 0
+      ? [{ chave: 'desconto', rotulo: 'Metade do brinde', detalhe: `brinde de ${formatCurrency(valorBrinde)}`, sinal: '−', valor: metadeBrinde } as LinhaDemonstrativo]
+      : []),
     { chave: 'corretor', rotulo: 'A pagar agora', sinal: '=', valor: aPagar },
   ]
 
@@ -136,23 +160,55 @@ export function PagarComissao({
 
   async function confirmar() {
     setErro(null)
+    if (teveBrinde && valorBrinde <= 0) return setErro('Informe o valor do brinde, ou marque que não teve brinde.')
     if (aPagar < 0)
       return setErro(
-        `O desconto de ${formatCurrency(desconto ?? 0)} é maior que a comissão de ${formatCurrency(total)}. ` +
+        `Os descontos (${formatCurrency(total - aPagar)}) passam da comissão de ${formatCurrency(total)}. ` +
           'Reduza o desconto para no máximo o valor da comissão — pagamento negativo não existe no caixa.',
       )
+    const notaDoBrinde =
+      metadeBrinde > 0 ? `${BRINDE} de ${formatCurrency(valorBrinde)}: metade do corretor, ${formatCurrency(metadeBrinde)}` : ''
     setSalvando(true)
     try {
       await pagarComissoes({
         installmentIds: itens!.map((i) => i.installmentId),
         date: data,
         accountId: contaId || null,
-        adjustment: unica ? desconto ?? 0 : 0,
-        note: nota || null,
+        adjustment: unica ? r2((desconto ?? 0) + metadeBrinde) : 0,
+        note: [notaDoBrinde, nota].filter(Boolean).join(' · ') || null,
       })
+      if (valorBrinde > 0) {
+        try {
+          await criarLancamento({
+            kind: 'expense',
+            category: 'Outras Variáveis',
+            dre_group: 'variable_expense',
+            description: `${BRINDE} · ${itens![0].saleTitle}`,
+            amount: valorBrinde,
+            competence_date: data,
+            status: 'settled',
+            settled_date: data,
+            due_date: null,
+            is_recurring: false,
+            account_id: contaId || null,
+            sale_id: venda?.id ?? null,
+            cost_center_id: venda?.cost_center_id ?? null,
+          })
+        } catch (e) {
+          // A comissão já foi paga; só a despesa do brinde ficou de fora.
+          showToast({
+            message: 'Comissão paga, mas o brinde não foi lançado',
+            detail: `Lance ${formatCurrency(valorBrinde)} em Despesas. ${e instanceof Error ? e.message : ''}`,
+          })
+          onFechar()
+          return
+        }
+      }
       showToast({
         message: `Comissão paga a ${corretor}`,
-        detail: `${formatCurrency(aPagar)} em ${itens!.length} parcela(s)`,
+        detail:
+          `${formatCurrency(aPagar)} em ${itens!.length} parcela(s)` +
+          (valorBrinde > 0 ? ` · brinde de ${formatCurrency(valorBrinde)} lançado` : ''),
       })
       onFechar()
     } catch (e) {
@@ -268,11 +324,47 @@ export function PagarComissao({
           </div>
           {!unica && (
             <Dica>
-              Desconto só em pagamento de uma parcela por vez: sobre um lote não dá para saber de qual
-              venda ele saiu.
+              Brinde e desconto só em pagamento de uma parcela por vez: sobre um lote não dá para saber
+              de qual venda ele saiu.
             </Dica>
           )}
         </BlocoDaFolha>
+
+        {unica && (
+          <BlocoDaFolha titulo="Brinde" icone={Gift}>
+            <FormField label="Teve brinde?" htmlFor="p-brinde">
+              <FiltrosRapidos
+                rotuloAcessivel="Teve brinde nesta venda?"
+                ativo={teveBrinde ? 'sim' : 'nao'}
+                aoMudar={(v) => setTeveBrinde(v === 'sim')}
+                filtros={[
+                  { id: 'nao', rotulo: 'Não' },
+                  { id: 'sim', rotulo: 'Sim' },
+                ]}
+              />
+            </FormField>
+            {brindeAnterior.length > 0 && (
+              <Dica>
+                Esta venda já teve brinde de{' '}
+                <Valor valor={brindeAnterior.reduce((t, b) => t + b.amount, 0)} posto="fato" />. Marque Sim só se
+                for outro.
+              </Dica>
+            )}
+            {teveBrinde && (
+              <FormField
+                label="Valor do brinde"
+                htmlFor="p-brinde-valor"
+                hint={
+                  valorBrinde > 0
+                    ? `Metade, ${formatCurrency(metadeBrinde)}, sai deste repasse; a outra metade fica com a imobiliária. O brinde inteiro entra como despesa da venda.`
+                    : 'Meio a meio: metade sai do repasse do corretor, metade fica com a imobiliária.'
+                }
+              >
+                <CurrencyInput id="p-brinde-valor" value={brinde} onChange={setBrinde} />
+              </FormField>
+            )}
+          </BlocoDaFolha>
+        )}
 
         {unica && (
           <BlocoDaFolha titulo="Desconto combinado" icone={BadgePercent} descricao="opcional">
