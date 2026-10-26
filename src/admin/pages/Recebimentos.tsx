@@ -517,7 +517,7 @@ function CalendarioDoAno({
             const conteudo = (
               <>
                 <span className="flex items-center justify-between gap-2">
-                  <span className="font-label uppercase text-rotulo">{c.nome}</span>
+                  <span className="font-label text-rotulo">{c.nome}</span>
                   {c.i === mesAtual && <span className="font-label text-brand-text text-rotulo">hoje</span>}
                 </span>
                 {vazio ? (

@@ -9,6 +9,7 @@ import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
+import { TabelaDeDados } from '@/components/ui/TabelaDeDados'
 import { Selo } from '@/components/ui/Selo'
 import { ChipSituacao } from '@/components/ui/Situacao'
 import { Button } from '@/components/ui/Button'
@@ -316,62 +317,90 @@ export function Despesas() {
             descricao="Use o botão Lançar para registrar uma despesa em três toques."
           />
         ) : (
-          <Cartao.Lista
-            rotuloAcessivel="Lançamentos do mês, do mais recente ao mais antigo"
-            chaveEscada={filtro}
-            colunas={{ goteira: true, situacao: true, valor: true, acao: '9.5rem', fim: true }}
-          >
-            {doMes.map((t) => {
-              const s = situacaoDoLancamento(t)
-              const entrada = t.kind === 'income'
-              return (
-                <Linha
-                  key={t.id}
-                  goteira={<Selo situacao={s} />}
-                  titulo={nomeDe(t)}
-                  meta={[formatDate(dataDe(t)), t.category, t.contact_id ? nomePorContato.get(t.contact_id) : null]
-                    .filter(Boolean)
-                    .join(' · ')}
-                  situacao={<ChipSituacao situacao={s} />}
-                  /* Entrada sobe, saída desce: o sinal é o "−" do próprio Valor. */
-                  valor={
-                    <Valor
-                      valor={entrada ? t.amount : -t.amount}
-                      posto="linha"
-                      estado={entrada ? 'recebido' : undefined}
-                    />
-                  }
-                  aoClicar={() => abrirLancamento(t)}
-                  acao={
-                    <>
-                      {t.status === 'pending' ? (
-                        <Button size="sm" variant="secundario" onClick={() => setBaixando(t)}>
-                          {entrada ? 'Recebi' : 'Paguei'}
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="fantasma"
-                          icone={RotateCcw}
-                          onClick={() => estornarLancamento(t.id, t.settled_date ?? t.competence_date)}
-                          aria-label={`Desfazer baixa de ${nomeDe(t)}`}
-                        >
-                          Desfazer
-                        </Button>
-                      )}
+          <TabelaDeDados
+            rotuloAcessivel="Lançamentos do mês"
+            linhas={doMes}
+            chave={(t) => t.id}
+            chaveDeReinicio={filtro}
+            nomes={['lançamento', 'lançamentos']}
+            porPagina={15}
+            ordemInicial={{ coluna: 'data', direcao: 'desc' }}
+            aoAbrirLinha={abrirLancamento}
+            rotuloAbrir={(t) => `Abrir ${nomeDe(t)}`}
+            colunas={[
+              {
+                id: 'lancamento',
+                rotulo: 'Lançamento',
+                ordenar: (t) => nomeDe(t),
+                celula: (t) => (
+                  <span className="flex min-w-0 max-w-[24rem] flex-col">
+                    <span className="truncate font-medium text-t1">{nomeDe(t)}</span>
+                    <span className="truncate text-t-meta text-nota">
+                      {[t.category, t.contact_id ? nomePorContato.get(t.contact_id) : null].filter(Boolean).join(' · ')}
+                    </span>
+                  </span>
+                ),
+              },
+              {
+                id: 'data',
+                rotulo: 'Data',
+                ordenar: (t) => dataDe(t),
+                esconder: 'sm',
+                celula: (t) => <span className="num whitespace-nowrap text-t3">{formatDate(dataDe(t))}</span>,
+              },
+              {
+                id: 'situacao',
+                rotulo: 'Situação',
+                esconder: 'md',
+                celula: (t) => <ChipSituacao situacao={situacaoDoLancamento(t)} />,
+              },
+              {
+                id: 'valor',
+                rotulo: 'Valor',
+                numerica: true,
+                ordenar: (t) => (t.kind === 'income' ? t.amount : -t.amount),
+                celula: (t) => (
+                  <Valor
+                    valor={t.kind === 'income' ? t.amount : -t.amount}
+                    posto="linha"
+                    estado={t.kind === 'income' ? 'recebido' : undefined}
+                  />
+                ),
+              },
+              {
+                id: 'acoes',
+                rotulo: '',
+                numerica: true,
+                celula: (t) => (
+                  // As ações não abrem a linha: o clique para aqui.
+                  <span className="inline-flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                    {t.status === 'pending' ? (
+                      <Button size="sm" variant="secundario" onClick={() => setBaixando(t)}>
+                        {t.kind === 'income' ? 'Recebi' : 'Paguei'}
+                      </Button>
+                    ) : (
                       <Button
-                        size="icone"
+                        size="sm"
                         variant="fantasma"
-                        icone={MoreHorizontal}
-                        aria-label={`Mais ações de ${nomeDe(t)}: excluir`}
-                        onClick={() => setMenuDe(t)}
-                      />
-                    </>
-                  }
-                />
-              )
-            })}
-          </Cartao.Lista>
+                        icone={RotateCcw}
+                        onClick={() => estornarLancamento(t.id, t.settled_date ?? t.competence_date)}
+                        aria-label={`Desfazer baixa de ${nomeDe(t)}`}
+                      >
+                        Desfazer
+                      </Button>
+                    )}
+                    <Button
+                      size="icone"
+                      variant="fantasma"
+                      icone={MoreHorizontal}
+                      aria-label={`Mais ações de ${nomeDe(t)}: excluir`}
+                      onClick={() => setMenuDe(t)}
+                    />
+                  </span>
+                ),
+              },
+            ]}
+          />
         )}
         <Cartao.Rodape>
           <span className="min-w-0 max-w-[80ch]">

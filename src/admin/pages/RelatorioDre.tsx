@@ -250,15 +250,15 @@ export function RelatorioDre() {
           titulo="Como chegamos nesse número"
           meta="A comissão conta quando fica devida (gatilho e nota), não quando o dinheiro cai. Toque em qualquer valor para ver os lançamentos."
         />
-        <Cartao.Corpo>
-          <ContaDoRelatorio
-            linhas={atual}
-            base={bruta}
-            emPalavras={EM_PALAVRAS}
-            aoAbrir={(l) => abrirLinha(l, periodos.atual, l.valor)}
-            rotuloAcessivel={`DRE de ${periodos.atual.rotulo}`}
-          />
-        </Cartao.Corpo>
+        <ContaDoRelatorio
+          linhas={atual}
+          base={bruta}
+          emPalavras={EM_PALAVRAS}
+          aoAbrir={(l) => abrirLinha(l, periodos.atual, l.valor)}
+          rotuloAcessivel={`DRE de ${periodos.atual.rotulo}`}
+          rotuloAtual={periodos.atual.rotulo}
+          comparar={{ rotulo: periodos.anterior.rotulo, valores: anterior }}
+        />
       </Cartao>
 
       {previstos.length > 0 && (

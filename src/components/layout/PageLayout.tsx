@@ -12,7 +12,7 @@ import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { IconeTom } from '@/components/ui/IconeTom'
+import { MarcaS } from '@/components/marca/Marca'
 import { EsqueletoCards, EsqueletoLista, EstadoErro } from '@/components/ui/Estados'
 import type { Tom } from '@/components/ui/tom'
 import { PopoverAvisos, type Aviso } from '@/components/shared/PopoverAvisos'
@@ -128,16 +128,17 @@ interface ConteudoDoCabecalho {
   voltar?: { para: string; rotulo: string }
 }
 
-/* Botão-ícone do cabeçalho: 40 no computador, 44 abaixo de 1024 e no toque. */
+/* Botão-ícone da barra: 36 no computador, 44 abaixo de 1024 e no toque. */
 const BOTAO_ICONE =
-  'flex size-10 shrink-0 items-center justify-center rounded-controle text-t2 transition-colors hover:bg-linha-hover hover:text-t1 active:bg-linha-press max-lg:size-11 [@media(pointer:coarse)]:size-11'
+  'flex size-9 shrink-0 items-center justify-center rounded-controle text-t3 transition-colors hover:bg-linha-hover hover:text-t1 active:bg-linha-press max-lg:size-11 [@media(pointer:coarse)]:size-11'
 
 /*
- * Computador: [← 40, ficha] 12 [IconeTom 36] 12 [h1 + subtítulo] … [sino 40] 12 [ações ≤2] 12 [CTA 40]
- * Celular:    [IconeTom 28] 12 [h1] … [sino 44] [CTA 44, rótulo curto]
- * Ficha no celular: [← 44] 8 [h1 truncado] … [sino 44] [⋯ 44] (sem IconeTom e sem CTA)
+ * SOUZA 2.0 (23/10/2026): a barra de cima fica fina e quieta — onde estou
+ * (só na ficha: "Vendas / 414-D"), o sino e a ação principal. O TÍTULO saiu
+ * dela e foi para o conteúdo, grande, com a descrição embaixo e o período e
+ * as ações à direita (AberturaDaPagina). No celular a barra mostra a marca.
  */
-function CabecalhoDaPagina({ icone, tom = 'neutro', titulo, subtitulo, acoes, menu, cta, voltar }: ConteudoDoCabecalho) {
+function CabecalhoDaPagina({ titulo, menu, cta, voltar }: ConteudoDoCabecalho) {
   const avisos = useContext(CascaContext)?.avisos
   const navigate = useNavigate()
   const location = useLocation()
@@ -151,29 +152,27 @@ function CabecalhoDaPagina({ icone, tom = 'neutro', titulo, subtitulo, acoes, me
 
   return (
     <>
-      {voltar && (
-        <button type="button" onClick={aoVoltar} aria-label={`Voltar para ${voltar.rotulo}`} className={BOTAO_ICONE}>
-          <ArrowLeft size={16} strokeWidth={1.6} aria-hidden focusable="false" />
-        </button>
+      {voltar ? (
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <button type="button" onClick={aoVoltar} aria-label={`Voltar para ${voltar.rotulo}`} className={BOTAO_ICONE}>
+            <ArrowLeft size={16} strokeWidth={1.75} aria-hidden focusable="false" />
+          </button>
+          <nav aria-label="Você está em" className="flex min-w-0 items-center gap-1.5 text-texto-meta">
+            <button type="button" onClick={aoVoltar} className="shrink-0 text-t4 transition-colors hover:text-t1">
+              {voltar.rotulo}
+            </button>
+            <span aria-hidden className="text-t5">/</span>
+            <span className="min-w-0 truncate font-medium text-t1">{titulo}</span>
+          </nav>
+        </div>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-2 lg:hidden">
+          <MarcaS className="size-7 shrink-0" />
+          <span className="truncate font-semibold text-t1 text-texto-titulo">Souza</span>
+        </div>
       )}
-      <IconeTom icone={icone} tom={tom} tamanho="sm" className={cn('lg:hidden', ficha && 'hidden')} />
-      <IconeTom icone={icone} tom={tom} tamanho="md" className="max-lg:hidden" />
-      <div className="flex min-w-0 flex-1 items-baseline gap-3">
-        <h1 className="min-w-0 truncate font-heading text-t1 text-titulo-pagina-m lg:text-titulo-pagina">
-          {titulo}
-        </h1>
-        {subtitulo && (
-          <p
-            className="min-w-0 flex-1 truncate text-t-meta text-texto-meta max-lg:hidden"
-            title={typeof subtitulo === 'string' ? subtitulo : undefined}
-          >
-            {subtitulo}
-          </p>
-        )}
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className={cn('flex shrink-0 items-center gap-2', !ficha && 'lg:ms-auto')}>
         {avisos && <PopoverAvisos avisos={avisos} />}
-        {acoes && <div className="flex items-center gap-3 max-lg:hidden">{acoes}</div>}
         {menu}
         {cta && <BotaoCta {...cta} className={cn(ficha && 'max-lg:hidden')} />}
       </div>
@@ -182,24 +181,41 @@ function CabecalhoDaPagina({ icone, tom = 'neutro', titulo, subtitulo, acoes, me
 }
 
 /*
- * O bloco de abertura: 1º filho do <main>. No celular junta o subtítulo (que
- * sai do cabeçalho), a faixa e as ações; no computador sobra só a faixa
- * (`min-h-12 flex flex-wrap items-center`). Sem faixa no computador, o bloco
- * some ali, para não somar um vão de seção vazio.
+ * A abertura da página (Souza 2.0): o título grande e a descrição à
+ * esquerda; o mês e as ações à direita; os filtros e abas da tela numa
+ * fileira logo abaixo. É o cabeçalho editorial de cada tela.
  */
-function AberturaDaPagina({ subtitulo, faixa, acoes }: { subtitulo?: ReactNode; faixa?: ReactNode; acoes?: ReactNode }) {
-  if (!subtitulo && !faixa && !acoes) return null
-  const faixaNoComputador = Boolean(faixa)
-  const faixaVisivel = Boolean(faixa || acoes)
+function AberturaDaPagina({
+  titulo,
+  subtitulo,
+  saudacao,
+  mes,
+  faixa,
+  acoes,
+}: {
+  titulo: string
+  subtitulo?: ReactNode
+  saudacao?: ReactNode
+  mes?: ReactNode
+  faixa?: ReactNode
+  acoes?: ReactNode
+}) {
   return (
-    <div className={cn('flex flex-col gap-4', !faixaNoComputador && 'lg:hidden')}>
-      {subtitulo && <p className="line-clamp-2 text-t-meta text-texto-meta lg:hidden">{subtitulo}</p>}
-      {faixaVisivel && (
-        <div className={cn('flex min-h-12 flex-wrap items-center gap-2 lg:gap-3', !faixa && 'lg:hidden')}>
-          {faixa}
-          {acoes && <div className="flex flex-wrap items-center gap-2 lg:hidden">{acoes}</div>}
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          {saudacao && <p className="text-t4 text-texto-meta">{saudacao}</p>}
+          <h1 className="min-w-0 text-t1 text-titulo-pagina-m lg:text-titulo-pagina">{titulo}</h1>
+          {subtitulo && <p className="max-w-[72ch] text-t4 text-texto">{subtitulo}</p>}
         </div>
-      )}
+        {(mes || acoes) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {mes}
+            {acoes}
+          </div>
+        )}
+      </div>
+      {faixa && <div className="flex flex-wrap items-center gap-2">{faixa}</div>}
     </div>
   )
 }
@@ -235,6 +251,8 @@ export interface PageLayoutProps {
   voltarPara?: string
   /** `dados` (padrão, 1216 de teto) ou `leitura` (coluna de 720 à esquerda). */
   largura?: 'dados' | 'leitura'
+  /** Souza 2.0: linha discreta acima do título ("Boa tarde, Rafael"). */
+  saudacao?: ReactNode
   children: ReactNode
 }
 
@@ -250,6 +268,7 @@ export function PageLayout({
   faixa,
   voltarPara,
   largura = 'dados',
+  saudacao,
   children,
 }: PageLayoutProps) {
   const casca = useContext(CascaContext)
@@ -266,15 +285,7 @@ export function PageLayout({
     ? { para: voltarPara, rotulo: rota?.voltar?.rotulo ?? 'a lista' }
     : rota?.voltar
   const usaMes = mes ?? rota?.usaMes ?? false
-  const faixaFinal =
-    usaMes && casca?.mes ? (
-      <>
-        {casca.mes}
-        {faixa}
-      </>
-    ) : (
-      faixa
-    )
+  const mesFinal = usaMes && casca?.mes ? casca.mes : undefined
 
   if (import.meta.env.DEV && !iconeFinal) {
     console.error(`[PageLayout] sem ícone para ${pathname}: declare a rota em navegacao.ts ou passe \`icone\`.`)
@@ -304,7 +315,14 @@ export function PageLayout({
 
   const corpo = (
     <>
-      <AberturaDaPagina subtitulo={subtitulo} faixa={faixaFinal} acoes={menu ? undefined : acoes} />
+      <AberturaDaPagina
+        titulo={tituloFinal}
+        subtitulo={subtitulo}
+        saudacao={saudacao}
+        mes={mesFinal}
+        faixa={faixa}
+        acoes={acoes}
+      />
       {largura === 'leitura' ? <div className="leitura flex flex-col gap-secao">{children}</div> : children}
     </>
   )
@@ -373,6 +391,11 @@ export function CascaDaPagina({
     [avisos, registrarQuadro, rota, mes, acoesDeCta, slot],
   )
 
+  // Souza 2.0: cada tela nova abre no topo (antes herdava a rolagem da anterior).
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+
   // Tela sem PageLayout: o título da aba vem da rota.
   useEffect(() => {
     if (legado) document.title = `${rota.titulo} · Souza Imobiliária`
@@ -413,7 +436,7 @@ export function CascaDaPagina({
             <ErroDaTela motivo={erro} aoTentarDeNovo={aoTentarDeNovo} />
           ) : (
             <>
-              {legado && rota.usaMes && mes ? <AberturaDaPagina faixa={mes} /> : null}
+              {legado ? <AberturaDaPagina titulo={rota.titulo} mes={rota.usaMes ? mes : undefined} /> : null}
               {children}
             </>
           )}

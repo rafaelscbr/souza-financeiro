@@ -41,8 +41,8 @@ const VARIANTE_LEGADA: Record<ButtonVariantLegado, ButtonVariante> = {
 }
 
 const variantes: Record<ButtonVariante, string> = {
-  primario: 'bg-acao text-acao-texto font-heading hover:bg-acao-hover',
-  secundario: 'border border-fio-controle bg-surface text-t1 hover:bg-linha-hover',
+  primario: 'bg-acao text-acao-texto shadow-[0_1px_2px_rgba(11,18,32,.12)] hover:bg-acao-hover',
+  secundario: 'border border-[color:var(--line-input)] bg-surface text-t1 shadow-[0_1px_1px_rgba(11,18,32,.04)] hover:bg-s2',
   fantasma: 'text-t2 hover:bg-linha-hover hover:text-t1',
   perigo: 'border border-error-line bg-surface text-error-ink hover:bg-linha-hover',
 }
@@ -64,9 +64,9 @@ const tipo: Record<ButtonVariante, string> = {
  */
 const TOQUE = 'max-lg:min-h-11 [@media(pointer:coarse)]:min-h-11'
 const tamanhos: Record<ButtonTamanho, string> = {
-  sm: cn('h-8 gap-2 px-3', TOQUE),
-  md: cn('h-10 gap-2 px-4', TOQUE),
-  lg: 'h-11 gap-2 px-5',
+  sm: cn('h-8 gap-1.5 px-3', TOQUE),
+  md: cn('h-9 gap-2 px-3.5', TOQUE),
+  lg: 'h-10 gap-2 px-4',
   icone: 'size-11 shrink-0 lg:size-8 [@media(pointer:coarse)]:size-11',
 }
 

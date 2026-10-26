@@ -12,7 +12,9 @@ import { ContaDoRelatorio, ExportarRelatorio, FiltrosDePeriodo, variacaoEmPalavr
 import { dreGroupOf } from '@/lib/finance'
 import { periodosDoDre, type PeriodoDre, type TipoPeriodo } from '@/lib/dre'
 import { montarFluxoDeCaixa, type LinhaDoCaixa } from '@/lib/fluxoDeCaixa'
-import { formatCurrency, formatDate } from '@/lib/format'
+import { formatCurrency, formatDate, formatMonthTiny, formatMonthYear } from '@/lib/format'
+import { evolucaoMensal } from '@/lib/painel'
+import { GraficoEvolucao, Legenda, useCoresDoGrafico } from '@/components/graficos/Graficos'
 import type { Transaction } from '@/types'
 
 /*
@@ -37,7 +39,28 @@ const EM_PALAVRAS: Record<string, string> = {
 }
 
 export function RelatorioCaixa() {
-  const { transactions, accounts, transfers, mes } = useAdmin()
+  const { transactions, accounts, transfers, installments, mes } = useAdmin()
+  const cores = useCoresDoGrafico()
+  const parcelasPorId = useMemo(() => new Map(installments.map((p) => [p.id, p])), [installments])
+  /* Souza 2.0: a série de 12 meses pela data do dinheiro, para ver o caixa no tempo. */
+  const serie = useMemo(() => evolucaoMensal(transactions, parcelasPorId, mes), [transactions, parcelasPorId, mes])
+  const abrirMesDaSerie = (i: number) => {
+    const e = serie[i]
+    abrir({
+      rotulo: 'Caixa do mês',
+      titulo: formatMonthYear(new Date(`${e.mes}-01T12:00:00`)),
+      explica: 'O que entrou e saiu no mês, pela data da baixa. Retirada do sócio fica de fora.',
+      total: e.caixa.resultado,
+      itens: [...e.caixa.entradas, ...e.caixa.saidas].map((t) => ({
+        id: t.id,
+        titulo: t.description || t.category,
+        meta: `${t.category} · ${formatDate(t.settled_date ?? t.competence_date)}`,
+        valor: t.kind === 'income' ? t.amount : -t.amount,
+        para: t.sale_id ? `/vendas/${t.sale_id}` : undefined,
+      })),
+      vazio: 'Nada entrou nem saiu neste mês.',
+    })
+  }
   const { abrir } = useComposicao()
   const [tipo, setTipo] = useState<TipoPeriodo>('mes')
 
@@ -175,6 +198,33 @@ export function RelatorioCaixa() {
         ].filter((a) => a.valor !== 0)}
       />
 
+      <Cartao>
+        <Cartao.Cabecalho
+          titulo="Entradas e saídas · 12 meses"
+          meta="pela data do dinheiro; toque num mês para ver os lançamentos"
+          extra={
+            <Legenda
+              itens={[
+                { nome: 'Entrou', cor: cores.entra },
+                { nome: 'Saiu', cor: cores.sai },
+                { nome: 'Saldo do mês', cor: cores.resultado, linha: true },
+              ]}
+            />
+          }
+        />
+        <Cartao.Corpo>
+          <GraficoEvolucao
+            nomes={{ entra: 'Entrou', sai: 'Saiu', resultado: 'Saldo do mês' }}
+            aoClicar={abrirMesDaSerie}
+            rotuloAcessivel="Entradas, saídas e saldo de cada um dos últimos 12 meses"
+            pontos={serie.map((e) => {
+              const d = new Date(`${e.mes}-01T12:00:00`)
+              return { rotulo: formatMonthTiny(d), titulo: formatMonthYear(d), entra: e.caixa.entra, sai: e.caixa.sai, resultado: e.caixa.resultado }
+            })}
+          />
+        </Cartao.Corpo>
+      </Cartao>
+
       {comecaDepois && atual.contasDesde && (
         <Dica tom="info">
           O saldo das contas da imobiliária começa no sistema em {formatDate(atual.contasDesde)}. O que se moveu
@@ -187,14 +237,14 @@ export function RelatorioCaixa() {
           titulo="Como o dinheiro se moveu"
           meta="Dinheiro de verdade, nas contas da imobiliária. Toque em qualquer valor para ver os lançamentos."
         />
-        <Cartao.Corpo>
-          <ContaDoRelatorio
-            linhas={linhas}
-            emPalavras={EM_PALAVRAS}
-            aoAbrir={(l) => abrirLinha(l, periodos.atual)}
-            rotuloAcessivel={`Fluxo de caixa de ${periodos.atual.rotulo}`}
-          />
-        </Cartao.Corpo>
+        <ContaDoRelatorio
+          linhas={linhas}
+          emPalavras={EM_PALAVRAS}
+          aoAbrir={(l) => abrirLinha(l, periodos.atual)}
+          rotuloAcessivel={`Fluxo de caixa de ${periodos.atual.rotulo}`}
+          rotuloAtual={periodos.atual.rotulo}
+          comparar={{ rotulo: periodos.anterior.rotulo, valores: new Map(anterior.linhas.map((l) => [l.id, l.valor])) }}
+        />
       </Cartao>
 
       {atual.foraDoSaldo.length > 0 && (

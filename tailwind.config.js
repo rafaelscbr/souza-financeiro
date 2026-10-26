@@ -49,6 +49,9 @@ export default {
         page: c('--page-bg'),
         serie: c('--serie'),
         'serie-suave': c('--serie-suave'),
+        'g-entra': c('--g-entra'),
+        'g-sai': c('--g-sai'),
+        'g-resultado': c('--g-resultado'),
         acao: c('--acao'),
         'acao-hover': c('--acao-hover'),
         'acao-texto': c('--acao-texto'),
@@ -186,7 +189,8 @@ export default {
 
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        heading: ['Sora', 'system-ui', 'sans-serif'],
+        // Souza 2.0: uma família só. Inter é a letra de software financeiro.
+        heading: ['Inter', 'system-ui', 'sans-serif'],
         label: ['Inter', 'system-ui', 'sans-serif'],
       },
 
@@ -207,34 +211,40 @@ export default {
        * Nenhum nome aqui repete um nome de `colors` (texto-meta é tamanho, t-meta é cor).
        */
       fontSize: {
-        'numero-heroi': ['36px', { lineHeight: '44px', letterSpacing: '-0.025em', fontWeight: '600' }],
-        'numero-heroi-m': ['30px', { lineHeight: '36px', letterSpacing: '-0.025em', fontWeight: '600' }],
-        'numero-kpi': ['26px', { lineHeight: '32px', letterSpacing: '-0.02em', fontWeight: '600' }],
+        /* Souza 2.0 (23/10/2026): Inter, número tabular, sem caixa alta espaçada. */
+        'numero-heroi': ['34px', { lineHeight: '40px', letterSpacing: '-0.03em', fontWeight: '600' }],
+        'numero-heroi-m': ['28px', { lineHeight: '34px', letterSpacing: '-0.025em', fontWeight: '600' }],
+        'numero-kpi': ['24px', { lineHeight: '32px', letterSpacing: '-0.025em', fontWeight: '600' }],
         'numero-kpi-m': ['22px', { lineHeight: '28px', letterSpacing: '-0.02em', fontWeight: '600' }],
-        'titulo-pagina': ['19px', { lineHeight: '28px', letterSpacing: '-0.01em', fontWeight: '700' }],
-        'titulo-pagina-m': ['17px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '700' }],
-        'titulo-painel': ['16px', { lineHeight: '24px', letterSpacing: '-0.005em', fontWeight: '600' }],
-        'titulo-secao': ['15px', { lineHeight: '24px', letterSpacing: '0', fontWeight: '600' }],
-        'valor-destaque': ['17px', { lineHeight: '24px', letterSpacing: '-0.005em', fontWeight: '600' }],
-        'valor-linha': ['15px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '600' }],
-        'valor-fato': ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
-        'texto-titulo': ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
+        'titulo-pagina': ['24px', { lineHeight: '32px', letterSpacing: '-0.02em', fontWeight: '600' }],
+        'titulo-pagina-m': ['20px', { lineHeight: '28px', letterSpacing: '-0.015em', fontWeight: '600' }],
+        'titulo-painel': ['16px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' }],
+        'titulo-secao': ['15px', { lineHeight: '22px', letterSpacing: '-0.01em', fontWeight: '600' }],
+        'valor-destaque': ['16px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' }],
+        'valor-linha': ['14px', { lineHeight: '20px', letterSpacing: '-0.005em', fontWeight: '600' }],
+        'valor-fato': ['13px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
+        'texto-titulo': ['14px', { lineHeight: '20px', letterSpacing: '-0.005em', fontWeight: '500' }],
         texto: ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '400' }],
         'texto-corrido': ['14px', { lineHeight: '22px', letterSpacing: '0', fontWeight: '400' }],
-        'texto-meta': ['13px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '400' }],
+        'texto-meta': ['13px', { lineHeight: '18px', letterSpacing: '0', fontWeight: '400' }],
         nota: ['12px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '400' }],
-        rotulo: ['11px', { lineHeight: '16px', letterSpacing: '0.08em', fontWeight: '500' }],
-        chip: ['11px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '600' }],
-        botao: ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '600' }],
-        'botao-secundario': ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
+        rotulo: ['12px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '500' }],
+        chip: ['12px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '500' }],
+        botao: ['14px', { lineHeight: '20px', letterSpacing: '-0.005em', fontWeight: '500' }],
+        'botao-secundario': ['14px', { lineHeight: '20px', letterSpacing: '-0.005em', fontWeight: '500' }],
       },
+
 
       /* Fundamentos 5.3: cinco raios (rounded-full vem do Tailwind). */
       borderRadius: {
         badge: '6px',
         controle: '8px',
-        caixa: '14px',
-        sobreposicao: '20px',
+        caixa: '12px',
+        sobreposicao: '16px',
+        // Souza 2.0: o trilho do controle segmentado, a opção dentro dele e o ponto de legenda.
+        segmento: '10px',
+        'segmento-item': '7px',
+        ponto: '2px',
         // A moldura do "S" da marca: 25%, fora dos cinco.
         marca: '25%',
       },

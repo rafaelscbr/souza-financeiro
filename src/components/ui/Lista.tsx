@@ -241,7 +241,7 @@ function CabecalhoLista({ colunas, rotulos }: { colunas: ColunasLista; rotulos: 
     <div
       role="row"
       data-cabecalho-lista
-      className="grid h-10 items-center gap-x-3 border-t border-fio-linha font-label uppercase text-t-meta"
+      className="grid h-10 items-center gap-x-3 border-t border-fio-linha font-label text-t-meta"
       style={{ paddingInline: 'var(--recuo-linha)', ...indiceEscada(0) }}
     >
       {ids.map((id, n) => (
@@ -444,7 +444,7 @@ export function LinhaGrupo({ rotulo, contador, par, hoje, indice, className }: L
       style={estilo}
     >
       <span role={tabela ? 'rowheader' : undefined} className="flex min-w-0 items-end gap-3">
-        <span className={`font-label uppercase ${hoje ? 'text-t2' : 'text-t-meta'} text-rotulo`}>{rotulo}</span>
+        <span className={`font-label ${hoje ? 'text-t2' : 'text-t-meta'} text-rotulo`}>{rotulo}</span>
         {contador && <span className="text-texto-meta text-t-meta">{contador}</span>}
       </span>
       {par && <ParNoGrupoContext.Provider value>{par}</ParNoGrupoContext.Provider>}

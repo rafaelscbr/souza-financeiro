@@ -63,7 +63,7 @@ export function FiltrosRapidos<T extends string>({
       role="radiogroup"
       aria-label={rotuloAcessivel}
       data-rolagem
-      className={cn('flex items-center gap-2 overflow-x-auto', className)}
+      className={cn('flex max-w-full items-center gap-0.5 overflow-x-auto rounded-segmento bg-s3 p-0.5 w-fit', className)}
     >
       {filtros.map((f, i) => {
         const selecionado = f.id === ativo
@@ -82,15 +82,14 @@ export function FiltrosRapidos<T extends string>({
             title={f.dica}
             onClick={() => aoMudar(f.id)}
             onKeyDown={(e) => aoTeclar(e, i)}
-            className={`text-texto-titulo ${cn(
-              'relative inline-flex h-11 shrink-0 select-none items-center gap-2 whitespace-nowrap rounded-controle border bg-surface px-3',
-              'lg:[@media(pointer:fine)]:h-10',
+            className={`text-texto-meta ${cn(
+              /* Souza 2.0: controle segmentado — trilho cinza, a opção ativa em branco. */
+              'relative inline-flex h-10 shrink-0 select-none items-center gap-1.5 whitespace-nowrap rounded-segmento-item px-3 font-medium',
+              'lg:[@media(pointer:fine)]:h-8',
               'transition-colors duration-micro ease-cor',
-              "before:absolute before:inset-0 before:rounded-controle before:bg-s2 before:content-['']",
-              'before:transition-opacity before:duration-micro before:ease-cor active:before:bg-linha-press active:before:opacity-100',
               selecionado
-                ? 'border-fio-controle font-semibold text-t1 before:opacity-100'
-                : 'border-fio-linha text-t2 before:opacity-0 hover:text-t1',
+                ? 'bg-surface text-t1 shadow-[0_1px_2px_rgba(11,18,32,.08),0_0_0_1px_rgba(11,18,32,.04)]'
+                : 'text-t3 hover:text-t1',
             )}`}
           >
             {Icone && <Icone aria-hidden size={16} strokeWidth={1.6} className="relative shrink-0" />}

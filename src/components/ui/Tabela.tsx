@@ -74,7 +74,7 @@ export function Tabela<T>({
                 key={c.id}
                 scope="col"
                 className={`${cn(
-                  'h-10 whitespace-nowrap border-b border-fio-caixa px-3 font-label uppercase text-t-meta first:pl-recuo last:pr-recuo',
+                  'h-10 whitespace-nowrap border-b border-fio-caixa px-3 font-label text-t-meta first:pl-recuo last:pr-recuo',
                   c.numerica ? 'text-right' : 'text-left',
                   i === 0 && PRIMEIRA,
                 )} text-rotulo`}

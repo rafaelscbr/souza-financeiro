@@ -1,6 +1,5 @@
 import { type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Icone } from './Icone'
 import { Lista, validarFilhos, type ListaProps } from './Lista'
 import { cn } from '@/lib/utils'
 
@@ -13,7 +12,7 @@ import { cn } from '@/lib/utils'
  * slots (3.3), então nenhum texto encosta na borda (P1).
  */
 
-const SLOTS = ['CartaoCabecalho', 'CartaoCorpo', 'CartaoLista', 'CartaoRodape', 'Tabela']
+const SLOTS = ['CartaoCabecalho', 'CartaoCorpo', 'CartaoLista', 'CartaoRodape', 'Tabela', 'ContaDoRelatorio', 'TabelaDeDados']
 
 export interface CartaoProps {
   children: ReactNode
@@ -53,25 +52,22 @@ export interface CartaoCabecalhoProps {
   className?: string
 }
 
-function CartaoCabecalho({ titulo, icone, meta, extra, nivel = 'h2', id, className }: CartaoCabecalhoProps) {
+function CartaoCabecalho({ titulo, meta, extra, nivel = 'h2', id, className }: CartaoCabecalhoProps) {
   const H = nivel
+  /*
+   * Souza 2.0 (23/10/2026): título e, embaixo, a descrição em cinza — sem
+   * filete, sem ícone. O ícone continua aceito na API (as telas o passam),
+   * mas não é desenhado: título de seção com ícone era ruído repetido.
+   */
   return (
-    <div className={cn('flex min-h-14 flex-wrap items-center gap-3 px-recuo pb-3 pt-recuo', className)}>
-      <div className="flex min-w-0 max-w-full items-center gap-3">
-        {/* O filete de marca: onde a seção começa (21/09/2026, a pedido do
-            Rafael, no desenho do CRM). Decoração muda, significado não. */}
-        <span data-filete aria-hidden />
-        {icone && (
-          <span className="flex shrink-0 text-t3">
-            <Icone icone={icone} tamanho={16} />
-          </span>
-        )}
-        <H id={id} className="min-w-0 font-heading text-t1 text-titulo-secao">
+    <div className={cn('flex min-h-[52px] flex-wrap items-start gap-x-4 gap-y-2 px-recuo pb-3 pt-4', className)}>
+      <div className="flex min-w-0 flex-1 basis-56 flex-col gap-0.5">
+        <H id={id} className="min-w-0 text-t1 text-titulo-secao">
           {titulo}
         </H>
+        {meta && <span className="min-w-0 text-t4 text-texto-meta">{meta}</span>}
       </div>
-      {meta && <span className="min-w-0 text-t-meta text-texto-meta">{meta}</span>}
-      {extra && <div className="ms-auto flex items-center gap-3">{extra}</div>}
+      {extra && <div className="ms-auto flex shrink-0 items-center gap-2">{extra}</div>}
     </div>
   )
 }
@@ -109,7 +105,7 @@ export interface CartaoRodapeProps {
 function CartaoRodape({ children, className }: CartaoRodapeProps) {
   return (
     <div
-      className={`${cn('flex flex-wrap items-center justify-between gap-3 border-t border-fio-linha px-recuo py-4 text-t-meta', className)} text-texto-meta`}
+      className={`${cn('flex flex-wrap items-center justify-between gap-3 border-t border-fio-linha px-recuo py-3 text-t4', className)} text-texto-meta`}
     >
       {children}
     </div>

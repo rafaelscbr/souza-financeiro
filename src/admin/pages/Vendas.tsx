@@ -1,6 +1,6 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Banknote, BarChart3, Building2, Clock, Handshake, HandCoins, Hourglass, Landmark, List, Plus, Search, SearchX, TriangleAlert } from 'lucide-react'
+import { BarChart3, Clock, Handshake, HandCoins, Hourglass, List, Plus, Search, SearchX, TriangleAlert } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useAcoesAdmin } from '../AcoesAdmin'
 import { PagarComissao, type ComissaoAPagar } from '../PagarComissao'
@@ -8,11 +8,12 @@ import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
-import { Kpi } from '@/components/ui/Kpi'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Colunas } from '@/components/ui/Colunas'
-import { Linha, LinhaGrupo } from '@/components/ui/Lista'
+import { Linha } from '@/components/ui/Lista'
 import { Barra, LegendaBarra } from '@/components/ui/Barra'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
+import { TabelaDeDados } from '@/components/ui/TabelaDeDados'
 import { ChipSituacao } from '@/components/ui/Situacao'
 import { Icone } from '@/components/ui/Icone'
 import { EstadoVazio } from '@/components/ui/Estados'
@@ -235,22 +236,6 @@ export function Vendas() {
    */
   const jaEntrou = useMemo(() => soma(filtradas.map((v) => v.received)), [filtradas])
   const aReceber = useMemo(() => soma(filtradas.map((v) => v.toReceive)), [filtradas])
-
-  /*
-   * Agrupada por ano da venda quando a carteira atravessa mais de um ano: a
-   * lista já vem da mais nova para a mais antiga, e o rótulo do ano com o
-   * contador poupa ler a data de cada linha para saber onde se está.
-   */
-  const grupos = useMemo(() => {
-    const porAno = new Map<string, SaleView[]>()
-    for (const v of filtradas) {
-      const ano = v.sale_date.slice(0, 4)
-      const g = porAno.get(ano)
-      if (g) g.push(v)
-      else porAno.set(ano, [v])
-    }
-    return [...porAno.entries()]
-  }, [filtradas])
 
   function mudarFiltro(f: Filtro, rolar = false) {
     setParams(
@@ -558,41 +543,15 @@ export function Vendas() {
        * Cada um abre venda por venda, com a mesma regra de origem do resto
        * da casa — número sem origem não existe aqui.
        */}
-      <div className="grid gap-bloco sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi
-          rotulo="Da imobiliária"
-          icone={Building2}
-          tom="marca"
-          valor={carteira.fica}
-          nota="o que sobra da carteira depois do imposto e do corretor"
-          aoClicar={() => abrirParte('fica')}
-        />
-        <Kpi
-          rotulo="Dos corretores"
-          icone={HandCoins}
-          tom="atencao"
-          valor={carteira.corretor}
-          nota="a pagar quando a construtora pagar a parcela"
-          aoClicar={() => abrirParte('corretor')}
-        />
-        <Kpi
-          rotulo="Do imposto"
-          icone={Landmark}
-          tom="info"
-          valor={carteira.imposto}
-          nota="ISS retido na fonte e Simples de cada parcela"
-          aoClicar={() => abrirParte('imposto')}
-        />
-        <Kpi
-          rotulo="Já entrou"
-          icone={Banknote}
-          tom="sucesso"
-          valor={jaEntrouCarteira}
-          estado={jaEntrouCarteira > 0 ? 'recebido' : undefined}
-          nota="comissão que a construtora já pagou, nas vendas ativas"
-          aoClicar={abrirJaEntrou}
-        />
-      </div>
+      <FaixaDeMetricas
+        rotuloAcessivel="A carteira por parte"
+        metricas={[
+          { rotulo: "Da imobiliária", valor: carteira.fica, nota: "o que sobra da carteira depois do imposto e do corretor", aoClicar: () => abrirParte('fica') },
+          { rotulo: "Dos corretores", valor: carteira.corretor, nota: "a pagar quando a construtora pagar a parcela", aoClicar: () => abrirParte('corretor') },
+          { rotulo: "Do imposto", valor: carteira.imposto, nota: "ISS retido na fonte e Simples de cada parcela", aoClicar: () => abrirParte('imposto') },
+          { rotulo: "Já entrou", valor: jaEntrouCarteira, estado: jaEntrouCarteira > 0 ? 'recebido' : undefined, nota: "comissão que a construtora já pagou, nas vendas ativas", aoClicar: abrirJaEntrou },
+        ]}
+      />
 
       <Cartao>
         <Cartao.Cabecalho
@@ -723,22 +682,73 @@ export function Vendas() {
             />
           </Cartao.Corpo>
         ) : (
-          <Cartao.Lista
+          <TabelaDeDados
             rotuloAcessivel="Cada venda"
-            chaveEscada={filtro}
-            colunas={{ situacao: true, valor: '11rem', fim: true }}
-          >
-            {grupos.map(([ano, lista]) => (
-              <Fragment key={ano}>
-                {grupos.length > 1 && (
-                  <LinhaGrupo rotulo={`Vendidas em ${ano}`} contador={plural(lista.length, 'venda', 'vendas')} />
-                )}
-                {lista.map((v) => (
-                  linhaVenda(v, observado.vencidoPorVenda.get(v.id) ?? 0)
-                ))}
-              </Fragment>
-            ))}
-          </Cartao.Lista>
+            linhas={filtradas}
+            chave={(v) => v.id}
+            chaveDeReinicio={`${filtro}|${busca}`}
+            nomes={['venda', 'vendas']}
+            ordemInicial={{ coluna: 'data', direcao: 'desc' }}
+            aoAbrirLinha={(v) => navigate(`/vendas/${v.id}`)}
+            rotuloAbrir={(v) => `Abrir a venda ${v.title}`}
+            colunas={[
+              {
+                id: 'venda',
+                rotulo: 'Venda',
+                ordenar: (v) => v.title,
+                celula: (v) => <CelulaDaVenda v={v} vencido={observado.vencidoPorVenda.get(v.id) ?? 0} />,
+              },
+              {
+                id: 'data',
+                rotulo: 'Contrato',
+                ordenar: (v) => v.sale_date,
+                esconder: 'md',
+                celula: (v) => <span className="num whitespace-nowrap text-t3">{formatDateShort(v.sale_date)}</span>,
+              },
+              {
+                id: 'vgv',
+                rotulo: 'VGV',
+                numerica: true,
+                esconder: 'lg',
+                ordenar: (v) => v.property_value ?? 0,
+                celula: (v) => (v.property_value ? <Valor valor={v.property_value} posto="fato" /> : <span className="text-t5">—</span>),
+              },
+              {
+                id: 'comissao',
+                rotulo: 'Comissão',
+                numerica: true,
+                ordenar: (v) => v.cascade.commission,
+                celula: (v) => (
+                  <Valor
+                    valor={v.cascade.commission}
+                    posto="linha"
+                    tinta={v.status === 'cancelada' ? 'text-t4 line-through' : undefined}
+                  />
+                ),
+              },
+              {
+                id: 'recebido',
+                rotulo: 'Recebido',
+                numerica: true,
+                esconder: 'sm',
+                ordenar: (v) => v.progress,
+                celula: (v) => (
+                  <span className="inline-flex items-center justify-end gap-2">
+                    <span className="h-1.5 w-12 overflow-hidden rounded-full bg-s3" aria-hidden>
+                      <span className="block h-full rounded-full bg-g-entra" style={{ width: `${Math.round(v.progress * 100)}%` }} />
+                    </span>
+                    <span className="num w-9 text-t3 text-texto-meta">{Math.round(v.progress * 100)}%</span>
+                  </span>
+                ),
+              },
+              {
+                id: 'situacao',
+                rotulo: 'Situação',
+                esconder: 'sm',
+                celula: (v) => <ChipSituacao situacao={situacaoDaVenda(v)} />,
+              },
+            ]}
+          />
         )}
 
         {filtradas.length > 0 && (
@@ -791,68 +801,39 @@ export function Vendas() {
 /* ------------------------------------------------------------------------- */
 
 /*
- * Uma venda, uma Linha (7.2): título, contexto
- * em texto na meta, chip, a comissão contratada na coluna de valor e o que já
- * entrou logo abaixo dela. A linha inteira leva à ficha da venda.
+ * A primeira célula da tabela de vendas (Souza 2.0): o nome, o contexto numa
+ * linha cinza e, quando há, os dois sinais que pedem alguém — atraso da
+ * construtora (atenção) e comissão parada na mão da imobiliária (risco
+ * quando já passou do dia).
  */
-function linhaVenda(v: SaleView, vencido: number) {
-  const s = situacaoDaVenda(v)
-  const cancelada = s === 'cancelada'
-  const pct = v.cascade.commission > 0 ? Math.round(v.progress * 100) : 0
-
-  const contexto = [v.development ?? 'sem empreendimento', v.brokerName, v.client_name].filter(Boolean) as string[]
-  if (v.is_personal) contexto.push('pessoa física · não é da imobiliária')
-  if (!cancelada) {
-    contexto.push(v.toReceive === 0 ? 'comissão recebida por inteiro' : `falta ${formatCurrency(v.toReceive)}`)
-  }
-
-  /*
-   * Os dois sinais que pedem alguém, com ícone e palavra. O atraso da
-   * construtora é atenção, não risco; a comissão parada na mão da
-   * imobiliária é risco quando já passou do dia em que entrou.
-   */
+function CelulaDaVenda({ v, vencido }: { v: SaleView; vencido: number }) {
+  const cancelada = v.status === 'cancelada'
+  const contexto = [v.development ?? 'sem empreendimento', v.brokerName].filter(Boolean).join(' · ')
   const sinais: { icone: typeof Clock; cor: string; texto: string }[] = []
   if (!cancelada && v.hasOverdue && v.nextDate) {
-    sinais.push({ icone: Hourglass, cor: 'text-warning', texto: `a construtora atrasou a parcela de ${formatDateShort(v.nextDate)}` })
+    sinais.push({ icone: Hourglass, cor: 'text-warning', texto: `parcela de ${formatDateShort(v.nextDate)} em atraso` })
   }
   if (v.brokerReleased > 0) {
     sinais.push(
       vencido > 0
-        ? { icone: TriangleAlert, cor: 'text-error', texto: `comissão de ${formatCurrency(vencido)} esperando o repasse` }
-        : { icone: Clock, cor: 'text-warning', texto: `comissão de ${formatCurrency(v.brokerReleased)} liberada, a pagar` },
+        ? { icone: TriangleAlert, cor: 'text-error', texto: `${formatCurrency(vencido)} esperando repasse` }
+        : { icone: Clock, cor: 'text-warning', texto: `${formatCurrency(v.brokerReleased)} liberado, a pagar` },
     )
   }
-
   return (
-    <Linha
-      key={v.id}
-      titulo={<span className={cancelada ? 'text-t3 line-through' : undefined}>{v.title}</span>}
-      meta={
-        <span className="flex flex-col gap-2">
-          <span className="meta">
-            {contexto.map((c, i) => (
-              <span key={i}>{c}</span>
-            ))}
-          </span>
-          {sinais.map((x) => (
-            <span key={x.texto} className="flex items-start gap-2 text-t2">
-              <Icone icone={x.icone} tamanho={12} className={`${x.cor} h-5`} />
-              {x.texto}
-            </span>
-          ))}
+    <span className="flex min-w-0 max-w-[26rem] flex-col">
+      <span className={`truncate font-medium ${cancelada ? 'text-t4 line-through' : 'text-t1'}`}>{v.title}</span>
+      <span className="truncate text-t-meta text-nota">
+        {contexto}
+        {v.is_personal ? ' · pessoa física' : ''}
+      </span>
+      {sinais.map((x) => (
+        <span key={x.texto} className="flex items-center gap-1.5 text-t3 text-nota">
+          <Icone icone={x.icone} tamanho={12} className={x.cor} />
+          {x.texto}
         </span>
-      }
-      situacao={<ChipSituacao situacao={s} />}
-      valor={<Valor valor={v.cascade.commission} posto="linha" tinta={cancelada ? 'text-t4 line-through' : undefined} />}
-      metaValor={
-        cancelada
-          ? 'venda cancelada'
-          : v.is_personal
-            ? `entra pra você · já entrou ${formatCurrency(v.received)}`
-            : `já entrou ${formatCurrency(v.received)} · ${pct}%`
-      }
-      para={`/vendas/${v.id}`}
-    />
+      ))}
+    </span>
   )
 }
 

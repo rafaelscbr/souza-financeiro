@@ -15,5 +15,5 @@ export function Rotulo({
   className?: string
   as?: 'p' | 'span' | 'h2' | 'h3' | 'dt'
 }) {
-  return <Tag className={cn('font-label text-rotulo uppercase text-t-meta', className)}>{children}</Tag>
+  return <Tag className={cn('font-label text-rotulo text-t-meta', className)}>{children}</Tag>
 }

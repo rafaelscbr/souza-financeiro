@@ -47,6 +47,10 @@ export interface ItemNav {
 export interface SecaoNav {
   rotulo: string
   itens: ItemNav[]
+  /** Souza 2.0: a seção mora no rodapé do menu (Configurações), não na lista. */
+  rodape?: boolean
+  /** Souza 2.0: seção sem rótulo (a Visão financeira, no topo). */
+  semRotulo?: boolean
 }
 
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
@@ -59,21 +63,24 @@ const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um :
  */
 export function navAdmin({ vencidos, esperando }: { vencidos: number; esperando: number }): SecaoNav[] {
   /*
-   * Agrupado pelo trabalho, não pela tela (23/10/2026): primeiro o panorama,
-   * depois o dinheiro que entra e sai, a venda e quem vende, e por fim a
-   * gestão. Os mesmos destinos de antes; só mudaram de grupo.
+   * SOUZA 2.0 (23/10/2026): a arquitetura nova. Primeiro o panorama; depois a
+   * operação do dia (vender, receber, pagar, gastar); o caixa (contas e a
+   * agenda do que entra); a gestão (relatórios, metas, projeções, equipe).
+   * Configurações desce para o rodapé do menu, junto do perfil.
    */
   return [
     {
       rotulo: 'Visão geral',
-      itens: [{ para: '/', rotulo: 'Início', icone: Home, fim: true }],
+      semRotulo: true,
+      itens: [{ para: '/', rotulo: 'Visão financeira', icone: Home, fim: true }],
     },
     {
-      rotulo: 'Dinheiro',
+      rotulo: 'Operação',
       itens: [
+        { para: '/vendas', rotulo: 'Vendas', icone: Handshake },
         {
           para: '/receber',
-          rotulo: 'Receber',
+          rotulo: 'A receber',
           icone: ArrowDownCircle,
           contador: vencidos,
           tomContador: 'risco',
@@ -81,30 +88,29 @@ export function navAdmin({ vencidos, esperando }: { vencidos: number; esperando:
         },
         {
           para: '/pagar',
-          rotulo: 'Pagar',
+          rotulo: 'A pagar',
           icone: ArrowUpCircle,
           contador: esperando,
           tomContador: 'atencao',
           leituraContador: plural(esperando, 'pagamento esperando', 'pagamentos esperando'),
         },
-        { para: '/recebimentos-imobiliaria', rotulo: 'Recebimentos', icone: CalendarRange },
         { para: '/despesas', rotulo: 'Despesas', icone: Receipt },
-        { para: '/contas', rotulo: 'Contas', icone: Landmark },
       ],
     },
     {
-      rotulo: 'Comercial',
+      rotulo: 'Caixa',
       itens: [
-        { para: '/vendas', rotulo: 'Vendas', icone: Handshake },
-        { para: '/corretores', rotulo: 'Corretores', icone: Users },
-        { para: '/metas', rotulo: 'Metas', icone: Target },
+        { para: '/contas', rotulo: 'Contas', icone: Landmark },
+        { para: '/recebimentos-imobiliaria', rotulo: 'Agenda de recebimentos', icone: CalendarRange },
       ],
     },
     {
       rotulo: 'Gestão',
       itens: [
         { para: '/relatorios', rotulo: 'Relatórios', icone: PieChart },
-        { para: '/simulacao', rotulo: 'Simulação', icone: Calculator },
+        { para: '/metas', rotulo: 'Metas', icone: Target },
+        { para: '/simulacao', rotulo: 'Projeções', icone: Calculator },
+        { para: '/corretores', rotulo: 'Corretores', icone: Users },
       ],
     },
     /*
@@ -123,6 +129,7 @@ export function navAdmin({ vencidos, esperando }: { vencidos: number; esperando:
     },
     {
       rotulo: 'Sistema',
+      rodape: true,
       itens: [{ para: '/config', rotulo: 'Configurações', icone: Settings }],
     },
   ]
@@ -202,7 +209,7 @@ const CTA_VENDA: CtaDeclarado = { acao: 'registrar-venda', rotulo: 'Registrar ve
 const CTA_DESPESA: CtaDeclarado = { acao: 'lancar-despesa', rotulo: 'Lançar despesa', rotuloCurto: 'Lançar' }
 
 export const ROTAS_ADMIN: RotaDeclarada[] = [
-  { padrao: '/', icone: Home, titulo: 'Início', usaMes: true, faixa: true, cta: CTA_VENDA },
+  { padrao: '/', icone: Home, titulo: 'Visão financeira', usaMes: true, faixa: true, cta: CTA_VENDA },
   { padrao: '/vendas', icone: Handshake, titulo: 'Vendas', usaMes: false, faixa: true, cta: CTA_VENDA },
   {
     padrao: '/vendas/:id',
@@ -212,15 +219,15 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
     faixa: false,
     voltar: { para: '/vendas', rotulo: 'Vendas' },
   },
-  { padrao: '/receber', icone: ArrowDownCircle, titulo: 'Receber', usaMes: true, faixa: true, cta: CTA_VENDA },
+  { padrao: '/receber', icone: ArrowDownCircle, titulo: 'A receber', usaMes: true, faixa: true, cta: CTA_VENDA },
   {
     padrao: '/recebimentos-imobiliaria',
     icone: CalendarRange,
-    titulo: 'Recebimentos',
+    titulo: 'Agenda de recebimentos',
     usaMes: false,
     faixa: true,
   },
-  { padrao: '/pagar', icone: ArrowUpCircle, titulo: 'Pagar', usaMes: true, faixa: true, cta: CTA_VENDA },
+  { padrao: '/pagar', icone: ArrowUpCircle, titulo: 'A pagar', usaMes: true, faixa: true, cta: CTA_VENDA },
   { padrao: '/despesas', icone: Receipt, titulo: 'Despesas', usaMes: true, faixa: true, cta: CTA_DESPESA },
   { padrao: '/contas', icone: Landmark, titulo: 'Contas', usaMes: true, faixa: true },
   { padrao: '/corretores', icone: Users, titulo: 'Corretores', usaMes: false, faixa: false, cta: CTA_VENDA },
@@ -275,7 +282,7 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
     faixa: true,
     voltar: { para: '/relatorios', rotulo: 'Relatórios' },
   },
-  { padrao: '/simulacao', icone: Calculator, titulo: 'Simulação', usaMes: false, faixa: false },
+  { padrao: '/simulacao', icone: Calculator, titulo: 'Projeções', usaMes: false, faixa: false },
   { padrao: '/config', icone: Settings, titulo: 'Configurações', usaMes: false, faixa: true },
   /* As telas do corretor dentro do app do administrador (035). */
   { padrao: '/minhas-comissoes', icone: Wallet, titulo: 'Minhas comissões', usaMes: false, faixa: false },

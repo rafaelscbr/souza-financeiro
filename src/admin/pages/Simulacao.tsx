@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Building2, Calculator, Percent, Target, Users } from 'lucide-react'
+import { Calculator, Percent, Target, Users } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
-import { Kpi } from '@/components/ui/Kpi'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { Barra } from '@/components/ui/Barra'
@@ -322,37 +322,15 @@ export function Simulacao() {
         demonstrativo={{ linhas, perfil: 'admin', rotuloAcessivel: 'A conta da simulação' }}
       />
 
-      <div className="grid gap-bloco sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi
-          rotulo="Faturamento no ano"
-          icone={Percent}
-          tom="info"
-          valor={c.comissaoAno}
-          nota={`${formatCurrency(porMes(c.comissaoAno))} por mês · a comissão da imobiliária`}
-        />
-        <Kpi
-          rotulo="Custo total no ano"
-          icone={Building2}
-          tom="atencao"
-          valor={c.custoTotalAno}
-          nota={`${formatCurrency(porMes(c.custoTotalAno))} por mês · imposto, corretor e estrutura`}
-        />
-        <Kpi
-          rotulo="Fica por mês"
-          icone={Calculator}
-          tom="marca"
-          valor={porMes(c.liquidoAno)}
-          nota={`${formatCurrency(c.liquidoAno)} no ano`}
-        />
-        <Kpi
-          rotulo="Margem sobre o VGV"
-          icone={Target}
-          tom="sucesso"
-          valor={0}
-          texto={formatPercent(c.margemSobreVgv, 2)}
-          nota={`${formatPercent(c.margemSobreComissao, 0)} da comissão sobram antes da estrutura`}
-        />
-      </div>
+      <FaixaDeMetricas
+        rotuloAcessivel="Resultado da simulação"
+        metricas={[
+          { rotulo: "Faturamento no ano", valor: c.comissaoAno, nota: `${formatCurrency(porMes(c.comissaoAno))} por mês · a comissão da imobiliária` },
+          { rotulo: "Custo total no ano", valor: c.custoTotalAno, nota: `${formatCurrency(porMes(c.custoTotalAno))} por mês · imposto, corretor e estrutura` },
+          { rotulo: "Fica por mês", valor: porMes(c.liquidoAno), nota: `${formatCurrency(c.liquidoAno)} no ano` },
+          { rotulo: "Margem sobre o VGV", valor: 0, texto: formatPercent(c.margemSobreVgv, 2), nota: `${formatPercent(c.margemSobreComissao, 0)} da comissão sobram antes da estrutura` },
+        ]}
+      />
 
       {/*
        * O ENCAIXE (21/09/2026): "não pode ter espaço vazio de grid". Duas

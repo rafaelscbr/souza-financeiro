@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils'
  */
 const QUADRADO =
   'flex size-11 shrink-0 select-none items-center justify-center rounded-controle text-t2 ' +
-  'lg:[@media(pointer:fine)]:size-10 hover:bg-linha-hover hover:text-t1 active:bg-linha-press'
+  'lg:[@media(pointer:fine)]:size-[34px] text-t4 hover:bg-linha-hover hover:text-t1 active:bg-linha-press'
 
 /*
  * Transição de cor de controle isolado (8.4), escrita como estilo: a trava só
@@ -84,7 +84,8 @@ function SeletorMesDesenho({ className, mes, aoAnterior, aoSeguinte, aoAtual }: 
       aria-label="Mês"
       data-seletor-mes
       className={cn(
-        'flex w-full items-center rounded-controle border border-fio-controle bg-surface sm:inline-flex sm:w-auto',
+        // Souza 2.0: controle compacto, borda leve, como um botão secundário.
+        'flex w-full items-center rounded-controle border border-[color:var(--line-input)] bg-surface shadow-[0_1px_1px_rgba(11,18,32,.04)] sm:inline-flex sm:w-auto',
         className,
       )}
     >
@@ -97,7 +98,7 @@ function SeletorMesDesenho({ className, mes, aoAnterior, aoSeguinte, aoAtual }: 
         title={noMesAtual ? 'Mês atual' : 'Voltar para o mês atual'}
         aria-label={noMesAtual ? `${nome}, mês atual` : `${nome}. Voltar para o mês atual`}
         style={COR}
-        className="text-texto-titulo num flex h-11 min-w-[9rem] flex-1 select-none items-center justify-center rounded-controle px-3 text-center text-t1 hover:bg-linha-hover active:bg-linha-press lg:[@media(pointer:fine)]:h-10"
+        className="text-texto-meta num flex h-11 min-w-[8.5rem] flex-1 select-none items-center justify-center rounded-controle px-2 text-center font-medium text-t1 hover:bg-linha-hover active:bg-linha-press lg:[@media(pointer:fine)]:h-[34px]"
       >
         {/* A região viva não remonta; o rótulo visível remonta para animar. */}
         <span aria-live="polite" className="sr-only">

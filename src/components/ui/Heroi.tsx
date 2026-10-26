@@ -71,24 +71,33 @@ export function Heroi(props: HeroiProps) {
     if (apoios && apoios.length > 3) console.error('[Heroi] no máximo 3 apoios (7.5).')
   }
   const temLado = !!(apoios?.length || demonstrativo)
+  /*
+   * Souza 2.0 (23/10/2026): o herói deixa de ser uma caixa grande com borda de
+   * ouro e vira a FAIXA DE RESUMO da tela — o número à esquerda, os apoios à
+   * direita em colunas com fio fino entre elas, como o saldo do Stripe. Mesmo
+   * conteúdo, mesma regra (um herói por tela, previsto nunca em ouro).
+   */
   return (
     <section
       data-caixa
       data-heroi
       data-previsto={previsto ? '' : undefined}
       className={cn(
-        'grid gap-6 rounded-caixa border bg-surface p-recuo shadow-card lg:gap-12 lg:p-8',
-        previsto ? 'border-fio-caixa' : 'border-borda-ouro',
-        temLado && 'lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]',
+        'grid gap-6 rounded-caixa border border-fio-caixa bg-surface px-recuo py-5 shadow-card lg:px-6 lg:py-6',
+        apoios?.length && 'lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center',
+        demonstrativo && 'lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-12',
+        !temLado && 'lg:grid-cols-1',
         className,
       )}
     >
       <div className="flex min-w-0 flex-col">
-        <div className="flex items-start justify-between gap-4">
-          <Rotulo as="h2">{rotulo}</Rotulo>
+        <div className="flex items-center justify-between gap-4">
+          <Rotulo as="h2" className="text-t4">
+            {rotulo}
+          </Rotulo>
           {acao && <div className="hidden shrink-0 sm:block">{acao}</div>}
         </div>
-        <p className="mt-3 min-w-0">
+        <p className="mt-1.5 min-w-0">
           {props.variante === 'previsto' ? (
             <ValorComOrigem
               posto="heroi"
@@ -110,8 +119,8 @@ export function Heroi(props: HeroiProps) {
             />
           )}
         </p>
-        <p className="mt-2 max-w-[62ch] text-texto-corrido text-t3">{frase}</p>
-        {barra && <div className="mt-6">{barra}</div>}
+        <p className="mt-1.5 max-w-[64ch] text-t4 text-texto-meta">{frase}</p>
+        {barra && <div className="mt-4">{barra}</div>}
       </div>
 
       {apoios && apoios.length > 0 && <Apoios apoios={apoios} />}
@@ -123,26 +132,27 @@ export function Heroi(props: HeroiProps) {
 }
 
 /*
- * Apoios: dt rótulo + dd valor-destaque. No celular empilham como linhas de
- * 44px com fio entre elas; de 640 a 1023 em três colunas; ≥1024 em uma coluna
- * ao lado do número.
+ * Apoios: no celular, linhas com fio entre elas; a partir de 640, colunas lado
+ * a lado separadas por fio vertical — à direita do número no computador.
  */
 function Apoios({ apoios }: { apoios: ApoioHeroi[] }) {
   return (
     <dl
       data-celulas
-      className="grid border-t border-fio-linha pt-2 sm:grid-cols-3 sm:gap-4 sm:pt-6 lg:grid-cols-1 lg:border-t-0 lg:pt-0"
+      className="grid border-t border-fio-linha pt-1 sm:flex sm:border-t-0 sm:pt-0 sm:divide-x sm:divide-[color:var(--line)] lg:justify-end"
     >
       {apoios.map((a, i) => (
         <div
           key={`${a.rotulo}-${i}`}
           className={cn(
             'flex min-h-11 items-center justify-between gap-4',
-            'sm:min-h-0 sm:flex-col sm:items-start sm:justify-start sm:gap-1',
+            'sm:min-h-0 sm:min-w-[9.5rem] sm:flex-col sm:items-start sm:justify-start sm:gap-1 sm:px-6 sm:first:ps-0 lg:last:pe-0',
             i > 0 && 'border-t border-fio-linha sm:border-t-0',
           )}
         >
-          <Rotulo as="dt">{a.rotulo}</Rotulo>
+          <Rotulo as="dt" className="text-t4">
+            {a.rotulo}
+          </Rotulo>
           <dd>
             {a.previsto ? (
               <ValorComOrigem

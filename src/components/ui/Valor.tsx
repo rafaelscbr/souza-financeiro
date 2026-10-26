@@ -262,9 +262,9 @@ const COR_DIGITOS: Record<PostoValor, string> = {
 
 const COR_MOEDA: Record<PostoValor, string> = {
   heroi: 'text-heroi-moeda',
-  kpi: 'text-t2',
-  destaque: 'text-t2',
-  linha: 'text-t2',
+  kpi: 'text-t4',
+  destaque: 'text-t4',
+  linha: 'text-t4',
   fato: 'text-t-meta',
 }
 

@@ -84,3 +84,56 @@ export function folegoDoCaixa(saldo: number, teto: number | null): number | null
   if (!teto || teto <= 0) return null
   return Math.max(0, Math.floor((saldo / teto) * 10) / 10)
 }
+
+// ---------------------------------------------------------------------------
+// Souza 2.0: a evolução mês a mês (gráfico principal da Visão financeira)
+// ---------------------------------------------------------------------------
+
+export interface MesDaEvolucao {
+  /** `YYYY-MM`. */
+  mes: string
+  /** Caixa: o que entrou e saiu de verdade, pela data da baixa. */
+  caixa: { entra: number; sai: number; resultado: number; entradas: Transaction[]; saidas: Transaction[] }
+  /** Competência: o DRE realizado do mês (só a comissão devida). */
+  competencia: { receita: number; custos: number; resultado: number; lancamentos: Transaction[] }
+}
+
+/**
+ * Doze meses (ou `n`) terminando em `ate`. Caixa e competência lado a lado,
+ * nunca somados: o gráfico mostra um OU outro, com o nome do regime escrito.
+ * Retirada do sócio fica fora dos dois — não é custo nem resultado.
+ */
+export function evolucaoMensal(
+  transactions: Transaction[],
+  parcelas: Map<string, SaleInstallment>,
+  ate: Date,
+  n = 12,
+): MesDaEvolucao[] {
+  const meses = Array.from({ length: n }, (_, k) => monthKey(new Date(ate.getFullYear(), ate.getMonth() - (n - 1 - k), 1)))
+  return meses.map((mes) => {
+    const pagos = transactions.filter(
+      (t) => t.status === 'settled' && t.kind !== 'withdrawal' && (t.settled_date ?? t.competence_date).slice(0, 7) === mes,
+    )
+    const entradas = pagos.filter((t) => t.kind === 'income')
+    const saidas = pagos.filter((t) => t.kind !== 'income')
+    const entra = r2(entradas.reduce((s, t) => s + t.amount, 0))
+    const sai = r2(saidas.reduce((s, t) => s + t.amount, 0))
+    const doMes = resultadoDoMes(transactions, parcelas, mes)
+    return {
+      mes,
+      caixa: { entra, sai, resultado: r2(entra - sai), entradas, saidas },
+      competencia: {
+        receita: doMes.receita,
+        custos: r2(doMes.receita - doMes.lucro),
+        resultado: doMes.lucro,
+        lancamentos: doMes.lancamentos,
+      },
+    }
+  })
+}
+
+/** Variação entre dois valores, para o selo de tendência ("+12%"). Nulo quando não faz sentido. */
+export function variacao(agora: number, antes: number): number | null {
+  if (!Number.isFinite(antes) || Math.abs(antes) < 0.01) return null
+  return (agora - antes) / Math.abs(antes)
+}

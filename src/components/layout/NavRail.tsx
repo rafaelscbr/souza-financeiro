@@ -14,7 +14,6 @@ import { MarcaS } from '@/components/marca/Marca'
 import type { Aviso } from '@/components/shared/PopoverAvisos'
 import { Badge } from '@/components/ui/Badge'
 import { Icone } from '@/components/ui/Icone'
-import { Rotulo } from '@/components/ui/Rotulo'
 import { useArmadilhaDeFoco } from '@/components/ui/SidePanel'
 import { usePresenca } from '@/lib/usePresenca'
 import { SeletorAparencia } from './SeletorAparencia'
@@ -284,147 +283,166 @@ export function NavRail({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }: Na
     acao()
   }
 
+  const principais = secoes.filter((sec) => !sec.rodape)
+  const doRodape = secoes.filter((sec) => sec.rodape).flatMap((sec) => sec.itens)
+  const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
+
+  /* Um destino do menu (Souza 2.0): 32px, ícone 16, ativo em fundo neutro com ícone marinho. */
+  const destino = (item: ItemNav) => {
+    const texto = item.contador ? `${item.rotulo} · ${item.leituraContador ?? item.contador}` : item.rotulo
+    return (
+      <li key={item.para}>
+        <NavLink
+          to={item.para}
+          end={item.fim}
+          onMouseEnter={mostrarDica(texto)}
+          onMouseLeave={esconderDica}
+          onFocus={mostrarDica(texto)}
+          onBlur={esconderDica}
+          className={({ isActive }) =>
+            `${cn(
+              'group/item relative flex h-10 items-center rounded-controle transition-colors duration-micro lg:[@media(pointer:fine)]:h-8',
+              recolhido ? 'justify-center' : 'gap-2.5 px-2.5',
+              isActive
+                ? 'bg-nav-active-bg font-medium text-nav-active-text [&_svg]:text-brand'
+                : 'text-nav-text hover:bg-nav-hover hover:text-nav-active-text [&_svg]:text-nav-muted hover:[&_svg]:text-nav-text',
+            )} text-texto-meta`
+          }
+        >
+          <Icone icone={item.icone} tamanho={16} />
+          <span
+            className={recolhido ? 'sr-only' : 'min-w-0 flex-1 truncate'}
+            style={recolhido ? undefined : { animation: ANIM_ENTRA(120) }}
+          >
+            {item.rotulo}
+          </span>
+          {recolhido ? (
+            item.contador ? (
+              <span className="absolute right-0 top-0 flex -translate-y-1/4 translate-x-1/4">
+                <ContadorNav item={item} compacto />
+              </span>
+            ) : null
+          ) : (
+            <ContadorNav item={item} />
+          )}
+        </NavLink>
+      </li>
+    )
+  }
+
   return (
     <aside
       aria-label="Menu lateral"
       data-trilho=""
       className={cn(
         'sticky top-0 z-nav hidden h-screen shrink-0 flex-col border-r border-nav-line bg-nav-surface lg:flex',
-        recolhido ? 'w-[68px]' : 'w-[248px]',
+        recolhido ? 'w-[60px]' : 'w-[244px]',
       )}
     >
-      {/* Topo: altura do cabeçalho, só a marca, sem fio embaixo. */}
-      <div className={cn('flex h-cabecalho shrink-0 items-center', recolhido ? 'justify-center' : 'px-4')}>
+      {/* Topo (Souza 2.0): a empresa, discreta, e a busca logo abaixo. */}
+      <div className={cn('flex shrink-0 flex-col gap-3 pb-2 pt-4', recolhido ? 'items-center px-2' : 'px-3')}>
         <Link
           to="/"
           data-marca=""
-          aria-label="Souza Imobiliária, início"
-          onMouseEnter={mostrarDica('Início')}
+          aria-label="Souza Imobiliária, visão financeira"
+          onMouseEnter={mostrarDica('Visão financeira')}
           onMouseLeave={esconderDica}
-          onFocus={mostrarDica('Início')}
+          onFocus={mostrarDica('Visão financeira')}
           onBlur={esconderDica}
-          className="flex min-w-0 items-center gap-3 rounded-controle"
+          className={cn('flex min-w-0 items-center gap-2.5 rounded-controle', !recolhido && 'px-1.5 py-1')}
         >
-          <MarcaS className="size-8 shrink-0" />
+          <MarcaS className="size-7 shrink-0" />
           {!recolhido && (
-            <span aria-hidden className="flex min-w-0 flex-col" style={{ animation: ANIM_ENTRA(120) }}>
-              <span className="font-heading font-bold text-[color:var(--nav-logo)] text-valor-linha">Souza</span>
-              <span className="font-label font-medium uppercase tracking-[0.08em] text-t-meta text-chip">Imobiliária</span>
+            <span aria-hidden className="flex min-w-0 flex-col leading-tight" style={{ animation: ANIM_ENTRA(120) }}>
+              <span className="truncate font-semibold text-[color:var(--nav-logo)] text-texto-titulo">Souza Imobiliária</span>
+              <span className="truncate text-nav-muted text-nota">Financeiro</span>
             </span>
           )}
         </Link>
+        <button
+          type="button"
+          onClick={aoBuscar}
+          onMouseEnter={mostrarDica('Buscar')}
+          onMouseLeave={esconderDica}
+          aria-label="Buscar telas, vendas e corretores"
+          className={cn(
+            'flex items-center rounded-controle border border-nav-line bg-surface text-nav-muted transition-colors hover:border-[color:var(--line-input)] hover:text-nav-text',
+            recolhido ? 'size-9 justify-center' : 'h-8 w-full gap-2 px-2.5',
+          )}
+        >
+          <Icone icone={Search} tamanho={16} />
+          {!recolhido && (
+            <>
+              <span className="flex-1 text-left text-texto-meta">Buscar</span>
+              <kbd className="text-nota font-medium text-nav-muted">{mac ? '⌘K' : 'Ctrl K'}</kbd>
+            </>
+          )}
+        </button>
       </div>
 
-      {/* Destinos: 24 da base do topo até o 1º rótulo; 24 entre grupos (gap do nav) e 8 abaixo de cada rótulo. */}
       <nav
         aria-label="Principal"
         onScroll={esconderDica}
         data-rolagem=""
-        className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-4 pt-6', !recolhido && 'gap-6')}
+        className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3 pt-2', !recolhido && 'gap-5 px-3')}
       >
-        {secoes.map((secao, i) => (
+        {principais.map((secao, i) => (
           <div key={secao.rotulo} className="flex flex-col">
             {recolhido ? (
-              i > 0 && <span aria-hidden className="mx-3 my-3 h-px bg-nav-line" />
-            ) : (
-              <Rotulo as="h2" className="mb-2 px-3">
-                {secao.rotulo}
-              </Rotulo>
+              i > 0 && <span aria-hidden className="mx-2 my-2.5 h-px bg-nav-line" />
+            ) : secao.semRotulo ? null : (
+              <h2 className="mb-1 px-2.5 font-medium text-nav-muted text-nota">{secao.rotulo}</h2>
             )}
-            {recolhido && <h2 className="sr-only">{secao.rotulo}</h2>}
-            <ul className="flex flex-col gap-1">
-              {secao.itens.map((item) => {
-                const texto = item.contador ? `${item.rotulo} · ${item.leituraContador ?? item.contador}` : item.rotulo
-                return (
-                  <li key={item.para}>
-                    <NavLink
-                      to={item.para}
-                      end={item.fim}
-                      onMouseEnter={mostrarDica(texto)}
-                      onMouseLeave={esconderDica}
-                      onFocus={mostrarDica(texto)}
-                      onBlur={esconderDica}
-                      className={({ isActive }) =>
-                        `${cn(
-                          'relative flex h-10 items-center rounded-controle transition-colors active:bg-linha-press',
-                          recolhido ? 'justify-center' : 'gap-3 px-3',
-                          isActive
-                            ? 'bg-nav-active-bg font-semibold text-nav-active-text'
-                            : 'text-nav-text hover:bg-nav-hover hover:text-nav-active-text',
-                        )} text-texto-titulo`
-                      }
-                    >
-                      <Icone icone={item.icone} tamanho={16} />
-                      <span
-                        className={recolhido ? 'sr-only' : 'min-w-0 flex-1 truncate'}
-                        style={recolhido ? undefined : { animation: ANIM_ENTRA(120) }}
-                      >
-                        {item.rotulo}
-                      </span>
-                      {recolhido ? (
-                        item.contador ? (
-                          <span className="absolute right-0 top-0 flex -translate-y-1/4 translate-x-1/4">
-                            <ContadorNav item={item} compacto />
-                          </span>
-                        ) : null
-                      ) : (
-                        <ContadorNav item={item} />
-                      )}
-                    </NavLink>
-                  </li>
-                )
-              })}
-            </ul>
+            {(recolhido || secao.semRotulo) && <h2 className="sr-only">{secao.rotulo}</h2>}
+            <ul className="flex flex-col gap-0.5">{secao.itens.map(destino)}</ul>
           </div>
         ))}
       </nav>
 
-      {/* Rodapé: a conta e o recolher. Recolhido, um em cima do outro. */}
-      <div
-        className={cn(
-          'flex shrink-0 border-t border-nav-line',
-          recolhido ? 'flex-col items-center gap-2 px-3 py-3' : 'items-center gap-2 p-3',
-        )}
-      >
-        <button
-          ref={contaRef}
-          type="button"
-          onClick={() => setMenu((m) => !m)}
-          onMouseEnter={mostrarDica(usuario.nome)}
-          onMouseLeave={esconderDica}
-          aria-haspopup="dialog"
-          aria-expanded={menu}
-          aria-label={`Sua conta: ${usuario.nome}, ${usuario.papel}`}
-          className={cn(
-            'flex items-center rounded-controle text-left transition-colors hover:bg-nav-hover active:bg-linha-press',
-            recolhido ? 'size-11 justify-center' : 'h-14 min-w-0 flex-1 gap-3 px-2',
-            menu && 'bg-nav-active-bg',
-          )}
-        >
-          <Avatar nome={usuario.nome} />
-          {!recolhido && (
-            <>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-medium text-nav-active-text text-texto-titulo">{usuario.nome}</span>
-                <span className="truncate text-t-meta text-texto-meta">{usuario.papel}</span>
-              </span>
-              <Icone icone={ChevronsUpDown} tamanho={16} className="text-nav-muted" />
-            </>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={alternar}
-          onMouseEnter={mostrarDica('Expandir menu')}
-          onMouseLeave={esconderDica}
-          aria-label={recolhido ? 'Expandir menu' : 'Recolher menu'}
-          aria-expanded={!recolhido}
-          aria-keyshortcuts="["
-          title={recolhido ? undefined : 'Recolher menu  ['}
-          className={BOTAO_RECOLHER}
-        >
-          <Icone icone={recolhido ? PanelLeftOpen : PanelLeftClose} tamanho={16} />
-        </button>
+      {/* Rodapé: Configurações, a conta e o recolher. */}
+      <div className={cn('flex shrink-0 flex-col gap-1 border-t border-nav-line', recolhido ? 'items-center px-2 py-2' : 'p-3')}>
+        {doRodape.length > 0 && <ul className={cn('flex flex-col gap-0.5', recolhido && 'items-center')}>{doRodape.map(destino)}</ul>}
+        <div className={cn('flex items-center gap-1', recolhido && 'flex-col')}>
+          <button
+            ref={contaRef}
+            type="button"
+            onClick={() => setMenu((m) => !m)}
+            onMouseEnter={mostrarDica(usuario.nome)}
+            onMouseLeave={esconderDica}
+            aria-haspopup="dialog"
+            aria-expanded={menu}
+            aria-label={`Sua conta: ${usuario.nome}, ${usuario.papel}`}
+            className={cn(
+              'flex items-center rounded-controle text-left transition-colors hover:bg-nav-hover active:bg-linha-press',
+              recolhido ? 'size-10 justify-center' : 'h-11 min-w-0 flex-1 gap-2.5 px-1.5',
+              menu && 'bg-nav-active-bg',
+            )}
+          >
+            <Avatar nome={usuario.nome} className="size-7" />
+            {!recolhido && (
+              <>
+                <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                  <span className="truncate font-medium text-nav-active-text text-texto-meta">{usuario.nome}</span>
+                  <span className="truncate text-nav-muted text-nota">{usuario.papel}</span>
+                </span>
+                <Icone icone={ChevronsUpDown} tamanho={16} className="text-nav-muted" />
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={alternar}
+            onMouseEnter={mostrarDica('Expandir menu')}
+            onMouseLeave={esconderDica}
+            aria-label={recolhido ? 'Expandir menu' : 'Recolher menu'}
+            aria-expanded={!recolhido}
+            aria-keyshortcuts="["
+            title={recolhido ? undefined : 'Recolher menu  ['}
+            className={cn(BOTAO_RECOLHER, 'size-8')}
+          >
+            <Icone icone={recolhido ? PanelLeftOpen : PanelLeftClose} tamanho={16} />
+          </button>
+        </div>
       </div>
 
       {dica &&

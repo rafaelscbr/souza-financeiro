@@ -43,7 +43,10 @@ const FORMULARIOS = new Set([
 ])
 
 const emComponenteDeBase = (p) =>
-  p.startsWith('src/components/ui/') || p.startsWith('src/components/layout/')
+  p.startsWith('src/components/ui/') ||
+  p.startsWith('src/components/layout/') ||
+  // Souza 2.0: o sistema de gráficos também é componente de base.
+  p.startsWith('src/components/graficos/')
 
 const ehTelaOuFormulario = (p) =>
   p.startsWith('src/admin/pages/') || p.startsWith('src/corretor/pages/') || FORMULARIOS.has(p)
@@ -81,8 +84,10 @@ const REGRAS = [
     id: 'meio-degrau',
     nivel: 'erro',
     secao: '3.1, P3',
-    oque: 'degrau de espaço fora da escala (0.5, 1.5, 2.5, 3.5, 7, 9, 11, 14)',
-    re: /\b(?:p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y)-(?:0\.5|1\.5|2\.5|3\.5|7|9|11|14)\b/g,
+    // Souza 2.0 (23/10/2026): a grade é de 4px com meio passo (2, 6, 10, 14px);
+    // só os degraus soltos de 28/36/44/56px continuam fora.
+    oque: 'degrau de espaço fora da escala (7, 9, 11, 14)',
+    re: /\b(?:p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y)-(?:7|9|11|14)\b/g,
   },
   {
     id: 'espaco-arbitrario',
