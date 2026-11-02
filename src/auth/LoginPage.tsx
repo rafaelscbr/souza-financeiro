@@ -60,7 +60,7 @@ function Painel() {
     <div
       data-painel-marca
       className="relative isolate flex h-40 flex-col justify-center overflow-hidden px-6 lg:h-auto lg:min-h-dvh lg:justify-start lg:p-12"
-      style={{ backgroundImage: PAINEL }}
+      style={{ backgroundColor: PAINEL }}
     >
       {/* Marca d'água: só o "S", sangrando pela borda de baixo. Decorativa. */}
       <span

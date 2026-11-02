@@ -294,7 +294,8 @@ export function Inicio() {
         ]}
       />
 
-      <div className="grid items-stretch gap-bloco lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      {/* items-start: o "Pede você" tem o tamanho das pendências do dia, sem faixa vazia embaixo. */}
+      <div className="grid items-start gap-bloco lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Cartao>
           <Cartao.Cabecalho
             titulo="Caixa previsto"
