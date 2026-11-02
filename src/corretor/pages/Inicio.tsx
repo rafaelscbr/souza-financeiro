@@ -1,23 +1,23 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, CalendarDays, Timer, Handshake, TriangleAlert, Wallet } from 'lucide-react'
+import { ArrowRight, Handshake } from 'lucide-react'
 import { useCorretor, type CorretorParcela } from '../CorretorData'
-import { ChipDaParcela, FraseDaParcela, fraseDaParcela } from '../EtapaDaParcela'
+import { FraseDaParcela, fraseDaParcela } from '../EtapaDaParcela'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
 import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Linha } from '@/components/ui/Lista'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
-import { Selo } from '@/components/ui/Selo'
 import { Icone } from '@/components/ui/Icone'
-import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
-import { BarraTrilha, LegendaTrilha } from '@/components/ui/Barra'
+import { FraseDeTempo } from '@/components/ui/Situacao'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { Dica } from '@/components/ui/Dica'
 import { situacaoDeTela, type Situacao } from '@/lib/situacao'
 import { formatCurrency, parseDateOnly, toDateOnly } from '@/lib/format'
+import { GraficoAnoEmBarras } from '@/components/graficos/GraficoAnoEmBarras'
+import { ListaDeAcoes, type ItemDeAcao } from '@/components/ui/ListaDeAcoes'
+import { Regua } from '@/components/ui/Regua'
 
 /*
  * O INÍCIO DO CORRETOR (9.8): o bolso.
@@ -27,7 +27,7 @@ import { formatCurrency, parseDateOnly, toDateOnly } from '@/lib/format'
  * cada número ABRE nas parcelas que o compõem, com o nome da venda.
  */
 export function CorretorInicio() {
-  const { painel, parcelas, ano } = useCorretor()
+  const { painel, parcelas, ano, vendas } = useCorretor()
   const { abrir } = useComposicao()
   const hoje = toDateOnly(new Date())
 
@@ -82,209 +82,194 @@ export function CorretorInicio() {
   const recebidas = por((s) => s === 'recebida')
   const previstas = por((s) => s === 'prevista')
   const atrasadas = por((s) => s === 'vencida')
+  const ativas = [...vendas].filter((v) => v.status !== 'cancelada').sort((a, b) => b.sale_date.localeCompare(a.sale_date))
+  const sProxima = p.next ? situacaoDeTela(p.next.status, p.next.date, hoje) : null
+
+  /*
+   * SOUZA 3.0 (02/11/2026): o mesmo desenho do Início do administrador. A
+   * frase do título responde "quanto é meu agora?"; o número líder é o que
+   * está liberado; o ano vira um gráfico de 12 meses (recebido em marinho,
+   * liberado em tinta, previsto em cinza) e a régua do ano diz quanto já caiu.
+   */
+  const passos: ItemDeAcao[] = [
+    ...atrasadas.map(({ p: parc }) => ({
+      id: parc.id,
+      titulo: parc.sale_title,
+      detalhe: `liberada há mais tempo que o combinado · vale um lembrete para a imobiliária`,
+      valor: parc.broker_amount - parc.broker_adjustment,
+      tom: 'risco' as const,
+      para: `/minhas-vendas?venda=${parc.sale_id}`,
+    })),
+    ...(p.next && sProxima
+      ? [
+          {
+            id: 'proxima',
+            titulo: `Próximo: ${p.next.sale_title}`,
+            detalhe: proxima ? <FraseDaParcela p={proxima} s={sProxima} /> : <FraseDeTempo situacao={sProxima} prevista={p.next.date} />,
+            valor: p.next.amount,
+            para: '/recebimentos',
+          },
+        ]
+      : []),
+    { id: 'plano', titulo: 'Suas metas e seu nível', detalhe: 'quanto falta para o próximo degrau', para: '/meu-plano' },
+  ]
+
+  const frase = (
+    <>
+      <b>
+        {liberadas.length > 0
+          ? `${formatCurrency(soma(liberadas))} liberados para você`
+          : 'Nada liberado agora'}
+      </b>
+      {p.next && sProxima ? ` · próximo: ${formatCurrency(p.next.amount)} de ${p.next.sale_title}` : ` · sua comissão em ${ano}`}
+    </>
+  )
+
+  const meses = Array.from({ length: 12 }, (_, i) => {
+    const chave = `${ano}-${String(i + 1).padStart(2, '0')}`
+    const doMes = doAno.filter(({ p: parc }) => parc.expected_date.slice(0, 7) === chave)
+    return {
+      chave,
+      rotulo: parseDateOnly(`${chave}-01`).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''),
+      nome: parseDateOnly(`${chave}-01`).toLocaleDateString('pt-BR', { month: 'long' }),
+      recebida: soma(doMes.filter(({ s }) => s === 'recebida')),
+      liberada: soma(doMes.filter(({ s }) => s === 'liberada' || s === 'vencida')),
+      prevista: soma(doMes.filter(({ s }) => s === 'prevista')),
+      itens: doMes,
+    }
+  })
 
   return (
-    <PageLayout subtitulo={`Sua comissão em ${ano}`}>
-      <Heroi
-        variante="ouro"
-        rotulo="A receber agora"
-        valor={soma(liberadas)}
-        rotuloAcessivel="Ver de quais vendas vem o valor a receber"
-        aoAbrir={() =>
-          abrir({
-            rotulo: 'A receber agora',
-            titulo: 'De quais vendas vem',
-            explica: 'Parcelas que a imobiliária já recebeu. Sua comissão está liberada para pagamento.',
-            total: soma(liberadas),
-            itens: liberadas.map(item),
-            vazio: 'Nada liberado no momento.',
-          })
-        }
-        frase={
-          liberadas.length > 0
-            ? 'A imobiliária já recebeu estas parcelas. É dinheiro seu, esperando o repasse.'
-            : 'Nada liberado no momento. Quando a construtora pagar uma parcela, sua comissão aparece aqui.'
-        }
-      />
-
-      {/*
-       * A FILEIRA DO CORRETOR (21/09/2026). O painel dele era uma coluna de
-       * cartões; agora abre com os quatro números que ele quer de relance —
-       * os mesmos que já estavam mais abaixo, sem conta nova. O herói continua
-       * sendo um só: o que está liberado para ele receber.
-       */}
+    <PageLayout subtitulo={frase}>
       <FaixaDeMetricas
         rotuloAcessivel="Suas comissões no ano"
         metricas={[
-          { rotulo: `Vendas em ${ano}`, valor: 0, texto: String(p.sales_count), nota: `${formatCurrency(soma(doAno))} de comissão sua no ano`, para: "/minhas-vendas" },
-          { rotulo: `Já recebida em ${ano}`, valor: soma(recebidas), estado: soma(recebidas) > 0 ? 'recebido' : undefined, nota: 
-            recebidas.length === 0
-              ? 'nada pago a você ainda neste ano'
-              : `${recebidas.length} ${recebidas.length === 1 ? 'parcela paga' : 'parcelas pagas'} a você`
-          , para: "/recebimentos" },
-          { rotulo: "Liberada, a receber", valor: soma(liberadas), nota: 
-            liberadas.length === 0
-              ? 'nada liberado no momento'
-              : `${liberadas.length} ${liberadas.length === 1 ? 'parcela' : 'parcelas'} que a imobiliária já recebeu`
-          , para: "/recebimentos?foco=a-receber" },
-          { rotulo: "Ainda prevista", valor: soma(previstas), nota: 
-            previstas.length === 0
-              ? 'nenhuma parcela prevista'
-              : `${previstas.length} ${previstas.length === 1 ? 'parcela' : 'parcelas'} · depende da construtora pagar`
-          , para: "/recebimentos" },
+          {
+            rotulo: 'Liberada, a receber',
+            valor: soma(liberadas),
+            lider: true,
+            nota:
+              liberadas.length === 0
+                ? 'quando a construtora pagar, aparece aqui'
+                : `${liberadas.length} ${liberadas.length === 1 ? 'parcela' : 'parcelas'} que a imobiliária já recebeu`,
+            para: '/recebimentos?foco=a-receber',
+          },
+          {
+            rotulo: `Já recebida em ${ano}`,
+            valor: soma(recebidas),
+            nota:
+              recebidas.length === 0
+                ? 'nada pago a você ainda neste ano'
+                : `${recebidas.length} ${recebidas.length === 1 ? 'parcela paga' : 'parcelas pagas'} a você`,
+            para: '/recebimentos',
+          },
+          {
+            rotulo: 'Ainda prevista',
+            valor: soma(previstas),
+            nota: previstas.length === 0 ? 'nenhuma parcela prevista' : 'depende da construtora pagar',
+            para: '/recebimentos',
+          },
+          {
+            rotulo: `Vendas em ${ano}`,
+            valor: 0,
+            texto: String(p.sales_count),
+            nota: p.vgv > 0 ? `${formatCurrency(p.vgv)} de VGV` : 'valor dos imóveis não informado',
+            para: '/minhas-vendas',
+          },
         ]}
       />
 
-      {/*
-       * Atraso aqui tem um significado estrito: é o que a imobiliária JÁ
-       * RECEBEU e ainda não repassou. Parcela que a construtora não pagou é
-       * espera, não atraso.
-       */}
-      {atrasadas.length > 0 && (
-        <Cartao>
-          <Cartao.Cabecalho titulo="Esperando além do previsto" icone={TriangleAlert} />
-          <Cartao.Lista
-            rotuloAcessivel="Comissões atrasadas"
-            colunas={{ goteira: true, situacao: true, valor: true, fim: true }}
-          >
-            {atrasadas.map(({ p: parc, s }) => (
-              <Linha
-                key={parc.id}
-                goteira={<Selo situacao={s} idx={parc.idx} count={parc.count} />}
-                titulo={parc.sale_title}
-                meta={
-                  <FraseDeTempo
-                    situacao={s}
-                    prevista={parc.expected_date}
-                    liberada={parc.received_date}
-                    recebida={parc.paid_date}
-                  />
-                }
-                situacao={<ChipSituacao situacao={s} perfil="corretor" />}
-                valor={<Valor valor={parc.broker_amount - parc.broker_adjustment} posto="linha" estado="vencido" />}
-                para={`/minhas-vendas?venda=${parc.sale_id}`}
-              />
-            ))}
-          </Cartao.Lista>
-          <Cartao.Rodape>Vale um lembrete para a imobiliária.</Cartao.Rodape>
-        </Cartao>
-      )}
-
-      {p.next && (
-        <Cartao>
-          <Cartao.Cabecalho titulo="Próximo recebimento" icone={Timer} />
-          <Cartao.Lista rotuloAcessivel="Próximo recebimento" colunas={{ goteira: true, situacao: true, valor: true }}>
-            <Linha
-              goteira={
-                <Selo
-                  situacao={situacaoDeTela(p.next.status, p.next.date, hoje)}
-                  idx={p.next.idx}
-                  count={p.next.count}
-                />
-              }
-              titulo={p.next.sale_title}
-              meta={
-                proxima ? (
-                  <FraseDaParcela p={proxima} s={situacaoDeTela(p.next.status, p.next.date, hoje)} />
-                ) : (
-                  <FraseDeTempo situacao={situacaoDeTela(p.next.status, p.next.date, hoje)} prevista={p.next.date} />
-                )
-              }
-              situacao={
-                proxima ? (
-                  <ChipDaParcela p={proxima} s={situacaoDeTela(p.next.status, p.next.date, hoje)} />
-                ) : (
-                  <ChipSituacao situacao={situacaoDeTela(p.next.status, p.next.date, hoje)} perfil="corretor" />
-                )
-              }
-              valor={<Valor valor={p.next.amount} posto="linha" />}
-            />
-          </Cartao.Lista>
-        </Cartao>
-      )}
-
-      <Cartao>
-        <Cartao.Cabecalho titulo={`Sua comissão em ${ano}`} icone={Wallet} />
-        <Cartao.Corpo>
-          <BarraTrilha
-            recebido={soma(recebidas)}
-            liberado={soma(liberadas)}
-            previsto={soma(previstas)}
-            rotuloAcessivel={`De ${formatCurrency(soma(doAno))} em ${ano}: ${formatCurrency(soma(recebidas))} recebido, ${formatCurrency(soma(liberadas))} liberado a receber e ${formatCurrency(soma(previstas))} dependendo da construtora.`}
+      <div className="grid items-stretch gap-bloco lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Cartao rotuloAcessivel={`Sua comissão mês a mês em ${ano}`}>
+          <Cartao.Cabecalho
+            titulo={`Sua comissão em ${ano}`}
+            meta={`${formatCurrency(soma(doAno))} no ano, mês a mês`}
+            extra={
+              <span className="flex flex-wrap items-center gap-3 text-t4 text-texto-meta">
+                <LegendaPonto cor="var(--g-entra)" nome="Recebida" />
+                <LegendaPonto cor="var(--t2)" nome="Liberada" />
+                <LegendaPonto cor="var(--g-sai)" nome="Prevista" />
+              </span>
+            }
           />
-          <LegendaTrilha />
-          {/*
-           * A ressalva que o total não dá sozinho (22/09/2026): parte desta
-           * comissão vem de venda de pessoa física, que nunca passou pelo caixa
-           * da imobiliária. Sem isto escrito, dois dinheiros diferentes viram um
-           * número só.
-           */}
-          {p.personal_total > 0 && (
-            <Dica>
-              Deste total, <Valor valor={p.personal_total} posto="fato" forte /> vem de{' '}
-              {p.personal_count === 1 ? 'uma venda' : `${p.personal_count} vendas`} de pessoa física: comissão sua que
-              não passa pelo caixa da imobiliária, e por isso não espera repasse.
-            </Dica>
-          )}
-        </Cartao.Corpo>
-        <Cartao.Lista rotuloAcessivel={`Sua comissão em ${ano}`} colunas={{ goteira: true, situacao: true, valor: true }}>
-          <Linha
-            goteira={<Selo situacao="recebida" />}
-            titulo="Já recebida"
-            meta={`${recebidas.length} ${recebidas.length === 1 ? 'parcela paga' : 'parcelas pagas'} a você`}
-            valor={
-              recebidas.length > 0 ? (
+          <Cartao.Corpo>
+            <GraficoAnoEmBarras
+              meses={meses}
+              aoAbrir={(m) =>
+                abrir({
+                  rotulo: m.nome,
+                  titulo: `Parcelas de ${m.nome} de ${ano}`,
+                  total: Math.round((m.recebida + m.liberada + m.prevista) * 100) / 100,
+                  itens: m.itens.map(item),
+                  vazio: 'Nenhuma parcela neste mês.',
+                })
+              }
+            />
+          </Cartao.Corpo>
+        </Cartao>
+
+        <Cartao rotuloAcessivel="Pede atenção">
+          <Cartao.Cabecalho
+            titulo="Próximos passos"
+            meta={atrasadas.length > 0 ? 'há repasse esperando além do previsto' : 'o que vem por aí'}
+          />
+          <ListaDeAcoes rotuloAcessivel="Próximos passos" itens={passos} />
+        </Cartao>
+      </div>
+
+      {/* Itens à altura do próprio conteúdo: o número de vendas muda de corretor para corretor. */}
+      <div className="grid items-start gap-bloco lg:grid-cols-2">
+        <Cartao rotuloAcessivel={`Quanto já caiu em ${ano}`}>
+          <Cartao.Cabecalho titulo="Quanto já caiu" meta={`de ${formatCurrency(soma(doAno))} em ${ano}`} />
+          <Cartao.Corpo className="gap-3">
+            <Regua
+              rotuloAcessivel={`De ${formatCurrency(soma(doAno))} em ${ano}: ${formatCurrency(soma(recebidas))} recebido, ${formatCurrency(soma(liberadas))} liberado a receber e ${formatCurrency(soma(previstas))} dependendo da construtora.`}
+              partes={[
+                { nome: 'Recebida', valor: soma(recebidas), cor: 'var(--g-entra)' },
+                { nome: 'Liberada', valor: soma(liberadas), cor: 'var(--t2)' },
+                { nome: 'Prevista', valor: soma(previstas), cor: 'var(--g-sai)' },
+              ]}
+            />
+            {p.personal_total > 0 && (
+              <Dica>
+                Deste total, <Valor valor={p.personal_total} posto="fato" forte /> vem de{' '}
+                {p.personal_count === 1 ? 'uma venda' : `${p.personal_count} vendas`} de pessoa física: comissão sua que não passa
+                pelo caixa da imobiliária, e por isso não espera repasse.
+              </Dica>
+            )}
+          </Cartao.Corpo>
+          <Cartao.Lista rotuloAcessivel={`Sua comissão em ${ano}`} colunas={{ goteira: true, valor: true }}>
+            <Linha
+              goteira={<span aria-hidden className="size-2.5 rounded-ponto" style={{ background: 'var(--g-entra)' }} />}
+              titulo="Já recebida"
+              meta={`${recebidas.length} ${recebidas.length === 1 ? 'parcela paga' : 'parcelas pagas'} a você`}
+              valor={
                 <ValorComOrigem
                   valor={soma(recebidas)}
                   posto="linha"
-                  estado="recebido"
                   rotuloAcessivel="Ver quais parcelas você já recebeu"
-                  aoAbrir={() =>
-                    abrir({
-                      rotulo: 'Já recebida',
-                      titulo: 'O que já caiu para você',
-                      total: soma(recebidas),
-                      itens: recebidas.map(item),
-                    })
-                  }
+                  aoAbrir={() => abrir({ rotulo: 'Já recebida', titulo: 'O que já caiu para você', total: soma(recebidas), itens: recebidas.map(item), vazio: 'Nada pago ainda.' })}
                 />
-              ) : (
-                <Valor valor={0} posto="linha" />
-              )
-            }
-          />
-          <Linha
-            goteira={<Selo situacao="liberada" />}
-            titulo="A receber"
-            meta="a imobiliária recebeu e vai te pagar"
-            valor={
-              liberadas.length > 0 ? (
+              }
+            />
+            <Linha
+              goteira={<span aria-hidden className="size-2.5 rounded-ponto" style={{ background: 'var(--t2)' }} />}
+              titulo="Liberada, a receber"
+              meta="a imobiliária recebeu e vai te pagar"
+              valor={
                 <ValorComOrigem
                   valor={soma(liberadas)}
                   posto="linha"
                   rotuloAcessivel="Ver quais vendas compõem o valor a receber"
-                  aoAbrir={() =>
-                    abrir({
-                      rotulo: 'A receber',
-                      titulo: 'De quais vendas vem',
-                      total: soma(liberadas),
-                      itens: liberadas.map(item),
-                    })
-                  }
+                  aoAbrir={() => abrir({ rotulo: 'A receber', titulo: 'De quais vendas vem', total: soma(liberadas), itens: liberadas.map(item), vazio: 'Nada liberado no momento.' })}
                 />
-              ) : (
-                <Valor valor={0} posto="linha" />
-              )
-            }
-          />
-          {/* Previsão: sem cor tônica, com "depende" no metadado e o chip neutro. */}
-          <Linha
-            goteira={<Selo situacao="prevista" />}
-            titulo="Prevista"
-            meta="depende da construtora pagar primeiro"
-            situacao={<ChipSituacao situacao="prevista" perfil="corretor" />}
-            valor={
-              previstas.length > 0 ? (
+              }
+            />
+            <Linha
+              goteira={<span aria-hidden className="size-2.5 rounded-ponto" style={{ background: 'var(--g-sai)' }} />}
+              titulo="Prevista"
+              meta="depende da construtora pagar primeiro"
+              valor={
                 <ValorComOrigem
                   valor={soma(previstas)}
                   posto="linha"
@@ -294,88 +279,59 @@ export function CorretorInicio() {
                     abrir({
                       rotulo: 'Prevista',
                       titulo: 'Previsão, não promessa',
-                      explica:
-                        'Estas parcelas só viram comissão sua quando a construtora pagar a imobiliária. A data pode mudar.',
+                      explica: 'Estas parcelas só viram comissão sua quando a construtora pagar a imobiliária. A data pode mudar.',
                       total: soma(previstas),
                       itens: previstas.map(item),
+                      vazio: 'Nenhuma parcela prevista.',
                     })
                   }
                 />
-              ) : (
-                <Valor valor={0} posto="linha" />
-              )
-            }
-          />
-        </Cartao.Lista>
-        <Cartao.Rodape>
-          <Link
-            to="/recebimentos"
-            className="flex min-h-toque flex-1 items-center justify-between gap-3 font-medium text-t1 hover:text-t2"
-          >
-            Ver o cronograma completo
-            <Icone icone={ArrowRight} tamanho={16} />
-          </Link>
-        </Cartao.Rodape>
-      </Cartao>
-
-      {p.by_month.length > 0 && (
-        <Cartao>
-          <Cartao.Cabecalho titulo={`Por mês em ${ano}`} icone={CalendarDays} />
-          <Cartao.Lista rotuloAcessivel={`Por mês em ${ano}`} colunas={{ valor: true }}>
-            {p.by_month.map((m) => {
-              const doMes = doAno.filter(({ p: parc }) => parc.expected_date.slice(0, 7) === m.month)
-              const nome = parseDateOnly(`${m.month}-01`).toLocaleDateString('pt-BR', { month: 'long' })
-              return (
-                <Linha
-                  key={m.month}
-                  titulo={nome.charAt(0).toUpperCase() + nome.slice(1)}
-                  meta={`${doMes.length} ${doMes.length === 1 ? 'parcela' : 'parcelas'}`}
-                  valor={
-                    doMes.length > 0 ? (
-                      <ValorComOrigem
-                        valor={soma(doMes)}
-                        posto="linha"
-                        rotuloAcessivel={`Ver as parcelas de ${nome}`}
-                        aoAbrir={() =>
-                          abrir({
-                            rotulo: nome,
-                            titulo: `Parcelas de ${nome} de ${ano}`,
-                            total: soma(doMes),
-                            itens: doMes.map(item),
-                          })
-                        }
-                      />
-                    ) : (
-                      <Valor valor={m.amount} posto="linha" />
-                    )
-                  }
-                />
-              )
-            })}
+              }
+            />
           </Cartao.Lista>
         </Cartao>
-      )}
 
-      <Cartao>
-        <Cartao.Cabecalho titulo={`Sua produção em ${ano}`} icone={Handshake} />
-        <Cartao.Lista rotuloAcessivel={`Sua produção em ${ano}`} colunas={{ valor: true }}>
-          <Linha
-            titulo="Vendas fechadas"
-            valor={<span className="num font-medium text-t1 text-valor-linha">{p.sales_count}</span>}
-            para="/minhas-vendas"
+        <Cartao rotuloAcessivel="Suas vendas">
+          <Cartao.Cabecalho
+            titulo="Suas vendas"
+            meta={`${ativas.length} ${ativas.length === 1 ? 'venda ativa' : 'vendas ativas'} · as mais recentes primeiro`}
           />
-          <Linha
-            titulo="VGV vendido"
-            meta={
-              p.sales_without_vgv > 0
-                ? `${p.sales_without_vgv} ${p.sales_without_vgv === 1 ? 'venda sem valor informado' : 'vendas sem valor informado'}`
-                : 'valor somado dos imóveis'
-            }
-            valor={<Valor valor={p.vgv} posto="linha" />}
-            para="/minhas-vendas"
-          />
-        </Cartao.Lista>
-      </Cartao>
+          {ativas.length === 0 ? (
+            <Cartao.Corpo>
+              <EstadoVazio icone={Handshake} titulo="Nenhuma venda ativa" descricao="Quando a imobiliária registrar uma venda sua, ela aparece aqui." />
+            </Cartao.Corpo>
+          ) : (
+            <Cartao.Lista rotuloAcessivel="Suas vendas mais recentes" colunas={{ valor: true, fim: true }}>
+              {ativas.slice(0, 4).map((v) => (
+                <Linha
+                  key={v.id}
+                  titulo={v.title}
+                  meta={[v.development, v.is_personal ? 'pessoa física' : null, `${v.installments} ${v.installments === 1 ? 'parcela' : 'parcelas'}`]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  valor={<Valor valor={v.commission_total} posto="linha" />}
+                  para={`/minhas-vendas?venda=${v.id}`}
+                />
+              ))}
+            </Cartao.Lista>
+          )}
+          <Cartao.Rodape>
+            <Link to="/minhas-vendas" className="inline-flex items-center gap-1.5 font-medium text-brand hover:underline hover:underline-offset-4">
+              Ver todas as vendas
+              <Icone icone={ArrowRight} tamanho={16} />
+            </Link>
+          </Cartao.Rodape>
+        </Cartao>
+      </div>
     </PageLayout>
+  )
+}
+
+function LegendaPonto({ cor, nome }: { cor: string; nome: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span aria-hidden className="size-2 rounded-ponto" style={{ background: cor }} />
+      {nome}
+    </span>
   )
 }

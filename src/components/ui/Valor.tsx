@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils'
  * `variante` 'ouro' ou 'previsto' (7.5).
  */
 
-export type PostoValor = 'heroi' | 'kpi' | 'destaque' | 'linha' | 'fato'
+export type PostoValor = 'heroi' | 'lider' | 'kpi' | 'destaque' | 'linha' | 'fato'
 export type EstadoValor = 'recebido' | 'vencido' | 'negativo'
 export type VarianteHeroi = 'ouro' | 'previsto'
 
@@ -238,6 +238,8 @@ export function useContagemHeroi(alvo: number, ativo: boolean): { exibido: numbe
 
 const TAMANHO_DIGITOS: Record<PostoValor, string> = {
   heroi: 'text-numero-heroi-m lg:text-numero-heroi',
+  // Souza 3.0: o número que responde a tela (o saldo no Início), em negrito.
+  lider: 'text-numero-heroi-m lg:text-numero-heroi font-bold',
   kpi: 'text-numero-kpi-m lg:text-numero-kpi',
   destaque: 'text-valor-destaque',
   linha: 'text-valor-linha',
@@ -246,7 +248,8 @@ const TAMANHO_DIGITOS: Record<PostoValor, string> = {
 
 const TAMANHO_MOEDA: Record<PostoValor, string> = {
   heroi: 'text-valor-destaque',
-  kpi: 'text-valor-linha',
+  lider: 'text-valor-destaque font-normal',
+  kpi: 'text-valor-linha font-normal',
   destaque: 'text-texto-meta font-medium',
   linha: 'text-nota font-medium',
   fato: 'text-nota font-normal',
@@ -254,6 +257,7 @@ const TAMANHO_MOEDA: Record<PostoValor, string> = {
 
 const COR_DIGITOS: Record<PostoValor, string> = {
   heroi: 'text-heroi-numero',
+  lider: 'text-t1',
   kpi: 'text-t1',
   destaque: 'text-t1',
   linha: 'text-t1',
@@ -262,6 +266,7 @@ const COR_DIGITOS: Record<PostoValor, string> = {
 
 const COR_MOEDA: Record<PostoValor, string> = {
   heroi: 'text-heroi-moeda',
+  lider: 'text-t4',
   kpi: 'text-t4',
   destaque: 'text-t4',
   linha: 'text-t4',

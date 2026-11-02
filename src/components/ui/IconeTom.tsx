@@ -26,11 +26,10 @@ export function IconeTom({ icone: Glifo, tom = 'neutro', tamanho = 'md', classNa
     <span
       data-icone-tom
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-controle border',
+        // Souza 3.0: ícone solto na cor do tom, sem quadradinho tingido atrás.
+        'inline-flex shrink-0 items-center justify-center',
         t.caixa,
-        TOM[tom].fundo,
-        TOM[tom].borda,
-        TOM[tom].texto,
+        tom === 'neutro' ? 'text-t3' : TOM[tom].texto,
         className,
       )}
       aria-hidden

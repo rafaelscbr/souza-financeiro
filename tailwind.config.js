@@ -188,10 +188,10 @@ export default {
       },
 
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        // Souza 2.0: uma família só. Inter é a letra de software financeiro.
-        heading: ['Inter', 'system-ui', 'sans-serif'],
-        label: ['Inter', 'system-ui', 'sans-serif'],
+        // Souza 3.0 (02/11/2026): Geist, uma família só, com número tabular.
+        sans: ['Geist', 'Inter', 'system-ui', 'sans-serif'],
+        heading: ['Geist', 'Inter', 'system-ui', 'sans-serif'],
+        label: ['Geist', 'Inter', 'system-ui', 'sans-serif'],
       },
 
       boxShadow: {
@@ -212,14 +212,14 @@ export default {
        */
       fontSize: {
         /* Souza 2.0 (23/10/2026): Inter, número tabular, sem caixa alta espaçada. */
-        'numero-heroi': ['34px', { lineHeight: '40px', letterSpacing: '-0.03em', fontWeight: '600' }],
+        'numero-heroi': ['36px', { lineHeight: '42px', letterSpacing: '-0.03em', fontWeight: '600' }],
         'numero-heroi-m': ['28px', { lineHeight: '34px', letterSpacing: '-0.025em', fontWeight: '600' }],
         'numero-kpi': ['24px', { lineHeight: '32px', letterSpacing: '-0.025em', fontWeight: '600' }],
         'numero-kpi-m': ['22px', { lineHeight: '28px', letterSpacing: '-0.02em', fontWeight: '600' }],
-        'titulo-pagina': ['24px', { lineHeight: '32px', letterSpacing: '-0.02em', fontWeight: '600' }],
+        'titulo-pagina': ['26px', { lineHeight: '32px', letterSpacing: '-0.02em', fontWeight: '600' }],
         'titulo-pagina-m': ['20px', { lineHeight: '28px', letterSpacing: '-0.015em', fontWeight: '600' }],
         'titulo-painel': ['16px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' }],
-        'titulo-secao': ['15px', { lineHeight: '22px', letterSpacing: '-0.01em', fontWeight: '600' }],
+        'titulo-secao': ['16px', { lineHeight: '22px', letterSpacing: '-0.01em', fontWeight: '600' }],
         'valor-destaque': ['16px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' }],
         'valor-linha': ['14px', { lineHeight: '20px', letterSpacing: '-0.005em', fontWeight: '600' }],
         'valor-fato': ['13px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
@@ -237,13 +237,15 @@ export default {
 
       /* Fundamentos 5.3: cinco raios (rounded-full vem do Tailwind). */
       borderRadius: {
+        // Souza 3.0: o par apertado do livro-razão (6 nos controles, 8 nas caixas).
         badge: '6px',
-        controle: '8px',
-        caixa: '12px',
-        sobreposicao: '16px',
-        // Souza 2.0: o trilho do controle segmentado, a opção dentro dele e o ponto de legenda.
-        segmento: '10px',
-        'segmento-item': '7px',
+        // Souza 3.0: tecla (kbd) e as barras de régua/gráfico.
+        kbd: '4px',
+        controle: '6px',
+        caixa: '8px',
+        sobreposicao: '12px',
+        segmento: '8px',
+        'segmento-item': '6px',
         ponto: '2px',
         // A moldura do "S" da marca: 25%, fora dos cinco.
         marca: '25%',

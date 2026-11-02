@@ -28,7 +28,8 @@ export function Chip({ tom, icone, children, className }: ChipProps) {
     <span
       data-chip
       className={cn(
-        'inline-flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-controle border px-2 font-label text-chip',
+        // Souza 3.0: pílula pálida sem fio; a tinta é o escuro do próprio tom.
+        'inline-flex h-[22px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 font-label text-chip',
         TOM[tom].fundo,
         TOM[tom].borda,
         TOM[tom].texto,

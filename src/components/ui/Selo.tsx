@@ -35,7 +35,7 @@ export function Selo({ situacao, idx, count, glifo, className }: SeloProps) {
     <span
       data-selo
       className={cn(
-        'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-controle border font-heading text-valor-fato num',
+        'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border font-heading text-valor-fato num',
         t.fundo,
         t.borda,
         t.texto,

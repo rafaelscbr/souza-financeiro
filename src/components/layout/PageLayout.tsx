@@ -109,6 +109,11 @@ export function BotaoCta({ rotulo, rotuloCurto, aoClicar, className }: CtaDaPagi
     >
       {rotuloCurto && <span className="hidden min-[420px]:max-sm:inline">{rotuloCurto}</span>}
       <span className="hidden sm:inline">{rotulo}</span>
+      {rotulo === 'Novo lançamento' && (
+        <kbd aria-hidden className="ms-1 hidden rounded-kbd bg-white/15 px-1.5 py-0.5 text-nota font-medium text-white/80 lg:[@media(pointer:fine)]:inline">
+          N
+        </kbd>
+      )}
     </Button>
   )
 }
@@ -192,6 +197,9 @@ function AberturaDaPagina({
   mes,
   faixa,
   acoes,
+  menu,
+  cta,
+  voltar,
 }: {
   titulo: string
   subtitulo?: ReactNode
@@ -199,19 +207,51 @@ function AberturaDaPagina({
   mes?: ReactNode
   faixa?: ReactNode
   acoes?: ReactNode
+  menu?: ReactNode
+  cta?: CtaDaPagina
+  voltar?: { para: string; rotulo: string }
 }) {
+  /*
+   * SOUZA 3.0: no computador não há barra em cima. O título, a frase do que
+   * importa, o mês, o sino e o "Novo lançamento" moram todos nesta fileira;
+   * na ficha, o caminho de volta sobe para cima do título. No celular a barra
+   * fixa continua (marca, sino e +), e por isso sino e CTA daqui são lg:.
+   */
+  const avisos = useContext(CascaContext)?.avisos
+  const navigate = useNavigate()
+  const location = useLocation()
+  const aoVoltar = () => {
+    if (!voltar) return
+    const de = (location.state as { de?: string } | null)?.de
+    navigate(de ?? voltar.para)
+  }
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="flex min-w-0 flex-col gap-1">
+          {voltar && (
+            <button
+              type="button"
+              onClick={aoVoltar}
+              className="mb-1 hidden w-max items-center gap-1.5 rounded-controle text-t4 transition-colors text-texto-meta hover:text-t1 lg:inline-flex"
+            >
+              <ArrowLeft size={14} strokeWidth={1.75} aria-hidden />
+              {voltar.rotulo}
+            </button>
+          )}
           {saudacao && <p className="text-t4 text-texto-meta">{saudacao}</p>}
           <h1 className="min-w-0 text-t1 text-titulo-pagina-m lg:text-titulo-pagina">{titulo}</h1>
-          {subtitulo && <p className="max-w-[72ch] text-t4 text-texto">{subtitulo}</p>}
+          {subtitulo && <p className="max-w-[80ch] text-t4 text-texto [&_b]:font-medium [&_b]:text-t1 [&_strong]:font-medium [&_strong]:text-t1">{subtitulo}</p>}
         </div>
-        {(mes || acoes) && (
+        {(mes || acoes || cta || avisos || menu) && (
           <div className="flex flex-wrap items-center gap-2">
             {mes}
             {acoes}
+            <div className="hidden items-center gap-2 lg:flex">
+              {avisos && <PopoverAvisos avisos={avisos} />}
+              {menu}
+              {cta && <BotaoCta {...cta} />}
+            </div>
           </div>
         )}
       </div>
@@ -322,6 +362,9 @@ export function PageLayout({
         mes={mesFinal}
         faixa={faixa}
         acoes={acoes}
+        menu={menu}
+        cta={ctaFinal}
+        voltar={voltar}
       />
       {largura === 'leitura' ? <div className="leitura flex flex-col gap-secao">{children}</div> : children}
     </>
@@ -409,7 +452,8 @@ export function CascaDaPagina({
         {/* Sentinela de 1px na base do cabeçalho: sai da vista ao rolar e acende o fio (4.2). */}
         <div ref={sentinela} aria-hidden className="pointer-events-none absolute inset-x-0 top-cabecalho h-px" />
 
-        <header className="cabecalho" data-rolou={rolou || undefined}>
+        {/* Souza 3.0: a barra fixa só existe abaixo de 1024; no computador o cabeçalho é a abertura da tela. */}
+        <header className="cabecalho lg:hidden" data-rolou={rolou || undefined}>
           <div className={cn('conteudo flex h-cabecalho items-center gap-3', rota.voltar && 'max-lg:gap-2')}>
             <div className="contents">
               {legado && (
@@ -436,7 +480,18 @@ export function CascaDaPagina({
             <ErroDaTela motivo={erro} aoTentarDeNovo={aoTentarDeNovo} />
           ) : (
             <>
-              {legado ? <AberturaDaPagina titulo={rota.titulo} mes={rota.usaMes ? mes : undefined} /> : null}
+              {legado ? (
+                <AberturaDaPagina
+                  titulo={rota.titulo}
+                  mes={rota.usaMes ? mes : undefined}
+                  voltar={rota.voltar}
+                  cta={
+                    rota.cta && ctaDaRota
+                      ? { rotulo: rota.cta.rotulo, rotuloCurto: rota.cta.rotuloCurto, aoClicar: ctaDaRota }
+                      : undefined
+                  }
+                />
+              ) : null}
               {children}
             </>
           )}

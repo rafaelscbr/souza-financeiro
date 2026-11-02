@@ -37,8 +37,8 @@ import { FormField, Input } from '@/components/ui/Field'
  * de cor quando a tela troca de tema. Os tons de texto são misturas de branco
  * com essas tintas, medidos no ponto mais claro do degradê (aceite, item 20).
  */
-const PAINEL =
-  'linear-gradient(158deg, color-mix(in srgb, var(--brand-fill-text) 86%, white) 0%, var(--brand-fill-text) 52%, color-mix(in srgb, var(--brand-fill-text) 52%, black) 100%)'
+/* Souza 3.0 (02/11/2026): o painel é tinta chapada, sem degradê, como o resto do sistema. */
+const PAINEL = '#0B1220'
 const CREME = 'color-mix(in srgb, white 94%, var(--brand-fill))'
 const SECUNDARIA = 'color-mix(in srgb, white 76%, var(--brand-fill-text))'
 const RODAPE = 'color-mix(in srgb, white 64%, var(--brand-fill-text))'

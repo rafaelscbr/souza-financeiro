@@ -1,0 +1,1110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Souza Financeiro 3.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.427.0/dist/umd/lucide.min.js"></script>
+<style>
+/*
+ * SOUZA 3.0 — protótipo do redesenho (02/11/2026).
+ * Estilo "livro-razão": o chrome não tem cor; o marinho da Souza vai só no dado
+ * principal de cada tela; verde e vermelho só dizem bom ou ruim; âmbar só para
+ * "em atraso" (dívida da construtora, não nossa).
+ *
+ * Grade a 1440: canvas 1440 − 240 (menu) = 1200; margem 32 + 32 → 1136.
+ *   três colunas: 3 × 368 + 2 × 16 = 1136
+ *   dois terços + um: 752 + 16 + 368 = 1136
+ *   duas metades: 2 × 560 + 16 = 1136
+ */
+:root {
+  --ground: #f2f4f7;
+  --surface: #ffffff;
+  --raised: #eef0f3;
+  --hover: #f6f7f9;
+  --border: #e3e6eb;
+  --rule: #eef0f3;
+  --control: #d5d9e0;
+  --text: #0b1220;
+  --text-2: #3a4252;
+  --muted: #5e6675;
+  --faint: #8b92a0;
+  --accent: #0b1220;
+  --hue: #2848a8;
+  --hue-pale: #e8edf9;
+  --positive: #1f7a4d;
+  --negative: #c4242a;
+  --warning: #8a4b0f;
+  --pill-positive-bg: #dcf5e6; --pill-positive-ink: #0b3d22;
+  --pill-negative-bg: #fdeceb; --pill-negative-ink: #831c1e;
+  --pill-warning-bg: #fdf3e2; --pill-warning-ink: #7a3f0c;
+  --pill-neutral-bg: #eef0f3; --pill-neutral-ink: #3a4252;
+  --pill-hue-bg: #e8edf9; --pill-hue-ink: #1d3a8a;
+  --brand-sand: #e4b23c;
+  --radius-card: 8px;
+  --radius-control: 6px;
+  --row: 48px;
+  --menu: 240px;
+  --gap: 16px;
+  --pad: 24px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --t-fast: 140ms;
+  --t-mid: 260ms;
+  --t-slow: 700ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-fast: 0ms; --t-mid: 0ms; --t-slow: 0ms; }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: "Geist", Inter, system-ui, sans-serif;
+  font-size: 14px; line-height: 1.5; color: var(--text);
+  background: var(--ground);
+  font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; }
+:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; border-radius: 4px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rs { color: var(--muted); font-weight: 400; font-size: .72em; margin-right: .18em; }
+svg.lucide { width: 16px; height: 16px; stroke-width: 1.6; flex: none; }
+
+/* ------------------------------------------------------------ casca */
+.app { display: grid; grid-template-columns: var(--menu) 1fr; min-height: 100vh; }
+.menu {
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 16px 12px; border-right: 1px solid var(--border);
+}
+.marca { display: flex; align-items: center; gap: 10px; padding: 4px 8px 12px; }
+.marca svg { width: 30px; height: 30px; color: var(--text); }
+.marca b { display: block; font-size: 14px; font-weight: 600; line-height: 1.2; }
+.marca span { display: block; font-size: 12px; color: var(--muted); }
+.busca {
+  display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; margin-bottom: 12px;
+  border-radius: var(--radius-control); background: var(--surface); border: 1px solid var(--border);
+  color: var(--muted); text-align: left; transition: border-color var(--t-fast);
+}
+.busca:hover { border-color: var(--control); }
+.busca kbd, .kbd {
+  margin-left: auto; font: 500 11px/1 "Geist", sans-serif; color: var(--muted);
+  padding: 3px 5px; border-radius: 4px; background: var(--raised);
+}
+.grupo { font-size: 12px; color: var(--muted); padding: 20px 10px 6px; }
+.item {
+  display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px;
+  border-radius: var(--radius-control); color: var(--text-2); text-decoration: none; width: 100%;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.item:hover { background: var(--raised); color: var(--text); }
+.item[aria-current="page"] { background: #e4e7ec; color: var(--text); font-weight: 500; }
+.item .conta { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--muted); }
+.item .conta.risco { color: var(--negative); }
+.menu .rodape { margin-top: auto; display: flex; flex-direction: column; gap: 2px; }
+.usuario { display: flex; align-items: center; gap: 10px; padding: 10px; margin-top: 6px; border-top: 1px solid var(--border); }
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12px; font-weight: 600; background: #fbefd2; color: #6b4a07; flex: none;
+}
+.usuario b { display: block; font-size: 13px; font-weight: 500; line-height: 1.2; }
+.usuario span { font-size: 12px; color: var(--muted); }
+
+.palco { min-width: 0; padding: 32px 32px 96px; }
+.tela { max-width: 1136px; margin: 0 auto; }
+.tela[hidden] { display: none; }
+.entra { animation: entra var(--t-mid) var(--ease); }
+@keyframes entra { from { opacity: 0; transform: translateY(6px); } }
+
+/* topo do celular */
+.topo-cel, .polegar { display: none; }
+
+/* ------------------------------------------------------------ título */
+.titulo { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 24px; }
+.titulo h1 { font-size: 26px; line-height: 1.2; font-weight: 600; letter-spacing: -.02em; }
+.titulo p { color: var(--muted); margin-top: 4px; font-size: 14px; }
+.titulo p b { color: var(--text); font-weight: 500; }
+.titulo .acoes { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.mes {
+  display: flex; align-items: center; height: 36px; border-radius: var(--radius-control);
+  background: var(--surface); border: 1px solid var(--border);
+}
+.mes button { width: 32px; height: 34px; display: grid; place-items: center; color: var(--muted); border-radius: var(--radius-control); }
+.mes button:hover { color: var(--text); background: var(--hover); }
+.mes span { min-width: 124px; text-align: center; font-weight: 500; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 36px; padding: 0 14px; border-radius: var(--radius-control); font-weight: 500; white-space: nowrap;
+  transition: background var(--t-fast), transform var(--t-fast), color var(--t-fast), opacity var(--t-fast);
+}
+.btn:active { transform: scale(.97); }
+.btn-primario { background: var(--accent); color: #fff; }
+.btn-primario:hover { background: #253046; }
+.btn-primario .kbd { background: rgba(255,255,255,.14); color: rgba(255,255,255,.8); margin-left: 4px; }
+.btn-sec { background: var(--raised); color: var(--text); }
+.btn-sec:hover { background: #e2e5ea; }
+.btn-fantasma { color: var(--text-2); height: 30px; padding: 0 10px; }
+.btn-fantasma:hover { background: var(--raised); color: var(--text); }
+.btn-peq { height: 30px; padding: 0 12px; font-size: 13px; }
+
+/* ------------------------------------------------------------ cartões */
+.grade { display: grid; gap: var(--gap); }
+.g-2-1 { grid-template-columns: 752fr 368fr; align-items: stretch; }
+.g-1-1 { grid-template-columns: 1fr 1fr; align-items: stretch; }
+.cartao { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); min-width: 0; }
+.cab { display: flex; align-items: baseline; gap: 12px; padding: 20px var(--pad) 12px; }
+.cab h2 { font-size: 16px; font-weight: 600; line-height: 1.3; }
+.cab p { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.cab .dir { margin-left: auto; display: flex; gap: 14px; align-items: center; font-size: 13px; color: var(--muted); }
+.mt { margin-top: var(--gap); }
+
+/* faixa de saldos: um painel, divisores de 1px */
+.faixa { display: grid; grid-template-columns: 1.35fr 1fr 1fr 1fr; }
+.faixa > div { padding: 20px var(--pad); min-width: 0; }
+.faixa > div + div { border-left: 1px solid var(--rule); }
+.faixa .rot { color: var(--muted); font-size: 13px; }
+.faixa .val { font-size: 24px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; margin-top: 6px; }
+.faixa .val.lider { font-size: 34px; font-weight: 700; }
+.faixa .sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.sub .bom { color: var(--positive); font-weight: 500; }
+.sub .ruim { color: var(--negative); font-weight: 500; }
+.sub .atraso { color: var(--warning); font-weight: 500; }
+
+/* ------------------------------------------------------------ gráfico do caixa */
+.grafico { padding: 0 var(--pad) 4px; position: relative; }
+.grafico svg { display: block; width: 100%; height: auto; overflow: visible; }
+.grafico .eixo { font-size: 12px; fill: var(--muted); }
+.grafico .grade-l { stroke: var(--rule); stroke-width: 1; }
+.grafico .linha { fill: none; stroke: var(--hue); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.grafico .linha.desenha { transition: stroke-dashoffset var(--t-slow) var(--ease); }
+.grafico .ponto { fill: var(--surface); stroke: var(--hue); stroke-width: 2; transition: r var(--t-fast); }
+.grafico .guia { stroke: var(--control); stroke-dasharray: 3 3; opacity: 0; transition: opacity var(--t-fast); }
+.grafico .col:hover .guia, .grafico .col.ativa .guia { opacity: 1; }
+.grafico .col:hover .ponto, .grafico .col.ativa .ponto { r: 5; }
+.grafico .alvo { fill: transparent; cursor: default; }
+.balao {
+  position: absolute; pointer-events: none; background: var(--text); color: #fff; border-radius: 6px;
+  padding: 8px 10px; font-size: 12px; line-height: 1.45; white-space: nowrap; opacity: 0;
+  transform: translate(-50%, -100%) translateY(-10px); transition: opacity var(--t-fast);
+  box-shadow: 0 8px 24px -8px rgba(11,18,32,.35);
+}
+.balao.on { opacity: 1; }
+.balao b { font-weight: 600; }
+.balao span { color: rgba(255,255,255,.7); }
+.razao { width: 100%; border-collapse: collapse; margin: 4px 0 16px; table-layout: fixed; }
+.razao th { text-align: left; font-weight: 400; color: var(--muted); font-size: 13px; padding: 7px 0 7px var(--pad); }
+.razao td { text-align: center; font-size: 13px; padding: 7px 0; color: var(--text-2); transition: color var(--t-fast); }
+.razao tr + tr th, .razao tr + tr td { border-top: 1px solid var(--rule); }
+.razao td.zero { color: var(--faint); }
+
+/* ------------------------------------------------------------ pede você */
+.pendencias { list-style: none; padding: 0 0 8px; }
+.pend {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center;
+  padding: 12px var(--pad); border-top: 1px solid var(--rule); overflow: hidden;
+  transition: height var(--t-mid) var(--ease), padding var(--t-mid) var(--ease), opacity var(--t-mid);
+}
+.pend .o-que { font-weight: 500; line-height: 1.35; }
+.pend .por-que { font-size: 13px; color: var(--muted); grid-column: 1; }
+.pend .por-que .ruim { color: var(--negative); }
+.pend .por-que .atraso { color: var(--warning); }
+.pend .valor { font-weight: 600; text-align: right; }
+.pend .btn { grid-column: 2; grid-row: 2; justify-self: end; }
+.pend.feito .btn { background: var(--pill-positive-bg); color: var(--pill-positive-ink); }
+.pend.some { opacity: 0; padding-top: 0; padding-bottom: 0; }
+.vazio { padding: 24px var(--pad) 28px; color: var(--muted); }
+
+/* ------------------------------------------------------------ tabela */
+.tabela { width: 100%; border-collapse: collapse; }
+.tabela th {
+  text-align: left; font-weight: 400; font-size: 13px; color: var(--muted);
+  padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.tabela td { padding: 0 12px; height: var(--row); border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.tabela th:first-child, .tabela td:first-child { padding-left: var(--pad); }
+.tabela th:last-child, .tabela td:last-child { padding-right: var(--pad); }
+.tabela .dir { text-align: right; }
+.tabela tbody tr { transition: background var(--t-fast); }
+.tabela tbody tr.clica { cursor: pointer; }
+.tabela tbody tr.clica:hover { background: var(--hover); }
+.tabela tr:last-child td { border-bottom: 0; }
+.venda b { font-weight: 500; display: block; line-height: 1.3; }
+.venda span { font-size: 13px; color: var(--muted); }
+.so-cel { display: none; }
+.so-cel.atraso { color: var(--warning); }
+.tabela .valor { font-weight: 600; }
+.tabela tr.recebida td { color: var(--faint); }
+.tabela tr.recebida .valor { text-decoration: line-through; text-decoration-color: var(--control); }
+.tabela tr.flash { animation: flash 1.1s var(--ease); }
+@keyframes flash { 0% { background: #e3f6ea; } 100% { background: transparent; } }
+.pill {
+  display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 11px;
+  font-size: 12px; font-weight: 500; white-space: nowrap;
+}
+.pill svg.lucide { width: 12px; height: 12px; stroke-width: 2; }
+.p-ok { background: var(--pill-positive-bg); color: var(--pill-positive-ink); }
+.p-atraso { background: var(--pill-warning-bg); color: var(--pill-warning-ink); }
+.p-prev { background: var(--pill-neutral-bg); color: var(--pill-neutral-ink); }
+.p-ruim { background: var(--pill-negative-bg); color: var(--pill-negative-ink); }
+.rodape-cartao { display: flex; padding: 12px var(--pad); border-top: 1px solid var(--rule); }
+.link { color: var(--hue); font-weight: 500; text-decoration: none; display: inline-flex; gap: 6px; align-items: center; }
+.link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ------------------------------------------------------------ régua da comissão (assinatura) */
+.regua-wrap { padding: 4px var(--pad) 0; }
+.regua-total { font-size: 13px; color: var(--muted); }
+.regua-total b { font-size: 20px; color: var(--text); font-weight: 600; letter-spacing: -.01em; }
+.regua { display: flex; height: 36px; margin: 12px 0 4px; border-radius: 4px; overflow: hidden; gap: 2px; }
+.regua i { display: block; height: 100%; transform-origin: left; transition: flex-grow var(--t-slow) var(--ease); }
+.regua .r-souza { background: var(--hue); }
+.regua .r-corretor { background: #4a5263; }
+.regua .r-imposto { background: #b9bfca; }
+.regua .r-iss { background: #d6dae1; }
+.regua-marcas { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.partes { list-style: none; }
+.partes li {
+  display: grid; grid-template-columns: 12px 1fr auto 72px; gap: 10px; align-items: center;
+  padding: 10px var(--pad); border-top: 1px solid var(--rule);
+}
+.partes .cor { width: 10px; height: 10px; border-radius: 2px; }
+.partes .pct { color: var(--muted); text-align: right; font-size: 13px; }
+.partes .v { font-weight: 600; text-align: right; }
+.nota { padding: 12px var(--pad) 16px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--rule); }
+.nota b { color: var(--text); font-weight: 500; }
+
+/* ------------------------------------------------------------ filtros */
+.filtros { display: flex; gap: 4px; padding: 4px; background: var(--raised); border-radius: 8px; width: max-content; max-width: 100%; overflow-x: auto; }
+.filtros button {
+  height: 30px; padding: 0 12px; border-radius: var(--radius-control); color: var(--text-2); font-weight: 500; white-space: nowrap;
+  display: inline-flex; gap: 6px; align-items: center; transition: background var(--t-fast), color var(--t-fast), box-shadow var(--t-fast);
+}
+.filtros button span { color: var(--muted); font-weight: 400; }
+.filtros button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(11,18,32,.08); }
+.barra-lista { display: flex; align-items: center; gap: 12px; padding: 16px var(--pad); border-bottom: 1px solid var(--border); }
+.barra-lista .total { margin-left: auto; color: var(--muted); font-size: 13px; }
+.barra-lista .total b { color: var(--text); font-weight: 600; }
+
+/* botão "Recebi" e confirmação na linha */
+.acao-linha { display: flex; justify-content: flex-end; }
+.confirma {
+  display: flex; align-items: center; gap: 8px; animation: abre var(--t-mid) var(--ease);
+}
+@keyframes abre { from { opacity: 0; transform: translateX(8px); } }
+.confirma .campo-mini {
+  height: 30px; border: 1px solid var(--control); border-radius: var(--radius-control); padding: 0 8px; width: 112px;
+  text-align: right; background: var(--surface);
+}
+.confirma select { height: 30px; border: 1px solid var(--control); border-radius: var(--radius-control); padding: 0 6px; background: var(--surface); font: inherit; }
+
+/* ------------------------------------------------------------ gaveta e diálogo */
+.veu { position: fixed; inset: 0; background: rgba(11,18,32,.28); opacity: 0; pointer-events: none; transition: opacity var(--t-mid); z-index: 20; }
+.veu.on { opacity: 1; pointer-events: auto; }
+.gaveta {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100vw); background: var(--surface); z-index: 21;
+  transform: translateX(104%); transition: transform var(--t-mid) var(--ease); overflow-y: auto;
+  box-shadow: -24px 0 48px -24px rgba(11,18,32,.3);
+}
+.gaveta.on { transform: none; }
+.gaveta header { display: flex; align-items: flex-start; gap: 12px; padding: 24px var(--pad) 16px; }
+.gaveta h2 { font-size: 20px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
+.gaveta header p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.fechar { margin-left: auto; width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--radius-control); color: var(--muted); flex: none; }
+.fechar:hover { background: var(--raised); color: var(--text); }
+.gaveta section { padding: 16px var(--pad); border-top: 1px solid var(--rule); }
+.gaveta h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.cascata { list-style: none; }
+.cascata li { display: grid; grid-template-columns: 1fr auto; padding: 8px 0; gap: 12px; }
+.cascata li + li { border-top: 1px solid var(--rule); }
+.cascata .menos { color: var(--text-2); }
+.cascata .menos span { color: var(--muted); font-size: 13px; }
+.cascata .fica { font-weight: 600; }
+.cascata .fica .num { color: var(--hue); }
+.trilho { list-style: none; display: grid; gap: 0; }
+.trilho li { display: grid; grid-template-columns: 20px 1fr auto; gap: 10px; align-items: start; padding: 8px 0; position: relative; }
+.trilho li::before { content: ""; position: absolute; left: 9px; top: 26px; bottom: -8px; width: 2px; background: var(--rule); }
+.trilho li:last-child::before { display: none; }
+.trilho .bola { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--raised); color: var(--muted); }
+.trilho .bola svg.lucide { width: 12px; height: 12px; stroke-width: 2.4; }
+.trilho .bola.ok { background: var(--pill-positive-bg); color: var(--pill-positive-ink); }
+.trilho .bola.atraso { background: var(--pill-warning-bg); color: var(--pill-warning-ink); }
+.trilho b { font-weight: 500; display: block; line-height: 1.3; }
+.trilho span { font-size: 13px; color: var(--muted); }
+.gaveta footer { position: sticky; bottom: 0; background: var(--surface); display: flex; gap: 8px; padding: 16px var(--pad); border-top: 1px solid var(--border); }
+
+.dialogo {
+  position: fixed; left: 50%; top: 12vh; width: min(560px, calc(100vw - 32px)); z-index: 21;
+  background: var(--surface); border-radius: 12px; box-shadow: 0 24px 64px -12px rgba(11,18,32,.35);
+  transform: translateX(-50%) scale(.97); opacity: 0; pointer-events: none;
+  transition: transform var(--t-mid) var(--ease), opacity var(--t-fast);
+}
+.dialogo.on { transform: translateX(-50%); opacity: 1; pointer-events: auto; }
+.dialogo:not(.on), .gaveta:not(.on), .veu:not(.on), .aviso:not(.on) { visibility: hidden; transition-property: transform, opacity, visibility; transition-delay: 0s, 0s, var(--t-mid); }
+.dialogo header { display: flex; align-items: center; gap: 8px; padding: 18px 20px 10px; }
+.dialogo header h2 { font-size: 16px; font-weight: 600; }
+.escolhas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px 20px 20px; }
+.escolha {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; text-align: left; padding: 14px 16px;
+  border-radius: var(--radius-card); background: var(--hover); border: 1px solid transparent;
+  transition: border-color var(--t-fast), background var(--t-fast), transform var(--t-fast);
+}
+.escolha:hover, .escolha:focus-visible { border-color: var(--control); background: var(--surface); }
+.escolha:active { transform: scale(.98); }
+.escolha b { font-weight: 600; }
+.escolha span { grid-column: 1; font-size: 13px; color: var(--muted); }
+.escolha .kbd { grid-row: 1; grid-column: 2; }
+.form { padding: 4px 20px 20px; display: grid; gap: 16px; }
+.form[hidden], .escolhas[hidden], [hidden] { display: none !important; }
+.valor-grande { display: flex; align-items: baseline; gap: 6px; border-bottom: 2px solid var(--rule); padding-bottom: 6px; transition: border-color var(--t-fast); }
+.valor-grande:focus-within { border-color: var(--hue); }
+.valor-grande span { font-size: 20px; color: var(--muted); }
+.valor-grande input { border: 0; outline: 0; font-size: 36px; font-weight: 600; letter-spacing: -.02em; width: 100%; background: none; font-variant-numeric: tabular-nums; }
+.campo label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+.campo input[type=text] {
+  width: 100%; height: 40px; border: 1px solid var(--control); border-radius: var(--radius-control); padding: 0 12px; background: var(--surface);
+}
+.campo input[type=text]:focus { outline: 0; border-color: var(--hue); box-shadow: 0 0 0 3px var(--hue-pale); }
+.fichas { display: flex; flex-wrap: wrap; gap: 6px; }
+.ficha {
+  height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--control); color: var(--text-2);
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.ficha:hover { border-color: var(--muted); }
+.ficha[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: #fff; }
+.linha-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-pe { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
+.form-pe .dica { color: var(--muted); font-size: 13px; }
+.form-pe .btn-primario { margin-left: auto; }
+
+.paleta input { width: 100%; height: 52px; border: 0; border-bottom: 1px solid var(--border); padding: 0 20px; font-size: 16px; outline: 0; background: none; border-radius: 12px 12px 0 0; }
+.paleta ul { list-style: none; padding: 6px; max-height: 340px; overflow-y: auto; }
+.paleta li button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius-control); text-align: left; }
+.paleta li button:hover, .paleta li button.sel { background: var(--raised); }
+.paleta li .tipo { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+.aviso {
+  position: fixed; left: 50%; bottom: 24px; z-index: 30; display: flex; align-items: center; gap: 14px;
+  background: var(--text); color: #fff; border-radius: 8px; padding: 10px 10px 10px 16px;
+  transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+  transition: transform var(--t-mid) var(--ease), opacity var(--t-mid);
+  box-shadow: 0 12px 32px -8px rgba(11,18,32,.4);
+}
+.aviso.on { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+.aviso svg.lucide { color: #7fd6a4; }
+.aviso button { color: #fff; font-weight: 600; padding: 6px 10px; border-radius: 6px; }
+.aviso button:hover { background: rgba(255,255,255,.12); }
+
+.em-breve { padding: 40px var(--pad); }
+.em-breve p { color: var(--muted); max-width: 560px; margin-top: 6px; }
+
+/* ------------------------------------------------------------ tablet */
+@media (max-width: 1100px) {
+  .app { grid-template-columns: 1fr; }
+  .menu { display: none; }
+  .topo-cel {
+    display: flex; position: sticky; top: 0; z-index: 10; align-items: center; gap: 10px; height: 56px; padding: 0 16px;
+    background: var(--ground); border-bottom: 1px solid var(--border);
+  }
+  .topo-cel svg.marca-s { width: 26px; height: 26px; }
+  .topo-cel b { font-size: 16px; font-weight: 600; }
+  .topo-cel .btn { margin-left: auto; width: 36px; padding: 0; }
+  .palco { padding: 24px 24px 104px; }
+  .polegar {
+    display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    background: var(--surface); border-top: 1px solid var(--border); padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .polegar a { display: grid; justify-items: center; gap: 2px; font-size: 11px; color: var(--muted); text-decoration: none; padding: 6px 0; border-radius: 8px; position: relative; }
+  .polegar a svg.lucide { width: 20px; height: 20px; }
+  .polegar a[aria-current="page"] { color: var(--text); font-weight: 500; }
+  .polegar .selo { position: absolute; top: 2px; left: calc(50% + 6px); font-size: 10px; font-weight: 600; color: #fff; background: var(--negative); border-radius: 8px; padding: 0 5px; line-height: 16px; }
+  .g-2-1, .g-1-1 { grid-template-columns: 1fr; }
+  .titulo .acoes .btn-primario { display: none; }
+}
+/* ------------------------------------------------------------ celular */
+@media (max-width: 640px) {
+  .palco { padding: 16px 16px 104px; }
+  :root { --pad: 16px; }
+  .titulo { flex-wrap: wrap; align-items: flex-start; }
+  .titulo h1 { font-size: 22px; }
+  .titulo .acoes { margin-left: 0; width: 100%; }
+  .mes { flex: 1; justify-content: space-between; }
+  .faixa { grid-template-columns: 1fr 1fr; }
+  .faixa > div:first-child { grid-column: 1 / -1; }
+  .faixa > div:nth-child(2) { border-left: 0; }
+  .faixa > div:nth-child(n+2) { border-top: 1px solid var(--rule); padding: 14px var(--pad); }
+  .faixa .val { font-size: 19px; }
+  .faixa .val.lider { font-size: 30px; }
+  .razao th { width: 80px; }
+  .razao td:nth-child(n+5) { display: none; }
+  .tabela .some-cel, .tabela .some-cel-2 { display: none; }
+  .so-cel { display: inline; }
+  .razao { display: none; }
+  .cab .dir { display: none; }
+  .partes li { grid-template-columns: 12px 1fr auto 36px; }
+  .barra-lista { flex-wrap: wrap; }
+  .barra-lista .total { margin-left: 0; width: 100%; }
+  .confirma .campo-mini { width: 96px; }
+  .confirma select { display: none; }
+  .escolhas { grid-template-columns: 1fr; }
+  .escolha .kbd { display: none; }
+  .linha-2 { grid-template-columns: 1fr; }
+  .dialogo { top: auto; bottom: 0; border-radius: 16px 16px 0 0; width: 100vw; transform: translate(-50%, 24px); }
+  .dialogo.on { transform: translate(-50%, 0); }
+  .form-pe .dica { display: none; }
+  .form-pe .btn-primario { width: 100%; height: 44px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- MENU -->
+  <nav class="menu" aria-label="Menu principal">
+    <div class="marca">
+      <svg viewBox="0 0 272 272" fill="none" aria-hidden="true"><rect x="7.5" y="7.5" width="257" height="257" rx="56.5" stroke="currentColor" stroke-width="15"/><path id="s-path" fill="currentColor" fill-rule="evenodd"/></svg>
+      <div><b>Souza Imobiliária</b><span>Financeiro</span></div>
+    </div>
+    <button class="busca" data-abre="paleta"><i data-lucide="search"></i>Buscar ou ir para…<kbd>⌘K</kbd></button>
+    <a class="item" href="#inicio" data-tela="inicio"><i data-lucide="house"></i>Início</a>
+    <a class="item" href="#vendas" data-tela="vendas"><i data-lucide="handshake"></i>Vendas</a>
+    <a class="item" href="#receber" data-tela="receber"><i data-lucide="arrow-down-left"></i>A receber<span class="conta" id="nav-atraso" title="parcelas em atraso">2 em atraso</span></a>
+    <a class="item" href="#pagar" data-tela="pagar"><i data-lucide="arrow-up-right"></i>A pagar<span class="conta risco" id="nav-pagar" title="itens vencidos">3 vencidos</span></a>
+    <a class="item" href="#despesas" data-tela="despesas"><i data-lucide="receipt"></i>Despesas</a>
+    <a class="item" href="#contas" data-tela="contas"><i data-lucide="landmark"></i>Contas</a>
+    <div class="grupo">Gestão</div>
+    <a class="item" href="#relatorios" data-tela="relatorios"><i data-lucide="file-bar-chart"></i>Relatórios</a>
+    <a class="item" href="#metas" data-tela="metas"><i data-lucide="target"></i>Metas</a>
+    <a class="item" href="#projecoes" data-tela="projecoes"><i data-lucide="calculator"></i>Projeções</a>
+    <a class="item" href="#corretores" data-tela="corretores"><i data-lucide="users"></i>Corretores</a>
+    <div class="rodape">
+      <a class="item" href="#minhas" data-tela="minhas"><i data-lucide="wallet"></i>Minhas comissões</a>
+      <a class="item" href="#config" data-tela="config"><i data-lucide="settings"></i>Configurações</a>
+      <div class="usuario"><span class="avatar">RS</span><div><b>Rafael Souza</b><span>Administrador</span></div></div>
+    </div>
+  </nav>
+
+  <div style="min-width:0">
+    <header class="topo-cel">
+      <svg class="marca-s" viewBox="0 0 272 272" fill="none" aria-hidden="true"><rect x="7.5" y="7.5" width="257" height="257" rx="56.5" stroke="currentColor" stroke-width="15"/><path class="s-copia" fill="currentColor" fill-rule="evenodd"/></svg>
+      <b id="titulo-cel">Início</b>
+      <button class="btn btn-primario" data-abre="novo" aria-label="Novo lançamento"><i data-lucide="plus"></i></button>
+    </header>
+
+    <main class="palco">
+      <!-- ============================================ INÍCIO -->
+      <section class="tela" id="t-inicio" aria-labelledby="h-inicio">
+        <div class="titulo">
+          <div>
+            <h1 id="h-inicio">Início</h1>
+            <p id="frase-inicio"><b>4 coisas pedem você hoje</b> · o caixa cobre 15,7 meses de estrutura sem venda nova</p>
+          </div>
+          <div class="acoes">
+            <div class="mes" role="group" aria-label="Mês">
+              <button data-mes="-1" aria-label="Mês anterior"><i data-lucide="chevron-left"></i></button>
+              <span id="mes-rotulo">Novembro 2026</span>
+              <button data-mes="1" aria-label="Próximo mês"><i data-lucide="chevron-right"></i></button>
+            </div>
+            <button class="btn btn-primario" data-abre="novo"><i data-lucide="plus"></i>Novo lançamento<span class="kbd">N</span></button>
+          </div>
+        </div>
+
+        <div class="cartao faixa" aria-label="Resumo do mês">
+          <div><div class="rot">Saldo hoje</div><div class="val lider num" data-k="saldo"></div><div class="sub">em 2 contas · Inter e Bradesco</div></div>
+          <div><div class="rot">Comissões a receber</div><div class="val num" data-k="receber"></div><div class="sub" data-k="receber-sub"></div></div>
+          <div><div class="rot">Contas a pagar</div><div class="val num" data-k="pagar"></div><div class="sub" data-k="pagar-sub"></div></div>
+          <div><div class="rot">Resultado do mês</div><div class="val num" data-k="resultado"></div><div class="sub" data-k="resultado-sub"></div></div>
+        </div>
+
+        <div class="grade g-2-1 mt">
+          <div class="cartao">
+            <div class="cab">
+              <div><h2>Caixa previsto</h2><p id="caixa-frase"></p></div>
+              <div class="dir">nov 2026 – abr 2027</div>
+            </div>
+            <div class="grafico" id="grafico"></div>
+            <table class="razao num" id="razao" aria-label="Entradas e saídas previstas por mês"></table>
+          </div>
+
+          <div class="cartao">
+            <div class="cab"><div><h2>Pede você</h2><p id="pend-frase"></p></div></div>
+            <ul class="pendencias" id="pendencias"></ul>
+          </div>
+        </div>
+
+        <div class="grade g-1-1 mt">
+          <div class="cartao">
+            <div class="cab"><div><h2>Próximos recebimentos</h2><p>da construtora para a Souza, por data prevista</p></div></div>
+            <table class="tabela">
+              <thead><tr><th>Venda</th><th class="some-cel">Previsão</th><th class="some-cel-2">Situação</th><th class="dir">Valor</th></tr></thead>
+              <tbody id="proximos"></tbody>
+            </table>
+            <div class="rodape-cartao"><a class="link" href="#receber">Ver as 7 parcelas<i data-lucide="arrow-right"></i></a></div>
+          </div>
+
+          <div class="cartao">
+            <div class="cab"><div><h2>Para onde vai a comissão</h2><p>5 vendas ativas, do contrato até o último centavo</p></div></div>
+            <div class="regua-wrap">
+              <div class="regua-total">Comissão contratada <b class="num" id="regua-total"></b></div>
+              <div class="regua" id="regua" role="img" aria-label="Divisão da comissão contratada"></div>
+              <div class="regua-marcas"><span>0%</span><span>50%</span><span>100%</span></div>
+            </div>
+            <ul class="partes num" id="partes"></ul>
+            <div class="nota"><b>41% da carteira</b> depende da Construtora Exemplo Gama.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ A RECEBER -->
+      <section class="tela" id="t-receber" hidden aria-labelledby="h-receber">
+        <div class="titulo">
+          <div>
+            <h1 id="h-receber">A receber</h1>
+            <p id="frase-receber"></p>
+          </div>
+          <div class="acoes">
+            <button class="btn btn-sec"><i data-lucide="calendar-range"></i>Ver no calendário</button>
+            <button class="btn btn-primario" data-abre="novo"><i data-lucide="plus"></i>Novo lançamento<span class="kbd">N</span></button>
+          </div>
+        </div>
+        <div class="cartao">
+          <div class="barra-lista">
+            <div class="filtros" role="group" aria-label="Filtrar parcelas" id="filtros"></div>
+            <div class="total" id="total-filtro"></div>
+          </div>
+          <table class="tabela">
+            <thead><tr><th>Venda</th><th class="some-cel">Construtora</th><th class="some-cel">Previsão</th><th class="some-cel-2">Situação</th><th class="dir">Valor</th><th class="dir some-cel"><span class="sr">Ação</span></th></tr></thead>
+            <tbody id="lista-receber"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============================================ telas ainda não desenhadas no protótipo -->
+      <section class="tela" id="t-outra" hidden aria-labelledby="h-outra">
+        <div class="titulo"><div><h1 id="h-outra">Vendas</h1><p>Mesmo desenho, construído na execução.</p></div></div>
+        <div class="cartao em-breve">
+          <h2 style="font-size:16px;font-weight:600">Esta tela entra na execução</h2>
+          <p>O protótipo mostra o Início, A receber, o detalhe da venda, o lançamento rápido e a busca. As outras telas usam as mesmas peças: título com uma frase do que importa, faixa de saldos, tabela com ação na linha e gaveta de detalhe.</p>
+          <p style="margin-top:16px"><a class="link" href="#inicio">Voltar ao Início<i data-lucide="arrow-right"></i></a></p>
+        </div>
+      </section>
+    </main>
+
+    <nav class="polegar" aria-label="Atalhos">
+      <a href="#inicio" data-tela="inicio"><i data-lucide="house"></i>Início</a>
+      <a href="#vendas" data-tela="vendas"><i data-lucide="handshake"></i>Vendas</a>
+      <a href="#receber" data-tela="receber"><i data-lucide="arrow-down-left"></i>Receber</a>
+      <a href="#pagar" data-tela="pagar"><i data-lucide="arrow-up-right"></i>Pagar<span class="selo" id="selo-pagar">3</span></a>
+      <a href="#mais" data-abre-link="paleta"><i data-lucide="menu"></i>Mais</a>
+    </nav>
+  </div>
+</div>
+
+<!-- gaveta do detalhe -->
+<div class="veu" id="veu"></div>
+<aside class="gaveta" id="gaveta" aria-modal="true" role="dialog" aria-labelledby="g-titulo"></aside>
+
+<!-- novo lançamento -->
+<div class="dialogo" id="novo" role="dialog" aria-modal="true" aria-labelledby="n-titulo">
+  <header>
+    <button class="fechar" id="n-voltar" aria-label="Voltar" hidden style="margin-left:-8px"><i data-lucide="arrow-left"></i></button>
+    <h2 id="n-titulo">O que você quer lançar?</h2>
+    <button class="fechar" data-fecha aria-label="Fechar"><i data-lucide="x"></i></button>
+  </header>
+  <div class="escolhas" id="escolhas">
+    <button class="escolha" data-tipo="despesa"><b>Despesa</b><span>aluguel, marketing, contador</span><span class="kbd">D</span></button>
+    <button class="escolha" data-tipo="recebimento"><b>Recebimento</b><span>parcela que a construtora pagou</span><span class="kbd">R</span></button>
+    <button class="escolha" data-tipo="venda"><b>Venda</b><span>contrato novo, com as parcelas</span><span class="kbd">V</span></button>
+    <button class="escolha" data-tipo="transferencia"><b>Transferência</b><span>entre as contas da Souza</span><span class="kbd">T</span></button>
+  </div>
+  <form class="form" id="form-despesa" hidden autocomplete="off">
+    <div class="valor-grande"><span>R$</span><input id="f-valor" inputmode="decimal" placeholder="0,00" aria-label="Valor da despesa"></div>
+    <div class="campo"><label for="f-desc">Descrição</label><input type="text" id="f-desc" placeholder="Ex.: impulsionamento Instagram"></div>
+    <div class="campo"><label id="l-cat">Categoria</label><div class="fichas" role="group" aria-labelledby="l-cat" data-grupo="cat">
+      <button type="button" class="ficha" aria-pressed="true">Marketing</button><button type="button" class="ficha" aria-pressed="false">Aluguel</button><button type="button" class="ficha" aria-pressed="false">Contador</button><button type="button" class="ficha" aria-pressed="false">Internet</button><button type="button" class="ficha" aria-pressed="false">Outra</button>
+    </div></div>
+    <div class="linha-2">
+      <div class="campo"><label id="l-quando">Quando</label><div class="fichas" role="group" aria-labelledby="l-quando" data-grupo="quando">
+        <button type="button" class="ficha" aria-pressed="true">Hoje</button><button type="button" class="ficha" aria-pressed="false">Ontem</button><button type="button" class="ficha" aria-pressed="false">Outra data</button>
+      </div></div>
+      <div class="campo"><label id="l-conta">Saiu de</label><div class="fichas" role="group" aria-labelledby="l-conta" data-grupo="conta">
+        <button type="button" class="ficha" aria-pressed="true">Inter</button><button type="button" class="ficha" aria-pressed="false">Bradesco</button>
+      </div></div>
+    </div>
+    <div class="form-pe"><span class="dica">Enter lança · Esc fecha</span><button class="btn btn-primario" type="submit">Lançar despesa</button></div>
+  </form>
+</div>
+
+<!-- busca -->
+<div class="dialogo paleta" id="paleta" role="dialog" aria-modal="true" aria-label="Buscar">
+  <input id="p-busca" placeholder="Buscar tela, venda ou ação…" aria-label="Buscar">
+  <ul id="p-lista"></ul>
+</div>
+
+<div class="aviso" id="aviso" role="status" aria-live="polite"><i data-lucide="check"></i><span id="aviso-txt"></span><button id="aviso-desfaz">Desfazer</button></div>
+
+<script>
+/* ======================================================================
+ * DADOS DE EXEMPLO — os mesmos da vitrine (src/demo/fixtures.ts).
+ * Totais calculados das linhas, nunca digitados à parte.
+ * ==================================================================== */
+const S_PATH = "M127.54 71.3C131.8 70.93 136.09 70.92 140.37 71.04C143.05 71.11 145.74 71.33 148.37 71.86C152.43 72.68 156.48 73.65 160.37 75.08C163.85 76.37 167.17 78.1 170.37 79.98C172.19 81.05 173.83 82.43 175.37 83.88C177.5 85.89 179.55 88.01 181.37 90.31C182.58 91.84 183.62 93.52 184.42 95.3C185.74 98.21 186.88 101.22 187.7 104.3C187.88 105 187.48 105.74 187.37 106.45L157.37 112.7C156.45 110.23 155.81 107.65 154.62 105.3C153.79 103.65 152.64 102.16 151.37 100.82C150.53 99.94 149.46 99.27 148.37 98.74C146.77 97.97 145.11 97.28 143.37 96.93C141.4 96.54 139.37 96.54 137.37 96.54C135.36 96.54 133.33 96.52 131.37 96.9C129.3 97.31 127.27 97.97 125.37 98.88C124.15 99.46 123.01 100.27 122.15 101.3C121.18 102.46 120.45 103.85 120.02 105.3C119.64 106.58 119.6 107.98 119.78 109.3C119.92 110.37 120.34 111.41 120.94 112.3C121.57 113.25 122.43 114.05 123.37 114.7C124.6 115.54 125.97 116.2 127.37 116.72C130.31 117.83 133.3 118.89 136.37 119.59C143.65 121.25 151.08 122.15 158.37 123.78C160.76 124.31 163.1 125.12 165.37 126.05C168.11 127.19 170.78 128.51 173.37 129.97C174.8 130.77 176.16 131.72 177.37 132.83C179.57 134.85 181.84 136.86 183.56 139.3C185.26 141.74 186.52 144.5 187.51 147.3C188.31 149.54 188.7 151.93 188.89 154.3C189.15 157.63 189.16 160.98 188.86 164.3C188.65 166.68 188.18 169.05 187.39 171.3C186.4 174.09 185.16 176.81 183.57 179.3C182.13 181.58 180.27 183.59 178.37 185.51C176.85 187.04 175.21 188.48 173.37 189.6C170.18 191.55 166.86 193.33 163.37 194.67C159.82 196.03 156.07 196.81 152.37 197.66C150.4 198.11 148.38 198.37 146.37 198.55C143.38 198.81 140.37 198.99 137.37 198.98C134.03 198.97 130.68 198.89 127.37 198.5C123.67 198.06 119.97 197.46 116.37 196.49C112.61 195.48 108.87 194.29 105.37 192.6C101.83 190.89 98.56 188.64 95.37 186.35C93.75 185.19 92.33 183.76 90.97 182.3C89.81 181.06 88.76 179.71 87.81 178.3C86.51 176.37 85.26 174.4 84.25 172.3C83.33 170.38 82.66 168.35 82.06 166.3C81.58 164.67 81.19 163 81 161.3C80.95 160.87 81.24 160.47 81.37 160.06C82.7 159.72 84.02 159.32 85.37 159.05C94.35 157.27 103.37 155.63 112.37 153.92C112.94 156.38 113.28 158.91 114.08 161.3C114.55 162.73 115.3 164.08 116.17 165.3C117.08 166.58 118.18 167.72 119.37 168.74C120.27 169.52 121.3 170.14 122.37 170.67C123.32 171.14 124.36 171.39 125.37 171.73C126.36 172.06 127.33 172.49 128.37 172.68C130.35 173.02 132.36 173.3 134.37 173.31C137.71 173.32 141.08 173.33 144.37 172.73C146.48 172.34 148.51 171.45 150.37 170.37C151.68 169.61 152.92 168.58 153.74 167.3C154.7 165.81 155.09 164.02 155.56 162.3C155.73 161.66 155.8 160.95 155.63 160.3C155.17 158.58 154.6 156.84 153.69 155.3C153.15 154.38 152.24 153.69 151.37 153.07C150.12 152.18 148.76 151.42 147.37 150.78C145.75 150.04 144.1 149.33 142.37 148.94C134.75 147.24 127 146.14 119.37 144.51C117 144.01 114.65 143.35 112.37 142.55C109.98 141.72 107.61 140.78 105.37 139.61C102.6 138.16 99.92 136.51 97.37 134.69C96.23 133.89 95.26 132.86 94.37 131.8C92.9 130.05 91.43 128.28 90.3 126.3C89.23 124.42 88.56 122.34 87.82 120.3C87.47 119.33 87.17 118.33 87.03 117.3C86.71 114.98 86.46 112.64 86.44 110.3C86.42 107.96 86.5 105.61 86.91 103.3C87.4 100.58 88.08 97.87 89.12 95.3C90.12 92.83 91.34 90.4 92.98 88.3C95.12 85.58 97.61 83.08 100.37 80.98C103.12 78.88 106.23 77.29 109.37 75.83C111.93 74.64 114.63 73.76 117.37 73.08C120.71 72.24 124.11 71.61 127.54 71.3Z";
+
+const PARCELAS = [
+  { id: 'p1', emp: 'Torre Exemplo Parque', un: '803', n: 1, de: 2, construtora: 'Construtora Exemplo Gama', prev: '2026-10-15', valor: 11200.00, corretor: 'Ana Corretora Exemplo', iss: true },
+  { id: 'p2', emp: 'Vista Exemplo Center', un: '1502', n: 3, de: 4, construtora: 'Construtora Exemplo Gama', prev: '2026-10-29', valor: 9000.00, corretor: 'Ana Corretora Exemplo', iss: true },
+  { id: 'p3', emp: 'Vista Exemplo Center', un: '402', n: 1, de: 2, construtora: 'Construtora Exemplo Gama', prev: '2026-11-17', valor: 7500.00, corretor: 'Bruno Corretor Exemplo', iss: true },
+  { id: 'p4', emp: 'Residencial Exemplo Mar', un: '1204', n: 3, de: 3, construtora: 'Incorporadora Exemplo Beta', prev: '2026-12-02', valor: 11333.34, corretor: 'Ana Corretora Exemplo', iss: false },
+  { id: 'p5', emp: 'Vista Exemplo Center', un: '402', n: 2, de: 2, construtora: 'Construtora Exemplo Gama', prev: '2026-12-17', valor: 7500.00, corretor: 'Bruno Corretor Exemplo', iss: true },
+  { id: 'p6', emp: 'Torre Exemplo Parque', un: '803', n: 2, de: 2, construtora: 'Construtora Exemplo Gama', prev: '2027-01-01', valor: 11200.00, corretor: 'Ana Corretora Exemplo', iss: true },
+  { id: 'p7', emp: 'Vista Exemplo Center', un: '1502', n: 4, de: 4, construtora: 'Construtora Exemplo Gama', prev: '2027-01-31', valor: 9000.00, corretor: 'Ana Corretora Exemplo', iss: true },
+];
+const HOJE = '2026-11-02';
+
+/* O mês na faixa. Novembro bate com a vitrine; outubro e dezembro são exemplo. */
+const MESES = {
+  '2026-10': { nome: 'Outubro 2026', saldo: 97366.14, receber: 0, atraso: 0, pagar: 14210.40, vencidos: 0, resultado: 1155.00, ant: 2410.00, antNome: 'setembro' },
+  '2026-11': { nome: 'Novembro 2026', saldo: 94438.91, receber: 27700.00, atraso: 20200.00, pagar: 16047.23, vencidos: 2677.26, resultado: 2125.00, ant: 1155.00, antNome: 'outubro' },
+  '2026-12': { nome: 'Dezembro 2026', saldo: 106091.68, receber: 18833.34, atraso: 0, pagar: 13360.00, vencidos: 0, resultado: 3920.00, ant: 2125.00, antNome: 'novembro', previsto: true },
+};
+const ORDEM_MESES = Object.keys(MESES);
+let mesAtual = '2026-11';
+
+/* Caixa previsto: entradas (parcelas, por mês) e saídas (repasse, imposto, estrutura). */
+const CAIXA = [
+  { m: 'nov', ent: 27700.00, sai: 16047.23 },
+  { m: 'dez', ent: 18833.34, sai: 13360.00 },
+  { m: 'jan', ent: 20200.00, sai: 13893.00 },
+  { m: 'fev', ent: 0, sai: 6015.00 },
+  { m: 'mar', ent: 0, sai: 6015.00 },
+  { m: 'abr', ent: 0, sai: 6015.00 },
+];
+(function saldos() {
+  let s = MESES['2026-11'].saldo;
+  CAIXA.forEach((c) => { s = Math.round((s + c.ent - c.sai) * 100) / 100; c.saldo = s; });
+})();
+
+const COMISSAO = [
+  { nome: 'Fica com a Souza', v: 75765.86, cls: 'r-souza', cor: 'var(--hue)' },
+  { nome: 'Corretores e gestão', v: 38111.38, cls: 'r-corretor', cor: '#4a5263' },
+  { nome: 'Impostos (ISS e Simples)', v: 10322.76, cls: 'r-imposto', cor: '#b9bfca' },
+];
+const COMISSAO_TOTAL = COMISSAO.reduce((a, c) => a + c.v, 0);
+
+let PENDENCIAS = [
+  { id: 'a1', oque: 'Repassar à Ana Corretora Exemplo', porque: '<span class="ruim">2 parcelas já recebidas</span> · comissão liberada', valor: 7415.97, acao: 'Pagar', feito: 'Pago' },
+  { id: 'a2', oque: 'Imposto de outubro', porque: '<span class="ruim">guia do Simples vencida</span> em 20/10', valor: 1637.36, acao: 'Pagar', feito: 'Pago' },
+  { id: 'a3', oque: 'Nota da Torre Exemplo Parque 803', porque: 'liberada em 03/10 · 30 dias sem nota', valor: 11200.00, acao: 'Emitida', feito: 'Feito' },
+  { id: 'a4', oque: 'Cobrar a Construtora Exemplo Gama', porque: '<span class="atraso">2 parcelas em atraso</span> · a mais antiga há 18 dias', valor: 20200.00, acao: 'Cobrar', feito: 'Enviado' },
+];
+
+console.assert(PARCELAS.reduce((a, p) => a + p.valor, 0).toFixed(2) === '66733.34', 'carteira deve somar 66.733,34');
+console.assert(COMISSAO_TOTAL.toFixed(2) === '124200.00', 'comissão deve somar 124.200,00');
+console.assert(PARCELAS.filter((p) => p.prev.startsWith('2026-1') && p.prev <= '2026-11-30').reduce((a, p) => a + p.valor, 0) === 27700, 'a receber no mês = 27.700');
+
+/* ======================================================================
+ * FORMATO
+ * ==================================================================== */
+const BRL = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const reais = (v) => `<span class="rs">R$</span>${BRL.format(v)}`;
+const reaisTxt = (v) => `R$ ${BRL.format(v)}`;
+const milhar = (v) => v === 0 ? '0' : `${Math.round(v / 1000)} mil`;
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const dataCurta = (iso) => { const [a, m, d] = iso.split('-').map(Number); return `${d} ${MESES_CURTOS[m - 1]}${a !== 2026 ? ' ' + a : ''}`; };
+const diasEntre = (a, b) => Math.round((new Date(b) - new Date(a)) / 864e5);
+const reduz = matchMedia('(prefers-reduced-motion: reduce)');
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const icones = () => window.lucide && lucide.createIcons();
+
+/* números que rolam até o valor novo (troca de mês, lançamento) */
+function rola(el, para) {
+  const de = Number(el.dataset.v ?? para);
+  el.dataset.v = para;
+  if (reduz.matches || de === para) { el.innerHTML = reais(para); return; }
+  const t0 = performance.now(), dur = 600;
+  const passo = (t) => {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.innerHTML = reais(de + (para - de) * e);
+    if (k < 1) requestAnimationFrame(passo);
+  };
+  requestAnimationFrame(passo);
+}
+
+/* ======================================================================
+ * INÍCIO
+ * ==================================================================== */
+function situacao(p) {
+  if (p.recebida) return { cls: 'p-ok', txt: 'Recebida', ic: 'check' };
+  const atraso = diasEntre(p.prev, HOJE);
+  if (atraso > 0) return { cls: 'p-atraso', txt: `Em atraso · ${atraso} d`, ic: 'clock' };
+  return { cls: 'p-prev', txt: 'Prevista', ic: '' };
+}
+
+function pintaFaixa() {
+  const m = MESES[mesAtual];
+  $('#mes-rotulo').textContent = m.nome;
+  rola($('[data-k="saldo"]'), m.saldo);
+  rola($('[data-k="receber"]'), m.receber);
+  rola($('[data-k="pagar"]'), m.pagar);
+  rola($('[data-k="resultado"]'), m.resultado);
+  $('[data-k="receber-sub"]').innerHTML = m.receber === 0 ? 'nenhuma parcela prevista' :
+    m.atraso ? `<span class="atraso">${reaisTxt(m.atraso)} em atraso</span>` : (m.previsto ? 'previsto' : 'em dia');
+  /* "devido agora" mantém a definição de hoje: a regra está pendente com o Rafael (13/09) */
+  $('[data-k="pagar-sub"]').innerHTML = m.vencidos ? `15 itens devidos agora · <span class="ruim">${reaisTxt(m.vencidos)} vencidos</span>` : (m.previsto ? 'previsto' : 'nada vencido');
+  const d = Math.round((m.resultado - m.ant) * 100) / 100;
+  $('[data-k="resultado-sub"]').innerHTML = `<span class="${d >= 0 ? 'bom' : 'ruim'}">${d >= 0 ? '+' : '−'}${reaisTxt(Math.abs(d))}</span> vs ${m.antNome}`;
+}
+
+function pintaGrafico() {
+  const caixa = $('#grafico').clientWidth - 2 * (innerWidth <= 640 ? 16 : 24);
+  const W = Math.max(300, Math.round(caixa)), H = innerWidth <= 640 ? 190 : 300, padL = 64, padR = 8, padT = 12, padB = 26;
+  /* a linha não começa no zero: a pergunta é a variação do saldo, não o tamanho dele */
+  const min = 80000, max = 125000, ticks = [80000, 95000, 110000, 125000];
+  const x = (i) => padL + (i + .5) * ((W - padL - padR) / CAIXA.length);
+  const y = (v) => padT + (1 - (v - min) / (max - min)) * (H - padT - padB);
+  const pts = CAIXA.map((c, i) => [x(i), y(c.saldo)]);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const colW = (W - padL - padR) / CAIXA.length;
+  $('#grafico').innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Saldo previsto de novembro a abril, de ${reaisTxt(CAIXA[0].saldo)} a ${reaisTxt(CAIXA.at(-1).saldo)}">
+      ${ticks.map((t) => `<line class="grade-l" x1="${padL}" x2="${W - padR}" y1="${y(t)}" y2="${y(t)}"/><text class="eixo" x="${padL - 10}" y="${y(t) + 4}" text-anchor="end">R$ ${milhar(t)}</text>`).join('')}
+      ${CAIXA.map((c, i) => `<text class="eixo" x="${x(i)}" y="${H - 6}" text-anchor="middle">${c.m}</text>`).join('')}
+      <path class="linha" d="${d}"/>
+      ${CAIXA.map((c, i) => `<g class="col" data-i="${i}"><line class="guia" x1="${x(i)}" x2="${x(i)}" y1="${padT}" y2="${H - padB}"/><circle class="ponto" cx="${pts[i][0]}" cy="${pts[i][1]}" r="${i === 0 ? 4 : 3.5}"/><rect class="alvo" x="${x(i) - colW / 2}" y="0" width="${colW}" height="${H}"/></g>`).join('')}
+    </svg>
+    <div class="balao" id="balao"></div>`;
+  const linha = $('#grafico .linha');
+  const L = linha.getTotalLength();
+  linha.style.strokeDasharray = L; linha.style.strokeDashoffset = L;
+  requestAnimationFrame(() => requestAnimationFrame(() => { linha.classList.add('desenha'); linha.style.strokeDashoffset = 0; }));
+
+  const balao = $('#balao'), svg = $('#grafico svg');
+  $$('#grafico .col').forEach((g) => {
+    const i = Number(g.dataset.i), c = CAIXA[i];
+    const mostra = () => {
+      const r = svg.getBoundingClientRect(), k = r.width / W;
+      balao.style.left = (r.left - $('#grafico').getBoundingClientRect().left + pts[i][0] * k) + 'px';
+      balao.style.top = (pts[i][1] * k) + 'px';
+      balao.innerHTML = `<b>${reaisTxt(c.saldo)}</b> <span>saldo previsto em ${c.m}</span><br><span>entra ${reaisTxt(c.ent)} · sai ${reaisTxt(c.sai)}</span>`;
+      balao.classList.add('on');
+      $$('#razao td').forEach((td) => td.style.color = td.dataset.i == i ? 'var(--text)' : '');
+    };
+    const esconde = () => { balao.classList.remove('on'); $$('#razao td').forEach((td) => td.style.color = ''); };
+    g.addEventListener('mouseenter', mostra); g.addEventListener('mouseleave', esconde);
+  });
+
+  const ultimo = CAIXA.at(-1);
+  $('#caixa-frase').innerHTML = `Em abril, sem venda nova: <b style="color:var(--text);font-weight:600">${reaisTxt(ultimo.saldo)}</b>`;
+  const linhaTab = (rot, k) => `<tr><th>${rot}</th>${CAIXA.map((c, i) => `<td data-i="${i}" class="${c[k] === 0 ? 'zero' : ''}">${c[k] === 0 ? '—' : (k === 'sai' ? '−' : '+') + BRL.format(c[k])}</td>`).join('')}<td></td></tr>`;
+  /* colunas da tabela sob os pontos: 24 (margem) + padL, seis meses, padR + 24 */
+  $('#razao').innerHTML = `<colgroup><col style="width:${24 + padL}px">${CAIXA.map(() => '<col>').join('')}<col style="width:${padR + 24}px"></colgroup>` + linhaTab('Entra', 'ent') + linhaTab('Sai', 'sai');
+}
+
+function pintaPendencias() {
+  const ul = $('#pendencias');
+  const abertas = PENDENCIAS.filter((p) => !p.ok);
+  $('#pend-frase').textContent = abertas.length ? `${abertas.length} ${abertas.length === 1 ? 'item' : 'itens'}, do mais urgente ao menos` : 'Tudo em dia';
+  $('#frase-inicio').innerHTML = abertas.length
+    ? `<b>${abertas.length} ${abertas.length === 1 ? 'coisa pede' : 'coisas pedem'} você hoje</b> · o caixa cobre 15,7 meses de estrutura sem venda nova`
+    : '<b>Nada pendente</b> · o caixa cobre 15,7 meses de estrutura sem venda nova';
+  if (!abertas.length) { ul.innerHTML = '<li class="vazio">Nada esperando por você. Quando uma parcela atrasar ou um repasse ficar liberado, ele aparece aqui.</li>'; return; }
+  ul.innerHTML = abertas.map((p) => `
+    <li class="pend" data-id="${p.id}">
+      <div class="o-que">${p.oque}</div><div class="valor num">${reais(p.valor)}</div>
+      <div class="por-que">${p.porque}</div>
+      <button class="btn btn-sec btn-peq">${p.acao}</button>
+    </li>`).join('');
+  $$('.pend .btn', ul).forEach((b) => b.addEventListener('click', () => {
+    const li = b.closest('.pend'), p = PENDENCIAS.find((x) => x.id === li.dataset.id);
+    li.classList.add('feito'); b.innerHTML = `<i data-lucide="check"></i>${p.feito}`; icones();
+    setTimeout(() => {
+      li.style.height = li.offsetHeight + 'px';
+      requestAnimationFrame(() => { li.classList.add('some'); li.style.height = '0px'; });
+      setTimeout(() => {
+        p.ok = true; pintaPendencias();
+        avisa(`${p.oque}: ${p.feito.toLowerCase()}`, () => { p.ok = false; pintaPendencias(); });
+      }, reduz.matches ? 0 : 280);
+    }, reduz.matches ? 0 : 650);
+  }));
+}
+
+function pintaProximos() {
+  const linhas = PARCELAS.filter((p) => !p.recebida).slice(0, 4);
+  $('#proximos').innerHTML = linhas.map((p) => {
+    const s = situacao(p);
+    return `<tr class="clica" data-id="${p.id}" tabindex="0">
+      <td class="venda"><b>${p.emp} ${p.un}</b><span>parcela ${p.n} de ${p.de}<span class="so-cel ${s.cls === 'p-atraso' ? 'atraso' : ''}"> · ${s.txt.toLowerCase()}</span></span></td>
+      <td class="some-cel num">${dataCurta(p.prev)}</td>
+      <td class="some-cel-2"><span class="pill ${s.cls}">${s.txt}</span></td>
+      <td class="dir valor num">${reais(p.valor)}</td></tr>`;
+  }).join('');
+  ligaLinhas('#proximos');
+}
+
+function pintaRegua() {
+  $('#regua-total').innerHTML = reais(COMISSAO_TOTAL);
+  const r = $('#regua');
+  r.innerHTML = COMISSAO.map((c) => `<i class="${c.cls}" style="flex-grow:${reduz.matches ? c.v : 0.0001}" title="${c.nome}"></i>`).join('');
+  requestAnimationFrame(() => requestAnimationFrame(() => $$('i', r).forEach((el, k) => el.style.flexGrow = COMISSAO[k].v)));
+  $('#partes').innerHTML = COMISSAO.map((c) => `<li><span class="cor" style="background:${c.cor}"></span><span>${c.nome}</span><span class="v">${reais(c.v)}</span><span class="pct">${Math.round(c.v / COMISSAO_TOTAL * 100)}%</span></li>`).join('');
+}
+
+/* ======================================================================
+ * A RECEBER
+ * ==================================================================== */
+const FILTROS = [
+  { id: 'todas', rot: 'Todas', f: () => true },
+  { id: 'atraso', rot: 'Em atraso', f: (p) => !p.recebida && diasEntre(p.prev, HOJE) > 0 },
+  { id: 'mes', rot: 'Novembro', f: (p) => p.prev.startsWith('2026-11') },
+  { id: 'depois', rot: 'Depois', f: (p) => p.prev > '2026-11-30' },
+];
+let filtro = 'todas';
+let abertaConfirma = null;
+
+function pintaReceber() {
+  const abertas = PARCELAS.filter((p) => !p.recebida);
+  const tot = abertas.reduce((a, p) => a + p.valor, 0);
+  const atr = abertas.filter((p) => diasEntre(p.prev, HOJE) > 0);
+  $('#frase-receber').innerHTML = `${abertas.length} parcelas · ${reaisTxt(tot)} na carteira` + (atr.length ? ` · <b style="color:var(--warning)">${reaisTxt(atr.reduce((a, p) => a + p.valor, 0))} em atraso</b>` : '');
+  $('#nav-atraso').textContent = atr.length ? `${atr.length} em atraso` : '';
+  $('#filtros').innerHTML = FILTROS.map((f) => `<button aria-pressed="${f.id === filtro}" data-f="${f.id}">${f.rot}<span>${PARCELAS.filter(f.f).length}</span></button>`).join('');
+  $$('#filtros button').forEach((b) => b.addEventListener('click', () => { filtro = b.dataset.f; abertaConfirma = null; pintaReceber(); }));
+  const lista = PARCELAS.filter(FILTROS.find((f) => f.id === filtro).f);
+  $('#total-filtro').innerHTML = `${lista.length} ${lista.length === 1 ? 'parcela' : 'parcelas'} · <b class="num">${reaisTxt(lista.filter((p) => !p.recebida).reduce((a, p) => a + p.valor, 0))}</b> a receber`;
+  $('#lista-receber').innerHTML = lista.length ? lista.map((p) => {
+    const s = situacao(p);
+    const acao = p.recebida ? '' : abertaConfirma === p.id
+      ? `<div class="confirma"><input class="campo-mini num" value="${BRL.format(p.valor)}" aria-label="Valor recebido"><select aria-label="Conta"><option>Inter</option><option>Bradesco</option></select><button class="btn btn-primario btn-peq" data-ok="${p.id}">Confirmar</button><button class="fechar" data-cancela aria-label="Cancelar"><i data-lucide="x"></i></button></div>`
+      : `<button class="btn btn-sec btn-peq" data-recebi="${p.id}">Recebi</button>`;
+    return `<tr class="clica ${p.recebida ? 'recebida' : ''}" data-id="${p.id}" tabindex="0">
+      <td class="venda"><b>${p.emp} ${p.un}</b><span>parcela ${p.n} de ${p.de} · ${p.corretor.replace(' Exemplo', '')}<span class="so-cel ${s.cls === 'p-atraso' ? 'atraso' : ''}"> · ${s.txt.toLowerCase()}</span></span></td>
+      <td class="some-cel">${p.construtora.replace('Construtora ', '').replace('Incorporadora ', '')}</td>
+      <td class="some-cel num">${dataCurta(p.prev)}</td>
+      <td class="some-cel-2"><span class="pill ${s.cls}">${s.ic ? `<i data-lucide="${s.ic}"></i>` : ''}${s.txt}</span></td>
+      <td class="dir valor num">${reais(p.valor)}</td>
+      <td class="some-cel"><div class="acao-linha">${acao}</div></td></tr>`;
+  }).join('') : `<tr><td colspan="6" class="vazio">Nenhuma parcela neste filtro.</td></tr>`;
+  icones();
+  ligaLinhas('#lista-receber');
+  $$('[data-recebi]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); abertaConfirma = b.dataset.recebi; pintaReceber(); $('.confirma input')?.select(); }));
+  $$('[data-cancela]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); abertaConfirma = null; pintaReceber(); }));
+  $$('.confirma').forEach((c) => c.addEventListener('click', (e) => e.stopPropagation()));
+  $$('[data-ok]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); recebe(b.dataset.ok); }));
+  $('.confirma input')?.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') recebe(abertaConfirma); if (e.key === 'Escape') { abertaConfirma = null; pintaReceber(); } });
+}
+
+function recebe(id) {
+  const p = PARCELAS.find((x) => x.id === id);
+  p.recebida = true; abertaConfirma = null;
+  const m = MESES['2026-11'];
+  m.saldo = Math.round((m.saldo + p.valor) * 100) / 100;
+  if (diasEntre(p.prev, HOJE) > 0) m.atraso = Math.round((m.atraso - p.valor) * 100) / 100;
+  pintaReceber(); pintaProximos(); pintaFaixa();
+  const tr = $(`#lista-receber tr[data-id="${id}"]`); tr?.classList.add('flash');
+  avisa(`Parcela de ${reaisTxt(p.valor)} recebida no Inter`, () => {
+    p.recebida = false; m.saldo = Math.round((m.saldo - p.valor) * 100) / 100;
+    if (diasEntre(p.prev, HOJE) > 0) m.atraso = Math.round((m.atraso + p.valor) * 100) / 100;
+    pintaReceber(); pintaProximos(); pintaFaixa();
+  });
+}
+
+/* ======================================================================
+ * GAVETA DA VENDA — a cascata da parcela
+ * ==================================================================== */
+function ligaLinhas(sel) {
+  $$(`${sel} tr.clica`).forEach((tr) => {
+    tr.addEventListener('click', () => abreVenda(tr.dataset.id));
+    tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') abreVenda(tr.dataset.id); });
+  });
+}
+
+function cascata(p) {
+  const iss = p.iss ? Math.round(p.valor * 0.03 * 100) / 100 : 0;
+  const simples = Math.round((p.valor - iss) * 0.06 * 100) / 100;
+  const base = Math.round((p.valor - iss - simples) * 100) / 100;
+  const corretor = Math.round(base * 0.40 * 100) / 100;
+  const souza = Math.round((base - corretor) * 100) / 100;
+  console.assert(Math.abs(iss + simples + corretor + souza - p.valor) < 0.005, 'cascata fecha na parcela');
+  return { iss, simples, corretor, souza };
+}
+
+function abreVenda(id) {
+  const p = PARCELAS.find((x) => x.id === id);
+  const c = cascata(p), s = situacao(p);
+  const irmas = PARCELAS.filter((x) => x.emp === p.emp && x.un === p.un);
+  $('#gaveta').innerHTML = `
+    <header>
+      <div><h2 id="g-titulo">${p.emp} ${p.un}</h2><p>${p.construtora} · ${p.corretor}</p></div>
+      <button class="fechar" data-fecha aria-label="Fechar"><i data-lucide="x"></i></button>
+    </header>
+    <section>
+      <h3>Parcela ${p.n} de ${p.de} · <span class="pill ${s.cls}">${s.txt}</span></h3>
+      <ul class="cascata num">
+        <li><span>Parcela da construtora</span><span>${reais(p.valor)}</span></li>
+        ${p.iss ? `<li class="menos"><span>ISS retido <span>3% · a construtora recolhe</span></span><span>−${BRL.format(c.iss)}</span></li>` : ''}
+        <li class="menos"><span>Simples <span>6% sobre ${p.iss ? 'a parcela menos ISS' : 'a parcela'}</span></span><span>−${BRL.format(c.simples)}</span></li>
+        <li class="menos"><span>Repasse ao corretor <span>40% do que sobra</span></span><span>−${BRL.format(c.corretor)}</span></li>
+        <li class="fica"><span>Fica com a Souza</span><span class="num">${reais(c.souza)}</span></li>
+      </ul>
+    </section>
+    <section>
+      <h3>Parcelas desta venda</h3>
+      <ol class="trilho">
+        ${irmas.map((x) => { const sx = situacao(x); return `<li><span class="bola ${x.recebida ? 'ok' : sx.cls === 'p-atraso' ? 'atraso' : ''}"><i data-lucide="${x.recebida ? 'check' : sx.cls === 'p-atraso' ? 'clock' : 'circle'}"></i></span><div><b>Parcela ${x.n} de ${x.de}</b><span>${x.recebida ? 'recebida' : 'prevista para ' + dataCurta(x.prev)}${sx.cls === 'p-atraso' ? ' · ' + sx.txt.toLowerCase() : ''}</span></div><span class="num">${reais(x.valor)}</span></li>`; }).join('')}
+      </ol>
+    </section>
+    <footer>
+      ${p.recebida ? '' : `<button class="btn btn-primario" id="g-recebi">Recebi esta parcela</button>`}
+      <button class="btn btn-sec">Abrir a venda</button>
+    </footer>`;
+  icones();
+  $('#g-recebi')?.addEventListener('click', () => { fecha(); setTimeout(() => recebe(id), 120); });
+  abre('#gaveta');
+}
+
+/* ======================================================================
+ * NOVO LANÇAMENTO, BUSCA, AVISO
+ * ==================================================================== */
+let ultimoFoco = null;
+function abre(sel) {
+  ultimoFoco = document.activeElement;
+  $('#veu').classList.add('on'); $(sel).classList.add('on'); $(sel).dataset.aberto = '1';
+  setTimeout(() => ($(sel).querySelector('input:not([hidden]), .escolha, [data-fecha]'))?.focus(), 30);
+}
+function fecha() {
+  $$('[data-aberto]').forEach((el) => { el.classList.remove('on'); delete el.dataset.aberto; });
+  $('#veu').classList.remove('on');
+  ultimoFoco?.focus?.();
+}
+function abreNovo() {
+  $('#escolhas').hidden = false; $('#form-despesa').hidden = true; $('#n-voltar').hidden = true;
+  $('#n-titulo').textContent = 'O que você quer lançar?';
+  abre('#novo');
+}
+function escolhe(tipo) {
+  if (tipo === 'recebimento') { fecha(); location.hash = '#receber'; return; }
+  if (tipo !== 'despesa') { avisa('No protótipo, só a despesa está montada', null); return; }
+  $('#escolhas').hidden = true; $('#form-despesa').hidden = false; $('#n-voltar').hidden = false;
+  $('#n-titulo').textContent = 'Nova despesa';
+  $('#f-valor').value = ''; $('#f-desc').value = '';
+  setTimeout(() => $('#f-valor').focus(), 30);
+}
+$$('.escolha').forEach((b) => b.addEventListener('click', () => escolhe(b.dataset.tipo)));
+$('#n-voltar').addEventListener('click', abreNovo);
+$$('.fichas').forEach((g) => g.addEventListener('click', (e) => {
+  const b = e.target.closest('.ficha'); if (!b) return;
+  $$('.ficha', g).forEach((x) => x.setAttribute('aria-pressed', x === b));
+}));
+$('#f-valor').addEventListener('input', (e) => {
+  const dig = e.target.value.replace(/\D/g, '').slice(0, 11);
+  e.target.value = dig ? BRL.format(Number(dig) / 100) : '';
+});
+$('#form-despesa').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const v = Number($('#f-valor').value.replace(/\./g, '').replace(',', '.'));
+  if (!v) { $('#f-valor').focus(); $('.valor-grande').style.borderColor = 'var(--negative)'; setTimeout(() => $('.valor-grande').style.borderColor = '', 900); return; }
+  const cat = $('[data-grupo="cat"] [aria-pressed="true"]').textContent;
+  const m = MESES['2026-11'];
+  m.saldo = Math.round((m.saldo - v) * 100) / 100; m.resultado = Math.round((m.resultado - v) * 100) / 100;
+  fecha(); mesAtual = '2026-11'; location.hash = '#inicio'; pintaFaixa();
+  avisa(`Despesa de ${reaisTxt(v)} lançada em ${cat}`, () => {
+    m.saldo = Math.round((m.saldo + v) * 100) / 100; m.resultado = Math.round((m.resultado + v) * 100) / 100; pintaFaixa();
+  });
+});
+
+const DESTINOS = [
+  ['Início', 'inicio', 'Tela'], ['Vendas', 'vendas', 'Tela'], ['A receber', 'receber', 'Tela'], ['A pagar', 'pagar', 'Tela'],
+  ['Despesas', 'despesas', 'Tela'], ['Contas', 'contas', 'Tela'], ['Relatórios', 'relatorios', 'Tela'], ['Metas', 'metas', 'Tela'],
+  ['Projeções', 'projecoes', 'Tela'], ['Corretores', 'corretores', 'Tela'], ['Minhas comissões', 'minhas', 'Tela'], ['Configurações', 'config', 'Tela'],
+  ['Lançar despesa', '+despesa', 'Ação'], ['Registrar venda', '+venda', 'Ação'], ['DRE do mês', 'relatorios', 'Relatório'], ['Fluxo de caixa', 'relatorios', 'Relatório'],
+  ...PARCELAS.map((p) => [`${p.emp} ${p.un} · parcela ${p.n}`, '@' + p.id, 'Venda']),
+];
+let selP = 0;
+function pintaPaleta() {
+  const q = $('#p-busca').value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const itens = DESTINOS.filter((d) => d[0].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)).slice(0, 9);
+  selP = Math.min(selP, Math.max(0, itens.length - 1));
+  $('#p-lista').innerHTML = itens.length ? itens.map((d, i) => `<li><button class="${i === selP ? 'sel' : ''}" data-ir="${d[1]}">${d[0]}<span class="tipo">${d[2]}</span></button></li>`).join('') : '<li class="vazio">Nada encontrado.</li>';
+  $$('#p-lista [data-ir]').forEach((b) => b.addEventListener('click', () => ir(b.dataset.ir)));
+}
+function ir(alvo) {
+  fecha();
+  if (alvo.startsWith('+')) { setTimeout(() => { abreNovo(); if (alvo === '+despesa') escolhe('despesa'); }, 80); return; }
+  if (alvo.startsWith('@')) { location.hash = '#receber'; setTimeout(() => abreVenda(alvo.slice(1)), 120); return; }
+  location.hash = '#' + alvo;
+}
+$('#p-busca').addEventListener('input', () => { selP = 0; pintaPaleta(); });
+$('#p-busca').addEventListener('keydown', (e) => {
+  const n = $$('#p-lista [data-ir]').length;
+  if (e.key === 'ArrowDown') { selP = (selP + 1) % n; pintaPaleta(); e.preventDefault(); }
+  if (e.key === 'ArrowUp') { selP = (selP - 1 + n) % n; pintaPaleta(); e.preventDefault(); }
+  if (e.key === 'Enter') $$('#p-lista [data-ir]')[selP]?.click();
+});
+function abrePaleta() { $('#p-busca').value = ''; selP = 0; pintaPaleta(); abre('#paleta'); }
+
+let desfazer = null, tAviso;
+function avisa(txt, fn) {
+  desfazer = fn; $('#aviso-txt').textContent = txt; $('#aviso-desfaz').hidden = !fn;
+  $('#aviso').classList.add('on'); clearTimeout(tAviso);
+  tAviso = setTimeout(() => $('#aviso').classList.remove('on'), 5000);
+}
+$('#aviso-desfaz').addEventListener('click', () => { desfazer?.(); desfazer = null; $('#aviso').classList.remove('on'); });
+
+/* ======================================================================
+ * NAVEGAÇÃO
+ * ==================================================================== */
+const NOMES = { inicio: 'Início', vendas: 'Vendas', receber: 'A receber', pagar: 'A pagar', despesas: 'Despesas', contas: 'Contas', relatorios: 'Relatórios', metas: 'Metas', projecoes: 'Projeções', corretores: 'Corretores', minhas: 'Minhas comissões', config: 'Configurações' };
+function rota() {
+  const t = (location.hash.slice(1) || 'inicio');
+  if (t === 'mais') { history.replaceState(null, '', '#inicio'); abrePaleta(); return; }
+  const tela = NOMES[t] ? t : 'inicio';
+  $$('.tela').forEach((s) => s.hidden = true);
+  const sec = tela === 'inicio' ? '#t-inicio' : tela === 'receber' ? '#t-receber' : '#t-outra';
+  if (sec === '#t-outra') $('#h-outra').textContent = NOMES[tela];
+  const el = $(sec); el.hidden = false; el.classList.remove('entra'); void el.offsetWidth; el.classList.add('entra');
+  $$('[data-tela]').forEach((a) => a.dataset.tela === tela ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+  $('#titulo-cel').textContent = NOMES[tela];
+  document.title = `${NOMES[tela]} · Souza Financeiro`;
+  if (tela === 'inicio') pintaGrafico();
+  if (tela === 'receber') pintaReceber();
+  scrollTo(0, 0);
+}
+addEventListener('hashchange', rota);
+let tLarg; addEventListener('resize', () => { clearTimeout(tLarg); tLarg = setTimeout(() => { if (!$('#t-inicio').hidden) pintaGrafico(); }, 150); });
+
+$$('[data-abre="novo"]').forEach((b) => b.addEventListener('click', abreNovo));
+$$('[data-abre="paleta"]').forEach((b) => b.addEventListener('click', abrePaleta));
+document.addEventListener('click', (e) => { if (e.target.closest('[data-fecha]')) fecha(); });
+$('#veu').addEventListener('click', fecha);
+$$('[data-mes]').forEach((b) => b.addEventListener('click', () => {
+  const i = ORDEM_MESES.indexOf(mesAtual) + Number(b.dataset.mes);
+  if (i < 0 || i >= ORDEM_MESES.length) return;
+  mesAtual = ORDEM_MESES[i]; pintaFaixa();
+}));
+document.addEventListener('keydown', (e) => {
+  const digitando = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
+  const aberto = $('[data-aberto]');
+  if (e.key === 'Escape' && aberto) { fecha(); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); aberto ? fecha() : abrePaleta(); return; }
+  if (digitando || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (!aberto && e.key.toLowerCase() === 'n') { e.preventDefault(); abreNovo(); return; }
+  if (aberto?.id === 'novo' && !$('#escolhas').hidden) {
+    const mapa = { d: 'despesa', r: 'recebimento', v: 'venda', t: 'transferencia' };
+    if (mapa[e.key.toLowerCase()]) { e.preventDefault(); escolhe(mapa[e.key.toLowerCase()]); }
+  }
+});
+
+/* ======================================================================
+ * PARTIDA
+ * ==================================================================== */
+$('#s-path').setAttribute('d', S_PATH);
+$$('.s-copia').forEach((p) => p.setAttribute('d', S_PATH));
+pintaFaixa(); pintaPendencias(); pintaProximos(); pintaRegua();
+rota();
+icones();
+</script>
+</body>
+</html>

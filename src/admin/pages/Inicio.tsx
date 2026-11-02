@@ -1,212 +1,103 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CircleCheck, FileBarChart, Handshake } from 'lucide-react'
-import { useAuth } from '@/auth/AuthContext'
+import { ArrowRight, CircleCheck, Handshake } from 'lucide-react'
 import { useAdmin } from '../AdminData'
-import { CartaoDoTeto } from '../CartaoDoTeto'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Cartao } from '@/components/ui/Cartao'
-import { Button } from '@/components/ui/Button'
-import { Barra } from '@/components/ui/Barra'
-import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
-import { Selo } from '@/components/ui/Selo'
 import { Tabela } from '@/components/ui/Tabela'
 import { ChipSituacao } from '@/components/ui/Situacao'
 import { EstadoVazio } from '@/components/ui/Estados'
-import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
-import { FaixaDeMetricas, textoDaVariacao } from '@/components/ui/FaixaDeMetricas'
-import { GraficoArea, GraficoEvolucao, GraficoRosca, Legenda, LegendaDeComposicao, useCoresDoGrafico } from '@/components/graficos/Graficos'
+import { ListaDeAcoes } from '@/components/ui/ListaDeAcoes'
+import { PartesDaRegua, Regua } from '@/components/ui/Regua'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
+import { GraficoCaixaPrevisto } from '@/components/graficos/GraficoCaixaPrevisto'
 import { formatCurrency, formatDateShort, formatMonthTiny, formatMonthYear } from '@/lib/format'
 import { monthKey } from '@/lib/finance'
-import { evolucaoMensal, folegoDoCaixa, previsaoDeCaixa, resultadoDoMes, variacao } from '@/lib/painel'
-import { situacaoDaMeta, vendaConta, vgvDaVenda } from '@/lib/comissao'
+import { folegoDoCaixa, previsaoDeCaixa, resultadoDoMes } from '@/lib/painel'
 import { accountBalance } from '@/lib/treasury'
 import { situacaoDeTela } from '@/lib/situacao'
 import { etapaDaParcela, fraseDaEtapa } from '@/lib/etapas'
+import { useRolagem } from '@/lib/useRolagem'
 import type { MoneyItem, SaleView } from '@/lib/sales'
-import type { SaleInstallment, Transaction } from '@/types'
+import type { SaleInstallment } from '@/types'
 
 /*
- * VISÃO FINANCEIRA — o painel executivo (Souza 2.0, 24/10/2026).
+ * INÍCIO — Souza 3.0 (02/11/2026, docs/redesenho-3/PLANO.md).
  *
- * Redesenho radical pedido pelo Rafael: "a tela mais bonita, clara e bem
- * resolvida do sistema", composição editorial, não uma sequência de cartões.
- * Cinco seções, nesta ordem de pergunta:
+ * A pergunta da tela: "quanto eu tenho e o que precisa de mim agora?". A
+ * frase debaixo do título responde; o saldo é o maior número; e cada bloco
+ * responde a próxima pergunta:
  *
- *   1. Resumo do negócio — uma faixa só: saldo, recebido, a receber,
- *      resultado, a pagar. Tendência discreta contra o mês anterior.
- *   2. Evolução financeira — 12 meses, caixa OU competência (nunca somados),
- *      e ao lado para onde vai cada real de comissão.
- *   3. Próximos recebimentos — tabela curta; ao lado, o desempenho da operação.
- *   4. Caixa nos próximos 6 meses e os alertas que pedem decisão.
- *   5. O orçamento do mês, a fila da nota e o que é pessoa física.
+ *   1. Faixa de saldos — saldo hoje (líder), comissões a receber, contas a
+ *      pagar (a definição de "devido agora" de sempre) e o resultado do mês.
+ *   2. Caixa previsto — a linha do saldo nos próximos 6 meses, com o razão
+ *      do que entra e sai embaixo. Ao lado, "Pede você": o que tem dono hoje,
+ *      cada item com o botão que leva a resolver.
+ *   3. Próximos recebimentos e a régua da comissão (para onde vai cada real).
  *
- * A regra de antes continua: o painel não inventa número. Lê `receber`,
- * `pagar` e `atencao` do contexto, e as contas moram em lib/painel.ts,
- * lib/comissao.ts e lib/treasury.ts.
+ * Saíram daqui (e moram onde fazem sentido): a evolução de 12 meses
+ * (Relatórios › Fluxo de caixa), o desempenho e a meta de VGV (Metas), o
+ * orçamento do mês (Despesas), a pessoa física (Minhas comissões). A fila da
+ * nota virou item do "Pede você".
+ *
+ * Nenhuma conta nova: tudo lê `receber`, `pagar`, `atencao` e lib/painel.ts,
+ * as mesmas fontes de antes.
  */
 
-type Regime = 'caixa' | 'competencia'
 const r2 = (v: number) => Math.round(v * 100) / 100
 
-function saudacaoDoDia(nome: string | undefined): string {
-  const h = new Date().getHours()
-  const quando = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
-  const primeiro = nome?.trim().split(/\s+/)[0]
-  return primeiro ? `${quando}, ${primeiro}` : quando
+/* O que o botão de cada pendência diz, pela natureza dela. */
+function acaoDaPendencia(id: string): string {
+  if (id === 'receber-mais') return 'Ver todas'
+  if (id.startsWith('receber-')) return 'Ver parcela'
+  if (id.startsWith('nota-')) return 'Emitir nota'
+  if (id.startsWith('comissao-') || id === 'imposto' || id === 'despesa-vencida') return 'Pagar'
+  return 'Abrir'
+}
+
+interface Pendencia {
+  id: string
+  titulo: string
+  detalhe: string
+  valor: number
+  /** risco = dívida da imobiliária (vermelho); atraso = da construtora (âmbar). */
+  tom: 'risco' | 'atraso' | 'neutro'
+  para: string
 }
 
 export function Inicio() {
-  const {
-    sales, metas, perfis, company, orcamento, transactions, transfers, accounts, atencao, receber, pagar, vendas,
-    installments, hoje, mes,
-  } = useAdmin()
-  const { profile } = useAuth()
+  const { transactions, transfers, accounts, atencao, receber, pagar, vendas, installments, orcamento, company, hoje, mes } =
+    useAdmin()
   const { abrir } = useComposicao()
   const navigate = useNavigate()
-  const cores = useCoresDoGrafico()
-  const [regime, setRegime] = useState<Regime>('competencia')
 
   const chaveMes = monthKey(mes)
-  const chaveAnterior = monthKey(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))
-  const nomeDoMes = formatMonthYear(mes)
+  const mesAnterior = new Date(mes.getFullYear(), mes.getMonth() - 1, 1)
+  const chaveAnterior = monthKey(mesAnterior)
   const parcelas = useMemo(() => new Map(installments.map((p) => [p.id, p])), [installments])
   const soma = (l: { amount: number }[]) => r2(l.reduce((s, i) => s + i.amount, 0))
 
-  /* ------------------------------------------------ 1. resumo do negócio */
+  /* ------------------------------------------------ 1. faixa de saldos */
 
   const contasAtivas = useMemo(() => accounts.filter((a) => a.is_active && a.type !== 'credit_card'), [accounts])
   const saldo = useMemo(
     () => r2(contasAtivas.reduce((s, a) => s + accountBalance(a, transactions, transfers, hoje).balance, 0)),
     [contasAtivas, transactions, transfers, hoje],
   )
-  const saldoNoFimDoMesPassado = useMemo(() => {
-    const h = new Date(`${hoje}T12:00:00`)
-    const fim = new Date(h.getFullYear(), h.getMonth(), 0)
-    const ate = `${fim.getFullYear()}-${String(fim.getMonth() + 1).padStart(2, '0')}-${String(fim.getDate()).padStart(2, '0')}`
-    return r2(contasAtivas.filter((a) => a.opening_date <= ate).reduce((s, a) => s + accountBalance(a, transactions, transfers, ate).balance, 0))
-  }, [contasAtivas, transactions, transfers, hoje])
-
-  /** Parcela recebida no mês (a comissão que caiu), pela data do dinheiro. */
-  const recebidoNo = (chave: string) => {
-    const l = vendas
-      .filter((v) => !v.is_personal)
-      .flatMap((v) => v.installments)
-      .filter((i) => i.status === 'recebida' && (i.received_date ?? '').slice(0, 7) === chave)
-    return { total: soma(l), n: l.length }
-  }
-  const recebido = useMemo(() => recebidoNo(chaveMes), [vendas, chaveMes]) // eslint-disable-line react-hooks/exhaustive-deps
-  const recebidoAntes = useMemo(() => recebidoNo(chaveAnterior), [vendas, chaveAnterior]) // eslint-disable-line react-hooks/exhaustive-deps
-
   /* A janela de Receber: o mês da tela mais o que está em atraso de qualquer mês. */
   const aReceber = useMemo(() => receber.filter((i) => i.date.slice(0, 7) === chaveMes || i.overdue), [receber, chaveMes])
   const emAtraso = useMemo(() => aReceber.filter((i) => i.overdue), [aReceber])
-  /* A definição de Pagar: devido agora é o liberado (comissão de parcela recebida, imposto, despesa). */
+  /* A definição de Pagar de sempre: devido agora é o liberado (decisão pendente desde 13/09, não mexer). */
   const devido = useMemo(() => pagar.filter((i) => i.released), [pagar])
+  const vencidoAPagar = useMemo(() => devido.filter((i) => i.overdue), [devido])
 
   const resultado = useMemo(() => resultadoDoMes(transactions, parcelas, chaveMes), [transactions, parcelas, chaveMes])
   const resultadoAntes = useMemo(() => resultadoDoMes(transactions, parcelas, chaveAnterior), [transactions, parcelas, chaveAnterior])
+  const diferencaResultado = r2(resultado.lucro - resultadoAntes.lucro)
 
-  const tendencia = (agora: number, antes: number, custo = false) => {
-    const texto = textoDaVariacao(variacao(agora, antes))
-    if (!texto) return null
-    const sobe = agora > antes
-    return { texto, tom: agora === antes ? ('neutro' as const) : sobe !== custo ? ('sucesso' as const) : ('risco' as const) }
-  }
-
-  /* ---------------------------------------------- 2. evolução financeira */
-
-  const evolucao = useMemo(() => evolucaoMensal(transactions, parcelas, mes), [transactions, parcelas, mes])
-  const pontos = evolucao.map((e) => {
-    const d = new Date(`${e.mes}-01T12:00:00`)
-    const x = regime === 'caixa' ? e.caixa : null
-    return {
-      rotulo: formatMonthTiny(d),
-      titulo: formatMonthYear(d),
-      entra: x ? x.entra : e.competencia.receita,
-      sai: x ? x.sai : e.competencia.custos,
-      resultado: x ? x.resultado : e.competencia.resultado,
-    }
-  })
-  const nomes =
-    regime === 'caixa'
-      ? { entra: 'Entrou', sai: 'Saiu', resultado: 'Saldo do mês' }
-      : { entra: 'Receita', sai: 'Custos e despesas', resultado: 'Resultado' }
-  const doze = evolucao.reduce(
-    (t, e) => ({
-      receita: t.receita + e.competencia.receita,
-      resultado: t.resultado + e.competencia.resultado,
-      entra: t.entra + e.caixa.entra,
-      sai: t.sai + e.caixa.sai,
-    }),
-    { receita: 0, resultado: 0, entra: 0, sai: 0 },
-  )
-
-  const sinal = (t: Transaction) => (t.kind === 'income' ? t.amount : -t.amount)
-  const abrirMes = (i: number) => {
-    const e = evolucao[i]
-    const nome = formatMonthYear(new Date(`${e.mes}-01T12:00:00`))
-    const lancs = regime === 'caixa' ? [...e.caixa.entradas, ...e.caixa.saidas] : e.competencia.lancamentos
-    abrir({
-      rotulo: regime === 'caixa' ? 'Caixa do mês' : 'Resultado do mês',
-      titulo: `${nome} · ${regime === 'caixa' ? 'caixa' : 'competência'}`,
-      explica:
-        regime === 'caixa'
-          ? 'O dinheiro que entrou e saiu no mês, pela data da baixa. Retirada do sócio fica de fora.'
-          : 'O DRE realizado do mês: a comissão que ficou devida (nota, gatilho ou dinheiro) e o que ela custou, mais as despesas.',
-      total: regime === 'caixa' ? e.caixa.resultado : e.competencia.resultado,
-      itens: lancs
-        .filter((t) => t.kind !== 'withdrawal')
-        .map((t) => ({
-          id: t.id,
-          titulo: t.description || t.category,
-          meta: t.category,
-          valor: sinal(t),
-          para: t.sale_id ? `/vendas/${t.sale_id}` : undefined,
-        })),
-      vazio: 'Nada neste mês.',
-    })
-  }
-
-  /* Para onde vai cada real de comissão contratada (a carteira ativa, gravada na cascata). */
-  const carteira = useMemo(() => {
-    const ativas = vendas.filter((v) => !v.is_personal && v.status !== 'cancelada')
-    const comissao = r2(ativas.reduce((s, v) => s + v.cascade.commission, 0))
-    const imposto = r2(ativas.reduce((s, v) => s + v.cascade.iss + v.cascade.simples, 0))
-    const corretores = r2(ativas.reduce((s, v) => s + v.cascade.broker + v.cascade.manager, 0))
-    const fica = r2(ativas.reduce((s, v) => s + v.cascade.net, 0))
-    const porConstrutora = new Map<string, number>()
-    for (const v of ativas) {
-      const nome = v.developer ?? v.development ?? 'Sem construtora'
-      porConstrutora.set(nome, (porConstrutora.get(nome) ?? 0) + v.cascade.commission)
-    }
-    const maior = [...porConstrutora.entries()].sort((a, b) => b[1] - a[1])[0]
-    return { comissao, imposto, corretores, fica, maior, vendas: ativas.length }
-  }, [vendas])
-  const pct = (v: number) => (carteira.comissao > 0 ? Math.round((v / carteira.comissao) * 100) : 0)
-
-  /* ------------------------------------------ 3. próximos recebimentos */
-
-  type Recebivel = { i: MoneyItem; venda: SaleView | null; p: SaleInstallment | null }
-  const proximos = useMemo<Recebivel[]>(
-    () =>
-      [...receber]
-        .sort((a, b) => (a.overdue === b.overdue ? a.date.localeCompare(b.date) : a.overdue ? -1 : 1))
-        .slice(0, 7)
-        .map((i) => ({ i, venda: i.sale, p: i.installment })),
-    [receber],
-  )
-
-  /* Desempenho: meta de VGV, o que se vendeu, a comissão que isso contratou e a margem dos 12 meses. */
-  const meta = useMemo(() => situacaoDaMeta({ sales, perfis, metas, mes: chaveMes, contactId: null }), [sales, perfis, metas, chaveMes])
-  const vendasDoMes = useMemo(() => vendas.filter((v) => vendaConta(v) && v.sale_date.slice(0, 7) === chaveMes), [vendas, chaveMes])
-  const vgvDoMes = vendasDoMes.reduce((s, v) => s + vgvDaVenda(v), 0)
-  const comissaoDoMes = r2(vendasDoMes.reduce((s, v) => s + v.cascade.commission, 0))
-  const margem12 = doze.receita > 0 ? doze.resultado / doze.receita : null
-
-  /* -------------------------------------------- 4. caixa e alertas */
+  /* ------------------------------------------------ 2. caixa previsto */
 
   const teto = company?.monthly_budget ?? null
   const inicioDaPrevisao = useMemo(() => {
@@ -218,6 +109,7 @@ export function Inicio() {
     [saldo, receber, pagar, orcamento, teto, transactions, parcelas, inicioDaPrevisao],
   )
   const folego = folegoDoCaixa(saldo, teto)
+  const ultimo = previsao[previsao.length - 1]
   const menorSaldo = previsao.reduce((m, p) => Math.min(m, p.saldoFim), saldo)
 
   const comp = (l: MoneyItem[], negativo = false) =>
@@ -252,27 +144,61 @@ export function Inicio() {
     })
   }
 
-  /* ------------------------------------------ 5. nota fiscal e pessoa física */
+  /* ------------------------------------------------ pede você */
 
   const porVenda = useMemo(() => new Map(vendas.map((v) => [v.id, v])), [vendas])
-  const filaDaNota = useMemo(() => {
-    const emitir: { p: SaleInstallment; venda: SaleView | undefined }[] = []
-    const esperando: { p: SaleInstallment; venda: SaleView | undefined }[] = []
+  const pendencias = useMemo<Pendencia[]>(() => {
+    const lista: Pendencia[] = atencao.map((a) => ({
+      id: a.id,
+      titulo: a.id === 'receber-mais' ? `Mais ${a.title.replace(/^mais /, '')}` : a.title,
+      detalhe: a.detail,
+      valor: a.amount,
+      // Parcela que a construtora não pagou é "em atraso" (âmbar); o resto crítico é dívida nossa.
+      tom: a.id.startsWith('receber-') ? 'atraso' : a.tone === 'info' ? 'neutro' : 'risco',
+      para: a.to,
+    }))
     for (const p of installments) {
-      if (p.status !== 'prevista') continue
-      if (porVenda.get(p.sale_id)?.is_personal) continue
-      const { etapa } = etapaDaParcela(p)
-      if (etapa === 'a_emitir_nota') emitir.push({ p, venda: porVenda.get(p.sale_id) })
-      else if (etapa === 'nota_emitida' && p.expected_date < hoje) esperando.push({ p, venda: porVenda.get(p.sale_id) })
+      if (p.status !== 'prevista' || porVenda.get(p.sale_id)?.is_personal) continue
+      if (etapaDaParcela(p).etapa !== 'a_emitir_nota') continue
+      const v = porVenda.get(p.sale_id)
+      lista.push({
+        id: `nota-${p.id}`,
+        titulo: `Nota de ${v?.title ?? 'parcela de comissão'}`,
+        detalhe: fraseDaEtapa(p, hoje),
+        valor: p.amount,
+        tom: 'neutro',
+        para: v ? `/vendas/${v.id}?parcela=${p.id}` : '/receber',
+      })
     }
-    return { emitir, esperando }
-  }, [installments, porVenda, hoje])
-  const pessoais = useMemo(() => {
-    const linhas = vendas
-      .filter((v) => v.is_personal && v.status !== 'cancelada')
-      .flatMap((v) => v.installments.filter((p) => p.status === 'prevista').map((p) => ({ v, p })))
-      .sort((a, b) => (a.p.expected_date < b.p.expected_date ? -1 : 1))
-    return { linhas, total: r2(linhas.reduce((s, l) => s + l.p.amount, 0)) }
+    const ordem = { risco: 0, atraso: 1, neutro: 2 }
+    return lista.sort((a, b) => ordem[a.tom] - ordem[b.tom])
+  }, [atencao, installments, porVenda, hoje])
+
+  /* ------------------------------------------------ 3. recebimentos e comissão */
+
+  type Recebivel = { i: MoneyItem; venda: SaleView | null; p: SaleInstallment | null }
+  const proximos = useMemo<Recebivel[]>(
+    () =>
+      [...receber]
+        .sort((a, b) => (a.overdue === b.overdue ? a.date.localeCompare(b.date) : a.overdue ? -1 : 1))
+        .slice(0, 4)
+        .map((i) => ({ i, venda: i.sale, p: i.installment })),
+    [receber],
+  )
+
+  const carteira = useMemo(() => {
+    const ativas = vendas.filter((v) => !v.is_personal && v.status !== 'cancelada')
+    const comissao = r2(ativas.reduce((s, v) => s + v.cascade.commission, 0))
+    const imposto = r2(ativas.reduce((s, v) => s + v.cascade.iss + v.cascade.simples, 0))
+    const corretores = r2(ativas.reduce((s, v) => s + v.cascade.broker + v.cascade.manager, 0))
+    const fica = r2(ativas.reduce((s, v) => s + v.cascade.net, 0))
+    const porConstrutora = new Map<string, number>()
+    for (const v of ativas) {
+      const nome = v.developer ?? v.development ?? 'Sem construtora'
+      porConstrutora.set(nome, (porConstrutora.get(nome) ?? 0) + v.cascade.commission)
+    }
+    const maior = [...porConstrutora.entries()].sort((a, b) => b[1] - a[1])[0]
+    return { comissao, imposto, corretores, fica, maior, vendas: ativas.length }
   }, [vendas])
 
   const vendasAtivas = vendas.filter((v) => v.status !== 'cancelada' && !v.is_personal)
@@ -292,143 +218,117 @@ export function Inicio() {
     )
   }
 
+  const n = pendencias.length
+  const frase = (
+    <>
+      <b>{n === 0 ? 'Nada pendente' : `${n} ${n === 1 ? 'coisa pede' : 'coisas pedem'} você hoje`}</b>
+      {folego != null
+        ? ` · o caixa cobre ${folego.toLocaleString('pt-BR')} ${folego === 1 ? 'mês' : 'meses'} de estrutura sem venda nova`
+        : ` · ${formatMonthYear(mes).toLowerCase()}`}
+    </>
+  )
+
   return (
-    <PageLayout
-      saudacao={saudacaoDoDia(profile?.name ?? undefined)}
-      subtitulo={`Como está o dinheiro da imobiliária em ${nomeDoMes.toLowerCase()}.`}
-      acoes={
-        <Button variant="secundario" size="md" icone={FileBarChart} onClick={() => navigate('/relatorios')}>
-          Relatórios
-        </Button>
-      }
-    >
-      {/* 1. Resumo do negócio */}
+    <PageLayout subtitulo={frase}>
       <FaixaDeMetricas
-        rotuloAcessivel="Resumo do negócio"
+        rotuloAcessivel="Saldos do mês"
         metricas={[
           {
-            rotulo: 'Saldo disponível',
+            rotulo: 'Saldo hoje',
             valor: saldo,
+            lider: true,
             estado: saldo < 0 ? 'negativo' : undefined,
-            tendencia: saldoNoFimDoMesPassado > 0 ? tendencia(saldo, saldoNoFimDoMesPassado) : null,
-            nota: `${contasAtivas.length} ${contasAtivas.length === 1 ? 'conta' : 'contas'} · hoje`,
+            nota: `em ${contasAtivas.length} ${contasAtivas.length === 1 ? 'conta' : 'contas'}${
+              contasAtivas.length <= 3 && contasAtivas.length > 0 ? ` · ${contasAtivas.map((c) => c.name).join(' e ')}` : ''
+            }`,
             para: '/contas',
-          },
-          {
-            rotulo: 'Comissões recebidas',
-            valor: recebido.total,
-            tendencia: tendencia(recebido.total, recebidoAntes.total),
-            nota: recebido.n === 0 ? 'nenhuma parcela no mês' : `${recebido.n} ${recebido.n === 1 ? 'parcela' : 'parcelas'} no mês`,
-            para: '/recebimentos-imobiliaria',
           },
           {
             rotulo: 'Comissões a receber',
             valor: soma(aReceber),
-            nota: emAtraso.length > 0 ? `${formatCurrency(soma(emAtraso))} em atraso` : 'no mês, nada em atraso',
+            nota:
+              emAtraso.length > 0 ? (
+                <span className="font-medium text-warning-ink">
+                  <Valor valor={soma(emAtraso)} posto="fato" tinta="text-warning-ink" /> em atraso
+                </span>
+              ) : (
+                'no mês, nada em atraso'
+              ),
             para: '/receber',
-          },
-          {
-            rotulo: 'Resultado operacional',
-            valor: resultado.lucro,
-            estado: resultado.lucro < 0 ? 'negativo' : undefined,
-            tendencia: tendencia(resultado.lucro, resultadoAntes.lucro),
-            nota: 'lucro do mês no DRE',
-            para: '/relatorios/dre',
           },
           {
             rotulo: 'Contas a pagar',
             valor: soma(devido),
-            nota: devido.length === 0 ? 'nada devido agora' : `${devido.length} ${devido.length === 1 ? 'item devido' : 'itens devidos'} agora`,
+            nota:
+              devido.length === 0 ? (
+                'nada devido agora'
+              ) : (
+                <>
+                  {devido.length} {devido.length === 1 ? 'item devido' : 'itens devidos'} agora
+                  {vencidoAPagar.length > 0 && (
+                    <>
+                      {' · '}
+                      <span className="font-medium text-error-ink">
+                        <Valor valor={soma(vencidoAPagar)} posto="fato" tinta="text-error-ink" /> vencidos
+                      </span>
+                    </>
+                  )}
+                </>
+              ),
             para: '/pagar',
+          },
+          {
+            rotulo: 'Resultado do mês',
+            valor: resultado.lucro,
+            estado: resultado.lucro < 0 ? 'negativo' : undefined,
+            tendencia:
+              diferencaResultado === 0
+                ? null
+                : {
+                    texto: `${diferencaResultado > 0 ? '+' : '−'}${formatCurrency(Math.abs(diferencaResultado))}`,
+                    tom: diferencaResultado > 0 ? 'sucesso' : 'risco',
+                  },
+            nota: `vs ${formatMonthYear(mesAnterior).split(' ')[0].toLowerCase()}`,
+            para: '/relatorios/dre',
           },
         ]}
       />
 
-      {/* 2. Evolução financeira + composição */}
-      <div className="grid items-stretch gap-bloco lg:grid-cols-12">
-        <Cartao className="lg:col-span-8">
+      <div className="grid items-stretch gap-bloco lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Cartao>
           <Cartao.Cabecalho
-            titulo="Evolução financeira"
+            titulo="Caixa previsto"
             meta={
-              regime === 'caixa'
-                ? `Últimos 12 meses pela data do dinheiro · ${formatCurrency(r2(doze.entra - doze.sai))} de saldo gerado`
-                : `Últimos 12 meses por competência · ${formatCurrency(r2(doze.resultado))} de resultado`
+              ultimo ? (
+                <>
+                  Em {formatMonthYear(new Date(`${ultimo.mes}-01T12:00:00`)).toLowerCase()}, sem venda nova:{' '}
+                  <Valor valor={ultimo.saldoFim} posto="fato" forte estado={ultimo.saldoFim < 0 ? 'negativo' : undefined} />
+                </>
+              ) : undefined
             }
-            extra={
-              <FiltrosRapidos
-                rotuloAcessivel="Regime do gráfico"
-                ativo={regime}
-                aoMudar={setRegime}
-                filtros={[
-                  { id: 'competencia', rotulo: 'Competência' },
-                  { id: 'caixa', rotulo: 'Caixa' },
-                ]}
-              />
-            }
+            extra={<span className="text-t4 text-texto-meta max-sm:hidden">próximos 6 meses</span>}
           />
-          <Cartao.Corpo>
-            <Legenda
-              itens={[
-                { nome: nomes.entra, cor: cores.entra },
-                { nome: nomes.sai, cor: cores.sai },
-                { nome: nomes.resultado, cor: cores.resultado, linha: true },
-              ]}
-            />
-            <GraficoEvolucao
-              pontos={pontos}
-              nomes={nomes}
-              aoClicar={abrirMes}
-              rotuloAcessivel={`Evolução de ${nomes.entra.toLowerCase()}, ${nomes.sai.toLowerCase()} e ${nomes.resultado.toLowerCase()} nos últimos 12 meses. Toque num mês para ver os lançamentos.`}
-            />
-          </Cartao.Corpo>
-        </Cartao>
-
-        <Cartao className="lg:col-span-4">
-          <Cartao.Cabecalho
-            titulo="Para onde vai a comissão"
-            meta={`${carteira.vendas} ${carteira.vendas === 1 ? 'venda ativa' : 'vendas ativas'} · ${formatCurrency(carteira.comissao)} contratados`}
+          <GraficoCaixaPrevisto
+            aoClicar={abrirPrevisao}
+            rotuloAcessivel="Saldo previsto no fim de cada um dos próximos 6 meses. Toque num mês para ver o que entra e o que sai."
+            meses={previsao.map((p) => {
+              const d = new Date(`${p.mes}-01T12:00:00`)
+              return { rotulo: formatMonthTiny(d), titulo: formatMonthYear(d), entra: p.entra, sai: p.sai, saldoFim: p.saldoFim }
+            })}
           />
-          <Cartao.Corpo className="items-center gap-5">
-            <GraficoRosca
-              rotuloAcessivel={`De cada R$ 100 de comissão contratada, ${pct(carteira.fica)} ficam com a imobiliária, ${pct(carteira.corretores)} vão para corretores e gestão e ${pct(carteira.imposto)} para impostos.`}
-              centro={{ rotulo: 'fica com a Souza', valor: `${pct(carteira.fica)}%` }}
-              fatias={[
-                { nome: 'Fica com a imobiliária', valor: carteira.fica, cor: cores.entra },
-                { nome: 'Corretores e gestão', valor: carteira.corretores, cor: cores.sai },
-                { nome: 'Impostos', valor: carteira.imposto, cor: cores.suave },
-              ]}
-            />
-            <LegendaDeComposicao
-              itens={[
-                { nome: 'Fica com a imobiliária', valor: carteira.fica, pct: pct(carteira.fica), cor: cores.entra },
-                { nome: 'Corretores e gestão', valor: carteira.corretores, pct: pct(carteira.corretores), cor: cores.sai },
-                { nome: 'Impostos', valor: carteira.imposto, pct: pct(carteira.imposto), cor: cores.suave },
-              ]}
-            />
-          </Cartao.Corpo>
-          {carteira.maior && (
+          {menorSaldo < 0 && (
             <Cartao.Rodape>
-              <span>
-                {Math.round((carteira.maior[1] / Math.max(carteira.comissao, 1)) * 100)}% da carteira depende de{' '}
-                {carteira.maior[0]}
-              </span>
+              <span className="text-error-ink">Em algum mês o caixa fica negativo: antecipe recebimento ou segure gasto antes de chegar lá.</span>
             </Cartao.Rodape>
           )}
         </Cartao>
+
+        <PedeVoce pendencias={pendencias} aoAbrir={(p) => navigate(p.para)} />
       </div>
 
-      {/* 3. Próximos recebimentos + desempenho */}
-      <div className="grid items-stretch gap-bloco lg:grid-cols-12">
-        <Cartao className="lg:col-span-7">
-          <Cartao.Cabecalho
-            titulo="Próximos recebimentos"
-            meta={`${receber.length} ${receber.length === 1 ? 'parcela' : 'parcelas'} na carteira · ${formatCurrency(soma(receber))} a receber`}
-            extra={
-              <Link to="/receber" className="font-medium text-brand text-texto-meta hover:text-brand-dark">
-                Ver tudo
-              </Link>
-            }
-          />
+      <div className="grid items-stretch gap-bloco lg:grid-cols-2">
+        <Cartao>
+          <Cartao.Cabecalho titulo="Próximos recebimentos" meta="da construtora para a Souza, por data prevista" />
           {proximos.length === 0 ? (
             <Cartao.Corpo>
               <EstadoVazio icone={CircleCheck} titulo="Nada a receber" descricao="Toda a comissão contratada já entrou." />
@@ -448,8 +348,7 @@ export function Inicio() {
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate font-medium text-t1">{r.venda?.title ?? r.i.label}</span>
                       <span className="truncate text-t4 text-nota">
-                        {r.p && r.p.count > 1 ? `Parcela ${r.p.idx} de ${r.p.count}` : 'Parcela única'}
-                        {r.venda?.development ? ` · ${r.venda.development}` : ''}
+                        {r.p && r.p.count > 1 ? `parcela ${r.p.idx} de ${r.p.count}` : 'parcela única'}
                       </span>
                     </span>
                   ),
@@ -464,175 +363,104 @@ export function Inicio() {
               ]}
             />
           )}
-        </Cartao>
-
-        <Cartao className="lg:col-span-5">
-          <Cartao.Cabecalho titulo="Desempenho da operação" meta={nomeDoMes} />
-          <Cartao.Corpo className="gap-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-t3 text-texto-meta">Meta de VGV da imobiliária</span>
-              <span className="num text-t4 text-texto-meta">
-                {meta.meta ? `${Math.round((meta.atingido ?? 0) * 100)}% de ${formatCurrency(meta.meta)}` : 'sem meta'}
-              </span>
-            </div>
-            <Barra
-              rotuloAcessivel={`${Math.round((meta.atingido ?? 0) * 100)}% da meta de VGV do mês`}
-              valor={meta.atingido ?? 0}
-              tom={meta.bateu ? 'sucesso' : 'marca'}
-            />
-          </Cartao.Corpo>
-          <Cartao.Lista colunas={{ valor: '9rem', fim: true }} rotuloAcessivel="Desempenho da operação">
-            <Linha
-              titulo="VGV vendido"
-              meta={`${vendasDoMes.length} ${vendasDoMes.length === 1 ? 'venda' : 'vendas'} no mês`}
-              valor={<Valor valor={vgvDoMes} posto="linha" />}
-              para="/metas"
-            />
-            <Linha
-              titulo="Comissão contratada"
-              meta="o que as vendas do mês vão pagar"
-              valor={<Valor valor={comissaoDoMes} posto="linha" />}
-              para="/vendas"
-            />
-            <Linha
-              titulo="Margem líquida · 12 meses"
-              meta="resultado ÷ receita, por competência"
-              valor={
-                <span className={`num text-valor-linha ${margem12 != null && margem12 < 0 ? 'text-error-ink' : 'text-t1'}`}>
-                  {margem12 == null ? '—' : `${Math.round(margem12 * 100)}%`}
-                </span>
-              }
-              para="/relatorios/indicadores"
-            />
-          </Cartao.Lista>
-        </Cartao>
-      </div>
-
-      {/* 4. Caixa nos próximos 6 meses + alertas e decisões */}
-      <div className="grid items-stretch gap-bloco lg:grid-cols-12">
-        <Cartao className="lg:col-span-7">
-          <Cartao.Cabecalho
-            titulo="Caixa nos próximos 6 meses"
-            meta={
-              folego == null
-                ? 'o saldo de hoje mais o que entra, menos o que sai'
-                : `o caixa de hoje paga ${folego.toLocaleString('pt-BR')} ${folego === 1 ? 'mês' : 'meses'} de estrutura sem venda nova`
-            }
-          />
-          <Cartao.Corpo>
-            <GraficoArea
-              nome="Saldo no fim do mês"
-              aoClicar={abrirPrevisao}
-              rotuloAcessivel="Saldo previsto no fim de cada um dos próximos 6 meses. Toque num mês para ver o que entra e o que sai."
-              pontos={previsao.map((p) => {
-                const d = new Date(`${p.mes}-01T12:00:00`)
-                return { rotulo: formatMonthTiny(d), titulo: formatMonthYear(d), valor: p.saldoFim }
-              })}
-            />
-          </Cartao.Corpo>
           <Cartao.Rodape>
+            <Link to="/receber" className="inline-flex items-center gap-1.5 font-medium text-brand hover:underline hover:underline-offset-4">
+              Ver as {receber.length} {receber.length === 1 ? 'parcela' : 'parcelas'}
+              <ArrowRight size={14} strokeWidth={1.75} aria-hidden />
+            </Link>
             <span>
-              {menorSaldo < 0
-                ? 'Em algum mês o caixa fica negativo: antecipe recebimento ou segure gasto antes de chegar lá.'
-                : 'Previsão: a data das parcelas depende da construtora. Retirada do sócio fica de fora.'}
+              <Valor valor={soma(receber)} posto="fato" /> na carteira
             </span>
           </Cartao.Rodape>
         </Cartao>
 
-        <Cartao className="lg:col-span-5">
-          <Cartao.Cabecalho
-            titulo="Alertas e decisões"
-            meta={atencao.length === 0 ? 'nada pedindo ação' : `${atencao.length} ${atencao.length === 1 ? 'item pede' : 'itens pedem'} ação`}
-          />
-          {atencao.length === 0 ? (
-            <Cartao.Corpo>
-              <EstadoVazio
-                icone={CircleCheck}
-                titulo="Tudo em dia"
-                descricao="Nada vencido, nenhuma comissão liberada esperando e nenhum imposto em aberto."
-              />
-            </Cartao.Corpo>
-          ) : (
-            <Cartao.Lista colunas={{ goteira: true, valor: true, fim: true }} rotuloAcessivel="Alertas e decisões">
-              {atencao.slice(0, 6).map((a) => (
-                <Linha
-                  key={a.id}
-                  goteira={<Selo situacao={a.tone === 'critical' ? 'vencida' : a.tone === 'warning' ? 'liberada' : 'prevista'} />}
-                  titulo={a.title}
-                  meta={a.detail}
-                  valor={<Valor valor={a.amount} posto="linha" />}
-                  para={a.to}
-                />
-              ))}
-            </Cartao.Lista>
-          )}
-          {menorSaldo < 0 && (
-            <Cartao.Rodape>
-              <span className="text-error-ink">Risco de caixa: o saldo previsto fica negativo nos próximos meses.</span>
-            </Cartao.Rodape>
-          )}
-        </Cartao>
-      </div>
-
-      {/* 5. Orçamento, nota fiscal e pessoa física */}
-      <div className="grid items-start gap-bloco lg:grid-cols-12">
-        <div className="flex min-w-0 flex-col gap-bloco lg:col-span-5">
-          <CartaoDoTeto />
-        </div>
-        <div className="flex min-w-0 flex-col gap-bloco lg:col-span-7">
-          {(filaDaNota.emitir.length > 0 || filaDaNota.esperando.length > 0) && (
-            <Cartao>
-              <Cartao.Cabecalho
-                titulo="Nota fiscal"
-                meta="a comissão liberada só vira dinheiro depois da nota"
-              />
-              <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Fila da nota fiscal">
-                {filaDaNota.emitir.length > 0 && <LinhaGrupo rotulo="Emitir nota" contador={`${filaDaNota.emitir.length}`} />}
-                {filaDaNota.emitir.map(({ p, venda }) => (
-                  <Linha
-                    key={p.id}
-                    titulo={venda?.title ?? 'Parcela de comissão'}
-                    meta={fraseDaEtapa(p, hoje)}
-                    valor={<Valor valor={p.amount} posto="linha" />}
-                    para={venda ? `/vendas/${venda.id}?parcela=${p.id}` : undefined}
-                  />
-                ))}
-                {filaDaNota.esperando.length > 0 && (
-                  <LinhaGrupo rotulo="Nota emitida, passou do prazo" contador={`${filaDaNota.esperando.length}`} />
-                )}
-                {filaDaNota.esperando.map(({ p, venda }) => (
-                  <Linha
-                    key={p.id}
-                    titulo={venda?.title ?? 'Parcela de comissão'}
-                    meta={fraseDaEtapa(p, hoje)}
-                    valor={<Valor valor={p.amount} posto="linha" />}
-                    para={venda ? `/vendas/${venda.id}?parcela=${p.id}` : undefined}
-                  />
-                ))}
-              </Cartao.Lista>
-            </Cartao>
-          )}
-          {pessoais.linhas.length > 0 && (
-            <Cartao>
-              <Cartao.Cabecalho
-                titulo="Entra para você"
-                meta={`pessoa física · ${formatCurrency(pessoais.total)} previstos, fora do caixa da imobiliária`}
-              />
-              <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Comissão de pessoa física">
-                {pessoais.linhas.map(({ v, p }) => (
-                  <Linha
-                    key={p.id}
-                    titulo={v.title}
-                    meta={fraseDaEtapa(p, hoje)}
-                    valor={<Valor valor={p.amount} posto="linha" previsto />}
-                    para={`/vendas/${v.id}`}
-                  />
-                ))}
-              </Cartao.Lista>
-            </Cartao>
-          )}
-        </div>
+        <ReguaDaComissao carteira={carteira} />
       </div>
     </PageLayout>
+  )
+}
+
+/* ------------------------------------------------------------------ peças */
+
+function PedeVoce({ pendencias, aoAbrir }: { pendencias: Pendencia[]; aoAbrir: (p: Pendencia) => void }) {
+  const visiveis = pendencias.slice(0, 4)
+  return (
+    <Cartao rotuloAcessivel="Pede você">
+      <Cartao.Cabecalho
+        titulo="Pede você"
+        meta={pendencias.length === 0 ? 'tudo em dia' : `${pendencias.length} ${pendencias.length === 1 ? 'item' : 'itens'}, do mais urgente ao menos`}
+      />
+      {visiveis.length === 0 ? (
+        <Cartao.Corpo>
+          <EstadoVazio
+            icone={CircleCheck}
+            titulo="Nada esperando por você"
+            descricao="Quando uma parcela atrasar, um repasse ficar liberado ou uma nota precisar sair, aparece aqui."
+          />
+        </Cartao.Corpo>
+      ) : (
+        <ListaDeAcoes
+          rotuloAcessivel="O que pede você"
+          itens={visiveis.map((p) => ({
+            id: p.id,
+            titulo: p.titulo,
+            detalhe: p.detalhe,
+            valor: p.valor,
+            tom: p.tom,
+            acao: { rotulo: acaoDaPendencia(p.id), aoClicar: () => aoAbrir(p) },
+          }))}
+        />
+      )}
+      {pendencias.length > visiveis.length && (
+        <Cartao.Rodape>
+          <span>e mais {pendencias.length - visiveis.length} no sino, no alto da tela</span>
+        </Cartao.Rodape>
+      )}
+    </Cartao>
+  )
+}
+
+/*
+ * A RÉGUA DA COMISSÃO: de cada real contratado, quanto fica com a Souza
+ * (marinho, o dado principal), quanto vai para corretores e gestão (tinta) e
+ * quanto é imposto (cinza). Uma barra de 100%, que se preenche ao abrir.
+ */
+function ReguaDaComissao({
+  carteira,
+}: {
+  carteira: { comissao: number; imposto: number; corretores: number; fica: number; maior?: [string, number]; vendas: number }
+}) {
+  const total = useRolagem(carteira.comissao)
+  const partes = [
+    { nome: 'Fica com a Souza', valor: carteira.fica, cor: 'var(--g-entra)' },
+    { nome: 'Corretores e gestão', valor: carteira.corretores, cor: 'var(--t3)' },
+    { nome: 'Impostos (ISS e Simples)', valor: carteira.imposto, cor: 'var(--g-sai)' },
+  ]
+  const pct = (v: number) => (carteira.comissao > 0 ? Math.round((v / carteira.comissao) * 100) : 0)
+  return (
+    <Cartao rotuloAcessivel="Para onde vai a comissão">
+      <Cartao.Cabecalho
+        titulo="Para onde vai a comissão"
+        meta={`${carteira.vendas} ${carteira.vendas === 1 ? 'venda ativa' : 'vendas ativas'}, do contrato até o último centavo`}
+      />
+      <Cartao.Corpo className="gap-3">
+        <p className="flex items-baseline gap-2 text-t4 text-texto-meta">
+          Comissão contratada <Valor valor={total} posto="destaque" />
+        </p>
+        <Regua
+          partes={partes}
+          rotuloAcessivel={`De cada R$ 100 de comissão contratada, ${pct(carteira.fica)} ficam com a Souza, ${pct(carteira.corretores)} vão para corretores e gestão e ${pct(carteira.imposto)} para impostos.`}
+        />
+      </Cartao.Corpo>
+      <PartesDaRegua partes={partes} rotuloAcessivel="As partes da comissão" />
+      {carteira.maior && carteira.comissao > 0 && (
+        <Cartao.Rodape>
+          <span>
+            <b className="font-medium text-t1">{Math.round((carteira.maior[1] / carteira.comissao) * 100)}% da carteira</b> depende de{' '}
+            {carteira.maior[0]}
+          </span>
+        </Cartao.Rodape>
+      )}
+    </Cartao>
   )
 }

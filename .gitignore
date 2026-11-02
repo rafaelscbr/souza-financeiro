@@ -26,3 +26,6 @@ supabase/.temp
 
 # Artefatos de build do TypeScript
 *.tsbuildinfo
+
+# Arquivos de trabalho do inspetor de design
+.taste-skill/

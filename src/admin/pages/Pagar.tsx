@@ -3,6 +3,7 @@ import { ArrowUpCircle, HandCoins, Hourglass, Landmark, Receipt } from 'lucide-r
 import { useAdmin } from '../AdminData'
 import { PagarComissao, type ComissaoAPagar } from '../PagarComissao'
 import { BaixarLancamento } from '../BaixarLancamento'
+import { BaixaNaLinha, useBaixaDeLancamento } from '../BaixaNaLinha'
 import { useComposicao, type ItemComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
@@ -122,6 +123,7 @@ export function Pagar() {
   const { abrir } = useComposicao()
   const [comissoes, setComissoes] = useState<ComissaoAPagar[] | null>(null)
   const [avulso, setAvulso] = useState<Transaction[] | null>(null)
+  const baixaDeLancamento = useBaixaDeLancamento()
 
   const grupos = useMemo(() => {
     const liberadas = pagar.filter((i) => i.kind === 'comissao' && i.released)
@@ -385,11 +387,11 @@ export function Pagar() {
       )}
 
       {saidasImposto.length > 0 && (
-        <CartaoDeSaida titulo="Imposto" icone={Landmark} explica="A guia mensal do Simples soma tudo que entrou no mês e vence dia 20 do mês seguinte. Toque na guia para ver as parcelas que ela soma." saidas={saidasImposto} hoje={hoje} onPagar={setAvulso} aoAbrir={abrirSaida} />
+        <CartaoDeSaida titulo="Imposto" icone={Landmark} explica="A guia mensal do Simples soma tudo que entrou no mês e vence dia 20 do mês seguinte. Toque na guia para ver as parcelas que ela soma." saidas={saidasImposto} hoje={hoje} onPagar={setAvulso} baixar={baixaDeLancamento} aoAbrir={abrirSaida} />
       )}
 
       {saidasDespesa.length > 0 && (
-        <CartaoDeSaida titulo="Despesas" icone={Receipt} explica="Estrutura da imobiliária e retiradas do sócio. Compra parcelada no cartão aparece numa linha por mês — toque para ver o que está dentro." saidas={saidasDespesa} hoje={hoje} onPagar={setAvulso} aoAbrir={abrirSaida} />
+        <CartaoDeSaida titulo="Despesas" icone={Receipt} explica="Estrutura da imobiliária e retiradas do sócio. Compra parcelada no cartão aparece numa linha por mês — toque para ver o que está dentro." saidas={saidasDespesa} hoje={hoje} onPagar={setAvulso} baixar={baixaDeLancamento} aoAbrir={abrirSaida} />
       )}
 
       {(previstasPorCorretor.length > 0 || grupos.impostosPrevistos.length > 0) && (
@@ -495,6 +497,7 @@ function CartaoDeSaida({
   saidas,
   hoje,
   onPagar,
+  baixar,
   aoAbrir,
 }: {
   titulo: string
@@ -503,13 +506,15 @@ function CartaoDeSaida({
   saidas: Saida[]
   hoje: string
   onPagar: (t: Transaction[]) => void
+  /** Souza 3.0: a baixa na linha (Paguei → Confirmar, com Desfazer). */
+  baixar: ReturnType<typeof useBaixaDeLancamento>
   /** A linha abre o que ela é: o lançamento, o grupo ou a conta da guia. */
   aoAbrir: (g: Saida) => void
 }) {
   return (
     <Cartao>
       <Cartao.Cabecalho titulo={titulo} icone={icone} meta={explica} />
-      <Cartao.Lista colunas={{ goteira: true, situacao: true, valor: true, acao: '7rem' }} rotuloAcessivel={titulo}>
+      <Cartao.Lista colunas={{ goteira: true, situacao: true, valor: true, acao: '11rem' }} rotuloAcessivel={titulo}>
         {saidas.flatMap((g, n) => {
           const s = situacaoDaLinha(g.itens[0], hoje)
           const total = Math.round(g.itens.reduce((acc, i) => acc + i.amount, 0) * 100) / 100
@@ -532,9 +537,11 @@ function CartaoDeSaida({
               valor={<Valor posto="linha" valor={total} estado={estadoDe(s)} />}
               aoClicar={() => aoAbrir(g)}
               acao={
-                <Button size="sm" variant="secundario" onClick={() => onPagar(g.itens.map((i) => i.tx))}>
-                  {g.itens.length > 1 ? 'Paguei tudo' : 'Paguei'}
-                </Button>
+                <BaixaNaLinha
+                  rotulo={g.itens.length > 1 ? 'Paguei tudo' : 'Paguei'}
+                  baixar={baixar(g.itens.map((i) => i.tx))}
+                  aoDetalhar={() => onPagar(g.itens.map((i) => i.tx))}
+                />
               }
             />
           )

@@ -42,6 +42,8 @@ export interface ItemNav {
    * nada a quem não está vendo a cor do selo.
    */
   leituraContador?: string
+  /** Souza 3.0: o contador por extenso no menu aberto ("2 em atraso"). */
+  rotuloContador?: (n: number) => string
 }
 
 export interface SecaoNav {
@@ -68,40 +70,39 @@ export function navAdmin({ vencidos, esperando }: { vencidos: number; esperando:
    * agenda do que entra); a gestão (relatórios, metas, projeções, equipe).
    * Configurações desce para o rodapé do menu, junto do perfil.
    */
+  /*
+   * SOUZA 3.0 (02/11/2026): o que se usa todo dia sem rótulo de grupo, no
+   * alto; a gestão embaixo. A Agenda de recebimentos virou a vista de
+   * calendário dentro de A receber (botão "Ver no calendário").
+   */
   return [
     {
-      rotulo: 'Visão geral',
+      rotulo: 'Dia a dia',
       semRotulo: true,
-      itens: [{ para: '/', rotulo: 'Visão financeira', icone: Home, fim: true }],
-    },
-    {
-      rotulo: 'Operação',
       itens: [
+        { para: '/', rotulo: 'Início', icone: Home, fim: true },
         { para: '/vendas', rotulo: 'Vendas', icone: Handshake },
         {
           para: '/receber',
           rotulo: 'A receber',
           icone: ArrowDownCircle,
           contador: vencidos,
-          tomContador: 'risco',
-          leituraContador: plural(vencidos, 'recebimento vencido', 'recebimentos vencidos'),
+          // "Em atraso" e não "vencido": a dívida é da construtora (21/09). Âmbar, não vermelho.
+          tomContador: 'atencao',
+          leituraContador: plural(vencidos, 'parcela em atraso', 'parcelas em atraso'),
+          rotuloContador: (n) => `${n} em atraso`,
         },
         {
           para: '/pagar',
           rotulo: 'A pagar',
           icone: ArrowUpCircle,
           contador: esperando,
-          tomContador: 'atencao',
+          tomContador: 'risco',
           leituraContador: plural(esperando, 'pagamento esperando', 'pagamentos esperando'),
+          rotuloContador: (n) => `${n} esperando`,
         },
         { para: '/despesas', rotulo: 'Despesas', icone: Receipt },
-      ],
-    },
-    {
-      rotulo: 'Caixa',
-      itens: [
         { para: '/contas', rotulo: 'Contas', icone: Landmark },
-        { para: '/recebimentos-imobiliaria', rotulo: 'Agenda de recebimentos', icone: CalendarRange },
       ],
     },
     {
@@ -182,7 +183,7 @@ export function estaAtivo(pathname: string, item: ItemNav): boolean {
 /* ------------------------------------------------------------------------- */
 
 /** A ação principal do cabeçalho, pelo nome: a casca liga o nome à função. */
-export type AcaoDeCta = 'registrar-venda' | 'lancar-despesa'
+export type AcaoDeCta = 'registrar-venda' | 'lancar-despesa' | 'novo-lancamento'
 
 export interface CtaDeclarado {
   acao: AcaoDeCta
@@ -205,11 +206,17 @@ export interface RotaDeclarada {
   voltar?: { para: string; rotulo: string }
 }
 
-const CTA_VENDA: CtaDeclarado = { acao: 'registrar-venda', rotulo: 'Registrar venda', rotuloCurto: 'Venda' }
-const CTA_DESPESA: CtaDeclarado = { acao: 'lancar-despesa', rotulo: 'Lançar despesa', rotuloCurto: 'Lançar' }
+/*
+ * Souza 3.0: uma ação principal em todas as telas, "Novo lançamento" (N), que
+ * abre a escolha (despesa, recebimento, venda, pagamento). Os dois nomes
+ * antigos continuam apontando para ela, para nenhuma rota ficar sem CTA.
+ */
+const CTA_NOVO: CtaDeclarado = { acao: 'novo-lancamento', rotulo: 'Novo lançamento', rotuloCurto: 'Novo' }
+const CTA_VENDA = CTA_NOVO
+const CTA_DESPESA = CTA_NOVO
 
 export const ROTAS_ADMIN: RotaDeclarada[] = [
-  { padrao: '/', icone: Home, titulo: 'Visão financeira', usaMes: true, faixa: true, cta: CTA_VENDA },
+  { padrao: '/', icone: Home, titulo: 'Início', usaMes: true, faixa: true, cta: CTA_VENDA },
   { padrao: '/vendas', icone: Handshake, titulo: 'Vendas', usaMes: false, faixa: true, cta: CTA_VENDA },
   {
     padrao: '/vendas/:id',
@@ -226,13 +233,14 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
     titulo: 'Agenda de recebimentos',
     usaMes: false,
     faixa: true,
+    voltar: { para: '/receber', rotulo: 'A receber' },
   },
   { padrao: '/pagar', icone: ArrowUpCircle, titulo: 'A pagar', usaMes: true, faixa: true, cta: CTA_VENDA },
   { padrao: '/despesas', icone: Receipt, titulo: 'Despesas', usaMes: true, faixa: true, cta: CTA_DESPESA },
-  { padrao: '/contas', icone: Landmark, titulo: 'Contas', usaMes: true, faixa: true },
+  { padrao: '/contas', icone: Landmark, titulo: 'Contas', usaMes: true, faixa: true, cta: CTA_NOVO },
   { padrao: '/corretores', icone: Users, titulo: 'Corretores', usaMes: false, faixa: false, cta: CTA_VENDA },
-  { padrao: '/relatorios', icone: PieChart, titulo: 'Relatórios', usaMes: false, faixa: false },
-  { padrao: '/metas', icone: Target, titulo: 'Metas', usaMes: true, faixa: true },
+  { padrao: '/relatorios', icone: PieChart, titulo: 'Relatórios', usaMes: false, faixa: false, cta: CTA_NOVO },
+  { padrao: '/metas', icone: Target, titulo: 'Metas', usaMes: true, faixa: true, cta: CTA_NOVO },
   {
     padrao: '/relatorios/dre',
     icone: PieChart,
@@ -282,7 +290,7 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
     faixa: true,
     voltar: { para: '/relatorios', rotulo: 'Relatórios' },
   },
-  { padrao: '/simulacao', icone: Calculator, titulo: 'Projeções', usaMes: false, faixa: false },
+  { padrao: '/simulacao', icone: Calculator, titulo: 'Projeções', usaMes: false, faixa: false, cta: CTA_NOVO },
   { padrao: '/config', icone: Settings, titulo: 'Configurações', usaMes: false, faixa: true },
   /* As telas do corretor dentro do app do administrador (035). */
   { padrao: '/minhas-comissoes', icone: Wallet, titulo: 'Minhas comissões', usaMes: false, faixa: false },

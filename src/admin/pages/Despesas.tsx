@@ -3,6 +3,7 @@ import { CalendarClock, Download, MoreHorizontal, Receipt, RotateCcw, Trash2 } f
 import { useAdmin } from '../AdminData'
 import { LancarDespesa } from '../LancarDespesa'
 import { BaixarLancamento } from '../BaixarLancamento'
+import { CartaoDoTeto } from '../CartaoDoTeto'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Heroi } from '@/components/ui/Heroi'
@@ -256,6 +257,9 @@ export function Despesas() {
           },
         ]}
       />
+
+      {/* Souza 3.0: o orçamento do mês saiu do Início e mora aqui, junto da despesa. */}
+      <CartaoDoTeto />
 
       {fixasPendentes.length > 0 && (
         <Cartao rotuloAcessivel="Despesas fixas ainda não lançadas">

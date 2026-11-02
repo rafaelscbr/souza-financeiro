@@ -68,6 +68,24 @@ export interface UsuarioDaCasca {
 export function ContadorNav({ item, compacto }: { item: ItemNav; compacto?: boolean }) {
   const n = item.contador ?? 0
   if (n <= 0) return null
+  /*
+   * Souza 3.0: no menu aberto o contador diz o que conta ("2 em atraso"), em
+   * texto pequeno; vermelho só para dívida da imobiliária (risco). A bolinha
+   * fica para onde não cabe palavra (menu recolhido, barra do polegar).
+   */
+  if (!compacto && item.rotuloContador) {
+    return (
+      <span
+        className={cn(
+          'ms-auto shrink-0 whitespace-nowrap font-medium text-nota num',
+          item.tomContador === 'risco' ? 'text-error-ink' : 'text-nav-muted',
+        )}
+      >
+        {item.rotuloContador(n)}
+        <span className="sr-only">, {item.leituraContador ?? n}</span>
+      </span>
+    )
+  }
   return (
     <>
       <Badge risco={item.tomContador === 'risco'} className={compacto ? undefined : 'ms-auto'}>
@@ -301,12 +319,13 @@ export function NavRail({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }: Na
           onBlur={esconderDica}
           className={({ isActive }) =>
             `${cn(
-              'group/item relative flex h-10 items-center rounded-controle transition-colors duration-micro lg:[@media(pointer:fine)]:h-8',
+              'group/item relative flex h-10 items-center rounded-controle transition-colors duration-micro lg:[@media(pointer:fine)]:h-[34px]',
               recolhido ? 'justify-center' : 'gap-2.5 px-2.5',
+              /* Souza 3.0: o ativo é a pílula cinza, ícone e rótulo em tinta; nenhuma cor de marca no menu. */
               isActive
-                ? 'bg-nav-active-bg font-medium text-nav-active-text [&_svg]:text-brand'
+                ? 'bg-nav-active-bg font-medium text-nav-active-text [&_svg]:text-nav-active-text'
                 : 'text-nav-text hover:bg-nav-hover hover:text-nav-active-text [&_svg]:text-nav-muted hover:[&_svg]:text-nav-text',
-            )} text-texto-meta`
+            )} text-texto`
           }
         >
           <Icone icone={item.icone} tamanho={16} />
@@ -336,7 +355,7 @@ export function NavRail({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }: Na
       data-trilho=""
       className={cn(
         'sticky top-0 z-nav hidden h-screen shrink-0 flex-col border-r border-nav-line bg-nav-surface lg:flex',
-        recolhido ? 'w-[60px]' : 'w-[244px]',
+        recolhido ? 'w-[60px]' : 'w-[240px]',
       )}
     >
       {/* Topo (Souza 2.0): a empresa, discreta, e a busca logo abaixo. */}
@@ -367,14 +386,14 @@ export function NavRail({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }: Na
           aria-label="Buscar telas, vendas e corretores"
           className={cn(
             'flex items-center rounded-controle border border-nav-line bg-surface text-nav-muted transition-colors hover:border-[color:var(--line-input)] hover:text-nav-text',
-            recolhido ? 'size-9 justify-center' : 'h-8 w-full gap-2 px-2.5',
+            recolhido ? 'size-9 justify-center' : 'h-[34px] w-full gap-2 px-2.5',
           )}
         >
           <Icone icone={Search} tamanho={16} />
           {!recolhido && (
             <>
-              <span className="flex-1 text-left text-texto-meta">Buscar</span>
-              <kbd className="text-nota font-medium text-nav-muted">{mac ? '⌘K' : 'Ctrl K'}</kbd>
+              <span className="flex-1 text-left text-texto-meta">Buscar ou ir para…</span>
+              <kbd className="rounded-kbd bg-s3 px-1.5 py-0.5 text-nota font-medium text-nav-muted">{mac ? '⌘K' : 'Ctrl K'}</kbd>
             </>
           )}
         </button>

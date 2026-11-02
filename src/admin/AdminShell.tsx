@@ -102,7 +102,7 @@ function avisosDoAdmin(atencao: AttentionItem[], receber: MoneyItem[]): Aviso[] 
 function CascaDoAdmin() {
   const { sair, profile, email } = useAuth()
   const { carregando, erro, recarregar, receber, pagar, atencao, vendas, contacts } = useAdmin()
-  const { registrarVenda, lancarDespesa } = useAcoesAdmin()
+  const { registrarVenda, lancarDespesa, novoLancamento } = useAcoesAdmin()
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const [buscando, setBuscando] = useState(false)
@@ -123,8 +123,8 @@ function CascaDoAdmin() {
   const { destinos, mais } = useMemo(() => separarPolegar(secoes, POLEGAR_ADMIN), [secoes])
   const avisos = useMemo(() => avisosDoAdmin(atencao, receber), [atencao, receber])
   const acoesDeCta = useMemo(
-    () => ({ 'registrar-venda': registrarVenda, 'lancar-despesa': lancarDespesa }),
-    [registrarVenda, lancarDespesa],
+    () => ({ 'registrar-venda': registrarVenda, 'lancar-despesa': lancarDespesa, 'novo-lancamento': novoLancamento }),
+    [registrarVenda, lancarDespesa, novoLancamento],
   )
   const seletorMes = useMemo(() => <SeletorMes />, [])
 

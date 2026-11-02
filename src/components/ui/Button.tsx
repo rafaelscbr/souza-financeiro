@@ -41,8 +41,9 @@ const VARIANTE_LEGADA: Record<ButtonVariantLegado, ButtonVariante> = {
 }
 
 const variantes: Record<ButtonVariante, string> = {
-  primario: 'bg-acao text-acao-texto shadow-[0_1px_2px_rgba(11,18,32,.12)] hover:bg-acao-hover',
-  secundario: 'border border-[color:var(--line-input)] bg-surface text-t1 shadow-[0_1px_1px_rgba(11,18,32,.04)] hover:bg-s2',
+  /* Souza 3.0: o principal é tinta chapada; o secundário é a pílula cinza, sem fio nem sombra. */
+  primario: 'bg-acao text-acao-texto hover:bg-acao-hover',
+  secundario: 'bg-s3 text-t1 hover:bg-[color:var(--line-strong)]',
   fantasma: 'text-t2 hover:bg-linha-hover hover:text-t1',
   perigo: 'border border-error-line bg-surface text-error-ink hover:bg-linha-hover',
 }
@@ -133,7 +134,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         style={{ ...TRANSICAO, ...(larguraTravada ? { minWidth: larguraTravada } : null), ...style }}
         className={`${tipo[variante]} ${cn(
           'relative inline-flex select-none items-center justify-center whitespace-nowrap rounded-controle',
-          'enabled:active:scale-[.98]',
+          'enabled:active:scale-[.97]',
           'disabled:cursor-not-allowed disabled:opacity-40',
           variantes[variante],
           tamanhos[tamanho],

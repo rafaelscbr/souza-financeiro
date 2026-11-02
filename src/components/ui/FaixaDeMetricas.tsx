@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Valor, type EstadoValor } from './Valor'
 import { cn } from '@/lib/utils'
+import { useRolagem } from '@/lib/useRolagem'
 
 /*
  * FAIXA DE MÉTRICAS (Souza 2.0, 23/10/2026).
@@ -25,53 +26,82 @@ export interface Metrica {
   para?: string
   /** Abre algo nesta tela (a composição do número). */
   aoClicar?: () => void
+  /** Souza 3.0: o número que responde a tela; maior, em negrito, coluna mais larga. */
+  lider?: boolean
+}
+
+/*
+ * SOUZA 3.0: um painel, fio de 1px entre as células, número que ROLA quando
+ * muda (useRolagem). A célula líder (o saldo) é maior e mais larga; as
+ * outras ficam do mesmo tamanho entre si. A tendência é texto colorido, sem
+ * pílula: verde bom, vermelho ruim, cinza quando não há o que comparar.
+ */
+function NumeroDaMetrica({ m }: { m: Metrica }) {
+  const v = useRolagem(m.valor)
+  if (m.texto !== undefined)
+    return <span className="num whitespace-nowrap text-t1 text-numero-kpi-m xl:text-numero-kpi">{m.texto}</span>
+  return <Valor posto={m.lider ? 'lider' : 'kpi'} valor={v} estado={m.estado} />
 }
 
 export function FaixaDeMetricas({ metricas, rotuloAcessivel }: { metricas: Metrica[]; rotuloAcessivel: string }) {
+  const temLider = metricas.some((m) => m.lider)
+  const n = metricas.length
   return (
     <section
       aria-label={rotuloAcessivel}
       data-caixa=""
+      style={
+        temLider
+          ? ({ '--colunas-faixa': metricas.map((m) => (m.lider ? '1.35fr' : '1fr')).join(' ') } as CSSProperties)
+          : undefined
+      }
       className={cn(
         // Fio de 1px entre as métricas: o vão da grade mostra a cor da linha por trás.
-        'grid gap-px overflow-hidden rounded-caixa border border-fio-caixa bg-[color:var(--line-strong)] shadow-card',
+        'grid gap-px overflow-hidden rounded-caixa border border-fio-caixa bg-[color:var(--line)]',
         'grid-cols-2 md:grid-cols-3',
-        metricas.length >= 5 ? 'xl:grid-cols-5' : metricas.length === 4 ? 'xl:grid-cols-4' : '',
+        temLider
+          ? 'xl:[grid-template-columns:var(--colunas-faixa)]'
+          : n >= 5
+            ? 'xl:grid-cols-5'
+            : n === 4
+              ? 'xl:grid-cols-4'
+              : '',
       )}
     >
       {metricas.map((m, i) => {
         const conteudo = (
           <>
-            <span className="truncate font-medium text-t4 text-texto-meta">{m.rotulo}</span>
+            <span className="truncate text-t4 text-texto-meta">{m.rotulo}</span>
             <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-              {m.texto !== undefined ? (
-                <span className="num whitespace-nowrap text-t1 text-numero-kpi-m xl:text-numero-kpi">{m.texto}</span>
-              ) : (
-                <Valor posto="kpi" valor={m.valor} estado={m.estado} />
-              )}
-              {m.tendencia && (
-                <span
-                  className={cn(
-                    'num inline-flex h-5 items-center rounded-badge px-1.5 text-chip',
-                    m.tendencia.tom === 'sucesso' && 'bg-success-bg text-success-ink',
-                    m.tendencia.tom === 'risco' && 'bg-error-bg text-error-ink',
-                    m.tendencia.tom === 'neutro' && 'bg-s3 text-t3',
-                  )}
-                >
-                  {m.tendencia.texto}
-                </span>
-              )}
+              <NumeroDaMetrica m={m} />
             </span>
-            {m.nota && <span className="line-clamp-1 text-t4 text-nota">{m.nota}</span>}
+            {(m.nota || m.tendencia) && (
+              <span className="line-clamp-3 text-t4 text-texto-meta">
+                {m.tendencia && (
+                  <span
+                    className={cn(
+                      'num me-1.5 font-medium',
+                      m.tendencia.tom === 'sucesso' && 'text-success-ink',
+                      m.tendencia.tom === 'risco' && 'text-error-ink',
+                      m.tendencia.tom === 'neutro' && 'text-t4',
+                    )}
+                  >
+                    {m.tendencia.texto}
+                  </span>
+                )}
+                {m.nota}
+              </span>
+            )}
           </>
         )
-        const n = metricas.length
         const classes = cn(
-          'flex min-w-0 flex-col gap-1.5 bg-surface px-5 py-4',
+          'flex min-w-0 flex-col gap-1.5 bg-surface px-recuo py-5',
+          m.lider && 'max-md:col-span-2 md:max-xl:col-span-3',
           // A última célula ocupa o resto da fileira quando a conta não fecha.
-          i === n - 1 && n % 2 === 1 && 'max-md:col-span-2',
-          i === n - 1 && n % 3 === 2 && 'md:max-xl:col-span-2',
-          i === n - 1 && n % 3 === 1 && 'md:max-xl:col-span-3',
+          !temLider && i === n - 1 && n % 2 === 1 && 'max-md:col-span-2',
+          !temLider && i === n - 1 && n % 3 === 2 && 'md:max-xl:col-span-2',
+          !temLider && i === n - 1 && n % 3 === 1 && 'md:max-xl:col-span-3',
+          temLider && i === n - 1 && (n - 1) % 2 === 1 && 'max-md:col-span-2',
           (m.para || m.aoClicar) && 'text-left transition-colors duration-micro hover:bg-s2',
         )
         if (m.aoClicar && !m.para) {

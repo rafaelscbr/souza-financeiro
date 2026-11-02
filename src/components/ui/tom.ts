@@ -34,42 +34,42 @@ export const TOM = {
   marca: {
     texto: 'text-brand-text',
     fundo: 'bg-brand-tint',
-    borda: 'border-borda-ouro',
+    borda: 'border-transparent',
     ponto: 'bg-brand',
     solido: 'var(--brand)',
   },
   sucesso: {
     texto: 'text-success-ink',
     fundo: 'bg-success-bg',
-    borda: 'border-success-line',
+    borda: 'border-transparent',
     ponto: 'bg-success',
     solido: 'var(--success)',
   },
   atencao: {
     texto: 'text-warning-ink',
     fundo: 'bg-warning-bg',
-    borda: 'border-warning-line',
+    borda: 'border-transparent',
     ponto: 'bg-warning',
     solido: 'var(--warning)',
   },
   risco: {
     texto: 'text-error-ink',
     fundo: 'bg-error-bg',
-    borda: 'border-error-line',
+    borda: 'border-transparent',
     ponto: 'bg-error',
     solido: 'var(--error)',
   },
   info: {
     texto: 'text-info-ink',
     fundo: 'bg-info-bg',
-    borda: 'border-info-line',
+    borda: 'border-transparent',
     ponto: 'bg-info',
     solido: 'var(--info)',
   },
   neutro: {
     texto: 'text-t2',
-    fundo: 'bg-s2',
-    borda: 'border-fio-caixa',
+    fundo: 'bg-s3',
+    borda: 'border-transparent',
     ponto: 'bg-t4',
     solido: 'var(--t3)',
   },
@@ -80,8 +80,9 @@ export const TOM = {
  * (src/lib/situacao.ts); aqui ela só vira cor. PREVISTA é informação, nunca
  * âmbar nem vermelho: parcela que a construtora não pagou é espera, não dívida.
  */
+/* Souza 3.0: prevista é cinza (espera, sem cor); a cor fica para o que pede ação ou já aconteceu. */
 export const TOM_DA_SITUACAO: Record<Situacao, Tom> = {
-  prevista: 'info',
+  prevista: 'neutro',
   liberada: 'atencao',
   vencida: 'risco',
   recebida: 'sucesso',

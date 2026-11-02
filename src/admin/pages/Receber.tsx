@@ -1,11 +1,12 @@
 import { Fragment, useMemo, useState } from 'react'
-import { ArrowDownCircle, Hourglass, ListOrdered } from 'lucide-react'
+import { ArrowDownCircle, CalendarRange, Hourglass, ListOrdered } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAdmin } from '../AdminData'
 import { ReceberParcela } from '../ReceberParcela'
 import { BaixarLancamento } from '../BaixarLancamento'
+import { BaixaNaLinha, useBaixaDeLancamento, useBaixaDeParcela } from '../BaixaNaLinha'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
@@ -40,12 +41,17 @@ type Janela = 'mes' | 'trinta' | 'vencidas' | 'tudo'
  * dela, não dívida de ninguém, e as duas coisas não podem usar a mesma
  * palavra nem a mesma cor.
  */
+const atrasoTotal = (l: MoneyItem[]) => Math.round(l.filter((i) => i.overdue).reduce((s, i) => s + i.amount, 0) * 100) / 100
+
 export function Receber() {
   const { receber, mes, hoje } = useAdmin()
   const { abrir } = useComposicao()
   const [janela, setJanela] = useState<Janela>('mes')
   const [parcela, setParcela] = useState<{ venda: SaleView; p: SaleInstallment } | null>(null)
   const [avulso, setAvulso] = useState<Transaction | null>(null)
+  const navigate = useNavigate()
+  const baixaDeParcela = useBaixaDeParcela()
+  const baixaDeLancamento = useBaixaDeLancamento()
 
   const chaveMes = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`
   const limite30 = toDateOnly(new Date(Date.now() + 30 * 86400000))
@@ -230,16 +236,38 @@ export function Receber() {
     />
   )
 
+  /*
+   * Souza 3.0: o herói virou a frase do título (quanto, quantas, quanto em
+   * atraso) e o total clicável mora no cabeçalho da lista. A Agenda de
+   * recebimentos é a vista de calendário desta mesma tela.
+   */
+  const frase = (
+    <>
+      <b>
+        <Valor valor={total} posto="fato" tinta="text-t1" /> previstos
+      </b>{' '}
+      · {contagem}
+      {atrasoTotal(receber) > 0 && (
+        <>
+          {' · '}
+          <span className="font-medium text-warning-ink">
+            <Valor valor={atrasoTotal(receber)} posto="fato" tinta="text-warning-ink" /> em atraso
+          </span>
+        </>
+      )}
+    </>
+  )
+
   return (
-    <PageLayout subtitulo={contagem} faixa={faixa}>
-      <Heroi
-        variante="previsto"
-        rotulo="A receber · previsto"
-        valor={total}
-        aoAbrir={abrirTotal}
-        rotuloAcessivel="Ver de onde vem o total a receber"
-        frase={`${explicacao[janela]} ${contagem}. É comissão contratada, não dinheiro em conta.`}
-      />
+    <PageLayout
+      subtitulo={frase}
+      faixa={faixa}
+      acoes={
+        <Button variant="secundario" icone={CalendarRange} onClick={() => navigate('/recebimentos-imobiliaria')}>
+          Ver no calendário
+        </Button>
+      }
+    >
 
       {atraso.atrasadas.length > 0 && (
         <Cartao rotuloAcessivel="Comissões em atraso">
@@ -320,7 +348,12 @@ export function Receber() {
       )}
 
       <Cartao rotuloAcessivel="Parcelas a receber">
-        <Cartao.Cabecalho titulo="Parcelas a receber" icone={ListOrdered} meta={contagem} />
+        <Cartao.Cabecalho
+          titulo="Parcelas a receber"
+          icone={ListOrdered}
+          meta={explicacao[janela]}
+          extra={<ValorComOrigem posto="destaque" valor={total} previsto aoAbrir={abrirTotal} rotuloAcessivel="Ver de onde vem o total a receber" />}
+        />
         {lista.length === 0 ? (
           <EstadoVazio
             icone={ArrowDownCircle}
@@ -335,7 +368,7 @@ export function Receber() {
           <Cartao.Lista
             rotuloAcessivel="Parcelas a receber, por mês de vencimento"
             chaveEscada={janela}
-            colunas={{ situacao: true, valor: true, acao: '7rem', fim: true }}
+            colunas={{ situacao: true, valor: true, acao: '10.5rem', fim: true }}
           >
             {meses.map(([chave, itens]) => (
               <Fragment key={chave}>
@@ -368,16 +401,14 @@ export function Receber() {
                         valor={<Valor valor={i.amount} posto="linha" />}
                         para={i.sale ? `/vendas/${i.sale.id}` : undefined}
                         acao={
-                          <Button
-                            size="sm"
-                            variant="secundario"
-                            onClick={() => {
+                          <BaixaNaLinha
+                            rotulo="Recebi"
+                            baixar={i.sale && i.installment ? baixaDeParcela(i.sale, i.installment) : baixaDeLancamento([i.tx])}
+                            aoDetalhar={() => {
                               if (i.sale && i.installment) setParcela({ venda: i.sale, p: i.installment })
                               else setAvulso(i.tx)
                             }}
-                          >
-                            Recebi
-                          </Button>
+                          />
                         }
                       />
                     </Fragment>

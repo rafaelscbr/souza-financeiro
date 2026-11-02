@@ -81,7 +81,7 @@ export function moedaCurta(v: number): string {
   return `${sinal}R$ ${a.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
 }
 
-const EIXO = { fontSize: 12, fontFamily: 'Inter, system-ui, sans-serif' }
+const EIXO = { fontSize: 12, fontFamily: 'Geist, Inter, system-ui, sans-serif' }
 
 /* ------------------------------------------------------------------ balão */
 

@@ -21,7 +21,8 @@ import type { Tom } from './tom'
  */
 
 const COR: Record<Tom, string> = {
-  marca: 'bg-brand-fill',
+  // Souza 3.0: o dado principal é o marinho (--serie); a areia ficou só na marca.
+  marca: 'bg-serie',
   sucesso: 'bg-success',
   atencao: 'bg-warning',
   risco: 'bg-error',
