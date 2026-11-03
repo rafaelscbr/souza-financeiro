@@ -159,7 +159,7 @@ function Contas() {
                 icone={Landmark}
                 titulo="Nenhuma conta cadastrada"
                 descricao="Sem conta, a baixa fica sem destino e o saldo não fecha com o extrato do banco."
-                acao={<Button onClick={() => setEditando('nova')}>Cadastrar a primeira conta</Button>}
+                acao={<Button variant="secundario" onClick={() => setEditando('nova')}>Cadastrar a primeira conta</Button>}
               />
             </Cartao.Corpo>
           ) : (
@@ -372,7 +372,7 @@ function Construtoras() {
                 icone={HardHat}
                 titulo="Nenhuma construtora cadastrada"
                 descricao="Sem o prazo da construtora, a previsão do pagamento depende de você lembrar."
-                acao={<Button onClick={() => setEditando('nova')}>Cadastrar a primeira</Button>}
+                acao={<Button variant="secundario" onClick={() => setEditando('nova')}>Cadastrar a primeira</Button>}
               />
             </Cartao.Corpo>
           ) : (
@@ -523,7 +523,7 @@ function Empreendimentos() {
                 icone={Building2}
                 titulo="Nenhum empreendimento cadastrado"
                 descricao="Sem empreendimento a venda não sabe se a construtora retém ISS, e a comissão líquida sai errada."
-                acao={<Button onClick={() => setEditando('novo')}>Cadastrar o primeiro</Button>}
+                acao={<Button variant="secundario" onClick={() => setEditando('novo')}>Cadastrar o primeiro</Button>}
               />
             </Cartao.Corpo>
           ) : (

@@ -472,7 +472,7 @@ function Bloco({
  */
 function Aviso({ titulo, papel, children }: { titulo: string; papel: 'alert' | 'status'; children: ReactNode }) {
   return (
-    <div role={papel} className="flex items-start gap-3 rounded-caixa border border-error-line bg-error-bg px-4 py-3">
+    <div role={papel} className="flex items-start gap-3 rounded-caixa bg-error-bg px-4 py-3">
       <span className="flex h-5 shrink-0 items-center text-error-ink">
         <Icone icone={CircleAlert} tamanho={16} />
       </span>

@@ -533,8 +533,9 @@ function CalendarioDoAno({
               </>
             )
             const classes = cn(
-              'flex min-w-0 flex-col gap-2 rounded-caixa border p-4 text-left',
-              c.i === mesAtual ? 'border-t1' : 'border-fio-linha',
+              // Folha Clara: separa por tom, não por fio; o mês atual ganha o contorno marinho.
+              'flex min-w-0 flex-col gap-2 rounded-lista p-4 text-left',
+              c.i === mesAtual ? 'bg-surface ring-2 ring-inset ring-barra' : 'bg-s2',
               vazio ? 'text-t-meta' : 'text-t2',
             )
             return vazio ? (

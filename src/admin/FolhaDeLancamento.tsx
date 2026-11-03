@@ -180,7 +180,7 @@ export function AvisoDaFolha({
   papel?: 'alert' | 'status'
 }) {
   return (
-    <div role={papel} className="flex w-full items-start gap-3 rounded-caixa border border-error-line bg-error-bg px-4 py-3">
+    <div role={papel} className="flex w-full items-start gap-3 rounded-caixa bg-error-bg px-4 py-3">
       <span className="flex h-5 shrink-0 items-center text-error-ink">
         <Icone icone={TriangleAlert} tamanho={16} />
       </span>

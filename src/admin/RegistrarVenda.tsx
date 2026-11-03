@@ -362,7 +362,7 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
             {erro && (
               <div
                 role="alert"
-                className="flex items-start gap-3 rounded-caixa border border-error-line bg-error-bg px-4 py-3"
+                className="flex items-start gap-3 rounded-caixa bg-error-bg px-4 py-3"
               >
                 <span className="flex h-5 shrink-0 items-center text-error-ink">
                   <Icone icone={CircleAlert} tamanho={16} />
@@ -623,7 +623,7 @@ export function RegistrarVenda({ aberto, onFechar }: { aberto: boolean; onFechar
                 </FormField>
 
                 {pessoaFisica ? (
-                  <p className="rounded-caixa border border-fio-linha bg-fundo-2 px-4 py-3 text-texto-corrido text-t2">
+                  <p className="rounded-caixa bg-s2 px-4 py-3 text-texto-corrido text-t2">
                     Venda sua, como pessoa física: a comissão entra inteira pra você. A imobiliária não emite nota, não
                     recolhe imposto e não repassa comissão de corretor nesta venda — por isso estes campos não aparecem.
                   </p>

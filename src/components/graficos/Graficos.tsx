@@ -94,7 +94,7 @@ interface ItemDoBalao {
 
 function Balao({ titulo, itens }: { titulo: ReactNode; itens: ItemDoBalao[] }) {
   return (
-    <div className="min-w-[13rem] rounded-controle border border-fio-caixa bg-surface px-3 py-2.5 shadow-dropdown">
+    <div className="min-w-[13rem] rounded-controle bg-surface px-3 py-2.5 shadow-dropdown">
       <p className="mb-1.5 font-medium text-t1 text-texto-meta">{titulo}</p>
       <ul className="flex flex-col gap-1">
         {itens.map((i) => (

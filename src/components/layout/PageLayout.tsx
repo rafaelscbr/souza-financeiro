@@ -202,8 +202,10 @@ function AberturaDaPagina({
   menu,
   cta,
   voltar,
+  ficha = false,
 }: {
   titulo: string
+  ficha?: boolean
   tituloRico?: ReactNode
   sobretitulo?: ReactNode
   subtitulo?: ReactNode
@@ -246,7 +248,12 @@ function AberturaDaPagina({
           {/* Folha Clara: rótulo pequeno cinza-azulado, título em Plus Jakarta 800 e a frase embaixo. */}
           {sobretitulo && <p className="text-t-meta text-sobretitulo">{sobretitulo}</p>}
           {saudacao && <p className="text-t-meta text-texto-meta">{saudacao}</p>}
-          <h1 className="min-w-0 font-heading text-t1 text-titulo-pagina-m lg:text-titulo-pagina [&_em]:destaque [&_em]:text-ouro">
+          {/* Na ficha de detalhe o título é o nome (26–28px); nas listas, 17–19px. */}
+          <h1
+            className={`min-w-0 font-heading text-t1 [&_em]:destaque [&_em]:text-ouro ${
+              ficha ? 'text-nome-ficha-m lg:text-nome-ficha' : 'text-titulo-pagina-m lg:text-titulo-pagina'
+            }`}
+          >
             {tituloRico ?? titulo}
           </h1>
           {subtitulo && (
@@ -385,6 +392,7 @@ export function PageLayout({
         menu={menu}
         cta={ctaFinal}
         voltar={voltar}
+        ficha={Boolean(rota?.padrao.includes(':'))}
       />
       {largura === 'leitura' ? <div className="leitura flex flex-col gap-secao">{children}</div> : children}
     </>

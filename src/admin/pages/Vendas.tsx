@@ -258,7 +258,7 @@ export function Vendas() {
               titulo="Nenhuma venda registrada"
               descricao="Registre a primeira e ela aparece aqui com as parcelas, o imposto e a comissão do corretor já organizados."
               acao={
-                <Button onClick={registrarVenda} icone={Plus}>
+                <Button variant="secundario" onClick={registrarVenda} icone={Plus}>
                   Registrar venda
                 </Button>
               }

@@ -85,7 +85,7 @@ function SeletorMesDesenho({ className, mes, aoAnterior, aoSeguinte, aoAtual }: 
       data-seletor-mes
       className={cn(
         // Souza 2.0: controle compacto, borda leve, como um botão secundário.
-        'flex w-full items-center rounded-controle border border-[color:var(--line-input)] bg-surface shadow-[0_1px_1px_rgba(11,18,32,.04)] sm:inline-flex sm:w-auto',
+        'flex w-full items-center rounded-full border border-line bg-surface sm:inline-flex sm:w-auto',
         className,
       )}
     >

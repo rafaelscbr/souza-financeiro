@@ -251,7 +251,7 @@ export function Corretores() {
                 titulo="Nenhum corretor cadastrado"
                 descricao="Cadastre quem vende para poder registrar a comissão e, se quiser, dar acesso ao painel dele."
                 acao={
-                  <Button icone={UserPlus} onClick={() => setEditando('novo')}>
+                  <Button variant="secundario" icone={UserPlus} onClick={() => setEditando('novo')}>
                     Cadastrar corretor
                   </Button>
                 }

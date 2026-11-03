@@ -248,7 +248,7 @@ export function PopoverAvisos({ avisos }: { avisos: Aviso[] }) {
               maxHeight: pos.alturaMax,
               ...(presenca.estado === 'saindo' ? SAIDA : ENTRADA),
             }}
-            className="fixed z-popover flex flex-col rounded-caixa border border-fio-caixa bg-surface shadow-dropdown outline-none"
+            className="fixed z-popover flex flex-col rounded-caixa bg-surface shadow-dropdown outline-none"
           >
             <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-fio-linha px-4">
               <Rotulo as="h2">Avisos</Rotulo>

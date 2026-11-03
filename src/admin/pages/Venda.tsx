@@ -579,7 +579,7 @@ export function Venda() {
       </div>
 
       {erro && (
-        <p role="alert" className="rounded-caixa border border-error-line bg-surface px-recuo py-4 text-texto text-error-ink">
+        <p role="alert" className="rounded-caixa bg-error-bg px-recuo py-4 text-texto text-error-ink">
           {erro}
         </p>
       )}

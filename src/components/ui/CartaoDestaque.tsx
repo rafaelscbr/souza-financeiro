@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMovimentoReduzido } from '@/lib/useMovimentoReduzido'
 import { useRolagem } from '@/lib/useRolagem'
 import { Valor } from './Valor'
-import type { Metrica } from './FaixaDeMetricas'
+import { FaixaDeMetricas, type Metrica } from './FaixaDeMetricas'
 import { cn } from '@/lib/utils'
 
 /*
@@ -140,60 +140,19 @@ export function NumeroDoDestaque({
 }
 
 /*
- * A FAIXA EM DESTAQUE (Souza 4.0): as mesmas métricas da FaixaDeMetricas,
- * vestidas de cartão marinho. A líder vira o número grande; as outras vão
- * para o rodapé; cada uma continua abrindo o que abria. As tintas de estado
- * do claro (vermelho, âmbar, verde) viram coral, areia e menta sobre o
- * marinho, para continuarem legíveis.
+ * A FAIXA EM DESTAQUE. Folha Clara (02/11/2026): o bloco-herói marinho fica
+ * para o Início e o login (a proporção da casa é ~15% de marinho); nas listas
+ * (A receber, A pagar, Vendas) as mesmas métricas voltam a ser a faixa de
+ * números clara, com o líder maior. Cada número continua abrindo o que abria.
+ * `anel` fica aceito na API e não é desenhado aqui.
  */
 export function FaixaEmDestaque({
   metricas,
-  anel,
   rotuloAcessivel,
 }: {
   metricas: Metrica[]
   anel?: AnelDoDestaque
   rotuloAcessivel: string
 }) {
-  const lider = metricas.find((m) => m.lider) ?? metricas[0]
-  const outras = metricas.filter((m) => m !== lider)
-  const grande = <ValorDoDestaque valor={lider.valor} />
-  return (
-    <CartaoDestaque
-      rotuloAcessivel={rotuloAcessivel}
-      sobretitulo={lider.rotulo}
-      anel={anel}
-      className="[&_.text-error-ink]:!text-coral [&_.text-success-ink]:!text-menta [&_.text-warning-ink]:!text-areia"
-      rodape={
-        outras.length > 0 ? (
-          <dl className={outras.length >= 3 ? 'grid gap-6 sm:grid-cols-3' : 'grid gap-6 sm:grid-cols-2'}>
-            {outras.map((m) => (
-              <NumeroDoDestaque
-                key={m.rotulo}
-                rotulo={m.rotulo}
-                valor={m.valor}
-                texto={m.texto}
-                nota={m.nota}
-                para={m.para}
-                aoClicar={m.aoClicar}
-              />
-            ))}
-          </dl>
-        ) : undefined
-      }
-    >
-      {lider.para ? (
-        <Link to={lider.para} className="w-max rounded-controle">
-          {grande}
-        </Link>
-      ) : lider.aoClicar ? (
-        <button type="button" onClick={lider.aoClicar} className="w-max rounded-controle text-left">
-          {grande}
-        </button>
-      ) : (
-        grande
-      )}
-      {lider.nota && <p className="text-barra-texto text-texto">{lider.nota}</p>}
-    </CartaoDestaque>
-  )
+  return <FaixaDeMetricas metricas={metricas} rotuloAcessivel={rotuloAcessivel} />
 }

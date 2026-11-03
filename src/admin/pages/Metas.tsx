@@ -292,7 +292,7 @@ export function Metas() {
                   </p>
                 )}
                 {gestao.vendas.length > 0 && geral.bateu && !bonusAplicado && (
-                  <Button variant="primario" className="self-start" onClick={() => aplicar(cfg.manager_bonus_pct)} carregando={aplicando}>
+                  <Button variant="secundario" className="self-start" onClick={() => aplicar(cfg.manager_bonus_pct)} carregando={aplicando}>
                     Aplicar {formatPercent(cfg.manager_bonus_pct / 100, 0)} nas vendas do time
                   </Button>
                 )}

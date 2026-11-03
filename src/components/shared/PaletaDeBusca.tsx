@@ -171,7 +171,7 @@ function PaletaAberta({ aberto, presenca, aoFechar, grupos }: PaletaAbertaProps)
         data-paleta-busca
         data-estado={presenca.estado}
         tabIndex={-1}
-        className="modal relative flex max-h-[min(34rem,76vh)] w-full max-w-[38rem] flex-col rounded-caixa border border-fio-caixa bg-surface shadow-modal outline-none"
+        className="modal relative flex max-h-[min(34rem,76vh)] w-full max-w-[38rem] flex-col rounded-caixa bg-surface shadow-modal outline-none"
       >
         <div className="flex shrink-0 items-center gap-3 border-b border-fio-linha px-4">
           <Icone icone={Search} tamanho={16} className="text-t-meta" />

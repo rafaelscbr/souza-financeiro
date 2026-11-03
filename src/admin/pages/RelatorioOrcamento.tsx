@@ -195,7 +195,7 @@ export function RelatorioOrcamento() {
           titulo="Nenhum gasto no orçamento"
           descricao="Cadastre os custos que a imobiliária tem ou vai ter, como coworking, tráfego e contabilidade. A tela mostra, mês a mês, se as vendas cobrem."
           acao={
-            <Button variant="primario" onClick={() => setCadastroAberto(true)}>
+            <Button variant="secundario" onClick={() => setCadastroAberto(true)}>
               Adicionar gasto
             </Button>
           }
