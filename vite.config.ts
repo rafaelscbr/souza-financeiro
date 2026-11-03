@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'favicon-32.png', 'apple-touch-icon.png', 'pwa-maskable-512.png'],
       workbox: {
         // Um deploy novo troca o hash de todos os chunks. Sem limpar o cache
         // velho e sem assumir o controle na hora, o service worker antigo
@@ -20,21 +20,22 @@ export default defineConfig({
         clientsClaim: true,
       },
       manifest: {
-        name: 'Souza Imobiliária',
-        short_name: 'Souza Imob',
+        // Souza 4.0 (02/11/2026): o nome e o ícone "Sf" da família Souza (o "Sa" é o Academy).
+        name: 'Souza Financeiro',
+        short_name: 'Financeiro',
         description: 'Vendas, comissões e financeiro da Souza Imobiliária',
         lang: 'pt-BR',
-        // As cores da casca de hoje (5.1): o azul e o papel antigos ficaram
-        // para trás e pintavam a tela de abertura no celular com outra marca.
-        theme_color: '#F5F6F8',
-        background_color: '#F5F6F8',
+        // O marinho da moldura: a tela de abertura no celular já nasce na cor da marca.
+        theme_color: '#0F1730',
+        background_color: '#0F1730',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          // Maskable: fundo até a borda e o "Sf" dentro da zona segura (o Android recorta).
+          { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
         // Segurar o ícone do app na home do iPhone/Android mostra estes atalhos.
         shortcuts: [

@@ -37,3 +37,17 @@ Os valores foram copiados de `~/Documents/Souza Academy/src/app/globals.css` e `
 ## O que o inspetor de design aponta e ficou de propósito
 
 O italic serif no título, o sobretítulo em caixa alta, a luz azul no cartão e o título grande são o padrão da casa (Academy e CRM), pedido pelo Rafael.
+
+## Ícone "Sf" (02/11/2026)
+
+É da mesma família do "Sa" do Academy: quadrado marinho `#0F1730` com cantos de 22%, o "S" branco em Schibsted Grotesk 800 e o "f" em Instrument Serif itálico areia `#E4B23C`. As letras foram convertidas em desenho a partir dos arquivos das fontes no Google Fonts, então funcionam sem nenhuma fonte instalada.
+
+| Arquivo | Uso |
+| --- | --- |
+| `public/favicon.svg` | Aba do navegador. O "f" tem um traço a mais, para ler em 16px. |
+| `public/favicon-32.png` | Navegador sem suporte a SVG. |
+| `public/apple-touch-icon.png` | Tela de início do iPhone. O fundo vai até a borda, e o iOS arredonda. |
+| `public/pwa-192.png` e `public/pwa-512.png` | App instalado. |
+| `public/pwa-maskable-512.png` e `public/icon-maskable.svg` | Android. O fundo vai até a borda e o "Sf" fica na zona segura. |
+
+O manifesto do app agora traz o nome "Souza Financeiro" e as cores em marinho.
