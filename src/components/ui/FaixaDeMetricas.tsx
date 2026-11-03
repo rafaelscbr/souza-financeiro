@@ -66,7 +66,8 @@ export function FaixaDeMetricas({ metricas, rotuloAcessivel }: { metricas: Metri
       }
       className={cn(
         // Fio de 1px entre as métricas: o vão da grade mostra a cor da linha por trás.
-        'grid gap-px overflow-hidden rounded-caixa border border-fio-caixa bg-[color:var(--line)]',
+        // Souza 4.0 (Academy): painel creme sem fio por fora; o vão de 1px mostra o fio entre as células.
+        'grid gap-px overflow-hidden rounded-sobreposicao bg-[color:var(--line-strong)]',
         'grid-cols-2 md:grid-cols-3',
         temLider
           ? 'xl:[grid-template-columns:var(--colunas-faixa)]'
@@ -80,7 +81,7 @@ export function FaixaDeMetricas({ metricas, rotuloAcessivel }: { metricas: Metri
       {metricas.map((m, i) => {
         const conteudo = (
           <>
-            <span className="truncate text-t4 text-texto-meta">{m.rotulo}</span>
+            <span className="truncate uppercase text-t3 text-sobretitulo">{m.rotulo}</span>
             <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
               <NumeroDaMetrica m={m} />
             </span>
@@ -104,7 +105,7 @@ export function FaixaDeMetricas({ metricas, rotuloAcessivel }: { metricas: Metri
           </>
         )
         const classes = cn(
-          'flex min-w-0 flex-col gap-1.5 bg-surface px-recuo py-5',
+          'flex min-w-0 flex-col gap-2 bg-creme px-recuo py-6',
           m.lider && 'max-md:col-span-2 md:max-xl:col-span-3',
           // A última célula ocupa o resto da fileira quando a conta não fecha.
           !temLider && i === n - 1 && n % 2 === 1 && 'max-md:col-span-2',
@@ -114,7 +115,7 @@ export function FaixaDeMetricas({ metricas, rotuloAcessivel }: { metricas: Metri
           temLider && i === n - 1 && (n - 1) % 2 === 1 && 'max-md:col-span-2',
           temLider && i === n - 1 && (n - 1) % 3 === 2 && 'md:max-xl:col-span-2',
           temLider && i === n - 1 && (n - 1) % 3 === 1 && 'md:max-xl:col-span-3',
-          (m.para || m.aoClicar) && 'text-left transition-colors duration-micro hover:bg-s2',
+          (m.para || m.aoClicar) && 'text-left transition-colors duration-micro hover:bg-s3',
         )
         if (m.aoClicar && !m.para) {
           return (

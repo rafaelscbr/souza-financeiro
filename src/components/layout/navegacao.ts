@@ -331,3 +331,30 @@ function casaPadrao(padrao: string, pathname: string): boolean {
 export function rotaDe(pathname: string, rotas: RotaDeclarada[]): RotaDeclarada {
   return rotas.find((r) => casaPadrao(r.padrao, pathname)) ?? rotas[0]
 }
+
+/*
+ * O SOBRETÍTULO DE CADA ÁREA (Souza 4.0, padrão Academy): a linha dourada em
+ * caixa alta acima do título diz em que parte do sistema a tela mora.
+ */
+const SOBRETITULOS: [string, string][] = [
+  ['/vendas', 'Operação'],
+  ['/receber', 'Dinheiro que entra'],
+  ['/recebimentos-imobiliaria', 'Dinheiro que entra'],
+  ['/pagar', 'Dinheiro que sai'],
+  ['/despesas', 'Dinheiro que sai'],
+  ['/contas', 'Caixa'],
+  ['/relatorios', 'Relatórios'],
+  ['/metas', 'Gestão'],
+  ['/simulacao', 'Gestão'],
+  ['/corretores', 'Gestão'],
+  ['/config', 'Sistema'],
+  ['/minhas-comissoes', 'Suas comissões'],
+  ['/minhas-vendas', 'Suas comissões'],
+  ['/recebimentos', 'Suas comissões'],
+  ['/meu-plano', 'Seu plano'],
+]
+
+export function sobretituloDe(pathname: string): string {
+  if (pathname === '/' || pathname === '') return 'Visão geral'
+  return SOBRETITULOS.find(([p]) => pathname === p || pathname.startsWith(`${p}/`))?.[1] ?? 'Souza Financeiro'
+}

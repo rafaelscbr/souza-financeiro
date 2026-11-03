@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useAuth } from '@/auth/AuthContext'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, CircleCheck, Handshake } from 'lucide-react'
 import { useAdmin } from '../AdminData'
@@ -11,7 +12,7 @@ import { ChipSituacao } from '@/components/ui/Situacao'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { ListaDeAcoes } from '@/components/ui/ListaDeAcoes'
 import { PartesDaRegua, Regua } from '@/components/ui/Regua'
-import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
+import { CartaoDestaque, NumeroDoDestaque, ValorDoDestaque } from '@/components/ui/CartaoDestaque'
 import { GraficoCaixaPrevisto } from '@/components/graficos/GraficoCaixaPrevisto'
 import { formatCurrency, formatDateShort, formatMonthTiny, formatMonthYear } from '@/lib/format'
 import { monthKey } from '@/lib/finance'
@@ -48,6 +49,12 @@ import type { SaleInstallment } from '@/types'
 
 const r2 = (v: number) => Math.round(v * 100) / 100
 
+function saudacaoDoDia(): string {
+  const h = new Date().getHours()
+  return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
+}
+const primeiroNome = (nome?: string | null) => nome?.trim().split(/\s+/)[0] || 'tudo certo'
+
 /* O que o botão de cada pendência diz, pela natureza dela. */
 function acaoDaPendencia(id: string): string {
   if (id === 'receber-mais') return 'Ver todas'
@@ -71,6 +78,7 @@ export function Inicio() {
   const { transactions, transfers, accounts, atencao, receber, pagar, vendas, installments, orcamento, company, hoje, mes } =
     useAdmin()
   const { abrir } = useComposicao()
+  const { profile } = useAuth()
   const navigate = useNavigate()
 
   const chaveMes = monthKey(mes)
@@ -96,6 +104,19 @@ export function Inicio() {
   const resultado = useMemo(() => resultadoDoMes(transactions, parcelas, chaveMes), [transactions, parcelas, chaveMes])
   const resultadoAntes = useMemo(() => resultadoDoMes(transactions, parcelas, chaveAnterior), [transactions, parcelas, chaveAnterior])
   const diferencaResultado = r2(resultado.lucro - resultadoAntes.lucro)
+
+  /* A comissão que caiu no mês (parcela recebida, pela data do dinheiro). Só o anel lê isto. */
+  const recebidoNoMes = useMemo(
+    () =>
+      r2(
+        vendas
+          .filter((v) => !v.is_personal)
+          .flatMap((v) => v.installments)
+          .filter((i) => i.status === 'recebida' && (i.received_date ?? '').slice(0, 7) === chaveMes)
+          .reduce((s, i) => s + i.amount, 0),
+      ),
+    [vendas, chaveMes],
+  )
 
   /* ------------------------------------------------ 2. caixa previsto */
 
@@ -221,81 +242,108 @@ export function Inicio() {
   const n = pendencias.length
   const frase = (
     <>
-      <b>{n === 0 ? 'Nada pendente' : `${n} ${n === 1 ? 'coisa pede' : 'coisas pedem'} você hoje`}</b>
+      <b>{n === 0 ? 'Nada pendente hoje' : `${n} ${n === 1 ? 'coisa pede' : 'coisas pedem'} você hoje`}</b>
       {folego != null
         ? ` · o caixa cobre ${folego.toLocaleString('pt-BR')} ${folego === 1 ? 'mês' : 'meses'} de estrutura sem venda nova`
-        : ` · ${formatMonthYear(mes).toLowerCase()}`}
+        : ''}
     </>
   )
 
-  return (
-    <PageLayout subtitulo={frase}>
-      <FaixaDeMetricas
-        rotuloAcessivel="Saldos do mês"
-        metricas={[
-          {
-            rotulo: 'Saldo hoje',
-            valor: saldo,
-            lider: true,
-            estado: saldo < 0 ? 'negativo' : undefined,
-            nota: `em ${contasAtivas.length} ${contasAtivas.length === 1 ? 'conta' : 'contas'}${
-              contasAtivas.length <= 3 && contasAtivas.length > 0 ? ` · ${contasAtivas.map((c) => c.name).join(' e ')}` : ''
-            }`,
-            para: '/contas',
-          },
-          {
-            rotulo: 'Comissões a receber',
-            valor: soma(aReceber),
-            nota:
-              emAtraso.length > 0 ? (
-                <span className="font-medium text-warning-ink">
-                  <Valor valor={soma(emAtraso)} posto="fato" tinta="text-warning-ink" /> em atraso
-                </span>
-              ) : (
-                'no mês, nada em atraso'
-              ),
-            para: '/receber',
-          },
-          {
-            rotulo: 'Contas a pagar',
-            valor: soma(devido),
-            nota:
-              devido.length === 0 ? (
-                'nada devido agora'
-              ) : (
-                <>
-                  {devido.length} {devido.length === 1 ? 'item devido' : 'itens devidos'} agora
-                  {vencidoAPagar.length > 0 && (
-                    <>
-                      {' · '}
-                      <span className="font-medium text-error-ink">
-                        <Valor valor={soma(vencidoAPagar)} posto="fato" tinta="text-error-ink" /> vencidos
-                      </span>
-                    </>
-                  )}
-                </>
-              ),
-            para: '/pagar',
-          },
-          {
-            rotulo: 'Resultado do mês',
-            valor: resultado.lucro,
-            estado: resultado.lucro < 0 ? 'negativo' : undefined,
-            tendencia:
-              diferencaResultado === 0
-                ? null
-                : {
-                    texto: `${diferencaResultado > 0 ? '+' : '−'}${formatCurrency(Math.abs(diferencaResultado))}`,
-                    tom: diferencaResultado > 0 ? 'sucesso' : 'risco',
-                  },
-            nota: `vs ${formatMonthYear(mesAnterior).split(' ')[0].toLowerCase()}`,
-            para: '/relatorios/dre',
-          },
-        ]}
-      />
+  /* O anel do destaque: quanto da comissão do mês já entrou (recebida ÷ recebida + a receber). */
+  const totalDoMes = r2(recebidoNoMes + soma(aReceber))
+  const fracaoRecebida = totalDoMes > 0 ? recebidoNoMes / totalDoMes : 0
+  const nomeMes = formatMonthYear(mes).split(' ')[0].toLowerCase()
 
-      {/* items-start: o "Pede você" tem o tamanho das pendências do dia, sem faixa vazia embaixo. */}
-      <div className="grid items-start gap-bloco lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+  return (
+    <PageLayout
+      titulo="Início"
+      tituloRico={
+        <>
+          {saudacaoDoDia()}, <em>{primeiroNome(profile?.name)}</em>
+        </>
+      }
+      sobretitulo={formatMonthYear(mes)}
+      subtitulo={frase}
+    >
+      <div className="grid items-start gap-bloco xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <CartaoDestaque
+          rotuloAcessivel="Saldo de hoje e o mês"
+          sobretitulo={`Saldo hoje · ${contasAtivas.length} ${contasAtivas.length === 1 ? 'conta' : 'contas'}`}
+          anel={{
+            fracao: fracaoRecebida,
+            centro: `${Math.round(fracaoRecebida * 100)}%`,
+            legenda: (
+              <>
+                <b>
+                  <Valor valor={recebidoNoMes} posto="fato" tinta="text-white" />
+                </b>{' '}
+                da comissão de {nomeMes} já entrou
+              </>
+            ),
+          }}
+          rodape={
+            <dl className="grid gap-6 sm:grid-cols-3">
+              <NumeroDoDestaque
+                rotulo="Comissões a receber"
+                valor={soma(aReceber)}
+                para="/receber"
+                nota={
+                  emAtraso.length > 0 ? (
+                    <span className="text-areia">
+                      <Valor valor={soma(emAtraso)} posto="fato" tinta="text-areia" /> em atraso
+                    </span>
+                  ) : (
+                    'nada em atraso'
+                  )
+                }
+              />
+              <NumeroDoDestaque
+                rotulo="Contas a pagar"
+                valor={soma(devido)}
+                para="/pagar"
+                nota={
+                  vencidoAPagar.length > 0 ? (
+                    <span className="text-coral">
+                      <Valor valor={soma(vencidoAPagar)} posto="fato" tinta="text-coral" /> vencidos
+                    </span>
+                  ) : (
+                    `${devido.length} ${devido.length === 1 ? 'item devido' : 'itens devidos'} agora`
+                  )
+                }
+              />
+              <NumeroDoDestaque
+                rotulo="Resultado do mês"
+                valor={resultado.lucro}
+                para="/relatorios/dre"
+                nota={
+                  diferencaResultado === 0 ? (
+                    `igual a ${formatMonthYear(mesAnterior).split(' ')[0].toLowerCase()}`
+                  ) : (
+                    <>
+                      <span className={diferencaResultado > 0 ? 'text-menta' : 'text-coral'}>
+                        {diferencaResultado > 0 ? '+' : '−'}
+                        <Valor valor={Math.abs(diferencaResultado)} posto="fato" tinta={diferencaResultado > 0 ? 'text-menta' : 'text-coral'} />
+                      </span>{' '}
+                      vs {formatMonthYear(mesAnterior).split(' ')[0].toLowerCase()}
+                    </>
+                  )
+                }
+              />
+            </dl>
+          }
+        >
+          <Link to="/contas" className="w-max rounded-controle" aria-label="Ver as contas">
+            <ValorDoDestaque valor={saldo} />
+          </Link>
+          <p className="text-white/70 text-texto">
+            {contasAtivas.length > 0 && contasAtivas.length <= 3 ? contasAtivas.map((c) => c.name).join(' e ') : 'somando as contas ativas'}
+          </p>
+        </CartaoDestaque>
+
+        <PedeVoce pendencias={pendencias} aoAbrir={(p) => navigate(p.para)} />
+      </div>
+
+      <div className="grid items-start gap-bloco xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Cartao>
           <Cartao.Cabecalho
             titulo="Caixa previsto"
@@ -324,10 +372,10 @@ export function Inicio() {
           )}
         </Cartao>
 
-        <PedeVoce pendencias={pendencias} aoAbrir={(p) => navigate(p.para)} />
+        <ReguaDaComissao carteira={carteira} />
       </div>
 
-      <div className="grid items-stretch gap-bloco lg:grid-cols-2">
+      <div className="grid gap-bloco">
         <Cartao>
           <Cartao.Cabecalho titulo="Próximos recebimentos" meta="da construtora para a Souza, por data prevista" />
           {proximos.length === 0 ? (
@@ -374,8 +422,6 @@ export function Inicio() {
             </span>
           </Cartao.Rodape>
         </Cartao>
-
-        <ReguaDaComissao carteira={carteira} />
       </div>
     </PageLayout>
   )

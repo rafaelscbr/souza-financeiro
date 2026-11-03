@@ -47,6 +47,14 @@ export default {
         'brand-fill-deep': c('--brand-fill-deep'),
         'brand-fill-text': c('--brand-fill-text'),
         page: c('--page-bg'),
+        moldura: c('--moldura'),
+        // Souza 4.0: o papel creme do Academy (o nome `papel` já é alias antigo do fundo).
+        creme: c('--papel'),
+        ouro: c('--ouro'),
+        areia: c('--areia'),
+        // Sobre o marinho: coral para o que é ruim, menta para o que é bom (o vermelho e o verde do claro somem lá).
+        coral: c('--coral'),
+        menta: c('--menta'),
         serie: c('--serie'),
         'serie-suave': c('--serie-suave'),
         'g-entra': c('--g-entra'),
@@ -188,10 +196,12 @@ export default {
       },
 
       fontFamily: {
-        // Souza 3.0 (02/11/2026): Geist, uma família só, com número tabular.
-        sans: ['Geist', 'Inter', 'system-ui', 'sans-serif'],
-        heading: ['Geist', 'Inter', 'system-ui', 'sans-serif'],
-        label: ['Geist', 'Inter', 'system-ui', 'sans-serif'],
+        // Souza 4.0 (02/11/2026): o par do Souza Academy. Schibsted Grotesk em tudo;
+        // Instrument Serif itálico só na ênfase (o "Financeiro" da marca, o nome na saudação).
+        sans: ['"Schibsted Grotesk"', 'system-ui', 'sans-serif'],
+        heading: ['"Schibsted Grotesk"', 'system-ui', 'sans-serif'],
+        label: ['"Schibsted Grotesk"', 'system-ui', 'sans-serif'],
+        enfase: ['"Instrument Serif"', 'Georgia', 'serif'],
       },
 
       boxShadow: {
@@ -212,14 +222,15 @@ export default {
        */
       fontSize: {
         /* Souza 2.0 (23/10/2026): Inter, número tabular, sem caixa alta espaçada. */
-        'numero-heroi': ['36px', { lineHeight: '42px', letterSpacing: '-0.03em', fontWeight: '600' }],
+        'numero-heroi': ['40px', { lineHeight: '46px', letterSpacing: '-0.035em', fontWeight: '800' }],
         'numero-heroi-m': ['28px', { lineHeight: '34px', letterSpacing: '-0.025em', fontWeight: '600' }],
-        'numero-kpi': ['24px', { lineHeight: '32px', letterSpacing: '-0.025em', fontWeight: '600' }],
+        'numero-kpi': ['24px', { lineHeight: '32px', letterSpacing: '-0.03em', fontWeight: '700' }],
         'numero-kpi-m': ['22px', { lineHeight: '28px', letterSpacing: '-0.02em', fontWeight: '600' }],
-        'titulo-pagina': ['26px', { lineHeight: '32px', letterSpacing: '-0.02em', fontWeight: '600' }],
-        'titulo-pagina-m': ['20px', { lineHeight: '28px', letterSpacing: '-0.015em', fontWeight: '600' }],
-        'titulo-painel': ['16px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' }],
-        'titulo-secao': ['16px', { lineHeight: '22px', letterSpacing: '-0.01em', fontWeight: '600' }],
+        // Souza 4.0: título do Academy, 800 e apertado.
+        'titulo-pagina': ['40px', { lineHeight: '44px', letterSpacing: '-0.035em', fontWeight: '800' }],
+        'titulo-pagina-m': ['30px', { lineHeight: '34px', letterSpacing: '-0.03em', fontWeight: '800' }],
+        'titulo-painel': ['18px', { lineHeight: '24px', letterSpacing: '-0.02em', fontWeight: '700' }],
+        'titulo-secao': ['18px', { lineHeight: '24px', letterSpacing: '-0.02em', fontWeight: '700' }],
         'valor-destaque': ['16px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' }],
         'valor-linha': ['14px', { lineHeight: '20px', letterSpacing: '-0.005em', fontWeight: '600' }],
         'valor-fato': ['13px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
@@ -230,22 +241,29 @@ export default {
         nota: ['12px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '400' }],
         rotulo: ['12px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '500' }],
         chip: ['12px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '500' }],
-        botao: ['14px', { lineHeight: '20px', letterSpacing: '-0.005em', fontWeight: '500' }],
-        'botao-secundario': ['14px', { lineHeight: '20px', letterSpacing: '-0.005em', fontWeight: '500' }],
+        botao: ['15px', { lineHeight: '20px', letterSpacing: '-0.01em', fontWeight: '700' }],
+        'botao-secundario': ['15px', { lineHeight: '20px', letterSpacing: '-0.01em', fontWeight: '600' }],
+        // Souza 4.0: o sobretítulo do Academy ("FICHA DO CORRETOR"): caixa alta espaçada, dourado.
+        marca: ['21px', { lineHeight: '1', letterSpacing: '-0.035em', fontWeight: '800' }],
+        'marca-enfase': ['23px', { lineHeight: '1', letterSpacing: '-0.01em' }],
+        destaque: ['44px', { lineHeight: '50px', letterSpacing: '-0.04em', fontWeight: '800' }],
+        'destaque-lg': ['60px', { lineHeight: '64px', letterSpacing: '-0.045em', fontWeight: '800' }],
+        menu: ['15px', { lineHeight: '20px', letterSpacing: '-0.005em' }],
+        frase: ['17px', { lineHeight: '26px', letterSpacing: '-0.005em' }],
+        sobretitulo: ['12px', { lineHeight: '16px', letterSpacing: '0.1em', fontWeight: '700' }],
       },
 
 
       /* Fundamentos 5.3: cinco raios (rounded-full vem do Tailwind). */
       borderRadius: {
-        // Souza 3.0: o par apertado do livro-razão (6 nos controles, 8 nas caixas).
-        badge: '6px',
-        // Souza 3.0: tecla (kbd) e as barras de régua/gráfico.
-        kbd: '4px',
-        controle: '6px',
-        caixa: '8px',
-        sobreposicao: '12px',
-        segmento: '8px',
-        'segmento-item': '6px',
+        // Souza 4.0: os cantos do Academy (controle 12, caixa 20, folha e painéis 24).
+        badge: '8px',
+        kbd: '6px',
+        controle: '12px',
+        caixa: '20px',
+        sobreposicao: '24px',
+        segmento: '14px',
+        'segmento-item': '10px',
         ponto: '2px',
         // A moldura do "S" da marca: 25%, fora dos cinco.
         marca: '25%',

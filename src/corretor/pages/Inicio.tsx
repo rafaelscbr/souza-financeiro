@@ -6,7 +6,8 @@ import { FraseDaParcela, fraseDaParcela } from '../EtapaDaParcela'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Cartao } from '@/components/ui/Cartao'
-import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
+import { CartaoDestaque, NumeroDoDestaque, ValorDoDestaque } from '@/components/ui/CartaoDestaque'
+import { useAuth } from '@/auth/AuthContext'
 import { Linha } from '@/components/ui/Lista'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
 import { Icone } from '@/components/ui/Icone'
@@ -26,8 +27,16 @@ import { Regua } from '@/components/ui/Regua'
  * ano continua na tela como três linhas que se comparam no mesmo degrau, e
  * cada número ABRE nas parcelas que o compõem, com o nome da venda.
  */
+function saudacaoDoDia(): string {
+  const h = new Date().getHours()
+  return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
+}
+const primeiroNome = (nome?: string | null) => nome?.trim().split(/\s+/)[0] || 'corretor'
+
 export function CorretorInicio() {
   const { painel, parcelas, ano, vendas } = useCorretor()
+  const { profile } = useAuth()
+  const nome = profile?.name
   const { abrir } = useComposicao()
   const hoje = toDateOnly(new Date())
 
@@ -140,44 +149,57 @@ export function CorretorInicio() {
   })
 
   return (
-    <PageLayout subtitulo={frase}>
-      <FaixaDeMetricas
-        rotuloAcessivel="Suas comissões no ano"
-        metricas={[
-          {
-            rotulo: 'Liberada, a receber',
-            valor: soma(liberadas),
-            lider: true,
-            nota:
-              liberadas.length === 0
-                ? 'quando a construtora pagar, aparece aqui'
-                : `${liberadas.length} ${liberadas.length === 1 ? 'parcela' : 'parcelas'} que a imobiliária já recebeu`,
-            para: '/recebimentos?foco=a-receber',
-          },
-          {
-            rotulo: `Já recebida em ${ano}`,
-            valor: soma(recebidas),
-            nota:
-              recebidas.length === 0
-                ? 'nada pago a você ainda neste ano'
-                : `${recebidas.length} ${recebidas.length === 1 ? 'parcela paga' : 'parcelas pagas'} a você`,
-            para: '/recebimentos',
-          },
-          {
-            rotulo: 'Ainda prevista',
-            valor: soma(previstas),
-            nota: previstas.length === 0 ? 'nenhuma parcela prevista' : 'depende da construtora pagar',
-            para: '/recebimentos',
-          },
-          {
-            rotulo: `Vendas em ${ano}`,
-            valor: 0,
-            texto: String(p.sales_count),
-            nota: p.vgv > 0 ? `${formatCurrency(p.vgv)} de VGV` : 'valor dos imóveis não informado',
-            para: '/minhas-vendas',
-          },
-        ]}
-      />
+    <PageLayout
+      titulo="Início"
+      tituloRico={
+        <>
+          {saudacaoDoDia()}, <em>{primeiroNome(nome)}</em>
+        </>
+      }
+      sobretitulo={`Suas comissões em ${ano}`}
+      subtitulo={frase}
+    >
+      <CartaoDestaque
+        rotuloAcessivel="O que está liberado para você"
+        sobretitulo="Liberada para você"
+        anel={{
+          fracao: soma(doAno) > 0 ? soma(recebidas) / soma(doAno) : 0,
+          centro: `${soma(doAno) > 0 ? Math.round((soma(recebidas) / soma(doAno)) * 100) : 0}%`,
+          legenda: <>da sua comissão de {ano} já caiu na sua conta</>,
+        }}
+        rodape={
+          <dl className="grid gap-6 sm:grid-cols-3">
+            <NumeroDoDestaque
+              rotulo={`Já recebida em ${ano}`}
+              valor={soma(recebidas)}
+              para="/recebimentos"
+              nota={recebidas.length === 0 ? 'nada pago ainda neste ano' : `${recebidas.length} ${recebidas.length === 1 ? 'parcela paga' : 'parcelas pagas'}`}
+            />
+            <NumeroDoDestaque
+              rotulo="Ainda prevista"
+              valor={soma(previstas)}
+              para="/recebimentos"
+              nota="depende da construtora pagar"
+            />
+            <NumeroDoDestaque
+              rotulo={`Vendas em ${ano}`}
+              valor={p.sales_count}
+              texto={String(p.sales_count)}
+              para="/minhas-vendas"
+              nota={p.vgv > 0 ? <><Valor valor={p.vgv} posto="fato" tinta="text-white/65" /> de VGV</> : 'valor dos imóveis não informado'}
+            />
+          </dl>
+        }
+      >
+        <Link to="/recebimentos?foco=a-receber" className="w-max rounded-controle" aria-label="Ver o que está liberado">
+          <ValorDoDestaque valor={soma(liberadas)} />
+        </Link>
+        <p className="text-white/70 text-texto">
+          {liberadas.length === 0
+            ? 'quando a construtora pagar, sua parte aparece aqui'
+            : `${liberadas.length} ${liberadas.length === 1 ? 'parcela que a imobiliária já recebeu' : 'parcelas que a imobiliária já recebeu'}, esperando o repasse`}
+        </p>
+      </CartaoDestaque>
 
       <div className="grid items-stretch gap-bloco lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Cartao rotuloAcessivel={`Sua comissão mês a mês em ${ano}`}>

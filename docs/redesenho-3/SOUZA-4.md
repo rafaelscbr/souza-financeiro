@@ -1,0 +1,35 @@
+# Souza 4.0: o padrão do Souza Academy
+
+*02/11/2026 · pedido do Rafael: "Desginer parecido com esse em anexo, porém mais bonito… quero que faça Souza Financeiro e o financeiro com esse italico amarelo, até pra gente ter um padrão de sistemas".*
+
+Os valores foram copiados de `~/Documents/Souza Academy/src/app/globals.css` e `marca/README.md`, para os dois sistemas ficarem iguais. A estrutura de cada tela continua a do Souza 3.0 (GUIA-DE-TELA.md). Mudou a pele, e o Início ganhou o destaque.
+
+## Fundação
+
+- **Letras:** Schibsted Grotesk (títulos em 800) e Instrument Serif itálico só na ênfase: o "Financeiro" da marca e o nome na saudação.
+- **Moldura e folha:**
+  - No computador, a moldura é marinho `#0F1730` e o menu fica nela, como no Academy. O item ativo tem véu branco, ícone areia e filete areia.
+  - A página é uma folha branca com cantos de 24px.
+- **Marca:** `MarcaFinanceiro` = símbolo em traço + "Souza" (800) + "Financeiro." (Instrument Serif itálico).
+  - Sobre marinho: branco e areia `#E4B23C`.
+  - No claro: marinho e ouro `#AD7F22`.
+- **Painéis e cartões:**
+  - Painel de números (`FaixaDeMetricas`): creme `#F6F3EC`, rótulos em caixa alta espaçada.
+  - Cartões: brancos, cantos de 20, fio leve.
+- **Botões:**
+  - O principal é marinho.
+  - O de criar ("Novo lançamento") é areia com tinta marinho, como o "Criar" do CRM.
+  - O secundário é branco com fio.
+- **Título de cada tela:**
+  - Sobretítulo dourado em caixa alta, que diz a área (`sobretituloDe` em navegacao.ts).
+  - Título 800 com 40px.
+  - Frase de 17px embaixo.
+- **Destaque (`CartaoDestaque`):** o cartão marinho do Academy com a luz azul do herói do CRM e o anel areia que se fecha ao abrir.
+  - No Início do administrador: saldo de hoje, anel de quanto da comissão do mês já entrou, e a receber, a pagar e o resultado.
+  - No Início do corretor: o liberado para ele, anel de quanto do ano já caiu, e o recebido, o previsto e as vendas.
+- **Saudação no Início:** "Boa noite, *Rafael*", como no CRM.
+- **Números proporcionais:** o "tnum" da Schibsted alargava vírgula e ponto.
+
+## O que o inspetor de design aponta e ficou de propósito
+
+O italic serif no título, o sobretítulo em caixa alta, a luz azul no cartão e o título grande são o padrão da casa (Academy e CRM), pedido pelo Rafael.

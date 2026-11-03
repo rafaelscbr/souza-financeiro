@@ -12,12 +12,12 @@ import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { MarcaS } from '@/components/marca/Marca'
+import { MarcaFinanceiro } from '@/components/marca/Marca'
 import { EsqueletoCards, EsqueletoLista, EstadoErro } from '@/components/ui/Estados'
 import type { Tom } from '@/components/ui/tom'
 import { PopoverAvisos, type Aviso } from '@/components/shared/PopoverAvisos'
 import { useRolou } from '@/lib/useRolou'
-import { rotaDe, type AcaoDeCta, type RotaDeclarada } from './navegacao'
+import { rotaDe, sobretituloDe, type AcaoDeCta, type RotaDeclarada } from './navegacao'
 import { cn } from '@/lib/utils'
 
 /*
@@ -101,7 +101,7 @@ export interface CtaDaPagina {
 export function BotaoCta({ rotulo, rotuloCurto, aoClicar, className }: CtaDaPagina & { className?: string }) {
   return (
     <Button
-      variant="primario"
+      variant="destaque"
       icone={Plus}
       onClick={aoClicar}
       aria-label={rotulo}
@@ -110,7 +110,7 @@ export function BotaoCta({ rotulo, rotuloCurto, aoClicar, className }: CtaDaPagi
       {rotuloCurto && <span className="hidden min-[420px]:max-sm:inline">{rotuloCurto}</span>}
       <span className="hidden sm:inline">{rotulo}</span>
       {rotulo === 'Novo lançamento' && (
-        <kbd aria-hidden className="ms-1 hidden rounded-kbd bg-white/15 px-1.5 py-0.5 text-nota font-medium text-white/80 lg:[@media(pointer:fine)]:inline">
+        <kbd aria-hidden className="ms-1 hidden rounded-kbd bg-moldura/10 px-1.5 py-0.5 text-nota font-semibold text-moldura/70 lg:[@media(pointer:fine)]:inline">
           N
         </kbd>
       )}
@@ -172,8 +172,7 @@ function CabecalhoDaPagina({ titulo, menu, cta, voltar }: ConteudoDoCabecalho) {
         </div>
       ) : (
         <div className="flex min-w-0 flex-1 items-center gap-2 lg:hidden">
-          <MarcaS className="size-7 shrink-0" />
-          <span className="truncate font-semibold text-t1 text-texto-titulo">Souza</span>
+          <MarcaFinanceiro className="scale-90 origin-left" />
         </div>
       )}
       <div className={cn('flex shrink-0 items-center gap-2', !ficha && 'lg:ms-auto')}>
@@ -192,6 +191,8 @@ function CabecalhoDaPagina({ titulo, menu, cta, voltar }: ConteudoDoCabecalho) {
  */
 function AberturaDaPagina({
   titulo,
+  tituloRico,
+  sobretitulo,
   subtitulo,
   saudacao,
   mes,
@@ -202,6 +203,8 @@ function AberturaDaPagina({
   voltar,
 }: {
   titulo: string
+  tituloRico?: ReactNode
+  sobretitulo?: ReactNode
   subtitulo?: ReactNode
   saudacao?: ReactNode
   mes?: ReactNode
@@ -227,7 +230,7 @@ function AberturaDaPagina({
   }
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 xl:flex-nowrap">
         <div className="flex min-w-0 flex-col gap-1">
           {voltar && (
             <button
@@ -239,12 +242,20 @@ function AberturaDaPagina({
               {voltar.rotulo}
             </button>
           )}
+          {/* Souza 4.0 (Academy): sobretítulo dourado em caixa alta, título 800 e a frase grande embaixo. */}
+          {sobretitulo && <p className="mb-1 uppercase text-ouro text-sobretitulo">{sobretitulo}</p>}
           {saudacao && <p className="text-t4 text-texto-meta">{saudacao}</p>}
-          <h1 className="min-w-0 text-t1 text-titulo-pagina-m lg:text-titulo-pagina">{titulo}</h1>
-          {subtitulo && <p className="max-w-[80ch] text-t4 text-texto [&_b]:font-medium [&_b]:text-t1 [&_strong]:font-medium [&_strong]:text-t1">{subtitulo}</p>}
+          <h1 className="min-w-0 text-t1 text-titulo-pagina-m lg:text-titulo-pagina [&_em]:enfase [&_em]:text-ouro">
+            {tituloRico ?? titulo}
+          </h1>
+          {subtitulo && (
+            <p className="frase-do-titulo mt-2 max-w-[80ch] text-t3 text-frase [&_b]:font-semibold [&_b]:text-t1 [&_strong]:font-semibold [&_strong]:text-t1">
+              {subtitulo}
+            </p>
+          )}
         </div>
         {(mes || acoes || cta || avisos || menu) && (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             {mes}
             {acoes}
             <div className="hidden items-center gap-2 lg:flex">
@@ -267,6 +278,10 @@ function AberturaDaPagina({
 export interface PageLayoutProps {
   /** Título do h1. Sem ele, o da rota (navegacao.ts). */
   titulo?: string
+  /** Souza 4.0: o h1 com ênfase (<em> vira Instrument Serif itálico dourado). O texto de `titulo` vai para a aba. */
+  tituloRico?: ReactNode
+  /** Souza 4.0: o sobretítulo dourado em caixa alta. Sem ele, o da área (navegacao.ts). */
+  sobretitulo?: ReactNode
   /** O que a tela faz, ou um resumo vivo. Computador: ao lado do h1, 1 linha; celular: bloco de abertura, até 2. */
   subtitulo?: ReactNode
   /** O ícone da área. Sem ele, o da rota. */
@@ -298,6 +313,8 @@ export interface PageLayoutProps {
 
 export function PageLayout({
   titulo,
+  tituloRico,
+  sobretitulo,
   subtitulo,
   icone,
   tom,
@@ -357,6 +374,8 @@ export function PageLayout({
     <>
       <AberturaDaPagina
         titulo={tituloFinal}
+        tituloRico={tituloRico}
+        sobretitulo={sobretitulo ?? sobretituloDe(pathname)}
         subtitulo={subtitulo}
         saudacao={saudacao}
         mes={mesFinal}
@@ -448,7 +467,9 @@ export function CascaDaPagina({
 
   return (
     <CascaContext.Provider value={valor}>
-      <div className="relative flex min-w-0 flex-1 flex-col">
+      {/* Souza 4.0 (Academy): no computador, a folha branca de cantos de 24px sobre a moldura marinho. */}
+      <div className="relative flex min-w-0 flex-1 flex-col lg:py-3 lg:pr-3">
+        <div className="flex min-h-full flex-1 flex-col bg-page lg:min-h-[calc(100vh-24px)] lg:rounded-sobreposicao">
         {/* Sentinela de 1px na base do cabeçalho: sai da vista ao rolar e acende o fio (4.2). */}
         <div ref={sentinela} aria-hidden className="pointer-events-none absolute inset-x-0 top-cabecalho h-px" />
 
@@ -483,6 +504,7 @@ export function CascaDaPagina({
               {legado ? (
                 <AberturaDaPagina
                   titulo={rota.titulo}
+                  sobretitulo={sobretituloDe(pathname)}
                   mes={rota.usaMes ? mes : undefined}
                   voltar={rota.voltar}
                   cta={
@@ -496,6 +518,7 @@ export function CascaDaPagina({
             </>
           )}
         </main>
+        </div>
       </div>
     </CascaContext.Provider>
   )

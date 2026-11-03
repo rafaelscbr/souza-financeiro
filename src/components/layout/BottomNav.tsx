@@ -34,7 +34,7 @@ function Pilula({ ativo, children }: { ativo: boolean; children: ReactNode }) {
     <span
       className={cn(
         'relative flex h-8 w-14 items-center justify-center rounded-full transition-colors',
-        ativo ? 'bg-nav-active-bg text-nav-active-text' : 'text-nav-muted',
+        ativo ? 'bg-moldura text-white' : 'text-t3',
       )}
     >
       {children}
@@ -91,7 +91,7 @@ export function BottomNav({ destinos, mais, usuario, aoBuscar, aoTrocarSenha, ao
                       <Icone icone={item.icone} tamanho={20} />
                       <ContadorDaPilula item={item} />
                     </Pilula>
-                    <span className={cn('max-w-full truncate', isActive ? 'text-nav-active-text' : 'text-nav-text')}>
+                    <span className={cn('max-w-full truncate', isActive ? 'font-semibold text-t1' : 'text-t3')}>
                       {item.rotulo}
                     </span>
                   </>
@@ -115,7 +115,7 @@ export function BottomNav({ destinos, mais, usuario, aoBuscar, aoTrocarSenha, ao
                   />
                 )}
               </Pilula>
-              <span className={maisAtivo || aberto ? 'text-nav-active-text' : 'text-nav-text'}>Mais</span>
+              <span className={maisAtivo || aberto ? 'font-semibold text-t1' : 'text-t3'}>Mais</span>
             </button>
           </li>
         </ul>

@@ -127,3 +127,30 @@ export function MarcaS({ className, title }: { className?: string; title?: strin
     </svg>
   )
 }
+
+/**
+ * SOUZA FINANCEIRO (Souza 4.0, 02/11/2026): o mesmo desenho do Souza Academy.
+ * O símbolo em traço, "Souza" em Schibsted Grotesk 800 e "Financeiro" em
+ * Instrument Serif itálico com o ponto final da marca. Sobre marinho
+ * (`negativo`): branco e areia; no claro: marinho e ouro (a areia some no
+ * branco). As letras vêm das fontes do app, não de arquivo.
+ */
+export function MarcaFinanceiro({ negativo = false, className }: { negativo?: boolean; className?: string }) {
+  const tinta = negativo ? '#FFFFFF' : 'var(--moldura)'
+  const dourado = negativo ? 'var(--areia)' : 'var(--ouro-marca)'
+  return (
+    <span className={`inline-flex items-center gap-2.5 ${className ?? ''}`} aria-label="Souza Financeiro" role="img">
+      <span style={{ color: tinta }} className="inline-flex">
+        <Simbolo className="size-8 shrink-0" />
+      </span>
+      <span aria-hidden className="flex items-baseline gap-1.5 whitespace-nowrap leading-none">
+        <span className="font-heading text-marca" style={{ color: tinta }}>
+          Souza
+        </span>
+        <span className="enfase text-marca-enfase" style={{ color: dourado }}>
+          Financeiro.
+        </span>
+      </span>
+    </span>
+  )
+}

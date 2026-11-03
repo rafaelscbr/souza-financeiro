@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
  * Carregando: o rótulo fica, o Loader2 de 16 entra no lugar do ícone, a
  * largura trava e o botão anuncia aria-busy.
  */
-export type ButtonVariante = 'primario' | 'secundario' | 'fantasma' | 'perigo'
+export type ButtonVariante = 'primario' | 'destaque' | 'secundario' | 'fantasma' | 'perigo'
 export type ButtonTamanho = 'sm' | 'md' | 'lg' | 'icone'
 
 /** DEPRECADO — apagar na limpeza final: nomes antigos, traduzidos em `VARIANTE_LEGADA`. */
@@ -41,9 +41,10 @@ const VARIANTE_LEGADA: Record<ButtonVariantLegado, ButtonVariante> = {
 }
 
 const variantes: Record<ButtonVariante, string> = {
-  /* Souza 3.0: o principal é tinta chapada; o secundário é a pílula cinza, sem fio nem sombra. */
+  /* Souza 4.0 (Academy): principal marinho; destaque (criar) areia com tinta marinho; secundário branco com fio. */
   primario: 'bg-acao text-acao-texto hover:bg-acao-hover',
-  secundario: 'bg-s3 text-t1 hover:bg-[color:var(--line-strong)]',
+  destaque: 'bg-areia text-moldura hover:bg-brand-fill-hover',
+  secundario: 'border border-[color:var(--line-strong)] bg-surface text-t1 hover:border-[color:var(--line-input)] hover:bg-s2',
   fantasma: 'text-t2 hover:bg-linha-hover hover:text-t1',
   perigo: 'border border-error-line bg-surface text-error-ink hover:bg-linha-hover',
 }
@@ -54,6 +55,7 @@ const variantes: Record<ButtonVariante, string> = {
  */
 const tipo: Record<ButtonVariante, string> = {
   primario: 'text-botao',
+  destaque: 'text-botao',
   secundario: 'text-botao-secundario',
   fantasma: 'text-botao-secundario',
   perigo: 'text-botao-secundario',
@@ -65,9 +67,9 @@ const tipo: Record<ButtonVariante, string> = {
  */
 const TOQUE = 'max-lg:min-h-11 [@media(pointer:coarse)]:min-h-11'
 const tamanhos: Record<ButtonTamanho, string> = {
-  sm: cn('h-8 gap-1.5 px-3', TOQUE),
-  md: cn('h-9 gap-2 px-3.5', TOQUE),
-  lg: 'h-10 gap-2 px-4',
+  sm: cn('h-9 gap-1.5 px-3.5', TOQUE),
+  md: cn('h-11 gap-2 px-5', TOQUE),
+  lg: 'h-12 gap-2 px-6',
   icone: 'size-11 shrink-0 lg:size-8 [@media(pointer:coarse)]:size-11',
 }
 

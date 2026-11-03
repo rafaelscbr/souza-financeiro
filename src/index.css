@@ -83,41 +83,43 @@
   --aurora-a:rgba(228,178,60,.14); --aurora-b:rgba(228,178,60,.09);
 }
 
-html.light { /* CLARO — Souza 3.0 (02/11/2026): o padrão do sistema */
+html.light { /* CLARO — Souza 4.0 (02/11/2026): o padrão do sistema */
   /*
-   * SOUZA 3.0, "livro-razão" (docs/redesenho-3/PLANO.md). O chrome não tem
-   * cor: menu, molduras e botões em tinta e cinza; o botão principal é preto.
-   * O marinho da Souza vai só no dado principal de cada tela (a linha do
-   * caixa, a parte que fica com a Souza). Verde e vermelho dizem bom ou ruim;
-   * âmbar só "em atraso" (dívida da construtora, não nossa).
+   * SOUZA 4.0, o padrão do Souza Academy (pedido do Rafael: "um padrão de
+   * sistemas"). No computador, a MOLDURA é marinho (o menu mora nela) e a
+   * página é uma folha branca de cantos de 24px por cima. Painéis de número
+   * em PAPEL (creme). Marinho #0F1730 na tinta e nos destaques; o azul
+   * #2848A8 no dado principal dos gráficos; areia #E4B23C só sobre marinho
+   * (botão de criar, anel, a palavra "Financeiro"); ouro #AD7F22 no claro.
    */
+  /* A luz do herói (padrão do CRM): halo azul no alto do cartão marinho. */
+  --grad-destaque: radial-gradient(closest-side, rgba(40,72,168,.55), rgba(40,72,168,0));
+  --moldura:#0F1730; --papel:#F6F3EC; --areia:#E4B23C; --ouro:#8C6519; --ouro-marca:#AD7F22; /* o #AD7F22 da marca dá 3,6:1 em texto pequeno; este dá 5,4:1 */ --coral:#F4A68C; --menta:#8FD3A8;
+
   --brand:#2848A8; --brand-dark:#1D3A8A; --brand-tint:#E8EDF9;
-  --brand-text:#1D3A8A; --brand-shadow:rgba(11,18,32,.08); --brand-btn-text:#FFFFFF;
-  --brand-fill:#E4B23C; --brand-fill-hover:#D9A62F; --brand-fill-deep:#C2922A; --brand-fill-text:#0F1730;
+  --brand-text:#1D3A8A; --brand-shadow:rgba(15,23,48,.10); --brand-btn-text:#FFFFFF;
+  --brand-fill:#E4B23C; --brand-fill-hover:#EDC35B; --brand-fill-deep:#C2922A; --brand-fill-text:#0F1730;
   --grad-brand:linear-gradient(158deg,#F0CC78 0%,#E4B23C 62%); --grad-brand-text:#0F1730;
 
-  /* O chão é cinza-azulado (o papel do livro); a caixa é branca; s2/s3 são os degraus de tom. */
-  --page-bg:#F2F4F7; --surface:#FFFFFF; --surface-2:#F6F7F9; --surface-3:#EEF0F3;
+  --page-bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#FAF8F3; --surface-3:#F3F0E8;
 
-  /* O menu mora no mesmo chão da página: nada de faixa de cor separando. */
-  --nav-bg:#F2F4F7; --nav-text:#3A4252; --nav-muted:#5E6675; --nav-active-text:#0B1220;
-  --nav-active-bg:#E3E6EB; --nav-hover-bg:#E9ECF0;
-  --nav-line:#E3E6EB; --nav-logo:#0B1220; --nav-elev:#FFFFFF;
+  /* O menu é marinho, sobre a moldura. */
+  --nav-bg:#0F1730; --nav-text:rgba(255,255,255,.68); --nav-muted:rgba(255,255,255,.48); --nav-active-text:#FFFFFF;
+  --nav-active-bg:rgba(255,255,255,.09); --nav-hover-bg:rgba(255,255,255,.05);
+  --nav-line:rgba(255,255,255,.10); --nav-logo:#FFFFFF; --nav-elev:#1A2445;
   --nav-rail-sheen:none;
 
-  --t1:#0B1220; --t2:#2B3343; --t3:#4A5262; --t4:#5E6675; --t5:#8B92A0;
-  /* Fios sussurrados: 1,1–1,3:1 contra o fundo. */
-  --line:#EEF0F3; --line-strong:#E3E6EB; --line-input:#D5D9E0;
+  --t1:#0F1730; --t2:#283150; --t3:#4A5270; --t4:#5C6380; --t5:#8A8FA3;
+  --line:rgba(15,23,48,.07); --line-strong:rgba(15,23,48,.11); --line-input:rgba(15,23,48,.20);
 
-  --success:#1F7A4D; --success-bg:#DCF5E6; --success-line:#B5E5C8;
-  --warning:#8A4B0F; --warning-bg:#FDF3E2; --warning-line:#F2D9AE;
-  --error:#C4242A;   --error-bg:#FDECEB;   --error-line:#F6C6C4;
+  --success:#2F6B45; --success-bg:#E7F1EA; --success-line:#C4DECB;
+  --warning:#8A5A12; --warning-bg:#FBF1DC; --warning-line:#EED7A8;
+  --error:#9A3B1E;   --error-bg:#F8E9E2;   --error-line:#EDC9BB;
   --info:#2848A8;    --info-bg:#E8EDF9;    --info-line:#C9D4F0;
 
-  /* Nada em repouso tem sombra. Só o que flutua: menu, diálogo, gaveta. */
   --shadow-card:none;
-  --shadow-modal:0 24px 64px -12px rgba(11,18,32,.32), 0 4px 12px rgba(11,18,32,.06);
-  --shadow-dropdown:0 12px 28px -6px rgba(11,18,32,.16), 0 2px 6px rgba(11,18,32,.05);
+  --shadow-modal:0 30px 80px -20px rgba(15,23,48,.45), 0 4px 14px rgba(15,23,48,.08);
+  --shadow-dropdown:0 16px 36px -10px rgba(15,23,48,.22), 0 2px 6px rgba(15,23,48,.06);
 
   --grain:none;
   --surface-sheen:none;
@@ -155,11 +157,11 @@ html.light { /* CLARO — Souza 3.0 (02/11/2026): o padrão do sistema */
 }
 html.light {
   --serie: #2848A8; --serie-suave: #D5DBE8; --serie-apagada: .32;
-  /* Souza 3.0: a ação principal é tinta, não marca. */
-  --acao: #0B1220; --acao-hover: #253046; --acao-texto: #FFFFFF;
+  /* Souza 4.0: a ação principal é o marinho do Academy. */
+  --acao: #0F1730; --acao-hover: #1A2445; --acao-texto: #FFFFFF;
   --heroi-numero: var(--t1); --heroi-moeda: var(--t4);
   /* Gráficos (Souza 3.0): entra em marinho (o dado principal), sai em cinza, resultado em tinta. */
-  --g-entra: #2848A8; --g-sai: #B9BFCA; --g-resultado: #0B1220; --g-grade: #EEF0F3; --g-eixo: #5E6675;
+  --g-entra: #2848A8; --g-sai: #C9C3B5; --g-resultado: #0F1730; --g-grade: #EFECE4; --g-eixo: #5C6380;
 }
 
 html.light {
@@ -262,11 +264,12 @@ html.light {
 }
 @media (min-width: 1024px) {
   /* Souza 3.0: um vão só entre caixas (16), recuo de 24 dentro delas. */
-  :root { --margem-pagina: 32px; --recuo: 24px; --vao-bloco: 16px;
-    --vao-secao: 16px; --topo-conteudo: 32px; --altura-cabecalho: 56px; --linha-min: 48px; }
+  /* Souza 4.0: a folha do Academy respira (48 de margem, 48 no topo), caixas com 28 de recuo. */
+  :root { --margem-pagina: 48px; --recuo: 28px; --vao-bloco: 20px;
+    --vao-secao: 24px; --topo-conteudo: 48px; --altura-cabecalho: 56px; --linha-min: 52px; }
 }
 @media (min-width: 1536px) {
-  :root { --margem-pagina: 40px; }
+  :root { --margem-pagina: 56px; }
 }
 html.compacta { --linha-y: 8px; --linha-min: 44px; }
 @media (pointer: coarse) {
@@ -330,8 +333,8 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
     background-size: 160px 160px, cover;
     color: var(--t2);
     line-height: 1.6;
-    /* Souza 3.0: Geist com algarismo tabular em tudo; dinheiro alinha em coluna. */
-    font-feature-settings: "tnum" 1;
+    /* Souza 4.0: proporcional; o "tnum" da Schibsted Grotesk alarga vírgula e ponto. */
+    font-feature-settings: normal;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -388,6 +391,15 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
  * `.linha`). O Tailwind só emite a receita que alguém usa.
  */
 @layer components {
+  /* Souza 4.0: no computador a moldura é marinho; a folha branca fica por cima (CascaDaPagina). */
+  @media (min-width: 1024px) {
+    html.light .fundo-app { background-color: var(--moldura); }
+  }
+  /* A ênfase de cada tela: Instrument Serif itálico (o "Financeiro", o nome na saudação). */
+  /* O dinheiro dentro da frase do título acompanha o tamanho da frase. */
+  .frase-do-titulo [data-valor], .frase-do-titulo [data-valor] * { font-size: inherit !important; line-height: inherit !important; }
+  .enfase { font-family: "Instrument Serif", Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -0.01em; }
+
   /* 4.1 Larguras e colunas */
   .conteudo {
     width: 100%;
@@ -438,8 +450,8 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
 
   /* 6.2 Números: algarismo tabular. Aplicada pelo `Valor`. */
   .num {
-    font-variant-numeric: tabular-nums lining-nums;
-    font-feature-settings: "tnum" 1;
+    /* Souza 4.0: proporcional. O "tnum" da Schibsted alarga a pontuação ("94 . 438 , 91"). */
+    font-variant-numeric: lining-nums proportional-nums;
   }
 
   /* 6.3 Composição do dinheiro */
@@ -973,15 +985,15 @@ html.trocando-tema *::after {
   /* corretor/Inicio, LoginPage, RegistrarVenda, Venda, Kit: número tabular em Sora. */
   .cifra {
     font-family: 'Sora', system-ui, sans-serif;
-    font-variant-numeric: tabular-nums lining-nums;
-    font-feature-settings: "tnum" 1;
+    font-variant-numeric: lining-nums proportional-nums;
+    font-feature-settings: normal;
     letter-spacing: -0.015em;
   }
 
   /* admin/pages/Relatorios.tsx: número tabular (o novo é .num). */
   .tnum {
-    font-variant-numeric: tabular-nums lining-nums;
-    font-feature-settings: "tnum" 1;
+    font-variant-numeric: lining-nums proportional-nums;
+    font-feature-settings: normal;
   }
 
   /* LoginPage (com .sem-ponto, que não tem efeito): o papel `rotulo` de 6.1. */
@@ -1017,6 +1029,7 @@ html.trocando-tema *::after {
 @keyframes numeroTroca { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @keyframes barraEnche { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes crescer { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes anelFecha { from { stroke-dashoffset: var(--volta); } }
 @keyframes pulsoEsqueleto { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 @keyframes saltoBadge { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.3); } 60% { transform: scale(.92); } 80% { transform: scale(1.08); } }
 

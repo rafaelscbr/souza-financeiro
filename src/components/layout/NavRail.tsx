@@ -10,7 +10,7 @@ import {
 import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { ChevronsUpDown, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen, Search, type LucideIcon } from 'lucide-react'
-import { MarcaS } from '@/components/marca/Marca'
+import { MarcaFinanceiro, MarcaS } from '@/components/marca/Marca'
 import type { Aviso } from '@/components/shared/PopoverAvisos'
 import { Badge } from '@/components/ui/Badge'
 import { Icone } from '@/components/ui/Icone'
@@ -78,7 +78,8 @@ export function ContadorNav({ item, compacto }: { item: ItemNav; compacto?: bool
       <span
         className={cn(
           'ms-auto shrink-0 whitespace-nowrap font-medium text-nota num',
-          item.tomContador === 'risco' ? 'text-error-ink' : 'text-nav-muted',
+          // Sobre o marinho: coral para dívida nossa, areia para atraso da construtora.
+          item.tomContador === 'risco' ? 'text-coral' : item.tomContador === 'atencao' ? 'text-areia' : 'text-nav-muted',
         )}
       >
         {item.rotuloContador(n)}
@@ -319,13 +320,14 @@ export function NavRail({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }: Na
           onBlur={esconderDica}
           className={({ isActive }) =>
             `${cn(
-              'group/item relative flex h-10 items-center rounded-controle transition-colors duration-micro lg:[@media(pointer:fine)]:h-[34px]',
-              recolhido ? 'justify-center' : 'gap-2.5 px-2.5',
+              'group/item relative flex h-11 items-center rounded-controle transition-colors duration-micro',
+              recolhido ? 'justify-center' : 'gap-3 px-3',
               /* Souza 3.0: o ativo é a pílula cinza, ícone e rótulo em tinta; nenhuma cor de marca no menu. */
+              /* Souza 4.0 (Academy): ativo em véu branco, ícone areia e o filete areia na borda. */
               isActive
-                ? 'bg-nav-active-bg font-medium text-nav-active-text [&_svg]:text-nav-active-text'
-                : 'text-nav-text hover:bg-nav-hover hover:text-nav-active-text [&_svg]:text-nav-muted hover:[&_svg]:text-nav-text',
-            )} text-texto`
+                ? 'bg-nav-active-bg font-semibold text-nav-active-text [&_svg]:text-areia before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-areia'
+                : 'font-medium text-nav-text hover:bg-nav-hover hover:text-nav-active-text [&_svg]:text-nav-muted hover:[&_svg]:text-nav-text',
+            )} text-menu`
           }
         >
           <Icone icone={item.icone} tamanho={16} />
@@ -354,12 +356,12 @@ export function NavRail({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }: Na
       aria-label="Menu lateral"
       data-trilho=""
       className={cn(
-        'sticky top-0 z-nav hidden h-screen shrink-0 flex-col border-r border-nav-line bg-nav-surface lg:flex',
-        recolhido ? 'w-[60px]' : 'w-[240px]',
+        'sticky top-0 z-nav hidden h-screen shrink-0 flex-col bg-nav-surface lg:flex',
+        recolhido ? 'w-[68px]' : 'w-[252px]',
       )}
     >
       {/* Topo (Souza 2.0): a empresa, discreta, e a busca logo abaixo. */}
-      <div className={cn('flex shrink-0 flex-col gap-3 pb-2 pt-4', recolhido ? 'items-center px-2' : 'px-3')}>
+      <div className={cn('flex shrink-0 flex-col gap-5 pb-3 pt-8', recolhido ? 'items-center px-2' : 'px-4')}>
         <Link
           to="/"
           data-marca=""
@@ -370,13 +372,7 @@ export function NavRail({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }: Na
           onBlur={esconderDica}
           className={cn('flex min-w-0 items-center gap-2.5 rounded-controle', !recolhido && 'px-1.5 py-1')}
         >
-          <MarcaS className="size-7 shrink-0" />
-          {!recolhido && (
-            <span aria-hidden className="flex min-w-0 flex-col leading-tight" style={{ animation: ANIM_ENTRA(120) }}>
-              <span className="truncate font-semibold text-[color:var(--nav-logo)] text-texto-titulo">Souza Imobiliária</span>
-              <span className="truncate text-nav-muted text-nota">Financeiro</span>
-            </span>
-          )}
+          {recolhido ? <MarcaS className="size-8 shrink-0" /> : <MarcaFinanceiro negativo />}
         </Link>
         <button
           type="button"
@@ -385,15 +381,15 @@ export function NavRail({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }: Na
           onMouseLeave={esconderDica}
           aria-label="Buscar telas, vendas e corretores"
           className={cn(
-            'flex items-center rounded-controle border border-nav-line bg-surface text-nav-muted transition-colors hover:border-[color:var(--line-input)] hover:text-nav-text',
-            recolhido ? 'size-9 justify-center' : 'h-[34px] w-full gap-2 px-2.5',
+            'flex items-center rounded-controle bg-white/[0.07] text-white/70 transition-colors hover:bg-white/[0.12] hover:text-white',
+            recolhido ? 'size-11 justify-center' : 'h-11 w-full gap-2.5 px-3',
           )}
         >
           <Icone icone={Search} tamanho={16} />
           {!recolhido && (
             <>
-              <span className="flex-1 text-left text-texto-meta">Buscar ou ir para…</span>
-              <kbd className="rounded-kbd bg-s3 px-1.5 py-0.5 text-nota font-medium text-nav-muted">{mac ? '⌘K' : 'Ctrl K'}</kbd>
+              <span className="flex-1 text-left text-texto">Buscar</span>
+              <kbd className="rounded-kbd border border-white/15 px-1.5 py-0.5 text-nota font-semibold text-white/60">{mac ? '⌘K' : 'Ctrl K'}</kbd>
             </>
           )}
         </button>
@@ -403,14 +399,14 @@ export function NavRail({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }: Na
         aria-label="Principal"
         onScroll={esconderDica}
         data-rolagem=""
-        className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3 pt-2', !recolhido && 'gap-5 px-3')}
+        className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3 pt-2', !recolhido && 'gap-6 px-4')}
       >
         {principais.map((secao, i) => (
           <div key={secao.rotulo} className="flex flex-col">
             {recolhido ? (
               i > 0 && <span aria-hidden className="mx-2 my-2.5 h-px bg-nav-line" />
             ) : secao.semRotulo ? null : (
-              <h2 className="mb-1 px-2.5 font-medium text-nav-muted text-nota">{secao.rotulo}</h2>
+              <h2 className="mb-1.5 px-3 text-white/40 text-sobretitulo uppercase">{secao.rotulo}</h2>
             )}
             {(recolhido || secao.semRotulo) && <h2 className="sr-only">{secao.rotulo}</h2>}
             <ul className="flex flex-col gap-0.5">{secao.itens.map(destino)}</ul>
@@ -419,7 +415,7 @@ export function NavRail({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }: Na
       </nav>
 
       {/* Rodapé: Configurações, a conta e o recolher. */}
-      <div className={cn('flex shrink-0 flex-col gap-1 border-t border-nav-line', recolhido ? 'items-center px-2 py-2' : 'p-3')}>
+      <div className={cn('flex shrink-0 flex-col gap-1 border-t border-nav-line', recolhido ? 'items-center px-2 py-2' : 'px-4 pb-5 pt-3')}>
         {doRodape.length > 0 && <ul className={cn('flex flex-col gap-0.5', recolhido && 'items-center')}>{doRodape.map(destino)}</ul>}
         <div className={cn('flex items-center gap-1', recolhido && 'flex-col')}>
           <button
@@ -437,11 +433,11 @@ export function NavRail({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }: Na
               menu && 'bg-nav-active-bg',
             )}
           >
-            <Avatar nome={usuario.nome} className="size-7" />
+            <Avatar nome={usuario.nome} className="size-9 bg-white/10 font-extrabold text-white" />
             {!recolhido && (
               <>
                 <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                  <span className="truncate font-medium text-nav-active-text text-texto-meta">{usuario.nome}</span>
+                  <span className="truncate font-bold text-nav-active-text text-texto">{usuario.nome}</span>
                   <span className="truncate text-nav-muted text-nota">{usuario.papel}</span>
                 </span>
                 <Icone icone={ChevronsUpDown} tamanho={16} className="text-nav-muted" />
