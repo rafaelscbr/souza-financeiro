@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { ChevronDown, KeyRound, LogOut, Search, type LucideIcon } from 'lucide-react'
 import { MarcaSouza } from '@/components/marca/Marca'
@@ -294,6 +295,26 @@ export const NavRail = BarraDoTopo
 /** Uma seção do menu (ex.: "Gestão") numa pílula que abre a lista dos destinos. */
 function MenuDeSecao({ secao, pathname }: { secao: SecaoNav; pathname: string }) {
   const { setAberto, aberto, presenca, botaoRef, menuRef } = useMenuDaBarra()
+  /*
+   * O menu sai por portal, em posição fixa abaixo da pílula: a faixa de
+   * pílulas rola na horizontal (overflow), e um menu absoluto dentro dela
+   * ficava cortado — o clique só deslocava a faixa e nada aparecia.
+   */
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+  useLayoutEffect(() => {
+    if (!aberto) return
+    const posicionar = () => {
+      const r = botaoRef.current?.getBoundingClientRect()
+      if (r) setPos({ left: Math.min(r.left, window.innerWidth - 272), top: r.bottom + 12 })
+    }
+    posicionar()
+    window.addEventListener('resize', posicionar)
+    window.addEventListener('scroll', posicionar, true)
+    return () => {
+      window.removeEventListener('resize', posicionar)
+      window.removeEventListener('scroll', posicionar, true)
+    }
+  }, [aberto, botaoRef])
   const ativa = secao.itens.some((it) => (it.fim ? pathname === it.para : pathname === it.para || pathname.startsWith(`${it.para}/`)))
   const contador = secao.itens.reduce((n, it) => n + (it.contador ?? 0), 0)
   return (
@@ -310,15 +331,21 @@ function MenuDeSecao({ secao, pathname }: { secao: SecaoNav; pathname: string })
         {contador > 0 && <Badge>{contador > 9 ? '9+' : contador}</Badge>}
         <Icone icone={ChevronDown} tamanho={16} />
       </button>
-      {presenca.montado && (
+      {presenca.montado &&
+        createPortal(
         <div
           ref={menuRef}
           role="dialog"
           aria-label={secao.rotulo}
           tabIndex={-1}
           {...presenca.props}
-          style={{ animation: presenca.estado === 'saindo' ? ANIM_SAI : ANIM_ENTRA(150) }}
-          className="absolute left-0 top-full z-popover mt-3 flex w-64 flex-col rounded-lista bg-surface p-2 shadow-dropdown outline-none"
+          style={{
+            left: pos?.left ?? 0,
+            top: pos?.top ?? 0,
+            visibility: pos ? undefined : 'hidden',
+            animation: presenca.estado === 'saindo' ? ANIM_SAI : ANIM_ENTRA(150),
+          }}
+          className="fixed z-popover flex w-64 flex-col rounded-lista bg-surface p-2 shadow-dropdown outline-none"
         >
           <ul className="flex flex-col">
             {secao.itens.map((item) => (
@@ -338,8 +365,9 @@ function MenuDeSecao({ secao, pathname }: { secao: SecaoNav; pathname: string })
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </div>
   )
 }
