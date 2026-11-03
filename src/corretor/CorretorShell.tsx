@@ -5,7 +5,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { TrocarSenha } from '@/auth/TrocarSenha'
 import { useCorretor, type CorretorParcela } from './CorretorData'
 import { ComposicaoProvider } from '@/components/composicao/Composicao'
-import { NavRail, type UsuarioDaCasca } from '@/components/layout/NavRail'
+import { BarraDoTopo, type UsuarioDaCasca } from '@/components/layout/NavRail'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { POLEGAR_CORRETOR, ROTAS_CORRETOR, itensDe, navCorretor, separarPolegar } from '@/components/layout/navegacao'
 import { CarregandoTela, CascaDaPagina } from '@/components/layout/PageLayout'
@@ -164,8 +164,8 @@ function CascaDoCorretor() {
 
   return (
     <>
-      <div className="fundo-app flex min-h-screen">
-        <NavRail
+      <div className="fundo-app flex min-h-screen flex-col">
+        <BarraDoTopo
           secoes={secoes}
           usuario={usuario}
           aoBuscar={abrirBusca}

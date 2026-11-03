@@ -34,7 +34,7 @@ function Pilula({ ativo, children }: { ativo: boolean; children: ReactNode }) {
     <span
       className={cn(
         'relative flex h-8 w-14 items-center justify-center rounded-full transition-colors',
-        ativo ? 'bg-moldura text-white' : 'text-t3',
+        ativo ? 'bg-brand-fill text-t1' : 'text-t3',
       )}
     >
       {children}
@@ -78,7 +78,7 @@ export function BottomNav({ destinos, mais, usuario, aoBuscar, aoTrocarSenha, ao
       <nav
         aria-label="Principal"
         data-barra-inferior=""
-        className="fixed inset-x-0 bottom-0 z-nav bg-page lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-nav bg-surface lg:hidden"
         style={{ boxShadow: '0 -1px 0 var(--fio-caixa)', paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <ul className="mx-auto grid max-w-xl auto-cols-fr grid-flow-col">

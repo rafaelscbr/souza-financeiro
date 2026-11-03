@@ -7,7 +7,7 @@ import { useAdmin } from './AdminData'
 import { AcoesAdminProvider, useAcoesAdmin } from './AcoesAdmin'
 import { SeletorMes } from './SeletorMes'
 import { ComposicaoProvider } from '@/components/composicao/Composicao'
-import { NavRail, type UsuarioDaCasca } from '@/components/layout/NavRail'
+import { BarraDoTopo, type UsuarioDaCasca } from '@/components/layout/NavRail'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { POLEGAR_ADMIN, ROTAS_ADMIN, itensDe, navAdmin, separarPolegar } from '@/components/layout/navegacao'
 import { CarregandoTela, CascaDaPagina } from '@/components/layout/PageLayout'
@@ -206,8 +206,8 @@ function CascaDoAdmin() {
 
   return (
     <>
-      <div className="fundo-app flex min-h-screen">
-        <NavRail
+      <div className="fundo-app flex min-h-screen flex-col">
+        <BarraDoTopo
           secoes={secoes}
           usuario={usuario}
           aoBuscar={abrirBusca}

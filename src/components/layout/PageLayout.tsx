@@ -12,7 +12,7 @@ import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { MarcaFinanceiro } from '@/components/marca/Marca'
+import { MarcaSouza } from '@/components/marca/Marca'
 import { EsqueletoCards, EsqueletoLista, EstadoErro } from '@/components/ui/Estados'
 import type { Tom } from '@/components/ui/tom'
 import { PopoverAvisos, type Aviso } from '@/components/shared/PopoverAvisos'
@@ -105,12 +105,13 @@ export function BotaoCta({ rotulo, rotuloCurto, aoClicar, className }: CtaDaPagi
       icone={Plus}
       onClick={aoClicar}
       aria-label={rotulo}
-      className={cn('max-sm:w-11 max-sm:px-0', rotuloCurto && 'min-[420px]:max-sm:w-auto min-[420px]:max-sm:px-4', className)}
+      // Folha Clara: o CTA da página tem 52px no computador; 44 no celular.
+      className={cn('lg:h-[52px] lg:px-6', 'max-sm:w-11 max-sm:px-0', rotuloCurto && 'min-[420px]:max-sm:w-auto min-[420px]:max-sm:px-4', className)}
     >
       {rotuloCurto && <span className="hidden min-[420px]:max-sm:inline">{rotuloCurto}</span>}
       <span className="hidden sm:inline">{rotulo}</span>
       {rotulo === 'Novo lançamento' && (
-        <kbd aria-hidden className="ms-1 hidden rounded-kbd bg-moldura/10 px-1.5 py-0.5 text-nota font-semibold text-moldura/70 lg:[@media(pointer:fine)]:inline">
+        <kbd aria-hidden className="ms-1 hidden rounded-kbd bg-t1/10 px-1.5 py-0.5 text-nota font-semibold text-t1/70 lg:[@media(pointer:fine)]:inline">
           N
         </kbd>
       )}
@@ -160,7 +161,7 @@ function CabecalhoDaPagina({ titulo, menu, cta, voltar }: ConteudoDoCabecalho) {
       {voltar ? (
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <button type="button" onClick={aoVoltar} aria-label={`Voltar para ${voltar.rotulo}`} className={BOTAO_ICONE}>
-            <ArrowLeft size={16} strokeWidth={1.75} aria-hidden focusable="false" />
+            <ArrowLeft size={16} strokeWidth={2} aria-hidden focusable="false" />
           </button>
           <nav aria-label="Você está em" className="flex min-w-0 items-center gap-1.5 text-texto-meta">
             <button type="button" onClick={aoVoltar} className="shrink-0 text-t4 transition-colors hover:text-t1">
@@ -172,7 +173,7 @@ function CabecalhoDaPagina({ titulo, menu, cta, voltar }: ConteudoDoCabecalho) {
         </div>
       ) : (
         <div className="flex min-w-0 flex-1 items-center gap-2 lg:hidden">
-          <MarcaFinanceiro className="scale-90 origin-left" />
+          <MarcaSouza />
         </div>
       )}
       <div className={cn('flex shrink-0 items-center gap-2', !ficha && 'lg:ms-auto')}>
@@ -238,18 +239,18 @@ function AberturaDaPagina({
               onClick={aoVoltar}
               className="mb-1 hidden w-max items-center gap-1.5 rounded-controle text-t4 transition-colors text-texto-meta hover:text-t1 lg:inline-flex"
             >
-              <ArrowLeft size={14} strokeWidth={1.75} aria-hidden />
+              <ArrowLeft size={16} strokeWidth={2} aria-hidden />
               {voltar.rotulo}
             </button>
           )}
-          {/* Souza 4.0 (Academy): sobretítulo dourado em caixa alta, título 800 e a frase grande embaixo. */}
-          {sobretitulo && <p className="mb-1 uppercase text-ouro text-sobretitulo">{sobretitulo}</p>}
-          {saudacao && <p className="text-t4 text-texto-meta">{saudacao}</p>}
-          <h1 className="min-w-0 text-t1 text-titulo-pagina-m lg:text-titulo-pagina [&_em]:enfase [&_em]:text-ouro">
+          {/* Folha Clara: rótulo pequeno cinza-azulado, título em Plus Jakarta 800 e a frase embaixo. */}
+          {sobretitulo && <p className="text-t-meta text-sobretitulo">{sobretitulo}</p>}
+          {saudacao && <p className="text-t-meta text-texto-meta">{saudacao}</p>}
+          <h1 className="min-w-0 font-heading text-t1 text-titulo-pagina-m lg:text-titulo-pagina [&_em]:destaque [&_em]:text-ouro">
             {tituloRico ?? titulo}
           </h1>
           {subtitulo && (
-            <p className="frase-do-titulo mt-2 max-w-[80ch] text-t3 text-frase [&_b]:font-semibold [&_b]:text-t1 [&_strong]:font-semibold [&_strong]:text-t1">
+            <p className="frase-do-titulo mt-1 max-w-[80ch] text-t3 text-frase [&_b]:font-semibold [&_b]:text-t1 [&_strong]:font-semibold [&_strong]:text-t1">
               {subtitulo}
             </p>
           )}
@@ -467,9 +468,9 @@ export function CascaDaPagina({
 
   return (
     <CascaContext.Provider value={valor}>
-      {/* Souza 4.0 (Academy): no computador, a folha branca de cantos de 24px sobre a moldura marinho. */}
-      <div className="relative flex min-w-0 flex-1 flex-col lg:py-3 lg:pr-3">
-        <div className="flex min-h-full flex-1 flex-col bg-page lg:min-h-[calc(100vh-24px)] lg:rounded-sobreposicao">
+      {/* Folha Clara: a página é a Folha (--page-bg); a barra marinho fica em cima, fora daqui. */}
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-full flex-1 flex-col bg-page">
         {/* Sentinela de 1px na base do cabeçalho: sai da vista ao rolar e acende o fio (4.2). */}
         <div ref={sentinela} aria-hidden className="pointer-events-none absolute inset-x-0 top-cabecalho h-px" />
 
@@ -538,7 +539,7 @@ export function CarregandoTela({ rotulo = 'Carregando…' }: { rotulo?: string }
 /** Falhou no lugar da tela: o erro dentro de uma caixa, o cabeçalho continua de pé. */
 export function ErroDaTela({ motivo, aoTentarDeNovo }: { motivo?: ReactNode; aoTentarDeNovo?: () => void }) {
   return (
-    <div data-caixa="" className="rounded-caixa border border-fio-caixa bg-surface shadow-card">
+    <div data-caixa="" className="rounded-caixa bg-surface shadow-card">
       <EstadoErro motivo={motivo} aoTentarDeNovo={aoTentarDeNovo ?? (() => window.location.reload())} />
     </div>
   )
