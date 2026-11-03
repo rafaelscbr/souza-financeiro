@@ -1,20 +1,20 @@
 import { useMemo, useState } from 'react'
 import { useAdmin } from '../AdminData'
-import { CartaoPrevisaoDeCaixa } from '../CartaoPrevisaoDeCaixa'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { Dica } from '@/components/ui/Dica'
-import { ContaDoRelatorio, ExportarRelatorio, FiltrosDePeriodo, variacaoEmPalavras } from '../RelatorioPecas'
+import { ContaDoRelatorio, ExportarRelatorio, FiltrosDePeriodo, GraficoDozeMeses, variacaoEmPalavras } from '../RelatorioPecas'
+import { CartaoPrevisaoDeCaixa } from '../CartaoPrevisaoDeCaixa'
 import { dreGroupOf } from '@/lib/finance'
 import { periodosDoDre, type PeriodoDre, type TipoPeriodo } from '@/lib/dre'
 import { montarFluxoDeCaixa, type LinhaDoCaixa } from '@/lib/fluxoDeCaixa'
 import { formatCurrency, formatDate, formatMonthTiny, formatMonthYear } from '@/lib/format'
 import { evolucaoMensal } from '@/lib/painel'
-import { GraficoEvolucao, Legenda, useCoresDoGrafico } from '@/components/graficos/Graficos'
+import { Legenda } from '@/components/graficos/Graficos'
 import type { Transaction } from '@/types'
 
 /*
@@ -24,7 +24,13 @@ import type { Transaction } from '@/types'
  * entrou e saiu das contas dela, e com quanto ela começou e terminou. Os
  * números vêm de `montarFluxoDeCaixa` (lib/fluxoDeCaixa.ts), que fecha com o
  * saldo do banco por construção. Todo valor abre no que o forma.
+ *
+ * Souza 3.0 (02/11/2026): a frase do título diz com quanto o período
+ * terminou; a faixa traz o saldo no fim (líder), o que entrou, o que saiu e o
+ * que a operação gerou. Embaixo, os 12 meses (o gráfico que saiu do Início)
+ * e a conta do período, com a comparação e o caixa previsto ao lado.
  */
+const r2 = (v: number) => Math.round(v * 100) / 100
 
 const EM_PALAVRAS: Record<string, string> = {
   'saldo-inicial': 'O dinheiro em conta na véspera do período',
@@ -40,7 +46,6 @@ const EM_PALAVRAS: Record<string, string> = {
 
 export function RelatorioCaixa() {
   const { transactions, accounts, transfers, installments, mes } = useAdmin()
-  const cores = useCoresDoGrafico()
   const parcelasPorId = useMemo(() => new Map(installments.map((p) => [p.id, p])), [installments])
   /* Souza 2.0: a série de 12 meses pela data do dinheiro, para ver o caixa no tempo. */
   const serie = useMemo(() => evolucaoMensal(transactions, parcelasPorId, mes), [transactions, parcelasPorId, mes])
@@ -128,13 +133,6 @@ export function RelatorioCaixa() {
   const saiu = valorDe('pagamentos') + valorDe('retiradas')
   const gerado = valorDe('gerado')
 
-  const fraseDoHeroi = (
-    <>
-      Começou com <Valor valor={inicial} posto="fato" />.{' '}
-      {gerado >= 0 ? 'O negócio gerou caixa no período.' : 'O negócio gastou mais do que recebeu no período.'}
-    </>
-  )
-
   const comecaDepois = atual.contasDesde !== null && atual.contasDesde > `${periodos.atual.de}-01`
 
   const comparar = [
@@ -143,9 +141,33 @@ export function RelatorioCaixa() {
     { id: 'saldo-final', rotulo: 'Saldo no fim', custo: false },
   ]
 
+  const linhaSaiu: LinhaDoCaixa = {
+    ...linhaDe('pagamentos'),
+    rotulo: 'Saiu',
+    valor: saiu,
+    explica: 'Pagamentos da operação e retiradas do sócio.',
+    lancamentos: [...linhaDe('pagamentos').lancamentos, ...linhaDe('retiradas').lancamentos],
+  }
+
+  /* --------------------------------------------------------- 12 meses */
+
+  const doze = serie.reduce((s, e) => ({ entra: s.entra + e.caixa.entra, sai: s.sai + e.caixa.sai }), { entra: 0, sai: 0 })
+  const geradoDoze = r2(doze.entra - doze.sai)
+
+  /* ------------------------------------------------------------ frase */
+
+  const fraseDoTitulo = (
+    <>
+      <b>
+        <Valor valor={final} posto="fato" tinta={final < 0 ? 'text-error-ink' : 'text-t1'} /> em conta
+      </b>{' '}
+      no fim de {periodos.atual.rotulo} · {gerado >= 0 ? 'a operação gerou caixa' : 'a operação gastou mais do que recebeu'}
+    </>
+  )
+
   return (
     <PageLayout
-      subtitulo="Quanto dinheiro entrou, quanto saiu e quanto ficou em conta."
+      subtitulo={fraseDoTitulo}
       faixa={<FiltrosDePeriodo ativo={tipo} aoMudar={setTipo} />}
       acoes={
         <ExportarRelatorio
@@ -157,69 +179,77 @@ export function RelatorioCaixa() {
         />
       }
     >
-      <Heroi
-        variante="ouro"
-        estado={final < 0 ? 'negativo' : undefined}
-        rotulo={`Saldo no fim · ${periodos.atual.rotulo}`}
-        valor={final}
-        rotuloAcessivel={`Ver o saldo de cada conta no fim de ${periodos.atual.rotulo}`}
-        aoAbrir={() => abrirLinha(linhaDe('saldo-final'), periodos.atual)}
-        frase={fraseDoHeroi}
-        apoios={[
+      <FaixaDeMetricas
+        rotuloAcessivel={`Fluxo de caixa de ${periodos.atual.rotulo}`}
+        metricas={[
+          {
+            rotulo: `Saldo no fim · ${periodos.atual.rotulo}`,
+            valor: final,
+            lider: true,
+            estado: final < 0 ? 'negativo' : undefined,
+            nota: (
+              <>
+                começou com <Valor valor={inicial} posto="fato" />
+              </>
+            ),
+            aoClicar: () => abrirLinha(linhaDe('saldo-final'), periodos.atual),
+          },
           {
             rotulo: 'Entrou',
             valor: entrou,
-            rotuloAcessivel: 'Ver o que entrou',
-            aoAbrir: () => abrirLinha(linhaDe('recebimentos'), periodos.atual),
+            nota: 'recebimentos nas contas',
+            aoClicar: entrou !== 0 ? () => abrirLinha(linhaDe('recebimentos'), periodos.atual) : undefined,
           },
           {
             rotulo: 'Saiu',
             valor: saiu,
-            rotuloAcessivel: 'Ver o que saiu',
-            aoAbrir: () =>
-              abrirLinha(
-                {
-                  ...linhaDe('pagamentos'),
-                  rotulo: 'Saiu',
-                  valor: saiu,
-                  explica: 'Pagamentos da operação e retiradas do sócio.',
-                  lancamentos: [...linhaDe('pagamentos').lancamentos, ...linhaDe('retiradas').lancamentos],
-                },
-                periodos.atual,
-              ),
+            nota: 'pagamentos e retiradas',
+            aoClicar: saiu !== 0 ? () => abrirLinha(linhaSaiu, periodos.atual) : undefined,
           },
           {
             rotulo: 'Gerado pela operação',
             valor: gerado,
-            rotuloAcessivel: 'Ver o caixa gerado pela operação',
-            aoAbrir: () => abrirLinha(linhaDe('gerado'), periodos.atual),
+            estado: gerado < 0 ? 'negativo' : undefined,
+            nota: `${periodos.anterior.rotulo}: ${variacaoEmPalavras(gerado, valorDe('gerado', anterior))}`,
+            aoClicar: gerado !== 0 ? () => abrirLinha(linhaDe('gerado'), periodos.atual) : undefined,
           },
-          // Apoio zerado não aparece: abriria uma folha vazia.
-        ].filter((a) => a.valor !== 0)}
+        ]}
       />
 
       <Cartao>
         <Cartao.Cabecalho
-          titulo="Entradas e saídas · 12 meses"
-          meta="pela data do dinheiro; toque num mês para ver os lançamentos"
+          titulo="Os últimos 12 meses"
+          meta={
+            <>
+              Pela data do dinheiro, sem a retirada do sócio:{' '}
+              <Valor valor={geradoDoze} posto="fato" forte estado={geradoDoze < 0 ? 'negativo' : undefined} />{' '}
+              {geradoDoze < 0 ? 'a menos no caixa' : 'a mais no caixa'}
+            </>
+          }
           extra={
             <Legenda
               itens={[
-                { nome: 'Entrou', cor: cores.entra },
-                { nome: 'Saiu', cor: cores.sai },
-                { nome: 'Saldo do mês', cor: cores.resultado, linha: true },
+                { nome: 'Entrou', cor: 'var(--g-entra)' },
+                { nome: 'Saiu', cor: 'var(--g-sai)' },
+                { nome: 'Sobrou', cor: 'var(--g-resultado)', linha: true },
               ]}
             />
           }
         />
         <Cartao.Corpo>
-          <GraficoEvolucao
-            nomes={{ entra: 'Entrou', sai: 'Saiu', resultado: 'Saldo do mês' }}
+          <GraficoDozeMeses
             aoClicar={abrirMesDaSerie}
-            rotuloAcessivel="Entradas, saídas e saldo de cada um dos últimos 12 meses"
-            pontos={serie.map((e) => {
+            rotuloAcessivel="O que entrou, saiu e sobrou em cada um dos últimos 12 meses. Toque num mês para ver os lançamentos."
+            meses={serie.map((e) => {
               const d = new Date(`${e.mes}-01T12:00:00`)
-              return { rotulo: formatMonthTiny(d), titulo: formatMonthYear(d), entra: e.caixa.entra, sai: e.caixa.sai, resultado: e.caixa.resultado }
+              return {
+                chave: e.mes,
+                rotulo: formatMonthTiny(d),
+                titulo: formatMonthYear(d),
+                entra: e.caixa.entra,
+                sai: e.caixa.sai,
+                resultado: e.caixa.resultado,
+              }
             })}
           />
         </Cartao.Corpo>
@@ -228,77 +258,73 @@ export function RelatorioCaixa() {
       {comecaDepois && atual.contasDesde && (
         <Dica tom="info">
           O saldo das contas da imobiliária começa no sistema em {formatDate(atual.contasDesde)}. O que se moveu
-          antes disso aparece em "Fora das contas da imobiliária", abaixo.
+          antes disso aparece em "Fora das contas da imobiliária".
         </Dica>
       )}
 
-      <Cartao>
-        <Cartao.Cabecalho
-          titulo="Como o dinheiro se moveu"
-          meta="Dinheiro de verdade, nas contas da imobiliária. Toque em qualquer valor para ver os lançamentos."
-        />
-        <ContaDoRelatorio
-          linhas={linhas}
-          emPalavras={EM_PALAVRAS}
-          aoAbrir={(l) => abrirLinha(l, periodos.atual)}
-          rotuloAcessivel={`Fluxo de caixa de ${periodos.atual.rotulo}`}
-          rotuloAtual={periodos.atual.rotulo}
-          comparar={{ rotulo: periodos.anterior.rotulo, valores: new Map(anterior.linhas.map((l) => [l.id, l.valor])) }}
-        />
-      </Cartao>
-
-      {atual.foraDoSaldo.length > 0 && (
+      <div className="grid items-start gap-bloco xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Cartao>
-          <Cartao.Cabecalho
-            titulo="Fora das contas da imobiliária"
-            meta="Movimentos do período que não passaram por uma conta dela no sistema. Não entram no saldo."
+          <Cartao.Cabecalho titulo="Como o dinheiro se moveu" meta="dinheiro de verdade, nas contas da imobiliária" />
+          <ContaDoRelatorio
+            linhas={linhas}
+            emPalavras={EM_PALAVRAS}
+            aoAbrir={(l) => abrirLinha(l, periodos.atual)}
+            rotuloAcessivel={`Fluxo de caixa de ${periodos.atual.rotulo}`}
+            rotuloAtual={periodos.atual.rotulo}
+            comparar={{ rotulo: periodos.anterior.rotulo, valores: new Map(anterior.linhas.map((l) => [l.id, l.valor])) }}
           />
-          <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Movimentos fora das contas">
-            {entradasFora.length > 0 && (
-              <Linha
-                titulo="Entradas"
-                meta={`${entradasFora.length} ${entradasFora.length === 1 ? 'lançamento' : 'lançamentos'}`}
-                valor={<Valor valor={somar(entradasFora)} posto="linha" />}
-                aoClicar={() => abrirFora('Entradas fora das contas', entradasFora, 1)}
-              />
-            )}
-            {saidasFora.length > 0 && (
-              <Linha
-                titulo="Saídas"
-                meta={`${saidasFora.length} ${saidasFora.length === 1 ? 'lançamento' : 'lançamentos'}`}
-                valor={<Valor valor={-somar(saidasFora)} posto="linha" estado="negativo" />}
-                aoClicar={() => abrirFora('Saídas fora das contas', saidasFora, -1)}
-              />
-            )}
+        </Cartao>
+        {/*
+         * O PREVISTO (Fase 4, 23/10/2026): o realizado está à esquerda; aqui,
+         * o caixa daqui para frente, a partir do saldo de hoje. O gráfico da
+         * mesma conta mora no Início; aqui ela vem mês a mês, ao lado.
+         */}
+        <CartaoPrevisaoDeCaixa />
+      </div>
+
+      <div className="grid items-start gap-bloco lg:grid-cols-2">
+        <Cartao>
+          <Cartao.Cabecalho titulo={`Comparado com ${periodos.anterior.rotulo}`} meta="o mesmo período, um antes" />
+          <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Comparação com o período anterior">
+            {comparar.map((c) => {
+              const agora = valorDe(c.id)
+              const antes = valorDe(c.id, anterior)
+              return (
+                <Linha
+                  key={c.id}
+                  titulo={c.rotulo}
+                  meta={`${periodos.anterior.rotulo}: ${formatCurrency(antes)} · ${variacaoEmPalavras(agora, antes, c.custo)}`}
+                  valor={<Valor valor={agora} posto="linha" estado={agora < 0 ? 'negativo' : undefined} />}
+                  aoClicar={() => abrirLinha(linhaDe(c.id, anterior), periodos.anterior)}
+                />
+              )
+            })}
           </Cartao.Lista>
         </Cartao>
-      )}
-
-      <Cartao>
-        <Cartao.Cabecalho titulo={`Comparado com ${periodos.anterior.rotulo}`} />
-        <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Comparação com o período anterior">
-          {comparar.map((c) => {
-            const agora = valorDe(c.id)
-            const antes = valorDe(c.id, anterior)
-            return (
-              <Linha
-                key={c.id}
-                titulo={c.rotulo}
-                meta={`${periodos.anterior.rotulo}: ${formatCurrency(antes)} · ${variacaoEmPalavras(agora, antes, c.custo)}`}
-                valor={<Valor valor={agora} posto="linha" estado={agora < 0 ? 'negativo' : undefined} />}
-                aoClicar={() => abrirLinha(linhaDe(c.id, anterior), periodos.anterior)}
-              />
-            )
-          })}
-        </Cartao.Lista>
-      </Cartao>
-
-      {/*
-       * O PREVISTO (Fase 4, 23/10/2026). Acima, o realizado do período; aqui,
-       * o caixa daqui para frente, a partir do saldo de hoje. Os dois juntos
-       * são o consolidado: o que já aconteceu e o que vem.
-       */}
-      <CartaoPrevisaoDeCaixa />
+        {atual.foraDoSaldo.length > 0 && (
+          <Cartao>
+            <Cartao.Cabecalho titulo="Fora das contas da imobiliária" meta="liquidado sem passar por uma conta dela; não entra no saldo" />
+            <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Movimentos fora das contas">
+              {entradasFora.length > 0 && (
+                <Linha
+                  titulo="Entradas"
+                  meta={`${entradasFora.length} ${entradasFora.length === 1 ? 'lançamento' : 'lançamentos'}`}
+                  valor={<Valor valor={somar(entradasFora)} posto="linha" />}
+                  aoClicar={() => abrirFora('Entradas fora das contas', entradasFora, 1)}
+                />
+              )}
+              {saidasFora.length > 0 && (
+                <Linha
+                  titulo="Saídas"
+                  meta={`${saidasFora.length} ${saidasFora.length === 1 ? 'lançamento' : 'lançamentos'}`}
+                  valor={<Valor valor={-somar(saidasFora)} posto="linha" estado="negativo" />}
+                  aoClicar={() => abrirFora('Saídas fora das contas', saidasFora, -1)}
+                />
+              )}
+            </Cartao.Lista>
+          </Cartao>
+        )}
+      </div>
     </PageLayout>
   )
 }

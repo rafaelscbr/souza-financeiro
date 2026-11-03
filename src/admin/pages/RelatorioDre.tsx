@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
+import { PartesDaRegua, Regua } from '@/components/ui/Regua'
 import { ContaDoRelatorio, ExportarRelatorio, FiltrosDePeriodo, variacaoEmPalavras } from '../RelatorioPecas'
 import { dreGroupOf } from '@/lib/finance'
 import {
@@ -31,9 +32,10 @@ import type { Transaction } from '@/types'
  * Fluxo de caixa. Os dois juntos dizem se a imobiliária dá lucro e se tem
  * caixa — decisão do Rafael em 22/10/2026.
  *
- * Feita para ler de cima para baixo sem saber contabilidade: o herói diz
- * quanto sobrou, a conta abaixo mostra como se chegou nele, linha por linha,
- * em palavras simples, e o último cartão compara com o período anterior.
+ * Feita para ler de cima para baixo sem saber contabilidade: a frase do
+ * título e a faixa dizem quanto sobrou (Souza 3.0: o lucro líquido é o
+ * número líder), a conta abaixo mostra como se chegou nele, linha por linha,
+ * em palavras simples, e ao lado ficam o previsto e a comparação.
  *
  * Só entra a comissão já DEVIDA (nota, gatilho ou dinheiro — decisão C6 de
  * 23/10/2026, CPC 47). A parcela que ainda espera o gatilho é previsão: fica
@@ -156,44 +158,32 @@ export function RelatorioDre() {
 
   /* ------------------------------------------------------------ texto */
 
-  const fraseDoHeroi =
-    bruta > 0 ? (
-      <>
-        De cada R$ 100,00 faturados, sobraram{' '}
-        <Valor valor={Math.max(0, (liquido / bruta) * 100)} posto="fato" forte />.
-      </>
-    ) : (
-      <>Nenhuma comissão ficou devida neste período.</>
-    )
+  const sobraDe100 = bruta > 0 ? Math.max(0, (liquido / bruta) * 100) : null
+  const rotuloLider = `Lucro líquido · ${periodos.atual.rotulo}${temPrevisto ? ' · inclui o previsto' : ''}`
 
-  const rotuloHeroi = `Lucro líquido · ${periodos.atual.rotulo}`
-  const heroiComum = {
-    valor: liquido,
-    rotuloAcessivel: `Ver os lançamentos que formam o lucro líquido de ${periodos.atual.rotulo}`,
-    aoAbrir: () => abrirLinha(linhaDe('liquido'), periodos.atual, liquido),
-    frase: fraseDoHeroi,
-    apoios: [
-      {
-        rotulo: 'Entrou',
-        valor: bruta,
-        rotuloAcessivel: 'Ver o que entrou',
-        aoAbrir: () => abrirLinha(linhaDe('bruta'), periodos.atual, bruta),
-      },
-      {
-        rotulo: 'Saiu',
-        valor: -saiu,
-        rotuloAcessivel: 'Ver o que saiu',
-        aoAbrir: () => abrirLinha(linhaSaiu, periodos.atual, -saiu),
-      },
-      {
-        rotulo: 'Retirado pelo sócio',
-        valor: -distribuicao,
-        rotuloAcessivel: 'Ver as retiradas do sócio',
-        aoAbrir: () => abrirLinha(linhaDe('distribuicao'), periodos.atual, -distribuicao),
-      },
-      // Apoio zerado não aparece: abriria uma folha vazia.
-    ].filter((a) => a.valor !== 0),
-  }
+  /* De cada real faturado: o que ficou (marinho, o dado principal) e para onde foi o resto. */
+  const partes = [
+    { nome: 'Lucro líquido', valor: Math.max(0, liquido), cor: 'var(--g-entra)' },
+    { nome: 'Corretores e gestão', valor: -valorDe('corretores'), cor: 'var(--t2)' },
+    { nome: 'Despesas operacionais', valor: -valorDe('despesas'), cor: 'var(--t4)' },
+    { nome: 'Impostos', valor: -valorDe('impostos'), cor: 'var(--g-sai)' },
+  ]
+
+  const fraseDoTitulo = (
+    <>
+      <b>
+        <Valor valor={liquido} posto="fato" tinta={liquido < 0 ? 'text-error-ink' : 'text-t1'} /> de lucro líquido
+      </b>{' '}
+      em {periodos.atual.rotulo}
+      {sobraDe100 != null ? (
+        <>
+          {' · '}de cada R$ 100,00 faturados, sobraram <Valor valor={sobraDe100} posto="fato" tinta="text-t1" />
+        </>
+      ) : (
+        ' · nenhuma comissão ficou devida neste período'
+      )}
+    </>
+  )
 
   /* --------------------------------------------------- comparação */
 
@@ -205,7 +195,7 @@ export function RelatorioDre() {
 
   return (
     <PageLayout
-      subtitulo="Quanto entrou, quanto saiu e quanto sobrou para a imobiliária."
+      subtitulo={fraseDoTitulo}
       faixa={<FiltrosDePeriodo ativo={tipo} aoMudar={setTipo} />}
       acoes={
         <ExportarRelatorio
@@ -234,80 +224,126 @@ export function RelatorioDre() {
       }
     >
       {/*
-       * Período com parcela que ainda não ficou devida inclui previsão: aí o
-       * herói é previsão, rotulado e nunca ouro (regra de 13/09).
+       * Período com parcela que ainda não ficou devida inclui previsão: o
+       * rótulo do líder diz "inclui o previsto" (regra de 13/09). O líder é
+       * tinta, nunca ouro.
        */}
-      {temPrevisto ? (
-        <Heroi variante="previsto" rotulo={`${rotuloHeroi} · inclui o previsto`} {...heroiComum} />
-      ) : liquido < 0 ? (
-        <Heroi variante="ouro" estado="negativo" rotulo={rotuloHeroi} {...heroiComum} />
-      ) : (
-        <Heroi variante="ouro" rotulo={rotuloHeroi} {...heroiComum} />
-      )}
+      <FaixaDeMetricas
+        rotuloAcessivel={`DRE de ${periodos.atual.rotulo}`}
+        metricas={[
+          {
+            rotulo: rotuloLider,
+            valor: liquido,
+            lider: true,
+            estado: liquido < 0 ? 'negativo' : undefined,
+            nota: `${periodos.anterior.rotulo}: ${variacaoEmPalavras(liquido, anterior.get('liquido') ?? 0)}`,
+            aoClicar: () => abrirLinha(linhaDe('liquido'), periodos.atual, liquido),
+          },
+          {
+            rotulo: 'Entrou',
+            valor: bruta,
+            nota: 'faturamento devido',
+            aoClicar: bruta !== 0 ? () => abrirLinha(linhaDe('bruta'), periodos.atual, bruta) : undefined,
+          },
+          {
+            rotulo: 'Saiu',
+            valor: -saiu,
+            nota: 'impostos, corretores e despesas',
+            aoClicar: saiu !== 0 ? () => abrirLinha(linhaSaiu, periodos.atual, -saiu) : undefined,
+          },
+          {
+            rotulo: 'Retirado pelo sócio',
+            valor: -distribuicao,
+            nota: 'fora do lucro',
+            aoClicar: distribuicao !== 0 ? () => abrirLinha(linhaDe('distribuicao'), periodos.atual, -distribuicao) : undefined,
+          },
+        ]}
+      />
 
-      <Cartao>
-        <Cartao.Cabecalho
-          titulo="Como chegamos nesse número"
-          meta="A comissão conta quando fica devida (gatilho e nota), não quando o dinheiro cai. Toque em qualquer valor para ver os lançamentos."
-        />
-        <ContaDoRelatorio
-          linhas={atual}
-          base={bruta}
-          emPalavras={EM_PALAVRAS}
-          aoAbrir={(l) => abrirLinha(l, periodos.atual, l.valor)}
-          rotuloAcessivel={`DRE de ${periodos.atual.rotulo}`}
-          rotuloAtual={periodos.atual.rotulo}
-          comparar={{ rotulo: periodos.anterior.rotulo, valores: anterior }}
-        />
-      </Cartao>
-
-      {previstos.length > 0 && (
+      <div className="grid items-start gap-bloco xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Cartao>
           <Cartao.Cabecalho
-            titulo="Previsto, ainda não devido"
-            meta="Parcelas deste período que ainda esperam o gatilho ou a nota. Não entram no lucro até ficarem devidas."
+            titulo="Como chegamos nesse número"
+            meta="a comissão conta quando fica devida (gatilho e nota), não quando o dinheiro cai"
           />
-          <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Previsto, ainda não devido">
-            <Linha
-              titulo="Comissão prevista"
-              meta="A parte da imobiliária nas parcelas"
-              valor={<Valor valor={previstoBruta} posto="linha" previsto />}
-              aoClicar={() => abrirLinha({ ...previsto.find((l) => l.id === 'bruta')!, rotulo: 'Comissão prevista' }, periodos.atual, previstoBruta, previstoDe)}
-            />
-            <Linha
-              titulo="Impostos, corretores e gestão"
-              meta="O que sai delas quando ficarem devidas"
-              valor={<Valor valor={previstoBruto - previstoBruta} posto="linha" previsto />}
-              aoClicar={() => abrirLinha(linhaPrevistaCusto, periodos.atual, previstoBruto - previstoBruta, previstoDe)}
-            />
-            <Linha
-              titulo="Fica para a imobiliária"
-              meta="Antes das despesas"
-              valor={<Valor valor={previstoBruto} posto="linha" previsto />}
-              aoClicar={() => abrirLinha({ ...previsto.find((l) => l.id === 'bruto')!, rotulo: 'Fica para a imobiliária' }, periodos.atual, previstoBruto, previstoDe)}
-            />
-          </Cartao.Lista>
+          <ContaDoRelatorio
+            linhas={atual}
+            base={bruta}
+            emPalavras={EM_PALAVRAS}
+            aoAbrir={(l) => abrirLinha(l, periodos.atual, l.valor)}
+            rotuloAcessivel={`DRE de ${periodos.atual.rotulo}`}
+            rotuloAtual={periodos.atual.rotulo}
+            comparar={{ rotulo: periodos.anterior.rotulo, valores: anterior }}
+          />
         </Cartao>
-      )}
 
-      <Cartao>
-        <Cartao.Cabecalho titulo={`Comparado com ${periodos.anterior.rotulo}`} />
-        <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Comparação com o período anterior">
-          {comparar.map((c) => {
-            const agora = valorDe(c.id)
-            const antes = anterior.get(c.id) ?? 0
-            return (
-              <Linha
-                key={c.id}
-                titulo={c.rotulo}
-                meta={`${periodos.anterior.rotulo}: ${formatCurrency(antes)} · ${variacaoEmPalavras(agora, antes, c.custo)}`}
-                valor={<Valor valor={agora} posto="linha" estado={agora < 0 ? 'negativo' : undefined} />}
-                aoClicar={() => abrirLinha(linhaDe(c.id), periodos.anterior, antes)}
+        <div className="grid items-start gap-bloco md:max-xl:grid-cols-2">
+          {bruta > 0 && (
+            <Cartao>
+              <Cartao.Cabecalho
+                titulo="Para onde foi o faturamento"
+                meta={
+                  <>
+                    os <Valor valor={bruta} posto="fato" /> de {periodos.atual.rotulo}
+                  </>
+                }
               />
-            )
-          })}
-        </Cartao.Lista>
-      </Cartao>
+              <Cartao.Corpo>
+                <Regua
+                  partes={partes}
+                  rotuloAcessivel={`Do faturamento de ${formatCurrency(bruta)}: ${partes.map((p) => `${p.nome.toLowerCase()} ${formatCurrency(p.valor)}`).join(', ')}.`}
+                />
+              </Cartao.Corpo>
+              <PartesDaRegua partes={partes} rotuloAcessivel="As partes do faturamento" />
+            </Cartao>
+          )}
+
+          <Cartao>
+            <Cartao.Cabecalho titulo={`Comparado com ${periodos.anterior.rotulo}`} meta="o mesmo período, um antes" />
+            <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Comparação com o período anterior">
+              {comparar.map((c) => {
+                const agora = valorDe(c.id)
+                const antes = anterior.get(c.id) ?? 0
+                return (
+                  <Linha
+                    key={c.id}
+                    titulo={c.rotulo}
+                    meta={`${periodos.anterior.rotulo}: ${formatCurrency(antes)} · ${variacaoEmPalavras(agora, antes, c.custo)}`}
+                    valor={<Valor valor={agora} posto="linha" estado={agora < 0 ? 'negativo' : undefined} />}
+                    aoClicar={() => abrirLinha(linhaDe(c.id), periodos.anterior, antes)}
+                  />
+                )
+              })}
+            </Cartao.Lista>
+          </Cartao>
+
+          {previstos.length > 0 && (
+            <Cartao>
+              <Cartao.Cabecalho titulo="Previsto, ainda não devido" meta="espera o gatilho ou a nota; não entra no lucro" />
+              <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Previsto, ainda não devido">
+                <Linha
+                  titulo="Comissão prevista"
+                  meta="a parte da imobiliária nas parcelas"
+                  valor={<Valor valor={previstoBruta} posto="linha" previsto />}
+                  aoClicar={() => abrirLinha({ ...previsto.find((l) => l.id === 'bruta')!, rotulo: 'Comissão prevista' }, periodos.atual, previstoBruta, previstoDe)}
+                />
+                <Linha
+                  titulo="Impostos, corretores e gestão"
+                  meta="o que sai delas quando ficarem devidas"
+                  valor={<Valor valor={previstoBruto - previstoBruta} posto="linha" previsto />}
+                  aoClicar={() => abrirLinha(linhaPrevistaCusto, periodos.atual, previstoBruto - previstoBruta, previstoDe)}
+                />
+                <Linha
+                  titulo="Fica para a imobiliária"
+                  meta="antes das despesas"
+                  valor={<Valor valor={previstoBruto} posto="linha" previsto />}
+                  aoClicar={() => abrirLinha({ ...previsto.find((l) => l.id === 'bruto')!, rotulo: 'Fica para a imobiliária' }, periodos.atual, previstoBruto, previstoDe)}
+                />
+              </Cartao.Lista>
+            </Cartao>
+          )}
+        </div>
+      </div>
     </PageLayout>
   )
 }

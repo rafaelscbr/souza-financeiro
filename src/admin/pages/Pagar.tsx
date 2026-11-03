@@ -1,21 +1,20 @@
 import { useMemo, useState } from 'react'
-import { ArrowUpCircle, HandCoins, Hourglass, Landmark, Receipt } from 'lucide-react'
+import { ArrowUpCircle } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { PagarComissao, type ComissaoAPagar } from '../PagarComissao'
 import { BaixarLancamento } from '../BaixarLancamento'
 import { BaixaNaLinha, useBaixaDeLancamento } from '../BaixaNaLinha'
 import { useComposicao, type ItemComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
-import { Selo } from '@/components/ui/Selo'
 import { ChipSituacao, FraseDeTempo } from '@/components/ui/Situacao'
 import { Button } from '@/components/ui/Button'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { fraseDeTempo, situacaoDeTela, type Situacao } from '@/lib/situacao'
-import { formatCurrency, formatDateShort } from '@/lib/format'
+import { formatCurrency, formatDateShort, formatMonthYear } from '@/lib/format'
 import type { Transaction } from '@/types'
 import type { MoneyItem } from '@/lib/sales'
 
@@ -111,15 +110,20 @@ const estadoDe = (s: Situacao) => (s === 'vencida' ? ('vencido' as const) : unde
  * devido e as duas baixas (comissão em lote e lançamento avulso) são os de
  * antes. Composição:
  *
- * 1. Herói ouro "Devido agora" (liberadas + imposto + despesa), com os três
- *    subtotais como apoios; cada um abre no que o compõe.
- * 2. Cartão "Comissão liberada": uma linha por corretor com "Pagar"/"Pagar tudo".
- * 3. Cartões "Imposto" e "Despesas": linha a linha com "Paguei" e o marco de hoje.
- * 4. Cartão "Previsto, depende da construtora": uma linha por corretor que
- *    abre as parcelas dele. Previsão nunca soma no devido.
+ * SOUZA 3.0 (02/11/2026, docs/redesenho-3/GUIA-DE-TELA.md):
+ *
+ * 1. Frase do título: o devido agora e quanto disso já venceu.
+ * 2. Faixa de números: "Devido agora" (liberadas + imposto + despesa) é a
+ *    líder; os três subtotais são os apoios. Cada um abre no que o compõe.
+ * 3. "Comissão liberada" e "Imposto" formam par: uma linha por corretor com
+ *    "Pagar"/"Pagar tudo" (abre o painel do repasse, por causa do brinde) e a
+ *    guia com "Paguei" na linha.
+ * 4. "Despesas": linha a linha com "Paguei" e o marco de hoje.
+ * 5. "Previsto, depende da construtora": uma linha por corretor que abre as
+ *    parcelas dele. Previsão nunca soma no devido.
  */
 export function Pagar() {
-  const { pagar, hoje, installments, vendas } = useAdmin()
+  const { pagar, hoje, installments, vendas, mes } = useAdmin()
   const { abrir } = useComposicao()
   const [comissoes, setComissoes] = useState<ComissaoAPagar[] | null>(null)
   const [avulso, setAvulso] = useState<Transaction[] | null>(null)
@@ -156,6 +160,8 @@ export function Pagar() {
     [grupos],
   )
   const totalDevido = soma(devido)
+  // A mesma leitura do Início ("Contas a pagar"): do que é devido, o que já passou da data.
+  const vencido = devido.filter((i) => i.overdue)
 
   function paraPagamento(itens: MoneyItem[]): ComissaoAPagar[] {
     return itens
@@ -299,99 +305,160 @@ export function Pagar() {
     )
   }
 
+  const frase = (
+    <>
+      <b>
+        <Valor valor={totalDevido} posto="fato" tinta="text-t1" /> devido agora
+      </b>
+      {vencido.length > 0 ? (
+        <>
+          {' · '}
+          <span className="font-medium text-error-ink">
+            <Valor valor={soma(vencido)} posto="fato" tinta="text-error-ink" /> {vencido.length === 1 ? 'vencido' : 'vencidos'}
+          </span>
+        </>
+      ) : (
+        devido.length > 0 && ' · nada vencido'
+      )}
+      {` · ${formatMonthYear(mes).toLowerCase()}`}
+    </>
+  )
+
+  const abrirDevido = () =>
+    abrir({
+      rotulo: 'Devido agora',
+      titulo: 'O que é obrigação hoje',
+      explica: 'Só o que a imobiliária de fato deve: comissão de parcela já recebida, imposto e despesa lançada.',
+      total: totalDevido,
+      itens: comp(devido),
+      nota: 'Comissão de parcela que a construtora ainda não pagou não entra aqui. Ela aparece abaixo, como previsão.',
+      vazio: 'Nada devido agora.',
+    })
+
+  const qtd = (n: number, um: string, varios: string) => (n === 0 ? 'nada em aberto' : `${n} ${n === 1 ? um : varios}`)
+
+  const cartaoComissao = porCorretor.length > 0 && (
+    <Cartao rotuloAcessivel="Comissão liberada">
+      <Cartao.Cabecalho
+        titulo="Comissão liberada"
+        meta="a imobiliária já recebeu; é do corretor, esperando o repasse"
+      />
+      <Cartao.Lista colunas={{ situacao: true, valor: true, acao: '7rem' }} rotuloAcessivel="Comissão liberada por corretor">
+        {porCorretor.map(([nome, itens]) => {
+          /* A situação do grupo é a pior das parcelas dele. */
+          const s: Situacao = itens.some((i) => situacaoDaLinha(i, hoje) === 'vencida') ? 'vencida' : 'liberada'
+          const maisAntiga = itens[0]
+          return (
+            <Linha
+              key={nome}
+              titulo={nome}
+              meta={
+                <>
+                  {itens.length === 1 ? 'uma parcela · ' : `${itens.length} parcelas · a mais antiga `}
+                  <FraseDeTempo
+                    situacao={situacaoDaLinha(maisAntiga, hoje)}
+                    prevista={maisAntiga.date}
+                    liberada={maisAntiga.installment?.received_date}
+                  />
+                </>
+              }
+              situacao={<ChipSituacao situacao={s} />}
+              valor={
+                <ValorComOrigem
+                  posto="linha"
+                  valor={soma(itens)}
+                  estado={estadoDe(s)}
+                  rotuloAcessivel={`Ver de quais vendas vem a comissão de ${nome}`}
+                  aoAbrir={() =>
+                    abrir({
+                      rotulo: nome,
+                      titulo: `Comissão liberada de ${nome}`,
+                      explica: 'Parcelas que a imobiliária já recebeu. É dinheiro do corretor, esperando o repasse.',
+                      total: soma(itens),
+                      itens: comp(itens),
+                    })
+                  }
+                />
+              }
+              acao={
+                // O repasse NÃO grava na linha: o brinde exige o painel do corretor.
+                <div className="flex justify-end">
+                  <Button size="sm" variant="secundario" onClick={() => setComissoes(paraPagamento(itens))}>
+                    {itens.length > 1 ? 'Pagar tudo' : 'Pagar'}
+                  </Button>
+                </div>
+              }
+            />
+          )
+        })}
+      </Cartao.Lista>
+    </Cartao>
+  )
+
+  const cartaoImposto = saidasImposto.length > 0 && (
+    <CartaoDeSaida
+      titulo="Imposto"
+      meta="a guia do Simples vence dia 20 do mês seguinte; toque nela para ver as parcelas"
+      saidas={saidasImposto}
+      hoje={hoje}
+      onPagar={setAvulso}
+      baixar={baixaDeLancamento}
+      aoAbrir={abrirSaida}
+    />
+  )
+
   return (
-    <PageLayout subtitulo={`${formatCurrency(totalDevido)} devido agora`}>
-      {/* UM número em degrau herói, e só o que é obrigação de fato: a mesma conta de antes. */}
-      <Heroi
-        variante="ouro"
-        rotulo="Devido agora"
-        valor={totalDevido}
-        rotuloAcessivel="Ver de onde vem o total devido agora"
-        aoAbrir={() =>
-          abrir({
+    <PageLayout subtitulo={frase}>
+      {/* Só o que é obrigação de fato, a mesma conta de antes; a previsão não entra em nenhum destes números. */}
+      <FaixaDeMetricas
+        rotuloAcessivel="O que é devido agora"
+        metricas={[
+          {
             rotulo: 'Devido agora',
-            titulo: 'O que é obrigação hoje',
-            explica: 'Só o que a imobiliária de fato deve: comissão de parcela já recebida, imposto e despesa lançada.',
-            total: totalDevido,
-            itens: comp(devido),
-            nota: 'Comissão de parcela que a construtora ainda não pagou não entra aqui. Ela aparece abaixo, como previsão.',
-            vazio: 'Nada devido agora.',
-          })
-        }
-        frase="Comissão de parcela que a imobiliária já recebeu, imposto e despesa lançada. Comissão que depende da construtora pagar não entra nesta conta."
-        apoios={[
-          { rotulo: 'Comissão liberada', valor: soma(grupos.liberadas), aoAbrir: abrirLiberadas, rotuloAcessivel: 'Ver de onde vem: Comissão liberada' },
-          { rotulo: 'Imposto', valor: soma(grupos.impostos), aoAbrir: abrirImpostos, rotuloAcessivel: 'Ver de onde vem: Imposto a pagar' },
-          { rotulo: 'Despesas', valor: soma(grupos.despesas), aoAbrir: abrirDespesas, rotuloAcessivel: 'Ver de onde vem: Despesa a pagar' },
+            valor: totalDevido,
+            lider: true,
+            nota:
+              devido.length === 0
+                ? 'nada devido agora'
+                : `${devido.length} ${devido.length === 1 ? 'item' : 'itens'}: comissão liberada, imposto e despesa`,
+            aoClicar: abrirDevido,
+          },
+          {
+            rotulo: 'Comissão liberada',
+            valor: soma(grupos.liberadas),
+            nota: qtd(porCorretor.length, 'corretor', 'corretores'),
+            aoClicar: abrirLiberadas,
+          },
+          {
+            rotulo: 'Imposto',
+            valor: soma(grupos.impostos),
+            nota: qtd(grupos.impostos.length, 'lançamento', 'lançamentos'),
+            aoClicar: abrirImpostos,
+          },
+          {
+            rotulo: 'Despesas',
+            valor: soma(grupos.despesas),
+            nota: qtd(grupos.despesas.length, 'lançamento', 'lançamentos'),
+            aoClicar: abrirDespesas,
+          },
         ]}
       />
 
-      {porCorretor.length > 0 && (
-        <Cartao>
-          <Cartao.Cabecalho
-            titulo="Comissão liberada"
-            icone={HandCoins}
-            meta="A imobiliária já recebeu a parcela: é do corretor, esperando o repasse."
-          />
-          <Cartao.Lista
-            colunas={{ goteira: true, situacao: true, valor: true, acao: '7rem' }}
-            rotuloAcessivel="Comissão liberada por corretor"
-          >
-            {porCorretor.map(([nome, itens]) => {
-              /* A situação do grupo é a pior das parcelas dele. */
-              const s: Situacao = itens.some((i) => situacaoDaLinha(i, hoje) === 'vencida') ? 'vencida' : 'liberada'
-              const maisAntiga = itens[0]
-              return (
-                <Linha
-                  key={nome}
-                  goteira={<Selo situacao={s} />}
-                  titulo={nome}
-                  meta={
-                    <>
-                      {itens.length === 1 ? 'uma parcela · ' : `${itens.length} parcelas · a mais antiga `}
-                      <FraseDeTempo
-                        situacao={situacaoDaLinha(maisAntiga, hoje)}
-                        prevista={maisAntiga.date}
-                        liberada={maisAntiga.installment?.received_date}
-                      />
-                    </>
-                  }
-                  situacao={<ChipSituacao situacao={s} />}
-                  valor={
-                    <ValorComOrigem
-                      posto="linha"
-                      valor={soma(itens)}
-                      estado={estadoDe(s)}
-                      rotuloAcessivel={`Ver de quais vendas vem a comissão de ${nome}`}
-                      aoAbrir={() =>
-                        abrir({
-                          rotulo: nome,
-                          titulo: `Comissão liberada de ${nome}`,
-                          explica: 'Parcelas que a imobiliária já recebeu. É dinheiro do corretor, esperando o repasse.',
-                          total: soma(itens),
-                          itens: comp(itens),
-                        })
-                      }
-                    />
-                  }
-                  acao={
-                    <Button size="sm" variant="secundario" onClick={() => setComissoes(paraPagamento(itens))}>
-                      {itens.length > 1 ? 'Pagar tudo' : 'Pagar'}
-                    </Button>
-                  }
-                />
-              )
-            })}
-          </Cartao.Lista>
-        </Cartao>
-      )}
-
-      {saidasImposto.length > 0 && (
-        <CartaoDeSaida titulo="Imposto" icone={Landmark} explica="A guia mensal do Simples soma tudo que entrou no mês e vence dia 20 do mês seguinte. Toque na guia para ver as parcelas que ela soma." saidas={saidasImposto} hoje={hoje} onPagar={setAvulso} baixar={baixaDeLancamento} aoAbrir={abrirSaida} />
+      {cartaoComissao && cartaoImposto ? (
+        /* Duas listas curtas formam par; items-start: cada uma com a sua altura. */
+        <div className="grid items-start gap-bloco lg:grid-cols-2">
+          {cartaoComissao}
+          {cartaoImposto}
+        </div>
+      ) : (
+        <>
+          {cartaoComissao}
+          {cartaoImposto}
+        </>
       )}
 
       {saidasDespesa.length > 0 && (
-        <CartaoDeSaida titulo="Despesas" icone={Receipt} explica="Estrutura da imobiliária e retiradas do sócio. Compra parcelada no cartão aparece numa linha por mês — toque para ver o que está dentro." saidas={saidasDespesa} hoje={hoje} onPagar={setAvulso} baixar={baixaDeLancamento} aoAbrir={abrirSaida} />
+        <CartaoDeSaida titulo="Despesas" meta="estrutura e retiradas do sócio; o cartão vem numa linha por mês" saidas={saidasDespesa} hoje={hoje} onPagar={setAvulso} baixar={baixaDeLancamento} aoAbrir={abrirSaida} />
       )}
 
       {(previstasPorCorretor.length > 0 || grupos.impostosPrevistos.length > 0) && (
@@ -403,7 +470,6 @@ export function Pagar() {
         <Cartao>
           <Cartao.Cabecalho
             titulo="Previsto, depende da construtora"
-            icone={Hourglass}
             meta={
               grupos.impostosPrevistos.length > 0
                 ? 'comissão e imposto de parcela que ainda não entrou'
@@ -472,10 +538,7 @@ export function Pagar() {
               />
             )}
           </Cartao.Lista>
-          <Cartao.Rodape>
-            O corretor recebe quando a imobiliária receber, e o imposto só nasce com o dinheiro dentro. Não é dívida
-            hoje, e nada daqui entra no número do topo.
-          </Cartao.Rodape>
+          <Cartao.Rodape>Não é dívida hoje: nada daqui entra no devido agora.</Cartao.Rodape>
         </Cartao>
       )}
 
@@ -492,8 +555,7 @@ export function Pagar() {
  */
 function CartaoDeSaida({
   titulo,
-  icone,
-  explica,
+  meta,
   saidas,
   hoje,
   onPagar,
@@ -501,8 +563,7 @@ function CartaoDeSaida({
   aoAbrir,
 }: {
   titulo: string
-  icone: typeof Receipt
-  explica: string
+  meta: string
   saidas: Saida[]
   hoje: string
   onPagar: (t: Transaction[]) => void
@@ -513,15 +574,14 @@ function CartaoDeSaida({
 }) {
   return (
     <Cartao>
-      <Cartao.Cabecalho titulo={titulo} icone={icone} meta={explica} />
-      <Cartao.Lista colunas={{ goteira: true, situacao: true, valor: true, acao: '11rem' }} rotuloAcessivel={titulo}>
+      <Cartao.Cabecalho titulo={titulo} meta={meta} />
+      <Cartao.Lista colunas={{ situacao: true, valor: true, acao: '11rem' }} rotuloAcessivel={titulo}>
         {saidas.flatMap((g, n) => {
           const s = situacaoDaLinha(g.itens[0], hoje)
           const total = Math.round(g.itens.reduce((acc, i) => acc + i.amount, 0) * 100) / 100
           const linha = (
             <Linha
               key={g.chave}
-              goteira={<Selo situacao={s} />}
               titulo={g.titulo}
               meta={
                 g.itens.length > 1 ? (

@@ -1,17 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { BarChart3, Clock, Handshake, HandCoins, Hourglass, List, Plus, Search, SearchX, TriangleAlert } from 'lucide-react'
+import { CircleCheck, Clock, Handshake, Hourglass, Plus, Search, SearchX, TriangleAlert } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useAcoesAdmin } from '../AcoesAdmin'
 import { PagarComissao, type ComissaoAPagar } from '../PagarComissao'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
 import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Colunas } from '@/components/ui/Colunas'
-import { Linha } from '@/components/ui/Lista'
-import { Barra, LegendaBarra } from '@/components/ui/Barra'
+import { ListaDeAcoes, type ItemDeAcao } from '@/components/ui/ListaDeAcoes'
+import { Regua } from '@/components/ui/Regua'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
 import { TabelaDeDados } from '@/components/ui/TabelaDeDados'
 import { ChipSituacao } from '@/components/ui/Situacao'
@@ -20,7 +19,6 @@ import { EstadoVazio } from '@/components/ui/Estados'
 import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Field'
-import { FilaDeAcao, type ItemFila } from '@/components/shared/FilaDeAcao'
 import { brokerStatusOf, volumeDeVendas, type SaleView } from '@/lib/sales'
 import { composicaoDoVgl } from '@/lib/composicaoDoVgl'
 import { lastNMonths, monthKey } from '@/lib/finance'
@@ -29,32 +27,27 @@ import { formatCurrency, formatDateShort, formatMonthTiny, formatMonthYear } fro
 import type { SaleInstallment, TransactionStatus } from '@/types'
 
 /*
- * A CARTEIRA DE VENDAS, no quadro do Souza OS.
+ * VENDAS — Souza 3.0 (02/11/2026, docs/redesenho-3/GUIA-DE-TELA.md).
  *
- * O que ficou da tela anterior, porque era regra e não desenho:
+ * A pergunta da tela: "quanto ainda entra das vendas, e o que pede você?".
+ * A frase do título responde; o resto, de cima para baixo:
  *
- * 1. O herói é "Comissão em carteira": a comissão contratada que ainda não
- *    entrou, somando as parcelas previstas de todas as vendas não canceladas.
- *    Ele não segue o filtro de propósito — o filtro muda a lista, não o
- *    tamanho da carteira — e continua abrindo, venda por venda, no que o forma.
+ *   1. Faixa — comissão em carteira (líder: a contratada que ainda não
+ *      entrou, de todas as vendas ativas; não segue o filtro), já entrou,
+ *      contratada e a próxima parcela. Cada número abre o que o forma.
+ *   2. Par: a próxima ação (comissão parada, parcela sem baixa) e de quem é a
+ *      carteira (imobiliária, corretores, imposto — somam a carteira).
+ *   3. Cada venda: a lista com filtro na URL, busca e o par do rodapé (já
+ *      entrou × depende da construtora; nunca um total único).
+ *   4. Par: VGV mês a mês e o volume dos 12 meses (VGV, VGL, ticket).
  *
- * 2. O subtotal da lista é sempre em duas parcelas: o que já entrou e o que
- *    ainda é promessa da construtora. Somar os dois num número só misturaria o
- *    que a imobiliária tem com o que ela espera.
+ * Regras que ficam (eram regra, não desenho): venda com parcela atrasada pela
+ * construtora continua "Prevista" — o atraso é dito com palavra e âmbar,
+ * nunca com o vermelho de vencido; vencido é só o que a imobiliária recebeu e
+ * não repassou. Venda de pessoa física fica fora de todo número da empresa.
  *
- * 3. Venda com parcela atrasada pela construtora continua "Prevista". O atraso
- *    é dito com palavra e ícone de atenção, nunca com o vermelho de vencido:
- *    vencido é só o que a imobiliária já recebeu e não repassou.
- *
- * O que mudou é o quadro (planta 9.7): cabeçalho com resumo vivo, filtros com
- * contador na faixa, herói PREVISTO (sem ouro: a carteira é promessa), a fila
- * de ação observada nos dados e a lista com colunas declaradas uma vez. Os
- * quatro indicadores saíram do topo sem levar número nenhum: as contagens
- * moram nos contadores dos filtros e a comissão liberada no cabeçalho da lista.
- *
- * Carregando e falhou são da casca (AdminShell): ela só entrega a tela depois
- * que o banco respondeu, e mostra o erro no lugar dela. Por isso, aqui, uma
- * carteira vazia é vazia de verdade, nunca uma consulta que caiu.
+ * Carregando e falhou são da casca (AdminShell): aqui, carteira vazia é vazia
+ * de verdade, nunca uma consulta que caiu.
  */
 
 type Filtro = 'andamento' | 'atrasadas' | 'comissao' | 'pessoais' | 'concluidas' | 'todas'
@@ -257,7 +250,7 @@ export function Vendas() {
 
   if (vendas.length === 0) {
     return (
-      <PageLayout icone={Handshake} titulo="Vendas" subtitulo="Nenhuma venda registrada" cta={cta}>
+      <PageLayout subtitulo="Nenhuma venda registrada" cta={cta}>
         <Cartao rotuloAcessivel="Vendas">
           <Cartao.Corpo>
             <EstadoVazio
@@ -277,19 +270,27 @@ export function Vendas() {
   }
 
   const nSemBaixa = new Set(observado.parcelasSemBaixa.map((x) => x.venda.id)).size
-  const subtitulo = [
-    `${plural(contagem.andamento, 'venda em andamento', 'vendas em andamento')}`,
-    `${formatCurrency(emCarteira)} em carteira`,
-    nSemBaixa > 0 ? `${nSemBaixa} com parcela sem baixa` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  const frase = (
+    <>
+      <b>
+        <Valor valor={emCarteira} posto="fato" tinta="text-t1" /> em carteira
+      </b>
+      {` · ${plural(contagem.andamento, 'venda em andamento', 'vendas em andamento')}`}
+      {nSemBaixa > 0 && (
+        <>
+          {' · '}
+          <span className="font-medium text-warning-ink">{nSemBaixa} com parcela sem baixa</span>
+        </>
+      )}
+    </>
+  )
 
   const fila = montarFila({
     observado,
     hoje,
     aoPagar: setPagando,
     aoFiltrar: (f) => mudarFiltro(f, true),
+    aoAbrirParcela: (venda, p) => navigate(`/vendas/${venda.id}?parcela=${p.id}`),
   })
 
   /* A frase de cada venda na composição: empreendimento e a data que importa. */
@@ -305,7 +306,6 @@ export function Vendas() {
       .filter(Boolean)
       .join(' · ')
 
-  /** Um mês do VGV, aberto nas vendas daquele mês. */
   /*
    * O VGL é o VGV que é da Souza: parceria entra dividida e a nota sai (regra
    * de 22/09/2026, em lib/composicaoDoVgl.ts). Como o número já não é "o VGV
@@ -329,6 +329,7 @@ export function Vendas() {
       }),
     )
 
+  /** Um mês do VGV, aberto nas vendas daquele mês. */
   const abrirMesDoVgv = (i: number) => {
     const m = volume.meses[i]
     if (!m) return
@@ -457,6 +458,18 @@ export function Vendas() {
       vazio: 'Nenhuma venda da lista com parcela em aberto.',
     })
 
+  /*
+   * De quem é a carteira: as três partes gravadas nas parcelas previstas
+   * (imposto, corretor, o que sobra). A imobiliária é o dado principal
+   * (marinho); corretores em tinta, imposto em cinza.
+   */
+  const partes = [
+    { id: 'fica' as const, nome: 'Da imobiliária', valor: carteira.fica, cor: 'var(--g-entra)', meta: 'depois do imposto e do corretor' },
+    { id: 'corretor' as const, nome: 'Dos corretores', valor: carteira.corretor, cor: 'var(--t3)', meta: 'a pagar quando a construtora pagar' },
+    { id: 'imposto' as const, nome: 'Do imposto', valor: carteira.imposto, cor: 'var(--g-sai)', meta: 'ISS retido e Simples de cada parcela' },
+  ]
+  const pctDaCarteira = (v: number) => (emCarteira > 0 ? Math.round((v / emCarteira) * 100) : 0)
+
   const faixa = (
     <FiltrosRapidos
       rotuloAcessivel="Situação da venda"
@@ -489,140 +502,80 @@ export function Vendas() {
   )
 
   return (
-    <PageLayout icone={Handshake} titulo="Vendas" subtitulo={subtitulo} cta={cta} faixa={faixa}>
-      {/*
-       * O HERÓI é previsto: a carteira é promessa da construtora, então nada
-       * de ouro. O que já entrou e a comissão contratada vão para os apoios.
-       */}
-      <Heroi
-        variante="previsto"
-        rotulo="Comissão em carteira · prevista"
-        valor={emCarteira}
-        contar
-        aoAbrir={abrirCarteira}
-        rotuloAcessivel="Ver de quais vendas vem a comissão em carteira"
-        frase={`Comissão já contratada que ainda não entrou, somando as parcelas previstas de todas as vendas ativas. Não é dinheiro em conta, e não muda com o filtro da lista. ${
-          proxima ? `A próxima parcela prevista é de ${proxima.venda.title}.` : 'Próxima parcela: nenhuma prevista.'
-        }`}
-        barra={
-          <div className="flex flex-col gap-2">
-            <Barra
-              rotuloAcessivel={`Da comissão contratada das vendas ativas, ${formatCurrency(jaEntrouCarteira)} já entraram e ${formatCurrency(emCarteira)} dependem da construtora.`}
-              segmentos={[
-                { valor: jaEntrouCarteira, tom: 'sucesso' },
-                { valor: emCarteira, tom: 'info' },
-              ]}
-            />
-            <LegendaBarra
-              itens={[
-                { tom: 'sucesso', rotulo: 'já entrou' },
-                { tom: 'info', rotulo: 'depende da construtora' },
-              ]}
-            />
-          </div>
-        }
-        apoios={[
-          { rotulo: 'Já entrou', valor: jaEntrouCarteira, aoAbrir: abrirJaEntrou, rotuloAcessivel: 'Ver de quais vendas ativas já entrou comissão' },
-          { rotulo: 'Contratada', valor: contratadaCarteira, aoAbrir: abrirContratada, rotuloAcessivel: 'Ver a comissão contratada de cada venda ativa' },
-          ...(proxima
-            ? [
-                {
-                  rotulo: `Próxima parcela · ${formatDateShort(proxima.p.expected_date)}`,
-                  valor: proxima.p.amount,
-                  previsto: true,
-                  aoAbrir: () => navigate(`/vendas/${proxima.venda.id}?parcela=${proxima.p.id}`),
-                  rotuloAcessivel: `Abrir a próxima parcela prevista, de ${proxima.venda.title}`,
-                },
-              ]
-            : []),
-        ]}
-      />
-
-      {/*
-       * Os totalizadores da carteira: as três partes do que ainda entra.
-       * Cada um abre venda por venda, com a mesma regra de origem do resto
-       * da casa — número sem origem não existe aqui.
-       */}
+    <PageLayout subtitulo={frase} cta={cta} faixa={faixa}>
+      {/* A carteira é promessa da construtora: o líder não segue o filtro da lista. */}
       <FaixaDeMetricas
-        rotuloAcessivel="A carteira por parte"
+        rotuloAcessivel="A carteira de comissão"
         metricas={[
-          { rotulo: "Da imobiliária", valor: carteira.fica, nota: "o que sobra da carteira depois do imposto e do corretor", aoClicar: () => abrirParte('fica') },
-          { rotulo: "Dos corretores", valor: carteira.corretor, nota: "a pagar quando a construtora pagar a parcela", aoClicar: () => abrirParte('corretor') },
-          { rotulo: "Do imposto", valor: carteira.imposto, nota: "ISS retido na fonte e Simples de cada parcela", aoClicar: () => abrirParte('imposto') },
-          { rotulo: "Já entrou", valor: jaEntrouCarteira, estado: jaEntrouCarteira > 0 ? 'recebido' : undefined, nota: "comissão que a construtora já pagou, nas vendas ativas", aoClicar: abrirJaEntrou },
+          {
+            rotulo: 'Comissão em carteira',
+            valor: emCarteira,
+            lider: true,
+            nota: `prevista, de ${plural(ativas.filter((v) => v.toReceive > 0).length, 'venda ativa', 'vendas ativas')}`,
+            aoClicar: abrirCarteira,
+          },
+          { rotulo: 'Já entrou', valor: jaEntrouCarteira, nota: 'paga pela construtora', aoClicar: abrirJaEntrou },
+          { rotulo: 'Contratada', valor: contratadaCarteira, nota: 'nas vendas ativas', aoClicar: abrirContratada },
+          proxima
+            ? {
+                rotulo: 'Próxima parcela',
+                valor: proxima.p.amount,
+                nota: `${formatDateShort(proxima.p.expected_date)} · ${proxima.venda.title}`,
+                aoClicar: () => navigate(`/vendas/${proxima.venda.id}?parcela=${proxima.p.id}`),
+              }
+            : { rotulo: 'Próxima parcela', valor: 0, texto: '—', nota: 'nenhuma prevista' },
         ]}
       />
 
-      <Cartao>
-        <Cartao.Cabecalho
-          titulo="Quanto a imobiliária vendeu"
-          icone={BarChart3}
-          meta={`VGV dos últimos 12 meses, até ${formatMonthYear(mes).toLowerCase()}`}
-        />
-        <Cartao.Corpo>
-          <Colunas
-            tom="marca"
-            itens={volume.meses.map((m) => ({
-              rotulo: formatMonthTiny(m.mes),
-              valor: m.vgv,
-              descricao: `${formatMonthYear(m.mes)}: ${formatCurrency(m.vgv)} em ${m.vendas === 1 ? '1 venda' : `${m.vendas} vendas`}`,
-              ativo: monthKey(m.mes) === monthKey(mes),
-            }))}
-            rotuloAcessivel={`VGV mês a mês nos últimos 12 meses. Total de ${formatCurrency(volume.vgv)}.`}
-            aoClicar={(i) => abrirMesDoVgv(i)}
+      <div className="grid items-start gap-bloco lg:grid-cols-2">
+        <Cartao rotuloAcessivel="Próxima ação">
+          <Cartao.Cabecalho
+            titulo="Próxima ação"
+            meta={fila.itens.length === 0 ? 'tudo em dia' : 'o que a carteira pede hoje, do mais urgente ao menos'}
           />
-        </Cartao.Corpo>
-        <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="Volume de vendas nos 12 meses">
-          <Linha
-            titulo="VGV"
-            meta="valor dos imóveis vendidos nestes 12 meses"
-            valor={<Valor valor={volume.vgv} posto="linha" />}
-          />
-          <Linha
-            titulo="VGL"
-            meta={metaDoVgl}
-            valor={
-              <ValorComOrigem
-                valor={volume.vgl}
-                posto="linha"
-                forte
-                rotuloAcessivel="Ver a conta do VGL, venda por venda"
-                aoAbrir={abrirVgl}
-              />
-            }
-          />
-          <Linha
-            titulo="Ticket médio"
-            meta="VGV dividido pelas vendas firmes com valor informado"
-            valor={<Valor valor={volume.ticket} posto="linha" />}
-          />
-          <Linha
-            titulo="Vendas no período"
-            meta={
-              volume.semValor === 0
-                ? 'todas com o valor do imóvel informado'
-                : `${volume.semValor} sem o valor do imóvel informado — ficam fora do VGV`
-            }
-            valor={<span className="num font-heading text-t1 text-valor-linha">{volume.vendas}</span>}
-          />
-        </Cartao.Lista>
-        <Cartao.Rodape>
-          <p className="max-w-[72ch]">
-            VGV é o tamanho do que foi vendido, não o dinheiro da imobiliária — dele ela recebe a comissão, que é o
-            número do topo desta tela. Venda sem o valor do imóvel informado não entra no VGV: ela é contada à parte,
-            para o total não parecer menor do que a realidade. O VGL é o VGV que é de fato da Souza: na venda em
-            parceria entra só a fatia dela, e do que sobra sai a nota fiscal — o ISS retido não entra nessa conta.
-          </p>
-        </Cartao.Rodape>
-      </Cartao>
+          {fila.itens.length === 0 ? (
+            <Cartao.Corpo>
+              <EstadoVazio icone={CircleCheck} titulo="Tudo em dia" descricao={fila.vazio} />
+            </Cartao.Corpo>
+          ) : (
+            <ListaDeAcoes rotuloAcessivel="O que a carteira pede" itens={fila.itens} />
+          )}
+        </Cartao>
 
-      <FilaDeAcao itens={fila.itens} vazio={fila.vazio} />
+        <Cartao rotuloAcessivel="De quem é a carteira">
+          <Cartao.Cabecalho titulo="De quem é a carteira" meta="o que ainda entra, antes de entrar: imobiliária, corretores e imposto" />
+          <Cartao.Corpo>
+            <Regua
+              partes={partes}
+              rotuloAcessivel={`Da comissão em carteira, ${pctDaCarteira(carteira.fica)}% fica com a imobiliária, ${pctDaCarteira(carteira.corretor)}% vai para os corretores e ${pctDaCarteira(carteira.imposto)}% para o imposto.`}
+            />
+            <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-3">
+              {partes.map((p) => (
+                <div key={p.id} className="flex min-w-0 items-center justify-between gap-3 sm:flex-col sm:items-start sm:gap-1" title={p.meta}>
+                  <dt className="flex min-w-0 items-center gap-2 text-texto-meta text-t-meta">
+                    <span aria-hidden className="block size-2.5 shrink-0 rounded-ponto" style={{ background: p.cor }} />
+                    <span className="truncate">{p.nome}</span>
+                    <span className="num">{pctDaCarteira(p.valor)}%</span>
+                  </dt>
+                  <dd>
+                    <ValorComOrigem
+                      valor={p.valor}
+                      posto="linha"
+                      aoAbrir={() => abrirParte(p.id)}
+                      rotuloAcessivel={`Ver venda por venda: ${p.nome.toLowerCase()}`}
+                    />
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </Cartao.Corpo>
+        </Cartao>
+      </div>
 
       <Cartao rotuloAcessivel="Cada venda">
         <Cartao.Cabecalho
           id="lista-vendas"
           titulo="Cada venda"
-          icone={List}
           meta={
             <span className="meta items-center">
               {/* O que era o indicador "Comissão liberada": o número e o clique que filtra. */}
@@ -638,9 +591,15 @@ export function Vendas() {
                 />
               </span>
               <span>
-                {comissaoVencida > 0
-                  ? `${formatCurrency(comissaoVencida)} esperando o repasse há mais de um dia`
-                  : 'a imobiliária recebeu e ainda não repassou'}
+                {comissaoVencida === 0 ? (
+                  'a imobiliária recebeu e ainda não repassou'
+                ) : comissaoVencida === comissaoLiberada ? (
+                  'toda esperando o repasse há mais de um dia'
+                ) : (
+                  <>
+                    <Valor valor={comissaoVencida} posto="fato" /> esperando o repasse há mais de um dia
+                  </>
+                )}
               </span>
             </span>
           }
@@ -735,7 +694,7 @@ export function Vendas() {
                 celula: (v) => (
                   <span className="inline-flex items-center justify-end gap-2">
                     <span className="h-1.5 w-12 overflow-hidden rounded-full bg-s3" aria-hidden>
-                      <span className="block h-full rounded-full bg-g-entra" style={{ width: `${Math.round(v.progress * 100)}%` }} />
+                      <span className="block h-full rounded-full bg-t3" style={{ width: `${Math.round(v.progress * 100)}%` }} />
                     </span>
                     <span className="num w-9 text-t3 text-texto-meta">{Math.round(v.progress * 100)}%</span>
                   </span>
@@ -753,15 +712,12 @@ export function Vendas() {
 
         {filtradas.length > 0 && (
           <Cartao.Rodape>
-            <p>
+            <span>
               {filtradas.length === vendas.length
-                ? plural(vendas.length, 'venda registrada', 'vendas registradas')
+                ? plural(vendas.length, 'venda', 'vendas')
                 : `${filtradas.length} de ${plural(vendas.length, 'venda', 'vendas')}`}
-              .{' '}
-              {filtro === 'pessoais'
-                ? 'O valor à direita é a comissão da venda, que entra pra você — nada dela passa pelo caixa da imobiliária.'
-                : 'O valor à direita é a comissão contratada da imobiliária.'}
-            </p>
+              {filtro === 'pessoais' && ' · a comissão entra pra você, fora do caixa da imobiliária'}
+            </span>
             {/* O par da lista, com as palavras de sempre: nunca um total único. */}
             <span data-par-agora-previsto className="max-w-full grow-0 basis-[30rem] text-t-meta">
               <span data-par-linha>
@@ -791,6 +747,54 @@ export function Vendas() {
         )}
       </Cartao>
 
+      {/*
+       * Quanto a imobiliária vendeu: o VGV (valor dos imóveis, não dinheiro
+       * dela) mês a mês, com o volume dos 12 meses embaixo. Tudo olha a data
+       * da VENDA, não a do recebimento.
+       */}
+      <Cartao>
+        <Cartao.Cabecalho
+          titulo="Quanto a imobiliária vendeu"
+          meta={`VGV dos últimos 12 meses, até ${formatMonthYear(mes).toLowerCase()}`}
+        />
+        <Cartao.Corpo className="gap-5">
+          <Colunas
+            tom="marca"
+            itens={volume.meses.map((m) => ({
+              rotulo: formatMonthTiny(m.mes),
+              valor: m.vgv,
+              descricao: `${formatMonthYear(m.mes)}: ${formatCurrency(m.vgv)} em ${m.vendas === 1 ? '1 venda' : `${m.vendas} vendas`}`,
+              ativo: monthKey(m.mes) === monthKey(mes),
+            }))}
+            rotuloAcessivel={`VGV mês a mês nos últimos 12 meses. Total de ${formatCurrency(volume.vgv)}.`}
+            aoClicar={(i) => abrirMesDoVgv(i)}
+          />
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-fio-linha pt-4 md:grid-cols-4">
+            <NumeroDoVolume rotulo="VGV" nota="valor dos imóveis vendidos">
+              <Valor valor={volume.vgv} posto="linha" />
+            </NumeroDoVolume>
+            <NumeroDoVolume rotulo="VGL" nota={metaDoVgl}>
+              <ValorComOrigem
+                valor={volume.vgl}
+                posto="linha"
+                forte
+                rotuloAcessivel="Ver a conta do VGL, venda por venda"
+                aoAbrir={abrirVgl}
+              />
+            </NumeroDoVolume>
+            <NumeroDoVolume rotulo="Ticket médio" nota="VGV ÷ vendas com valor">
+              <Valor valor={volume.ticket} posto="linha" />
+            </NumeroDoVolume>
+            <NumeroDoVolume
+              rotulo="Vendas"
+              nota={volume.semValor === 0 ? 'todas com o valor do imóvel' : `${volume.semValor} sem o valor do imóvel, fora do VGV`}
+            >
+              <span className="num font-heading text-t1 text-valor-linha">{volume.vendas}</span>
+            </NumeroDoVolume>
+          </dl>
+        </Cartao.Corpo>
+      </Cartao>
+
       <PagarComissao itens={pagando} onFechar={() => setPagando(null)} />
     </PageLayout>
   )
@@ -800,24 +804,37 @@ export function Vendas() {
 /* A lista                                                                    */
 /* ------------------------------------------------------------------------- */
 
+/* Um número do volume dos 12 meses: rótulo, valor e a nota de uma linha. */
+function NumeroDoVolume({ rotulo, nota, children }: { rotulo: string; nota: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col items-start gap-1">
+      <dt className="text-texto-meta text-t-meta">{rotulo}</dt>
+      <dd className="flex flex-col items-start gap-1">
+        {children}
+        <span className="text-nota text-t-meta">{nota}</span>
+      </dd>
+    </div>
+  )
+}
+
 /*
- * A primeira célula da tabela de vendas (Souza 2.0): o nome, o contexto numa
- * linha cinza e, quando há, os dois sinais que pedem alguém — atraso da
- * construtora (atenção) e comissão parada na mão da imobiliária (risco
- * quando já passou do dia).
+ * A primeira célula da tabela de vendas: o nome, o contexto numa linha cinza
+ * e, quando há, os dois sinais que pedem alguém — atraso da construtora
+ * (âmbar, "em atraso") e comissão parada na mão da imobiliária (vermelho
+ * quando já passou do dia; cinza enquanto é só liberada).
  */
 function CelulaDaVenda({ v, vencido }: { v: SaleView; vencido: number }) {
   const cancelada = v.status === 'cancelada'
   const contexto = [v.development ?? 'sem empreendimento', v.brokerName].filter(Boolean).join(' · ')
   const sinais: { icone: typeof Clock; cor: string; texto: string }[] = []
   if (!cancelada && v.hasOverdue && v.nextDate) {
-    sinais.push({ icone: Hourglass, cor: 'text-warning', texto: `parcela de ${formatDateShort(v.nextDate)} em atraso` })
+    sinais.push({ icone: Hourglass, cor: 'text-warning-ink', texto: `parcela de ${formatDateShort(v.nextDate)} em atraso` })
   }
   if (v.brokerReleased > 0) {
     sinais.push(
       vencido > 0
-        ? { icone: TriangleAlert, cor: 'text-error', texto: `${formatCurrency(vencido)} esperando repasse` }
-        : { icone: Clock, cor: 'text-warning', texto: `${formatCurrency(v.brokerReleased)} liberado, a pagar` },
+        ? { icone: TriangleAlert, cor: 'text-error-ink', texto: `${formatCurrency(vencido)} esperando repasse` }
+        : { icone: Clock, cor: 'text-t-meta', texto: `${formatCurrency(v.brokerReleased)} liberado, a pagar` },
     )
   }
   return (
@@ -828,8 +845,8 @@ function CelulaDaVenda({ v, vencido }: { v: SaleView; vencido: number }) {
         {v.is_personal ? ' · pessoa física' : ''}
       </span>
       {sinais.map((x) => (
-        <span key={x.texto} className="flex items-center gap-1.5 text-t3 text-nota">
-          <Icone icone={x.icone} tamanho={12} className={x.cor} />
+        <span key={x.texto} className={`flex items-center gap-1.5 text-nota ${x.cor}`}>
+          <Icone icone={x.icone} tamanho={12} />
           {x.texto}
         </span>
       ))}
@@ -851,10 +868,10 @@ type Observado = {
  * Só sugere o que a carteira observou (seção 10), na ordem da casa:
  *
  * 1. Comissão vencida — a imobiliária recebeu e não repassou. É a única dívida
- *    real desta tela, e o botão já abre o pagamento das parcelas do corretor
- *    que espera há mais tempo.
+ *    real desta tela (vermelho), e o botão abre o pagamento das parcelas do
+ *    corretor que espera há mais tempo (o painel, por causa do brinde).
  * 2. Parcela sem baixa — a data passou e nada foi registrado. Pode ser a
- *    construtora atrasando (espera) ou dinheiro que caiu e ninguém baixou. O
+ *    construtora atrasando (âmbar) ou dinheiro que caiu e ninguém baixou. O
  *    botão abre a parcela na ficha, onde estão "Recebi" e "Reagendar".
  *
  * Sem nenhuma das duas, "Tudo em dia" com a próxima parcela prevista.
@@ -864,18 +881,18 @@ function montarFila({
   hoje,
   aoPagar,
   aoFiltrar,
+  aoAbrirParcela,
 }: {
   observado: Observado
   /** O "hoje" do AdminData, em data local: toISOString() viraria o dia às 21h. */
   hoje: string
   aoPagar: (itens: ComissaoAPagar[]) => void
   aoFiltrar: (f: Filtro) => void
-}): { itens: ItemFila[]; vazio: { titulo: string; descricao: string } } {
+  aoAbrirParcela: (venda: SaleView, p: SaleInstallment) => void
+}): { itens: ItemDeAcao[]; vazio: string } {
   const { comissoesVencidas, parcelasSemBaixa, proxima } = observado
-  type Principal = Omit<ItemFila, 'id' | 'motivo'> & { porque: string }
-  type Outra = { id: string; rotulo: string; porque: string; tom: 'risco' | 'atencao'; aoClicar: () => void }
-  const outras: Outra[] = []
-  let principal: Principal | undefined
+  const itens: ItemDeAcao[] = []
+  let temPrincipal = false
 
   if (comissoesVencidas.length > 0) {
     const maisAntiga = comissoesVencidas[0]
@@ -883,13 +900,15 @@ function montarFila({
     const doCorretor = comissoesVencidas.filter((c) => (c.venda.brokerName ?? 'corretor') === nome)
     const total = soma(doCorretor.map((c) => c.p.broker_amount))
     const dias = Math.max(0, diasEntre(maisAntiga.desde, hoje))
-    principal = {
+    temPrincipal = true
+    itens.push({
+      id: 'principal',
+      titulo: `Comissão de ${nome}`,
+      valor: total,
       tom: 'risco',
-      icone: TriangleAlert,
-      titulo: `Pagar ${formatCurrency(total)} de comissão a ${nome}`,
-      porque: `A imobiliária já recebeu ${plural(doCorretor.length, 'parcela', 'parcelas')} e não repassou a parte do corretor. A mais antiga, de ${maisAntiga.venda.title}, entrou em ${formatDateShort(maisAntiga.desde)} e está há ${plural(dias, 'dia', 'dias')} esperando.`,
+      detalhe: `${plural(doCorretor.length, 'parcela recebida', 'parcelas recebidas')} e não repassada${doCorretor.length === 1 ? '' : 's'} · a mais antiga há ${plural(dias, 'dia', 'dias')}`,
       acao: {
-        rotulo: 'Pagar comissão',
+        rotulo: 'Pagar',
         aoClicar: () =>
           aoPagar(
             doCorretor.map((c) => ({
@@ -902,15 +921,15 @@ function montarFila({
             })),
           ),
       },
-    }
+    })
     const outrosCorretores = comissoesVencidas.length - doCorretor.length
     if (outrosCorretores > 0) {
-      outras.push({
+      itens.push({
         id: 'comissao',
-        rotulo: `Mais ${plural(outrosCorretores, 'comissão vencida', 'comissões vencidas')}`,
-        porque: 'Parcelas de outros corretores que a imobiliária recebeu e ainda não repassou.',
+        titulo: `Mais ${plural(outrosCorretores, 'comissão vencida', 'comissões vencidas')}`,
         tom: 'risco',
-        aoClicar: () => aoFiltrar('comissao'),
+        detalhe: 'de outros corretores, recebidas e não repassadas',
+        acao: { rotulo: 'Ver', aoClicar: () => aoFiltrar('comissao') },
       })
     }
   }
@@ -918,63 +937,42 @@ function montarFila({
   if (parcelasSemBaixa.length > 0) {
     const { venda, p } = parcelasSemBaixa[0]
     const dias = Math.max(0, diasEntre(p.expected_date, hoje))
-    const ordinal = p.count > 1 ? `a parcela ${p.idx} de ${p.count}` : 'a parcela única'
-    if (!principal) {
-      principal = {
-        tom: 'atencao',
-        icone: Hourglass,
-        titulo: `Conferir ${ordinal} de ${venda.title}`,
-        porque: `Era prevista para ${formatDateShort(p.expected_date)} e está sem baixa há ${plural(dias, 'dia', 'dias')}. Se a construtora já pagou, registre o recebimento; se atrasou, reagende. Não é dívida de ninguém.`,
-        acao: { rotulo: 'Abrir a parcela', para: `/vendas/${venda.id}?parcela=${p.id}` },
-      }
+    const ordinal = p.count > 1 ? `Parcela ${p.idx} de ${p.count}` : 'Parcela única'
+    const porque = 'a construtora atrasou ou o recebimento não foi registrado'
+    if (!temPrincipal) {
+      itens.push({
+        id: 'principal',
+        titulo: `${ordinal} · ${venda.title}`,
+        valor: p.amount,
+        tom: 'atraso',
+        detalhe: `prevista para ${formatDateShort(p.expected_date)} · sem baixa há ${plural(dias, 'dia', 'dias')}`,
+        acao: { rotulo: 'Abrir', aoClicar: () => aoAbrirParcela(venda, p) },
+      })
       if (parcelasSemBaixa.length > 1) {
-        outras.push({
+        itens.push({
           id: 'sem-baixa',
-          rotulo: `Mais ${plural(parcelasSemBaixa.length - 1, 'parcela sem baixa', 'parcelas sem baixa')}`,
-          porque: 'Parcelas previstas com a data passada. A construtora atrasou ou o recebimento não foi registrado.',
-          tom: 'atencao',
-          aoClicar: () => aoFiltrar('atrasadas'),
+          titulo: `Mais ${plural(parcelasSemBaixa.length - 1, 'parcela sem baixa', 'parcelas sem baixa')}`,
+          tom: 'atraso',
+          detalhe: porque,
+          acao: { rotulo: 'Ver', aoClicar: () => aoFiltrar('atrasadas') },
         })
       }
     } else {
-      outras.push({
+      itens.push({
         id: 'sem-baixa',
-        rotulo: plural(parcelasSemBaixa.length, 'parcela sem baixa', 'parcelas sem baixa'),
-        porque: 'Parcelas previstas com a data passada. A construtora atrasou ou o recebimento não foi registrado.',
-        tom: 'atencao',
-        aoClicar: () => aoFiltrar('atrasadas'),
+        titulo: plural(parcelasSemBaixa.length, 'parcela sem baixa', 'parcelas sem baixa'),
+        tom: 'atraso',
+        detalhe: porque,
+        acao: { rotulo: 'Ver', aoClicar: () => aoFiltrar('atrasadas') },
       })
     }
   }
 
-  /*
-   * A fila na ordem de sempre: a principal primeiro, as outras depois. Cada
-   * outra leva à lista já filtrada ("Ver"), com o ícone do seu assunto.
-   */
-  const itens: ItemFila[] = []
-  if (principal) {
-    const { porque, ...resto } = principal
-    itens.push({ id: 'principal', motivo: porque, ...resto })
-  }
-  for (const o of outras) {
-    itens.push({
-      id: o.id,
-      icone: o.id === 'comissao' ? HandCoins : Hourglass,
-      tom: o.tom,
-      titulo: o.rotulo,
-      motivo: o.porque,
-      acao: { rotulo: 'Ver', aoClicar: o.aoClicar },
-    })
-  }
-
   return {
     itens,
-    vazio: {
-      titulo: 'Tudo em dia',
-      descricao: proxima
-        ? `Nenhuma comissão parada e nenhuma parcela sem baixa. A próxima prevista é de ${proxima.venda.title}: ${formatCurrency(proxima.p.amount)} em ${formatDateShort(proxima.p.expected_date)}.`
-        : 'Nenhuma comissão parada e nenhuma parcela em aberto na carteira.',
-    },
+    vazio: proxima
+      ? `Nenhuma comissão parada e nenhuma parcela sem baixa. A próxima prevista é de ${proxima.venda.title}: ${formatCurrency(proxima.p.amount)} em ${formatDateShort(proxima.p.expected_date)}.`
+      : 'Nenhuma comissão parada e nenhuma parcela em aberto na carteira.',
   }
 }
 

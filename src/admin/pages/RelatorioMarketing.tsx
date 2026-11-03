@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Megaphone, Tags } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
@@ -23,6 +22,9 @@ import { formatCurrency, formatDate } from '@/lib/format'
  * `marketingPorCanal` (lib/marketing.ts). Embaixo, as vendas que ainda não
  * dizem de onde vieram — dá para classificar ali mesmo, uma por uma, e o
  * relatório se completa na hora.
+ *
+ * Souza 3.0 (02/11/2026): o investido é o número líder, com o que as vendas
+ * deixam e o retorno ao lado; canais e vendas sem origem formam um par.
  */
 
 const vezes = (r: number) => `${r.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}×`
@@ -73,16 +75,54 @@ export function RelatorioMarketing() {
     }
   }
 
-  const fraseDoHeroi =
-    m.total.investido === 0
-      ? 'Nenhuma despesa de marketing lançada no período. Lance em Despesas, na categoria Marketing, com o canal.'
-      : m.total.retorno != null
-        ? `Nos canais com investimento, cada R$ 1 investido deixou ${formatCurrency(m.total.retorno)} de comissão para a imobiliária, recebidos ao longo dos meses.`
-        : 'Ainda não dá para medir o retorno: marque o canal das despesas de marketing e a origem das vendas abaixo.'
+  const abrirInvestido = () =>
+    abrir({
+      rotulo: 'Investido',
+      titulo: `Marketing · ${periodo.rotulo}`,
+      explica: 'Despesas da categoria Marketing no período, pela competência.',
+      total: m.total.investido,
+      itens: m.despesas.map((t) => ({
+        id: t.id,
+        titulo: t.description || t.category,
+        meta: `${t.marketing_channel ? ORIGENS.find((o) => o.id === t.marketing_channel)?.rotulo : 'sem canal'} · ${formatDate(t.competence_date)}`,
+        valor: t.amount,
+      })),
+      vazio: 'Nenhuma despesa de marketing no período.',
+    })
+  const abrirVendas = () =>
+    abrir({
+      rotulo: 'Vendas',
+      titulo: `Vendas · ${periodo.rotulo}`,
+      explica: 'O que fica para a imobiliária de cada venda do período, depois de impostos, corretor e gestão.',
+      total: m.total.fica,
+      itens: m.vendas.map((v) => ({ id: v.id, titulo: v.title, meta: formatDate(v.sale_date), valor: v.cascade.net, para: `/vendas/${v.id}` })),
+      vazio: 'Nenhuma venda no período.',
+    })
+
+  const fraseDoTitulo =
+    m.total.investido === 0 ? (
+      <>
+        <b>Nenhum investimento em marketing</b> em {periodo.rotulo} · lance em Despesas, na categoria Marketing, com o canal
+      </>
+    ) : (
+      <>
+        <b>
+          <Valor valor={m.total.investido} posto="fato" tinta="text-t1" /> investidos
+        </b>{' '}
+        em {periodo.rotulo}
+        {m.total.retorno != null ? (
+          <>
+            {' · '}cada R$ 1 deixou <Valor valor={m.total.retorno} posto="fato" tinta="text-t1" /> de comissão
+          </>
+        ) : (
+          ' · retorno ainda sem canal marcado'
+        )}
+      </>
+    )
 
   return (
     <PageLayout
-      subtitulo="Quanto cada canal custou e quanto trouxe de venda e de comissão."
+      subtitulo={fraseDoTitulo}
       faixa={<FiltrosDePeriodo ativo={tipo} aoMudar={setTipo} />}
       acoes={
         <ExportarRelatorio
@@ -97,105 +137,92 @@ export function RelatorioMarketing() {
         />
       }
     >
-      <Heroi
-        variante="ouro"
-        rotulo={`Investido em marketing · ${periodo.rotulo}`}
-        valor={m.total.investido}
-        rotuloAcessivel="Ver as despesas de marketing"
-        aoAbrir={() =>
-          abrir({
-            rotulo: 'Investido',
-            titulo: `Marketing · ${periodo.rotulo}`,
-            explica: 'Despesas da categoria Marketing no período, pela competência.',
-            total: m.total.investido,
-            itens: m.despesas.map((t) => ({
-              id: t.id,
-              titulo: t.description || t.category,
-              meta: `${t.marketing_channel ? ORIGENS.find((o) => o.id === t.marketing_channel)?.rotulo : 'sem canal'} · ${formatDate(t.competence_date)}`,
-              valor: t.amount,
-            })),
-            vazio: 'Nenhuma despesa de marketing no período.',
-          })
-        }
-        frase={fraseDoHeroi}
-        apoios={[
+      <FaixaDeMetricas
+        rotuloAcessivel={`Marketing · ${periodo.rotulo}`}
+        metricas={[
+          {
+            rotulo: `Investido em marketing · ${periodo.rotulo}`,
+            valor: m.total.investido,
+            lider: true,
+            nota: `${m.despesas.length} ${m.despesas.length === 1 ? 'despesa' : 'despesas'} na categoria Marketing`,
+            aoClicar: abrirInvestido,
+          },
           {
             rotulo: 'Fica das vendas do período',
             valor: m.total.fica,
-            rotuloAcessivel: 'Ver as vendas do período',
-            aoAbrir: () =>
-              abrir({
-                rotulo: 'Vendas',
-                titulo: `Vendas · ${periodo.rotulo}`,
-                explica: 'O que fica para a imobiliária de cada venda do período, depois de impostos, corretor e gestão.',
-                total: m.total.fica,
-                itens: m.vendas.map((v) => ({ id: v.id, titulo: v.title, meta: formatDate(v.sale_date), valor: v.cascade.net, para: `/vendas/${v.id}` })),
-                vazio: 'Nenhuma venda no período.',
-              }),
+            nota: `${m.total.vendas} ${m.total.vendas === 1 ? 'venda' : 'vendas'} · depois de impostos, corretor e gestão`,
+            aoClicar: m.total.fica !== 0 ? abrirVendas : undefined,
           },
-        ].filter((a) => a.valor !== 0)}
+          {
+            rotulo: 'Retorno',
+            valor: m.total.retorno ?? 0,
+            texto: m.total.retorno != null ? vezes(m.total.retorno) : '—',
+            nota: m.total.retorno != null ? 'o que fica ÷ o que se investiu' : 'ainda sem canal marcado',
+          },
+        ]}
       />
 
-      <Cartao>
-        <Cartao.Cabecalho titulo="Por canal" icone={Megaphone} meta="toque num canal para ver o gasto e as vendas" />
-        <Cartao.Lista colunas={{ valor: '10rem', fim: true }} rotuloAcessivel="Marketing por canal">
-          {m.canais.map((c) => (
-            <Linha
-              key={c.id}
-              titulo={c.nome}
-              meta={[
-                `${c.vendas.length} ${c.vendas.length === 1 ? 'venda' : 'vendas'}`,
-                `investido ${formatCurrency(c.investido)}`,
-                c.custoPorVenda != null ? `${formatCurrency(c.custoPorVenda)} por venda` : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-              valor={<Valor valor={c.fica} posto="linha" />}
-              metaValor={c.retorno != null ? `retorno ${vezes(c.retorno)}` : 'fica para a imobiliária'}
-              aoClicar={() => abrirCanal(c)}
-            />
-          ))}
-        </Cartao.Lista>
-        <Cartao.Rodape>
-          <p className="max-w-[72ch]">
-            Retorno = o que fica para a imobiliária das vendas do canal ÷ o que se investiu nele. É sobre a comissão
-            contratada: o dinheiro entra ao longo dos meses, conforme a construtora paga.
-          </p>
-        </Cartao.Rodape>
-      </Cartao>
-
-      {semOrigem.length > 0 && (
+      <div className={semOrigem.length > 0 ? 'grid items-start gap-bloco xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]' : 'grid gap-bloco'}>
         <Cartao>
-          <Cartao.Cabecalho
-            titulo="Vendas sem origem"
-            icone={Tags}
-            meta={`${semOrigem.length} ${semOrigem.length === 1 ? 'venda' : 'vendas'} · escolha de onde veio cada uma`}
-          />
-          <Cartao.Lista colunas={{ acao: '14rem' }} rotuloAcessivel="Vendas sem origem">
-            {semOrigem.map((v) => (
+          <Cartao.Cabecalho titulo="Por canal" meta="o que cada canal custou e o que as vendas dele deixam" />
+          <Cartao.Lista colunas={{ valor: '10rem', fim: true }} rotuloAcessivel="Marketing por canal">
+            {m.canais.map((c) => (
               <Linha
-                key={v.id}
-                titulo={v.title}
-                meta={`${formatDate(v.sale_date)}${v.brokerName ? ` · ${v.brokerName}` : ''}`}
-                acao={
-                  <Select
-                    aria-label={`Origem de ${v.title}`}
-                    value=""
-                    onChange={(e) => e.target.value && classificar(v.id, e.target.value as Origem)}
-                  >
-                    <option value="">De onde veio?</option>
-                    {ORIGENS.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.rotulo}
-                      </option>
-                    ))}
-                  </Select>
-                }
+                key={c.id}
+                titulo={c.nome}
+                meta={[
+                  `${c.vendas.length} ${c.vendas.length === 1 ? 'venda' : 'vendas'}`,
+                  `investido ${formatCurrency(c.investido)}`,
+                  c.custoPorVenda != null ? `${formatCurrency(c.custoPorVenda)} por venda` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                valor={<Valor valor={c.fica} posto="linha" />}
+                metaValor={c.retorno != null ? `retorno ${vezes(c.retorno)}` : 'fica para a imobiliária'}
+                aoClicar={() => abrirCanal(c)}
               />
             ))}
           </Cartao.Lista>
+          <Cartao.Rodape>
+            <p className="max-w-[72ch]">
+              Retorno = o que fica para a imobiliária das vendas do canal ÷ o que se investiu nele. É sobre a comissão
+              contratada: o dinheiro entra ao longo dos meses, conforme a construtora paga.
+            </p>
+          </Cartao.Rodape>
         </Cartao>
-      )}
+
+        {semOrigem.length > 0 && (
+          <Cartao>
+            <Cartao.Cabecalho
+              titulo="Vendas sem origem"
+              meta={`${semOrigem.length} ${semOrigem.length === 1 ? 'venda' : 'vendas'} · escolha de onde veio cada uma`}
+            />
+            <Cartao.Lista colunas={{ acao: '14rem' }} rotuloAcessivel="Vendas sem origem">
+              {semOrigem.map((v) => (
+                <Linha
+                  key={v.id}
+                  titulo={v.title}
+                  meta={`${formatDate(v.sale_date)}${v.brokerName ? ` · ${v.brokerName}` : ''}`}
+                  acao={
+                    <Select
+                      aria-label={`Origem de ${v.title}`}
+                      value=""
+                      onChange={(e) => e.target.value && classificar(v.id, e.target.value as Origem)}
+                    >
+                      <option value="">De onde veio?</option>
+                      {ORIGENS.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.rotulo}
+                        </option>
+                      ))}
+                    </Select>
+                  }
+                />
+              ))}
+            </Cartao.Lista>
+          </Cartao>
+        )}
+      </div>
     </PageLayout>
   )
 }

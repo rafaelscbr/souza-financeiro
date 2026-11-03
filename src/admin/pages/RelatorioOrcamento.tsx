@@ -4,7 +4,8 @@ import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { ExportarRelatorio } from '../RelatorioPecas'
-import { Heroi } from '@/components/ui/Heroi'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
+import { Tabela } from '@/components/ui/Tabela'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
@@ -31,6 +32,9 @@ import type { BudgetLine, Transaction } from '@/types'
  *
  * Com o teto de gastos (040) definido, o custo de cada mês é o teto, e os
  * gastos orçados mostram onde ele vai; o que sobra é o "livre do teto".
+ *
+ * Souza 3.0 (02/11/2026): a sobra prevista é o número líder (previsão: cinza
+ * no rótulo, nunca ouro); o mês a mês vira tabela, com os gastos ao lado.
  */
 
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
@@ -141,9 +145,27 @@ export function RelatorioOrcamento() {
     (x, y) => x.start_month.localeCompare(y.start_month) || x.description.localeCompare(y.description),
   )
 
+  const fraseDoTitulo =
+    orcamento.length === 0 ? (
+      'Nenhum gasto no orçamento ainda.'
+    ) : (
+      <>
+        <b>
+          <Valor valor={resultado} posto="fato" tinta={resultado < 0 ? 'text-error-ink' : 'text-t1'} />{' '}
+          {resultado >= 0 ? 'de sobra prevista' : 'de falta prevista'}
+        </b>{' '}
+        ·{' '}
+        {noVermelho.length === 0
+          ? 'todos os meses ficam cobertos'
+          : noVermelho.length <= 3
+            ? `${noVermelho.length === 1 ? 'um mês fica' : `${noVermelho.length} meses ficam`} no vermelho: ${noVermelho.map((m) => mesCurto(m.mes)).join(', ')}`
+            : `${noVermelho.length} de ${meses.length} meses no vermelho, o primeiro em ${mesCurto(noVermelho[0].mes)}`}
+      </>
+    )
+
   return (
     <PageLayout
-      subtitulo="O que a estrutura vai custar e se as vendas cobrem."
+      subtitulo={fraseDoTitulo}
       acoes={
         <ExportarRelatorio
           nome="Orcamento mes a mes"
@@ -180,100 +202,131 @@ export function RelatorioOrcamento() {
         />
       ) : (
         <>
-          {/* O orçamento olha para a frente: é previsão, rotulado e nunca ouro (regra de 13/09). */}
-          <Heroi
-            variante="previsto"
-            rotulo={`${resultado >= 0 ? 'Sobra prevista' : 'Falta prevista'} · ${intervalo}`}
-            valor={resultado}
-            rotuloAcessivel="Ver o resultado de cada mês"
-            aoAbrir={abrirTodos}
-            frase={
-              <>
-                {teto ? (
+          {/* O orçamento olha para a frente: é previsão, rotulada e nunca ouro (regra de 13/09). */}
+          <FaixaDeMetricas
+            rotuloAcessivel="Orçamento do período"
+            metricas={[
+              {
+                rotulo: `${resultado >= 0 ? 'Sobra prevista' : 'Falta prevista'} · ${intervalo}`,
+                valor: resultado,
+                lider: true,
+                estado: resultado < 0 ? 'negativo' : undefined,
+                nota: 'o que as vendas já fechadas deixam, menos a estrutura',
+                aoClicar: abrirTodos,
+              },
+              {
+                rotulo: teto ? 'Teto de gastos no período' : 'Estrutura no período',
+                valor: custoTotal,
+                nota: teto ? (
                   <>
-                    O teto de gastos é <Valor valor={teto} posto="fato" /> por mês,{' '}
-                    <Valor valor={custoTotal} posto="fato" /> no período. As vendas já fechadas devem deixar{' '}
-                    <Valor valor={vendasTotal} posto="fato" />.{' '}
+                    <Valor valor={teto} posto="fato" /> por mês
                   </>
                 ) : (
-                  <>
-                    A estrutura custa <Valor valor={custoTotal} posto="fato" /> no período e as vendas já fechadas devem
-                    deixar <Valor valor={vendasTotal} posto="fato" />.{' '}
-                  </>
-                )}
-                {noVermelho.length === 0
-                  ? 'Todos os meses ficam cobertos.'
-                  : noVermelho.length <= 3
-                    ? `${noVermelho.length === 1 ? 'Um mês fica' : `${noVermelho.length} meses ficam`} no vermelho: ${noVermelho.map((m) => mesCurto(m.mes)).join(', ')}.`
-                    : `${noVermelho.length} de ${meses.length} meses ficam no vermelho, o primeiro em ${mesCurto(noVermelho[0].mes)}.`}
-              </>
-            }
+                  'a soma dos gastos orçados'
+                ),
+              },
+              {
+                rotulo: 'As vendas deixam',
+                valor: vendasTotal,
+                nota: 'comissão sem imposto e corretor',
+              },
+            ]}
           />
 
-          <Cartao>
-            <Cartao.Cabecalho
-              titulo="Mês a mês"
-              meta={`${teto ? 'Teto de gastos' : 'Custos'} × o que as vendas deixam. Toque num mês para ver a conta.`}
-            />
-            <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Orçamento mês a mês">
-              {meses.map((m) => (
-                <Linha
-                  key={m.mes}
-                  titulo={nomeDoMes(m.mes)}
-                  meta={`${teto ? 'teto' : 'custos'} ${formatCurrency(custoDe(m))} · vendas deixam ${formatCurrency(m.apuracao.vendasDeixam)}`}
-                  valor={<Valor valor={sobraDe(m)} posto="linha" estado={sobraDe(m) < 0 ? 'negativo' : undefined} />}
-                  metaValor={sobraDe(m) < 0 ? 'falta' : 'sobra'}
-                  aoClicar={() => abrirMes(m)}
-                />
-              ))}
-            </Cartao.Lista>
-          </Cartao>
-
-          <Cartao>
-            <Cartao.Cabecalho
-              titulo="Seus gastos"
-              meta={teto ? `Onde vai o teto de ${formatCurrency(teto)}. Toque num gasto para mudar.` : 'Toque num gasto para mudar ou apagar.'}
-              extra={
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="secundario" size="sm" onClick={() => setTetoAberto(true)}>
-                    {teto ? 'Alterar teto' : 'Definir teto'}
-                  </Button>
-                  <Button variant="secundario" size="sm" onClick={() => setCadastroAberto(true)}>
-                    Adicionar gasto
-                  </Button>
-                </div>
-              }
-            />
-            <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Gastos do orçamento">
-              {linhasOrdenadas.map((l) => (
-                <Linha
-                  key={l.id}
-                  titulo={`${l.description}${l.status === 'possivel' ? ' · possível' : ''}`}
-                  meta={`${mesCurto(l.start_month)} ${l.end_month ? `a ${mesCurto(l.end_month)}` : 'em diante'}`}
-                  valor={<Valor valor={l.amount} posto="linha" />}
-                  metaValor="por mês"
-                  aoClicar={() => setEditando(l)}
-                />
-              ))}
-            </Cartao.Lista>
-            {teto && mesAtual && (
-              <Cartao.Rodape>
-                <span>
-                  Em {nomeDoMes(mesAtual.mes)}, os gastos fixos somam <Valor valor={mesAtual.apuracao.orcado} posto="fato" /> do
-                  teto de <Valor valor={teto} posto="fato" />:{' '}
-                  {teto - mesAtual.apuracao.orcado >= 0 ? (
+          <div className="grid items-start gap-bloco xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+            <Cartao>
+              <Cartao.Cabecalho
+                titulo="Mês a mês"
+                meta={
+                  teto ? (
                     <>
-                      <Valor valor={teto - mesAtual.apuracao.orcado} posto="fato" /> livres.
+                      o que as vendas deixam menos o teto de <Valor valor={teto} posto="fato" />
                     </>
                   ) : (
-                    <>
-                      passam em <Valor valor={mesAtual.apuracao.orcado - teto} posto="fato" />.
-                    </>
-                  )}
-                </span>
-              </Cartao.Rodape>
-            )}
-          </Cartao>
+                    'os custos contra o que as vendas deixam'
+                  )
+                }
+              />
+              <Tabela
+                rotuloAcessivel="Orçamento mês a mês"
+                linhas={meses}
+                chave={(m) => m.mes}
+                aoAbrirLinha={abrirMes}
+                rotuloAbrir={(m) => `Ver a conta de ${nomeDoMes(m.mes)}`}
+                colunas={[
+                  { id: 'mes', rotulo: 'Mês', celula: (m) => <span className="whitespace-nowrap">{mesCurto(m.mes)}</span> },
+                  // Com teto, o custo é o mesmo todo mês (está na faixa): a coluna sai e a sobra cabe no celular.
+                  {
+                    id: 'custo',
+                    rotulo: 'Custos',
+                    numerica: true,
+                    celula: (m) => (teto ? null : <Valor valor={custoDe(m)} posto="fato" />),
+                    total: teto ? undefined : <Valor valor={custoTotal} posto="fato" forte />,
+                  },
+                  {
+                    id: 'vendas',
+                    rotulo: 'Vendas deixam',
+                    numerica: true,
+                    celula: (m) => <Valor valor={m.apuracao.vendasDeixam} posto="fato" />,
+                    total: <Valor valor={vendasTotal} posto="fato" forte />,
+                  },
+                  {
+                    id: 'sobra',
+                    rotulo: 'Sobra',
+                    numerica: true,
+                    celula: (m) => <Valor valor={sobraDe(m)} posto="linha" estado={sobraDe(m) < 0 ? 'negativo' : undefined} />,
+                    total: <Valor valor={resultado} posto="destaque" estado={resultado < 0 ? 'negativo' : undefined} />,
+                  },
+                ]}
+              />
+            </Cartao>
+
+            <Cartao>
+              <Cartao.Cabecalho
+                titulo="Seus gastos"
+                meta={teto ? <>onde vai o teto de <Valor valor={teto} posto="fato" /></> : 'o que a estrutura custa por mês'}
+                extra={
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secundario" size="sm" onClick={() => setTetoAberto(true)}>
+                      {teto ? 'Alterar teto' : 'Definir teto'}
+                    </Button>
+                    <Button variant="secundario" size="sm" onClick={() => setCadastroAberto(true)}>
+                      Adicionar gasto
+                    </Button>
+                  </div>
+                }
+              />
+              <Cartao.Lista colunas={{ valor: true, fim: true }} rotuloAcessivel="Gastos do orçamento">
+                {linhasOrdenadas.map((l) => (
+                  <Linha
+                    key={l.id}
+                    titulo={`${l.description}${l.status === 'possivel' ? ' · possível' : ''}`}
+                    meta={`${mesCurto(l.start_month)} ${l.end_month ? `a ${mesCurto(l.end_month)}` : 'em diante'}`}
+                    valor={<Valor valor={l.amount} posto="linha" />}
+                    metaValor="por mês"
+                    aoClicar={() => setEditando(l)}
+                  />
+                ))}
+              </Cartao.Lista>
+              {teto && mesAtual && (
+                <Cartao.Rodape>
+                  <span>
+                    Em {nomeDoMes(mesAtual.mes)}, os gastos fixos somam <Valor valor={mesAtual.apuracao.orcado} posto="fato" /> do
+                    teto de <Valor valor={teto} posto="fato" />:{' '}
+                    {teto - mesAtual.apuracao.orcado >= 0 ? (
+                      <>
+                        <Valor valor={teto - mesAtual.apuracao.orcado} posto="fato" /> livres.
+                      </>
+                    ) : (
+                      <>
+                        passam em <Valor valor={mesAtual.apuracao.orcado - teto} posto="fato" />.
+                      </>
+                    )}
+                  </span>
+                </Cartao.Rodape>
+              )}
+            </Cartao>
+          </div>
         </>
       )}
 

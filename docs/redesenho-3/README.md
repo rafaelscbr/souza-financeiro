@@ -44,7 +44,22 @@ Banco, cálculos, regras e vocabulário ficaram intactos. "Devido agora" manteve
   - O ano aparece em barras: recebida em marinho, liberada em tinta, prevista em cinza.
   - "Próximos passos", a régua "Quanto já caiu" e a produção.
 
-As outras telas (Vendas, ficha da venda, Contas, Relatórios, DRE, Fluxo, Metas, Projeções, Corretores, Configurações, Minhas vendas e Recebimentos do corretor) herdam a fundação sem mudança de estrutura.
+Segunda leva (02/11/2026, depois de "tem coisas que ainda não mudou"): todas as outras telas foram recompostas pelo [GUIA-DE-TELA.md](GUIA-DE-TELA.md). Cada uma ganhou a frase no título, uma faixa com o número líder no lugar do herói e cartões com uma pergunta cada.
+
+- **Vendas:** "Próxima ação" e a régua "De quem é a carteira".
+- **Ficha da venda:** "A conta da comissão" no alto.
+- **Despesas:** "Paguei" na linha.
+- **Contas:** o extrato ao lado do fechamento do mês.
+- **A pagar:** uma faixa com devido, comissão, imposto e despesas.
+- **Agenda:** o calendário em marinho, âmbar e cinza.
+- **Relatórios:** a biblioteca virou listas por pergunta, e DRE, Fluxo e os outros ganharam faixa e régua.
+- **Fluxo de caixa:** um gráfico novo de 12 meses.
+- **Projeções:** os campos à esquerda e os resultados à direita.
+- **Metas:** a meta do mês como líder, com barra.
+- **Corretores:** "Por corretor" e "Acessos".
+- **Configurações:** 4 abas em vez de 7, com Cadastros juntando contas, construtoras, empreendimentos e categorias, em duas colunas.
+- **Corretor:** Minhas vendas, Recebimentos (o ano em barras) e Metas e nível.
+- **Menu:** "Minhas comissões" virou um item só no rodapé.
 
 ## O que não mudou
 

@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
-import { Handshake, Hourglass, Wallet } from 'lucide-react'
+import { Handshake } from 'lucide-react'
 import { useCorretor, type CorretorParcela, type CorretorVenda } from '../CorretorData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Cartao } from '@/components/ui/Cartao'
-import { Kpi } from '@/components/ui/Kpi'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Lista, Linha } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { Selo } from '@/components/ui/Selo'
 import { Rotulo } from '@/components/ui/Rotulo'
 import { ChipSituacao } from '@/components/ui/Situacao'
 import { ChipDaParcela, FraseDaParcela, explicaDaParcela } from '../EtapaDaParcela'
-import { BarraTrilha, LegendaTrilha } from '@/components/ui/Barra'
+import { PartesDaRegua, Regua } from '@/components/ui/Regua'
 import { Demonstrativo } from '@/components/ui/Demonstrativo'
 import { SidePanel, useParamPainel } from '@/components/ui/SidePanel'
 import { EstadoVazio } from '@/components/ui/Estados'
@@ -106,11 +106,7 @@ export function MinhasVendas() {
       const suas = [...(porVenda.get(v.id) ?? [])].sort((a, b) => a.p.idx - b.p.idx)
       // Sempre o líquido dele (comissão − desconto combinado), o mesmo número da linha de cada parcela.
       const soma = (fn: (s: Situacao) => boolean) =>
-        c2(
-          suas
-            .filter(({ s }) => fn(s))
-            .reduce((t, { p }) => t + p.broker_amount - p.broker_adjustment, 0),
-        )
+        c2(suas.filter(({ s }) => fn(s)).reduce((t, { p }) => t + p.broker_amount - p.broker_adjustment, 0))
       const recebido = soma((s) => s === 'recebida')
       const liberado = soma((s) => s === 'liberada' || s === 'vencida')
       const previsto = soma((s) => s === 'prevista')
@@ -170,73 +166,105 @@ export function MinhasVendas() {
     requestAnimationFrame(() => contaRef.current?.scrollIntoView({ block: 'nearest' }))
   }
 
+  /** As vendas de uma parte da comissão, viradas itens da composição. */
+  const itensPorVenda = (l: VendaNaTela[], valor: (c: VendaNaTela) => number, situacao?: Situacao) =>
+    l.map((c) => ({
+      id: c.v.id,
+      titulo: c.v.title,
+      meta:
+        [c.v.is_personal ? 'pessoa física' : null, c.v.client_name, c.v.development].filter(Boolean).join(' · ') ||
+        undefined,
+      valor: valor(c),
+      situacao: situacao ?? c.resumo,
+      para: `/minhas-vendas?venda=${c.v.id}`,
+    }))
+
+  const abrirAgora = () =>
+    abrir({
+      rotulo: 'Sua comissão',
+      titulo: 'De quais vendas vem',
+      explica: 'Só o que já é dinheiro: parcelas pagas a você e parcelas que a imobiliária já recebeu.',
+      total: totalAgora,
+      itens: itensPorVenda(comDinheiro, (c) => c.agora),
+      nota:
+        totalPrevisto > 0
+          ? 'As parcelas previstas ficam fora desta conta. Elas só viram comissão sua quando a construtora pagar a imobiliária.'
+          : undefined,
+    })
+
+  const abrirPrevisto = () =>
+    abrir({
+      rotulo: 'Depende da construtora',
+      titulo: 'De quais vendas vem a previsão',
+      explica: 'Parcelas que só viram comissão sua quando a construtora pagar a imobiliária. A data pode mudar.',
+      total: totalPrevisto,
+      itens: itensPorVenda(
+        carteira.filter((c) => c.previsto > 0),
+        (c) => c.previsto,
+        'prevista',
+      ),
+    })
+
+  /*
+   * SOUZA 3.0 (02/11/2026): a frase diz quanto da carteira já é dele; a faixa
+   * tem esse número como líder; a lista forma par com a régua do que já caiu
+   * (recebida em marinho, liberada em tinta, prevista em cinza).
+   */
+  const totalRecebido = c2(carteira.reduce((t, c) => t + c.recebido, 0))
+  const totalLiberado = c2(carteira.reduce((t, c) => t + c.liberado, 0))
+  const partes = [
+    { nome: 'Já recebida', valor: totalRecebido, cor: 'var(--g-entra)' },
+    { nome: 'Liberada, a receber', valor: totalLiberado, cor: 'var(--t2)' },
+    { nome: 'Prevista', valor: totalPrevisto, cor: 'var(--g-sai)' },
+  ]
+
+  const frase = (
+    <>
+      <b>
+        {totalAgora > 0 ? (
+          <>
+            <Valor valor={totalAgora} posto="fato" tinta="text-t1" /> já são seus
+          </>
+        ) : (
+          'Nada pago ou liberado ainda'
+        )}
+      </b>
+      {` · ${contagem}`}
+      {totalPrevisto > 0 && (
+        <>
+          {' · '}
+          <Valor valor={totalPrevisto} posto="fato" previsto /> dependendo da construtora
+        </>
+      )}
+    </>
+  )
+
   return (
-    <PageLayout subtitulo={contagem}>
-      <div className="grid gap-bloco sm:grid-cols-2">
-        <Kpi
-          rotulo="Sua comissão nesta carteira"
-          icone={Wallet}
-          valor={totalAgora}
-          nota="O que já foi pago a você mais o que a imobiliária já recebeu e vai te repassar."
-          aoClicar={
-            totalAgora > 0
-              ? () =>
-                  abrir({
-                    rotulo: 'Sua comissão',
-                    titulo: 'De quais vendas vem',
-                    explica:
-                      'Só o que já é dinheiro: parcelas pagas a você e parcelas que a imobiliária já recebeu.',
-                    total: totalAgora,
-                    itens: comDinheiro.map((c) => ({
-                      id: c.v.id,
-                      titulo: c.v.title,
-                      meta: [c.v.client_name, c.v.development].filter(Boolean).join(' · ') || undefined,
-                      valor: c.agora,
-                      situacao: c.resumo,
-                      para: `/minhas-vendas?venda=${c.v.id}`,
-                    })),
-                    nota:
-                      totalPrevisto > 0
-                        ? 'As parcelas previstas ficam fora desta conta. Elas só viram comissão sua quando a construtora pagar a imobiliária.'
-                        : undefined,
-                  })
-              : undefined
-          }
-        />
-        <Kpi
-          rotulo="Depende da construtora"
-          icone={Hourglass}
-          tom="info"
-          valor={totalPrevisto}
-          aoClicar={
-            totalPrevisto > 0
-              ? () =>
-                  abrir({
-                    rotulo: 'Depende da construtora',
-                    titulo: 'De quais vendas vem a previsão',
-                    explica:
-                      'Parcelas que só viram comissão sua quando a construtora pagar a imobiliária. A data pode mudar.',
-                    total: totalPrevisto,
-                    itens: carteira
-                      .filter((c) => c.previsto > 0)
-                      .map((c) => ({
-                        id: c.v.id,
-                        titulo: c.v.title,
-                        meta: [c.v.client_name, c.v.development].filter(Boolean).join(' · ') || undefined,
-                        valor: c.previsto,
-                        situacao: 'prevista' as const,
-                        para: `/minhas-vendas?venda=${c.v.id}`,
-                      })),
-                  })
-              : undefined
-          }
-          nota={
-            totalPrevisto > 0
-              ? 'Fora da conta ao lado: só vira comissão sua quando a construtora pagar a imobiliária primeiro.'
-              : 'Nenhuma parcela sua está esperando a construtora hoje.'
-          }
-        />
-      </div>
+    <PageLayout subtitulo={frase}>
+      <FaixaDeMetricas
+        rotuloAcessivel="Sua comissão nas suas vendas"
+        metricas={[
+          {
+            rotulo: 'Sua comissão nesta carteira',
+            valor: totalAgora,
+            lider: true,
+            nota: 'já paga a você ou liberada pela imobiliária',
+            aoClicar: totalAgora > 0 ? abrirAgora : undefined,
+          },
+          {
+            rotulo: 'Depende da construtora',
+            valor: totalPrevisto,
+            nota: totalPrevisto > 0 ? 'vira sua quando a construtora pagar' : 'nenhuma parcela esperando',
+            aoClicar: totalPrevisto > 0 ? abrirPrevisto : undefined,
+          },
+          {
+            rotulo: 'Vendas',
+            valor: 0,
+            texto: String(vendas.length),
+            nota: `${comDinheiro.length} já com dinheiro seu`,
+          },
+        ]}
+      />
 
       {/*
        * O link apontou para uma venda que não está mais na lista (cancelada, ou
@@ -246,48 +274,67 @@ export function MinhasVendas() {
         <Cartao rotuloAcessivel="Venda não encontrada">
           <Cartao.Corpo>
             <p role="status" className="text-texto-corrido text-t2">
-              A venda que você abriu não está na sua lista. Ela pode ter sido cancelada — se não for isso, fale
-              com a imobiliária.
+              A venda que você abriu não está na sua lista. Ela pode ter sido cancelada — se não for isso, fale com a
+              imobiliária.
             </p>
           </Cartao.Corpo>
         </Cartao>
       )}
 
-      <Cartao>
-        <Cartao.Cabecalho titulo="Suas vendas" icone={Handshake} meta={contagem} />
-        <Cartao.Lista rotuloAcessivel="Suas vendas" colunas={{ goteira: true, situacao: true, valor: true, fim: true }}>
-          {carteira.map((c) => (
-            <Linha
-              key={c.v.id}
-              chegada={c.v.id === vendaDoLink}
-              goteira={<Selo situacao={c.resumo} />}
-              titulo={c.v.title}
-              meta={
-                <>
-                  {[
-                    /* Venda de pessoa física (026): comissão dele, fora do caixa da imobiliária. */
-                    c.v.is_personal ? 'pessoa física' : null,
-                    c.v.client_name,
-                    c.v.development,
-                    `vendida em ${formatDate(c.v.sale_date)}`,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                  {c.previsto > 0 && (
-                    <span className="block">
-                      e mais <Valor valor={c.previsto} posto="fato" previsto /> dependendo da construtora
-                    </span>
-                  )}
-                </>
-              }
-              situacao={<ChipSituacao situacao={c.resumo} perfil="corretor" />}
-              // Sem tinta tônica: mistura o que já caiu com o que está liberado.
-              valor={<Valor valor={c.agora} posto="linha" />}
-              aoClicar={() => abrirVenda(c.v.id)}
+      <div className="grid items-start gap-bloco lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Cartao rotuloAcessivel="Suas vendas">
+          <Cartao.Cabecalho titulo="Suas vendas" meta={`${contagem} · em cada uma, o que já é seu`} />
+          <Cartao.Lista
+            rotuloAcessivel="Suas vendas"
+            colunas={{ goteira: true, situacao: true, valor: true, fim: true }}
+          >
+            {carteira.map((c) => (
+              <Linha
+                key={c.v.id}
+                chegada={c.v.id === vendaDoLink}
+                goteira={<Selo situacao={c.resumo} />}
+                titulo={c.v.title}
+                meta={
+                  <>
+                    {[
+                      /* Venda de pessoa física (026): comissão dele, fora do caixa da imobiliária. */
+                      c.v.is_personal ? 'pessoa física' : null,
+                      c.v.client_name,
+                      c.v.development,
+                      `vendida em ${formatDate(c.v.sale_date)}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                    {c.previsto > 0 && (
+                      <span className="block">
+                        e mais <Valor valor={c.previsto} posto="fato" previsto /> dependendo da construtora
+                      </span>
+                    )}
+                  </>
+                }
+                situacao={<ChipSituacao situacao={c.resumo} perfil="corretor" />}
+                // Sem tinta tônica: mistura o que já caiu com o que está liberado.
+                valor={<Valor valor={c.agora} posto="linha" />}
+                aoClicar={() => abrirVenda(c.v.id)}
+              />
+            ))}
+          </Cartao.Lista>
+        </Cartao>
+
+        <Cartao rotuloAcessivel="Quanto já caiu">
+          <Cartao.Cabecalho
+            titulo="Quanto já caiu"
+            meta={`de ${formatCurrency(c2(totalAgora + totalPrevisto))} nas suas vendas`}
+          />
+          <Cartao.Corpo>
+            <Regua
+              partes={partes}
+              rotuloAcessivel={`Nas suas vendas: ${formatCurrency(totalRecebido)} recebido, ${formatCurrency(totalLiberado)} liberado a receber e ${formatCurrency(totalPrevisto)} dependendo da construtora.`}
             />
-          ))}
-        </Cartao.Lista>
-      </Cartao>
+          </Cartao.Corpo>
+          <PartesDaRegua partes={partes} rotuloAcessivel="As partes da sua comissão" />
+        </Cartao>
+      </div>
 
       <SidePanel
         aberto={Boolean(aberta)}
@@ -344,34 +391,45 @@ function FichaDaVenda({
 
       <section aria-label="Sua comissão nesta venda" className="flex flex-col gap-3">
         <Rotulo as="h3">Sua comissão nesta venda</Rotulo>
-        <BarraTrilha
-          recebido={c.recebido}
-          liberado={c.liberado}
-          previsto={c.previsto}
+        <Regua
+          partes={[
+            { nome: 'recebido', valor: c.recebido, cor: 'var(--g-entra)' },
+            { nome: 'a receber', valor: c.liberado, cor: 'var(--t2)' },
+            {
+              nome: 'depende da construtora',
+              valor: c.previsto,
+              cor: 'var(--g-sai)',
+            },
+          ]}
           rotuloAcessivel={`Nesta venda: ${formatCurrency(c.recebido)} recebido, ${formatCurrency(
             c.liberado,
           )} liberado a receber e ${formatCurrency(c.previsto)} dependendo da construtora.`}
         />
-        <LegendaTrilha />
-        {/* A barra é reforço; o número vem escrito ao lado, sempre. */}
-        <dl className="grid grid-cols-3 gap-3 border-t border-fio-linha pt-3">
-          <NumeroDaTrilha rotulo="recebido">
-            <Valor valor={c.recebido} posto="fato" estado={c.recebido > 0 ? 'recebido' : undefined} />
+        {/* A barra é reforço; o número vem escrito embaixo, sempre. */}
+        <dl className="grid grid-cols-3 gap-3">
+          <NumeroDaTrilha rotulo="recebido" cor="var(--g-entra)">
+            <Valor valor={c.recebido} posto="fato" forte />
           </NumeroDaTrilha>
-          <NumeroDaTrilha rotulo="a receber">
+          <NumeroDaTrilha rotulo="a receber" cor="var(--t2)">
             <Valor valor={c.liberado} posto="fato" forte />
           </NumeroDaTrilha>
-          <NumeroDaTrilha rotulo="depende da construtora">
+          <NumeroDaTrilha rotulo="depende da construtora" cor="var(--g-sai)">
             <Valor valor={c.previsto} posto="fato" previsto />
           </NumeroDaTrilha>
         </dl>
       </section>
 
       {escolhida && (
-        <section ref={contaRef} aria-label={`Conta da ${nomeDaParcela(escolhida.p).toLowerCase()}`} className="flex flex-col gap-3">
+        <section
+          ref={contaRef}
+          aria-label={`Conta da ${nomeDaParcela(escolhida.p).toLowerCase()}`}
+          className="flex flex-col gap-3"
+        >
           <Rotulo as="h3">Conta da {nomeDaParcela(escolhida.p).toLowerCase()}</Rotulo>
           <Demonstrativo
-            linhas={linhasDaParcela(escolhida.p, 'corretor', { situacaoCorretor: escolhida.s })}
+            linhas={linhasDaParcela(escolhida.p, 'corretor', {
+              situacaoCorretor: escolhida.s,
+            })}
             perfil="corretor"
             rotuloAcessivel={`Conta da ${nomeDaParcela(escolhida.p).toLowerCase()}`}
           />
@@ -408,10 +466,13 @@ function FichaDaVenda({
 }
 
 /** Um número da trilha, escrito sob ela. */
-function NumeroDaTrilha({ rotulo, children }: { rotulo: string; children: ReactNode }) {
+function NumeroDaTrilha({ rotulo, cor, children }: { rotulo: string; cor: string; children: ReactNode }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <dt className="text-texto-meta text-t-meta">{rotulo}</dt>
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <dt className="flex items-start gap-1.5 text-texto-meta text-t-meta">
+        <span aria-hidden className="size-2 shrink-0 translate-y-1 rounded-ponto" style={{ background: cor }} />
+        {rotulo}
+      </dt>
       <dd>{children}</dd>
     </div>
   )

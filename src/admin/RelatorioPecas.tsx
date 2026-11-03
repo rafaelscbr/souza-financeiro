@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Download, Printer } from 'lucide-react'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
 import { Button } from '@/components/ui/Button'
@@ -5,6 +6,7 @@ import { baixarPlanilha, imprimirRelatorio, type Celula } from '@/lib/exportar'
 import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
 import type { TipoPeriodo } from '@/lib/dre'
 import { formatPercent } from '@/lib/format'
+import { moedaCurta } from '@/components/graficos/Graficos'
 import { cn } from '@/lib/utils'
 
 /*
@@ -114,10 +116,10 @@ export function ContaDoRelatorio<L extends LinhaDaConta>({
   comparar?: { rotulo: string; valores: Map<string, number> }
 }) {
   const comBase = base !== undefined
-  const th = 'h-10 whitespace-nowrap border-b border-fio-caixa px-3 font-medium text-t4 text-nota first:pl-recuo last:pr-recuo'
+  const th = 'h-10 whitespace-nowrap border-b border-fio-caixa px-3 font-medium text-t-meta text-nota first:pl-recuo last:pr-recuo'
   return (
     <div data-rolagem="" className="min-w-0 overflow-x-auto">
-      <table className="w-full min-w-[34rem] border-collapse">
+      <table className="w-full border-collapse md:min-w-[34rem]">
         <caption className="sr-only">{rotuloAcessivel}</caption>
         <thead>
           <tr>
@@ -206,8 +208,8 @@ export function ContaDoRelatorio<L extends LinhaDaConta>({
                       ) : (
                         <span
                           className={cn(
-                            'num inline-flex h-5 items-center rounded-badge px-1.5 text-chip',
-                            v.melhor === null ? 'bg-s3 text-t3' : v.melhor ? 'bg-success-bg text-success-ink' : 'bg-error-bg text-error-ink',
+                            'num font-medium text-texto-meta',
+                            v.melhor === null ? 'text-t-meta' : v.melhor ? 'text-success-ink' : 'text-error-ink',
                           )}
                         >
                           {v.texto}
@@ -238,3 +240,251 @@ function variacaoRelativa(agora: number, antes: number): { texto: string; melhor
 }
 
 ContaDoRelatorio.displayName = 'ContaDoRelatorio'
+
+/* ------------------------------------------------------------------------ */
+/* DOZE MESES (Souza 3.0, 02/11/2026)                                       */
+/* ------------------------------------------------------------------------ */
+
+/*
+ * O caixa de cada um dos últimos 12 meses, pela data do dinheiro: o que
+ * entrou (marinho, o dado principal), o que saiu (cinza) e, por cima, a
+ * linha do que sobrou (tinta). Embaixo, quando a largura deixa, o razão com
+ * os números de cada mês na coluna do seu ponto — como no Caixa previsto do
+ * Início. Passar o mouse mostra o balão; tocar num mês abre os lançamentos.
+ * Os números chegam prontos (lib/painel.ts, `evolucaoMensal`).
+ */
+export interface MesDoFluxo {
+  chave: string
+  rotulo: string
+  titulo: string
+  entra: number
+  sai: number
+  resultado: number
+}
+
+const ESQ_12 = 72
+const DIR_12 = 4
+const TOPO_12 = 12
+const BASE_12 = 28
+
+function escalaDoze(valores: number[]): { min: number; max: number; marcas: number[] } {
+  const lo = Math.min(0, ...valores)
+  let hi = Math.max(0, ...valores)
+  if (hi === lo) hi = lo + 1000
+  const bruto = (hi - lo) / 4
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(bruto, 1))))
+  const passo = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((k) => k >= bruto) ?? 10 * mag
+  const min = Math.floor(lo / passo) * passo
+  const max = Math.ceil(hi / passo) * passo
+  const marcas: number[] = []
+  for (let v = min; v <= max + passo / 2; v += passo) marcas.push(Math.round(v))
+  return { min, max, marcas }
+}
+
+const doisDigitos = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+export function GraficoDozeMeses({
+  meses,
+  aoClicar,
+  rotuloAcessivel,
+}: {
+  meses: MesDoFluxo[]
+  aoClicar: (i: number) => void
+  rotuloAcessivel: string
+}) {
+  const caixa = useRef<HTMLDivElement>(null)
+  const [largura, setLargura] = useState(720)
+  const [ativo, setAtivo] = useState<number | null>(null)
+
+  useLayoutEffect(() => {
+    const el = caixa.current
+    if (!el) return
+    const medir = () => setLargura(Math.max(260, el.clientWidth))
+    medir()
+    const obs = new ResizeObserver(medir)
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  const estreito = largura < 560
+  const alto = estreito ? 210 : 270
+  const { min, max, marcas } = escalaDoze(meses.flatMap((m) => [m.entra, m.sai, m.resultado]))
+  // A margem do eixo cabe o maior rótulo ("−R$ 10 mil"), para nada vazar à esquerda.
+  const esq = Math.max(ESQ_12 - 24, Math.ceil(Math.max(...marcas.map((v) => moedaCurta(v).length)) * 6.8) + 14)
+  const passoX = (largura - esq - DIR_12) / Math.max(meses.length, 1)
+  const x = (i: number) => esq + (i + 0.5) * passoX
+  const y = (v: number) => TOPO_12 + (1 - (v - min) / (max - min || 1)) * (alto - TOPO_12 - BASE_12)
+  const barra = Math.max(4, Math.min(18, passoX * 0.27))
+  const zero = y(0)
+  const linha = meses.map((m, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(m.resultado).toFixed(1)}`).join(' ')
+  // No celular, um rótulo a cada três meses; o mês do fim sempre aparece.
+  const pulo = passoX < 34 ? 3 : passoX < 52 ? 2 : 1
+  const mostraRotulo = (i: number) => (meses.length - 1 - i) % pulo === 0
+  // O razão embaixo só quando cada mês tem largura para "−00.000,00".
+  const comRazao = passoX >= 80
+
+  const m = ativo != null ? meses[ativo] : null
+  const esquerdaDoBalao = ativo != null ? Math.min(Math.max(x(ativo), 104), largura - 104) : 0
+
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      <div ref={caixa} className="relative min-w-0" onMouseLeave={() => setAtivo(null)}>
+        <svg role="img" aria-label={rotuloAcessivel} width="100%" height={alto} viewBox={`0 0 ${largura} ${alto}`} className="block">
+          {marcas.map((v) => (
+            <g key={v}>
+              <line
+                x1={esq}
+                x2={largura - DIR_12}
+                y1={y(v)}
+                y2={y(v)}
+                stroke={v === 0 ? 'var(--line-strong)' : 'var(--g-grade)'}
+                strokeWidth={1}
+              />
+              <text x={esq - 10} y={y(v) + 4} textAnchor="end" fontSize={12} fill="var(--g-eixo)" className="num">
+                {moedaCurta(v)}
+              </text>
+            </g>
+          ))}
+          {meses.map((mes, i) => (
+            <g key={mes.chave}>
+              {ativo === i && (
+                <rect x={x(i) - passoX / 2 + 2} y={TOPO_12 - 6} width={passoX - 4} height={alto - TOPO_12 - BASE_12 + 6} rx={4} fill="var(--s2)" />
+              )}
+              {mes.entra > 0 && (
+                <rect
+                  x={x(i) - barra - 1.5}
+                  y={y(mes.entra)}
+                  width={barra}
+                  height={Math.max(1, zero - y(mes.entra))}
+                  rx={2}
+                  fill="var(--g-entra)"
+                  style={{
+                    transformBox: 'fill-box',
+                    transformOrigin: 'bottom',
+                    animation: `crescer var(--dur-contagem) var(--curva-entra) ${i * 35}ms backwards`,
+                  }}
+                />
+              )}
+              {mes.sai > 0 && (
+                <rect
+                  x={x(i) + 1.5}
+                  y={y(mes.sai)}
+                  width={barra}
+                  height={Math.max(1, zero - y(mes.sai))}
+                  rx={2}
+                  fill="var(--g-sai)"
+                  style={{
+                    transformBox: 'fill-box',
+                    transformOrigin: 'bottom',
+                    animation: `crescer var(--dur-contagem) var(--curva-entra) ${i * 35 + 20}ms backwards`,
+                  }}
+                />
+              )}
+              {mostraRotulo(i) && (
+                <text
+                  x={x(i)}
+                  y={alto - 8}
+                  textAnchor="middle"
+                  fontSize={12}
+                  fill={ativo === i ? 'var(--t1)' : 'var(--g-eixo)'}
+                  fontWeight={ativo === i ? 600 : 400}
+                >
+                  {mes.rotulo}
+                </text>
+              )}
+            </g>
+          ))}
+          <path d={linha} fill="none" stroke="var(--g-resultado)" strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
+          {meses.map((mes, i) => (
+            <g
+              key={`ponto-${mes.chave}`}
+              onMouseEnter={() => setAtivo(i)}
+              onClick={() => aoClicar(i)}
+              className="cursor-pointer"
+            >
+              <circle
+                cx={x(i)}
+                cy={y(mes.resultado)}
+                r={ativo === i ? 4.5 : 3}
+                fill="var(--surface)"
+                stroke={mes.resultado < 0 ? 'var(--error)' : 'var(--g-resultado)'}
+                strokeWidth={1.75}
+              />
+              <rect x={x(i) - passoX / 2} y={0} width={passoX} height={alto} fill="transparent" />
+            </g>
+          ))}
+        </svg>
+        {m && ativo != null && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute top-0 z-popover flex min-w-[12rem] -translate-x-1/2 flex-col gap-1 rounded-controle bg-t1 px-3 py-2 text-nota text-white shadow-dropdown"
+            style={{ left: esquerdaDoBalao, animation: 'esmaeceEntra var(--dur-micro) var(--curva-entra)' }}
+          >
+            <span className="font-semibold">{m.titulo}</span>
+            <span className="flex justify-between gap-4 text-white/70">
+              entrou <Valor valor={m.entra} posto="fato" tinta="text-white" />
+            </span>
+            <span className="flex justify-between gap-4 text-white/70">
+              saiu <Valor valor={-m.sai} posto="fato" tinta="text-white" />
+            </span>
+            <span className="flex justify-between gap-4 text-white/70">
+              sobrou <Valor valor={m.resultado} posto="fato" tinta="font-semibold text-white" />
+            </span>
+          </div>
+        )}
+      </div>
+
+      {comRazao && (
+        <table className="w-full table-fixed border-collapse" aria-label="O que entrou, saiu e sobrou em cada mês">
+          <colgroup>
+            <col style={{ width: esq }} />
+            {meses.map((mes) => (
+              <col key={mes.chave} />
+            ))}
+            <col style={{ width: DIR_12 }} />
+          </colgroup>
+          <tbody>
+            {(
+              [
+                ['Entrou', 'entra', ''],
+                ['Saiu', 'sai', '−'],
+                ['Sobrou', 'resultado', ''],
+              ] as const
+            ).map(([rotulo, k, sinal]) => (
+              <tr key={k}>
+                <th scope="row" className="border-t border-fio-linha py-2 text-left font-normal text-t-meta text-nota">
+                  {rotulo}
+                </th>
+                {meses.map((mes, i) => {
+                  const v = mes[k]
+                  const sobra = k === 'resultado'
+                  return (
+                    <td
+                      key={mes.chave}
+                      onMouseEnter={() => setAtivo(i)}
+                      onMouseLeave={() => setAtivo(null)}
+                      className={cn(
+                        'num border-t border-fio-linha py-2 text-center text-nota',
+                        v === 0
+                          ? 'text-t5'
+                          : sobra && v < 0
+                            ? 'text-error-ink'
+                            : ativo === i || sobra
+                              ? 'text-t1'
+                              : 'text-t3',
+                        sobra && 'font-medium',
+                      )}
+                    >
+                      {v === 0 ? '—' : `${sinal}${v < 0 ? '−' : ''}${doisDigitos(Math.abs(v))}`}
+                    </td>
+                  )
+                })}
+                <td className="border-t border-fio-linha" />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}

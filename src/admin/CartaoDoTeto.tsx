@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Wallet } from 'lucide-react'
 import { useAdmin } from './AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { Cartao } from '@/components/ui/Cartao'
@@ -61,7 +60,7 @@ export function CartaoDoTeto() {
 
   return (
     <Cartao>
-      <Cartao.Cabecalho titulo="Orçamento do mês" icone={Wallet} meta={`teto de ${formatCurrency(s.teto)}`} />
+      <Cartao.Cabecalho titulo="Orçamento do mês" meta={`teto de ${formatCurrency(s.teto)}`} />
       <Cartao.Lista colunas={{ valor: '10rem', fim: true }} rotuloAcessivel="Orçamento do mês">
         <Linha
           titulo="Já gasto"

@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { Activity, BarChart3, HandCoins, Landmark, Megaphone, Search, Target } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Cartao } from '@/components/ui/Cartao'
 import { CampoDeBusca } from '@/components/ui/CampoDeBusca'
-import { Atalho } from '@/components/ui/Atalho'
+import { Linha } from '@/components/ui/Lista'
 import { EstadoVazio } from '@/components/ui/Estados'
-import type { LucideIcon } from 'lucide-react'
 
 /*
  * RELATÓRIOS — a porta de entrada (22/10/2026).
@@ -19,7 +18,6 @@ import type { LucideIcon } from 'lucide-react'
 
 interface OpcaoDeRelatorio {
   para: string
-  icone: LucideIcon
   titulo: string
   meta: string
 }
@@ -34,6 +32,11 @@ interface OpcaoDeRelatorio {
  * A BIBLIOTECA DE RELATÓRIOS (Souza 2.0, 24/10/2026): agrupada pela
  * pergunta que o dono faz — resultado, dinheiro, comercial —, com busca.
  * Cada relatório diz a pergunta que responde, o regime e o que exporta.
+ *
+ * Souza 3.0 (02/11/2026): sem grade de cartões com ícone. Três colunas, uma
+ * por pergunta do dono; em cada uma, a lista curta dos relatórios com a
+ * pergunta que cada um responde. Bate o olho e escolhe. A descrição longa e
+ * as marcas continuam valendo para a busca.
  */
 const GRUPOS: { titulo: string; descricao: string; itens: (OpcaoDeRelatorio & { pergunta: string; marcas: string[] })[] }[] = [
   {
@@ -42,7 +45,6 @@ const GRUPOS: { titulo: string; descricao: string; itens: (OpcaoDeRelatorio & { 
     itens: [
       {
         para: '/relatorios/dre',
-        icone: BarChart3,
         titulo: 'DRE',
         pergunta: 'A imobiliária dá lucro?',
         meta: 'Receita, impostos, corretores e despesas do período, com o período anterior ao lado.',
@@ -50,7 +52,6 @@ const GRUPOS: { titulo: string; descricao: string; itens: (OpcaoDeRelatorio & { 
       },
       {
         para: '/relatorios/indicadores',
-        icone: Activity,
         titulo: 'Indicadores',
         pergunta: 'Como está a saúde do negócio?',
         meta: 'VGV, ticket, margem, prazo de recebimento, atraso, concentração, fôlego e ponto de equilíbrio.',
@@ -64,7 +65,6 @@ const GRUPOS: { titulo: string; descricao: string; itens: (OpcaoDeRelatorio & { 
     itens: [
       {
         para: '/relatorios/caixa',
-        icone: Landmark,
         titulo: 'Fluxo de caixa',
         pergunta: 'Quanto entrou, saiu e ficou?',
         meta: 'O realizado do período nas contas da imobiliária e a previsão dos próximos seis meses.',
@@ -72,7 +72,6 @@ const GRUPOS: { titulo: string; descricao: string; itens: (OpcaoDeRelatorio & { 
       },
       {
         para: '/relatorios/orcamento',
-        icone: Target,
         titulo: 'Orçamento',
         pergunta: 'As vendas cobrem a estrutura?',
         meta: 'Os custos planejados mês a mês contra o que as vendas deixam, e quantas vendas faltam.',
@@ -86,7 +85,6 @@ const GRUPOS: { titulo: string; descricao: string; itens: (OpcaoDeRelatorio & { 
     itens: [
       {
         para: '/relatorios/comissoes',
-        icone: HandCoins,
         titulo: 'Comissões e repasses',
         pergunta: 'Quanto foi para cada corretor?',
         meta: 'Repassado no período, liberado e previsto, por corretor e gestor — conciliado com o razão.',
@@ -94,7 +92,6 @@ const GRUPOS: { titulo: string; descricao: string; itens: (OpcaoDeRelatorio & { 
       },
       {
         para: '/relatorios/marketing',
-        icone: Megaphone,
         titulo: 'Marketing',
         pergunta: 'Quanto cada canal trouxe?',
         meta: 'Investido por canal contra as vendas e a comissão que ele trouxe, com custo por venda e retorno.',
@@ -114,9 +111,15 @@ export function Relatorios() {
     itens: g.itens.filter((r) => !termo || semAcento(`${r.titulo} ${r.pergunta} ${r.meta} ${r.marcas.join(' ')}`).includes(termo)),
   })).filter((g) => g.itens.length > 0)
 
+  const total = GRUPOS.reduce((n, g) => n + g.itens.length, 0)
+
   return (
     <PageLayout
-      subtitulo="Seis relatórios, agrupados pela pergunta que respondem. Todos abrem nos lançamentos que somam."
+      subtitulo={
+        <>
+          <b>{total} relatórios</b> · resultado, dinheiro e comercial, todos com planilha e PDF
+        </>
+      }
       acoes={<CampoDeBusca valor={busca} aoMudar={setBusca} rotulo="Buscar relatório" />}
     >
       {grupos.length === 0 ? (
@@ -126,21 +129,18 @@ export function Relatorios() {
           </Cartao.Corpo>
         </Cartao>
       ) : (
-        grupos.map((g) => (
-          <section key={g.titulo} aria-labelledby={`grupo-${g.titulo}`} className="flex flex-col gap-3">
-            <div className="flex items-baseline gap-3">
-              <h2 id={`grupo-${g.titulo}`} className="text-t1 text-titulo-secao">
-                {g.titulo}
-              </h2>
-              <span className="text-t-meta text-texto-meta">{g.descricao}</span>
-            </div>
-            <div className="grid gap-bloco md:grid-cols-2">
-              {g.itens.map((r) => (
-                <Atalho key={r.para} para={r.para} icone={r.icone} titulo={r.titulo} pergunta={r.pergunta} descricao={r.meta} marcas={r.marcas} />
-              ))}
-            </div>
-          </section>
-        ))
+        <div className="grid items-start gap-bloco lg:grid-cols-3">
+          {grupos.map((g) => (
+            <Cartao key={g.titulo}>
+              <Cartao.Cabecalho titulo={g.titulo} meta={g.descricao} />
+              <Cartao.Lista colunas={{ fim: true }} rotuloAcessivel={`Relatórios de ${g.titulo.toLowerCase()}`}>
+                {g.itens.map((r) => (
+                  <Linha key={r.para} para={r.para} titulo={r.titulo} meta={r.pergunta} />
+                ))}
+              </Cartao.Lista>
+            </Cartao>
+          ))}
+        </div>
       )}
     </PageLayout>
   )

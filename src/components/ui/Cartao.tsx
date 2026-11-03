@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
  * slots (3.3), então nenhum texto encosta na borda (P1).
  */
 
-const SLOTS = ['CartaoCabecalho', 'CartaoCorpo', 'CartaoLista', 'CartaoRodape', 'Tabela', 'ContaDoRelatorio', 'TabelaDeDados', 'GraficoCaixaPrevisto', 'ul', 'Boolean']
+const SLOTS = ['CartaoCabecalho', 'CartaoCorpo', 'CartaoLista', 'CartaoRodape', 'Tabela', 'ContaDoRelatorio', 'TabelaDeDados', 'GraficoCaixaPrevisto', 'GraficoAnoEmBarras', 'ListaDeAcoes', 'PartesDaRegua', 'Regua', 'ul', 'Boolean']
 
 export interface CartaoProps {
   children: ReactNode

@@ -28,6 +28,8 @@ export interface Metrica {
   aoClicar?: () => void
   /** Souza 3.0: o número que responde a tela; maior, em negrito, coluna mais larga. */
   lider?: boolean
+  /** Previsão (depende da construtora): o número sai em cinza, nunca com cor. */
+  previsto?: boolean
 }
 
 /*
@@ -39,7 +41,14 @@ export interface Metrica {
 function NumeroDaMetrica({ m }: { m: Metrica }) {
   const v = useRolagem(m.valor)
   if (m.texto !== undefined)
-    return <span className="num whitespace-nowrap text-t1 text-numero-kpi-m xl:text-numero-kpi">{m.texto}</span>
+    return (
+      <span
+        className={`num whitespace-nowrap text-t1 ${m.lider ? 'font-bold text-numero-heroi-m lg:text-numero-heroi' : 'text-numero-kpi-m xl:text-numero-kpi'}`}
+      >
+        {m.texto}
+      </span>
+    )
+  if (m.previsto && !m.estado) return <Valor posto={m.lider ? 'lider' : 'kpi'} valor={v} tinta="text-t3" />
   return <Valor posto={m.lider ? 'lider' : 'kpi'} valor={v} estado={m.estado} />
 }
 
@@ -101,7 +110,10 @@ export function FaixaDeMetricas({ metricas, rotuloAcessivel }: { metricas: Metri
           !temLider && i === n - 1 && n % 2 === 1 && 'max-md:col-span-2',
           !temLider && i === n - 1 && n % 3 === 2 && 'md:max-xl:col-span-2',
           !temLider && i === n - 1 && n % 3 === 1 && 'md:max-xl:col-span-3',
+          // Com líder (que ocupa a fileira toda abaixo de xl), as outras fecham a conta da grade.
           temLider && i === n - 1 && (n - 1) % 2 === 1 && 'max-md:col-span-2',
+          temLider && i === n - 1 && (n - 1) % 3 === 2 && 'md:max-xl:col-span-2',
+          temLider && i === n - 1 && (n - 1) % 3 === 1 && 'md:max-xl:col-span-3',
           (m.para || m.aoClicar) && 'text-left transition-colors duration-micro hover:bg-s2',
         )
         if (m.aoClicar && !m.para) {

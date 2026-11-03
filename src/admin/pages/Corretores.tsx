@@ -1,17 +1,15 @@
 import { useMemo, useState } from 'react'
-import { KeyRound, Plus, ShieldCheck, UserCheck, UserPlus, UserX, Users } from 'lucide-react'
+import { KeyRound, Plus, UserCheck, UserPlus, UserX, Users } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao, type ItemComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
 import { Lista, Linha } from '@/components/ui/Lista'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
-import { BarraTrilha, LegendaTrilha } from '@/components/ui/Barra'
 import { ChipSituacao } from '@/components/ui/Situacao'
-import { Chip } from '@/components/ui/Chip'
 import { Badge } from '@/components/ui/Badge'
 import { Dica } from '@/components/ui/Dica'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Button } from '@/components/ui/Button'
 import { SidePanel, useParamPainel } from '@/components/ui/SidePanel'
 import { FormField, Input, Select } from '@/components/ui/Field'
@@ -58,15 +56,14 @@ type Pilhas = { liberadas: ItemComposicao[]; previstas: ItemComposicao[] }
  * Supabase: criar usuário pede chave de administração, que não pode viver no
  * navegador. O caminho está escrito na tela para não depender de memória.
  *
- * COMPOSIÇÃO (9.7, só apresentação; as contas acima não mudaram):
- * 1. Herói ouro "Comissão a pagar" com o apoio "Previsto, depende do
- *    recebimento" (o número do antigo cartão "Ainda não liberado"). Os dois abrem.
- * 2. Dica dos logins sem corretor vinculado, com "Abrir Acessos".
- * 3. UMA lista de corretores: nome + acesso | vendas · VGV (contexto, nunca
- *    receita) · padrão % | a trilha fina | comissão a pagar (abre) com o
- *    previsto embaixo | Editar. A linha abre o painel do corretor
- *    (?corretor=id). A seção "Produção" foi absorvida pela linha.
- * 4. Editar e Acessos em SidePanel. Carregando e erro são da casca.
+ * COMPOSIÇÃO (Souza 3.0, 02/11/2026, só apresentação; as contas acima não mudaram):
+ * 1. Frase do título com a comissão a pagar; faixa com "Comissão a pagar"
+ *    como líder, o previsto e quantos corretores. Os dois valores abrem.
+ * 2. Em par: a lista por corretor (inicial e nome, vendas · VGV · padrão ·
+ *    pago, a comissão a pagar que abre, o previsto embaixo, Editar) e os
+ *    acessos (quem entra, a que corretor está ligado). A linha do corretor
+ *    abre o painel dele (?corretor=id).
+ * 3. Editar e Acessos em SidePanel. Carregando e erro são da casca.
  */
 export function Corretores() {
   const { vendas, contacts, transactions, usuarios, contatosComAcesso, hoje, salvarContato, salvarAcesso } = useAdmin()
@@ -180,84 +177,89 @@ export function Corretores() {
 
   const aberto = corretorAberto ? producao.find((p) => p.contact.id === corretorAberto) ?? null : null
 
+  const comAcesso = producao.filter((p) => p.hasAccess).length
+
+  const frase = (
+    <>
+      <b>
+        <Valor valor={aPagar} posto="fato" tinta="text-t1" /> de comissão a pagar
+      </b>{' '}
+      · {producao.length === 1 ? '1 corretor' : `${producao.length} corretores`}
+      {previsto > 0 && (
+        <>
+          {' · '}
+          <Valor valor={previsto} posto="fato" tinta="text-t2" /> ainda dependem da construtora
+        </>
+      )}
+    </>
+  )
+
   return (
     <PageLayout
-      subtitulo={`${formatCurrency(aPagar)} de comissão a pagar`}
+      subtitulo={frase}
       acoes={
-        <>
-          <Button size="sm" variant="secundario" icone={KeyRound} onClick={() => setVinculando(true)}>
-            Acessos
-          </Button>
-          <Button size="sm" variant="secundario" icone={Plus} onClick={() => setEditando('novo')}>
-            Novo corretor
-          </Button>
-        </>
+        <Button size="sm" variant="secundario" icone={Plus} onClick={() => setEditando('novo')}>
+          Novo corretor
+        </Button>
       }
     >
-      <Heroi
-        variante="ouro"
-        rotulo="Comissão a pagar"
-        valor={aPagar}
-        rotuloAcessivel="Ver de quais vendas e parcelas vem a comissão a pagar"
-        aoAbrir={abrirAPagar}
-        frase="Só a parcela que a imobiliária já recebeu da construtora e ainda não repassou. É o que é dívida hoje — previsão não entra nesta conta."
-        apoios={[
+      <FaixaDeMetricas
+        rotuloAcessivel="Comissão dos corretores"
+        metricas={[
           {
-            rotulo: 'Previsto, depende do recebimento',
+            rotulo: 'Comissão a pagar',
+            valor: aPagar,
+            lider: true,
+            nota:
+              liberadasTodas.length === 0
+                ? 'nada liberado agora'
+                : `${liberadasTodas.length} ${liberadasTodas.length === 1 ? 'parcela que a imobiliária já recebeu' : 'parcelas que a imobiliária já recebeu'}`,
+            aoClicar: abrirAPagar,
+          },
+          {
+            rotulo: 'Previsto',
             valor: previsto,
-            previsto: true,
-            aoAbrir: abrirPrevisto,
-            rotuloAcessivel: 'Ver quais parcelas ainda dependem do recebimento',
+            nota: 'depende de a construtora pagar',
+            aoClicar: abrirPrevisto,
+          },
+          {
+            rotulo: 'Corretores',
+            valor: producao.length,
+            texto: String(producao.length),
+            nota: comAcesso === 0 ? 'nenhum com acesso ao painel' : `${comAcesso} com acesso ao painel`,
+          },
+          {
+            rotulo: 'Logins',
+            valor: usuarios.length,
+            texto: String(usuarios.length),
+            nota:
+              semVinculo.length === 0
+                ? 'todo corretor vinculado'
+                : `${semVinculo.length} sem corretor vinculado`,
+            aoClicar: () => setVinculando(true),
           },
         ]}
       />
 
-      {semVinculo.length > 0 && (
-        <Dica tom="atencao">
-          <span className="flex flex-col items-start gap-3">
-            <span>
-              <strong className="font-medium text-t1">Logins sem corretor vinculado.</strong>{' '}
-              {semVinculo.length === 1
-                ? '1 pessoa entra e vê "acesso ainda não liberado".'
-                : `${semVinculo.length} pessoas entram e veem "acesso ainda não liberado".`}{' '}
-              Ligue cada login a um corretor em Acessos.
-            </span>
-            <Button size="sm" variant="secundario" icone={KeyRound} onClick={() => setVinculando(true)}>
-              Abrir Acessos
-            </Button>
-          </span>
-        </Dica>
-      )}
-
-      <Cartao>
-        <Cartao.Cabecalho
-          titulo="Por corretor"
-          icone={Users}
-          meta={
-            producao.length === 0
-              ? undefined
-              : producao.length === 1
-                ? 'um corretor · de qualquer ano'
-                : `${producao.length} corretores · de qualquer ano`
-          }
-        />
-        {producao.length === 0 ? (
-          <Cartao.Corpo>
-            <EstadoVazio
-              icone={Users}
-              titulo="Nenhum corretor cadastrado"
-              descricao="Cadastre quem vende para poder registrar a comissão e, se quiser, dar acesso ao painel dele."
-              acao={
-                <Button icone={UserPlus} onClick={() => setEditando('novo')}>
-                  Cadastrar corretor
-                </Button>
-              }
-            />
-          </Cartao.Corpo>
-        ) : (
-          <>
+      <div className="grid items-start gap-bloco lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Cartao rotuloAcessivel="Por corretor">
+          <Cartao.Cabecalho titulo="Por corretor" meta="o que a imobiliária deve a cada um, de qualquer ano" />
+          {producao.length === 0 ? (
+            <Cartao.Corpo>
+              <EstadoVazio
+                icone={Users}
+                titulo="Nenhum corretor cadastrado"
+                descricao="Cadastre quem vende para poder registrar a comissão e, se quiser, dar acesso ao painel dele."
+                acao={
+                  <Button icone={UserPlus} onClick={() => setEditando('novo')}>
+                    Cadastrar corretor
+                  </Button>
+                }
+              />
+            </Cartao.Corpo>
+          ) : (
             <Cartao.Lista
-              colunas={{ valor: '11rem', acao: '6rem', fim: true }}
+              colunas={{ goteira: true, valor: '10rem', acao: '5.5rem', fim: true }}
               rotuloAcessivel="Comissão por corretor"
             >
               {producao.map((p) => {
@@ -267,8 +269,9 @@ export function Corretores() {
                 return (
                   <Linha
                     key={p.contact.id}
+                    goteira={<Inicial nome={p.contact.name} />}
                     titulo={<TituloDoCorretor p={p} />}
-                    meta={<MetaDoCorretor p={p} liberado={liberado} previsto={dele} />}
+                    meta={<MetaDoCorretor p={p} />}
                     valor={
                       <ValorComOrigem
                         posto="linha"
@@ -292,16 +295,56 @@ export function Corretores() {
                 )
               })}
             </Cartao.Lista>
-            <Cartao.Rodape>
-              <LegendaTrilha />
-              <span>
-                A produção considera todas as vendas não canceladas, de qualquer ano. O corretor vê os números dele
-                por ano, no painel próprio.
-              </span>
-            </Cartao.Rodape>
-          </>
-        )}
-      </Cartao>
+          )}
+        </Cartao>
+
+        <Cartao rotuloAcessivel="Acessos">
+          <Cartao.Cabecalho
+            titulo="Acessos"
+            meta={
+              semVinculo.length > 0 ? (
+                <b className="font-medium text-t1">
+                  {semVinculo.length === 1 ? '1 login sem corretor vinculado' : `${semVinculo.length} logins sem corretor vinculado`}
+                </b>
+              ) : (
+                'quem entra no sistema'
+              )
+            }
+          />
+          {usuarios.length === 0 ? (
+            <Cartao.Corpo>
+              <p className="text-texto-corrido text-t3">Nenhum usuário além de você.</p>
+            </Cartao.Corpo>
+          ) : (
+            <Cartao.Lista colunas={{ goteira: true, fim: true }} rotuloAcessivel="Usuários">
+              {usuarios.map((u) => {
+                const nomeDoLogin = u.name ?? u.email ?? u.id.slice(0, 8)
+                const vinculo = u.contact_id ? contacts.find((c) => c.id === u.contact_id)?.name : null
+                return (
+                  <Linha
+                    key={u.id}
+                    goteira={<Inicial nome={nomeDoLogin} />}
+                    titulo={nomeDoLogin}
+                    meta={[
+                      u.role === 'admin' ? 'administrador' : 'corretor',
+                      u.role === 'corretor' ? (vinculo ? `vê ${vinculo}` : 'sem corretor vinculado') : null,
+                      u.is_active ? null : 'desativado',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                    aoClicar={() => setVinculando(true)}
+                  />
+                )
+              })}
+            </Cartao.Lista>
+          )}
+          <Cartao.Rodape>
+            <Button size="sm" variant="secundario" icone={KeyRound} onClick={() => setVinculando(true)}>
+              Gerenciar acessos
+            </Button>
+          </Cartao.Rodape>
+        </Cartao>
+      </div>
 
       <PainelDoCorretor
         p={aberto}
@@ -350,34 +393,42 @@ export function Corretores() {
   )
 }
 
+/** A inicial num círculo cinza, na goteira: quem é, sem ícone. */
+function Inicial({ nome }: { nome: string }) {
+  return (
+    <span
+      aria-hidden
+      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-s2 font-medium text-nota text-t2"
+    >
+      {nome.trim().charAt(0).toUpperCase() || '?'}
+    </span>
+  )
+}
+
 const padraoDe = (c: Contact) => (c as Contact & { default_broker_pct?: number | null }).default_broker_pct
 const ehDono = (c: Contact) => (c as Contact & { is_owner?: boolean }).is_owner === true
 
-/** Nome + acesso ao painel próprio + "você". */
+/** Nome + "você" (o acesso vem escrito na meta). */
 function TituloDoCorretor({ p }: { p: BrokerProduction }) {
   return (
     <span className="flex min-w-0 flex-wrap items-center gap-2">
-      <span className="min-w-0 truncate">{p.contact.name}</span>
-      {p.hasAccess && (
-        <Chip tom="sucesso" icone={ShieldCheck}>
-          com acesso
-        </Chip>
-      )}
+      <span className="min-w-0">{p.contact.name}</span>
       {ehDono(p.contact) && <Badge>você</Badge>}
     </span>
   )
 }
 
 /**
- * Vendas · VGV · padrão, e a trilha fina dos três estados da comissão dele.
- * VGV é contexto de produção, nunca receita: vem em meta, sem cor. Quando o
- * sistema não sabe o VGV, diz em texto, não em zero.
+ * Vendas · VGV · padrão · o que já foi pago · acesso. VGV é contexto de
+ * produção, nunca receita: vem em meta, sem cor. Quando o sistema não sabe o
+ * VGV, diz em texto, não em zero. Souza 3.0: a trilha colorida saiu; o que já
+ * foi pago a ele vem escrito.
  */
-function MetaDoCorretor({ p, liberado, previsto }: { p: BrokerProduction; liberado: number; previsto: number }) {
+function MetaDoCorretor({ p }: { p: BrokerProduction }) {
   const padrao = padraoDe(p.contact)
   const semVgv = p.sales > 0 && p.salesWithoutVgv === p.sales
   return (
-    <span className="flex flex-col gap-2">
+    <span className="flex flex-col gap-1">
       <span className="flex flex-wrap items-baseline gap-x-1">
         <span>
           {p.sales} {p.sales === 1 ? 'venda' : 'vendas'}
@@ -403,11 +454,21 @@ function MetaDoCorretor({ p, liberado, previsto }: { p: BrokerProduction; libera
             <span>padrão {padrao}%</span>
           </>
         )}
+        <span aria-hidden>·</span>
+        <span className="inline-flex items-baseline gap-1 whitespace-nowrap">
+          pago <Valor valor={p.paid} posto="fato" />
+        </span>
+        {p.hasAccess && (
+          <>
+            <span aria-hidden>·</span>
+            <span>com acesso</span>
+          </>
+        )}
       </span>
       {/*
        * VENDA DE PESSOA FÍSICA (21/09/2026): é 100% dele e o dinheiro não
-       * passa pela imobiliária. Fica nesta linha à parte, fora da trilha
-       * acima, justamente para ninguém somar com o que a empresa deve.
+       * passa pela imobiliária. Fica nesta linha à parte justamente para
+       * ninguém somar com o que a empresa deve.
        */}
       {p.personalSales > 0 && (
         <span className="flex flex-wrap items-baseline gap-x-1 text-t3">
@@ -422,13 +483,6 @@ function MetaDoCorretor({ p, liberado, previsto }: { p: BrokerProduction; libera
           <span>pagamento direto, fora da imobiliária</span>
         </span>
       )}
-      <BarraTrilha
-        className="w-full max-w-[20rem]"
-        recebido={p.paid}
-        liberado={liberado}
-        previsto={previsto}
-        rotuloAcessivel={`${p.contact.name}: ${formatCurrency(p.paid)} já pagos a ele, ${formatCurrency(liberado)} liberados a pagar e ${formatCurrency(previsto)} dependendo da construtora.`}
-      />
     </span>
   )
 }
@@ -473,7 +527,7 @@ function PainelDoCorretor({
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-3 text-texto-corrido">
             <dt className="text-t-meta">Vendas</dt>
             <dd className="text-t1">
-              <MetaDoCorretor p={p} liberado={liberado} previsto={dele} />
+              <MetaDoCorretor p={p} />
             </dd>
             <dt className="text-t-meta">Percentual padrão</dt>
             <dd className="text-t1">{padrao != null ? `${padrao}%` : 'não informado'}</dd>

@@ -1,18 +1,15 @@
 import { useMemo, useState } from 'react'
-import { Calculator, Percent, Target, Users } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
 import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
-import { Barra } from '@/components/ui/Barra'
+import { PartesDaRegua, Regua } from '@/components/ui/Regua'
 import { FormField, Input } from '@/components/ui/Field'
 import { CurrencyInput, PercentInput } from '@/components/ui/MoneyInput'
 import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
-import { Dica } from '@/components/ui/Dica'
 import { Button } from '@/components/ui/Button'
 import { lastNMonths } from '@/lib/finance'
 import { entradasPorMes, volumeDeVendas } from '@/lib/sales'
@@ -54,6 +51,13 @@ import type { LinhaDemonstrativo } from '@/lib/linhasDaVenda'
  *
  * NADA É GRAVADO. Nenhuma chamada ao banco, nenhum lançamento: recarregar
  * devolve tudo ao real. Por isso a tela não tem botão de salvar.
+ *
+ * SOUZA 3.0 (02/11/2026): o título é o da rota (Projeções) e a frase diz o
+ * que fica no ano. A faixa traz o líder (fica no ano, que abre a conta) e o
+ * faturamento, o custo e a margem. Embaixo, duas colunas: à esquerda o que
+ * se mexe (o desenho e as premissas, com a régua da comissão embaixo), à
+ * direita o que muda junto (a conta do ano e a meta do time) — mexeu num
+ * campo, o resultado está ao lado.
  */
 
 type Caminho = 'vgv' | 'meta'
@@ -290,60 +294,70 @@ export function Simulacao() {
     />
   )
 
-  const explicaCaminho =
-    caminho === 'vgv'
-      ? 'Você diz o VGV que quer vender no ano e a tela diz quanto sobra.'
-      : 'Você diz quanto quer que sobre no ano e a tela diz o VGV que produz isso.'
+  const partesDaComissao = [
+    { nome: 'Fica para a imobiliária', valor: Math.max(c.liquidoAno, 0), cor: 'var(--g-entra)' },
+    { nome: 'Estrutura', valor: c.custoFixoAno, cor: 'var(--t2)' },
+    { nome: 'Corretores', valor: c.corretorAno, cor: 'var(--t4)' },
+    { nome: 'Imposto', valor: c.impostoAno, cor: 'var(--g-sai)' },
+  ]
+
+  const fraseDoTitulo = (
+    <>
+      <b>
+        <Valor valor={c.liquidoAno} posto="fato" tinta={c.liquidoAno < 0 ? 'text-error-ink' : 'text-t1'} />{' '}
+        {c.liquidoAno < 0 ? 'faltam no ano' : 'ficam no ano'}
+      </b>{' '}
+      · VGV de <Valor valor={c.vgvAno} posto="fato" /> · nada aqui é gravado
+    </>
+  )
 
   return (
-    <PageLayout
-      icone={Calculator}
-      titulo="Simulação"
-      subtitulo={`VGV de ${formatCurrency(c.vgvAno)} no ano · ${formatCurrency(porMes(c.vgvAno))} por mês`}
-    >
-      <Dica>
-        <strong className="font-semibold text-t1">A conta é do ANO, e cada número aparece nos dois prazos:</strong> o
-        total do ano na coluna da direita e a média por mês logo embaixo dele. {explicaCaminho} Nada aqui é gravado —
-        os campos começam no que o banco já sabe, e recarregar devolve tudo ao real.
-      </Dica>
-
-      <Heroi
-        variante="ouro"
-        estado={c.liquidoAno < 0 ? 'negativo' : undefined}
-        rotulo="Fica para a imobiliária · no ano"
-        valor={c.liquidoAno}
-        rotuloAcessivel="Abrir a conta da simulação"
-        aoAbrir={abrirAConta}
-        frase={
-          c.liquidoAno < 0
-            ? `Neste desenho a operação não paga a estrutura: falta ${formatCurrency(-c.liquidoAno)} no ano, ${formatCurrency(porMes(-c.liquidoAno))} por mês. O VGV que empata é ${formatCurrency(c.vgvDeEquilibrio)}.`
-            : `São ${formatCurrency(porMes(c.liquidoAno))} por mês, na média. De cada real de VGV, ${formatPercent(c.margemSobreVgv, 2)} chegam até aqui — depois do imposto, do corretor e da estrutura. O VGV que apenas empata é ${formatCurrency(c.vgvDeEquilibrio)}.`
-        }
-        demonstrativo={{ linhas, perfil: 'admin', rotuloAcessivel: 'A conta da simulação' }}
-      />
-
+    <PageLayout subtitulo={fraseDoTitulo}>
       <FaixaDeMetricas
         rotuloAcessivel="Resultado da simulação"
         metricas={[
-          { rotulo: "Faturamento no ano", valor: c.comissaoAno, nota: `${formatCurrency(porMes(c.comissaoAno))} por mês · a comissão da imobiliária` },
-          { rotulo: "Custo total no ano", valor: c.custoTotalAno, nota: `${formatCurrency(porMes(c.custoTotalAno))} por mês · imposto, corretor e estrutura` },
-          { rotulo: "Fica por mês", valor: porMes(c.liquidoAno), nota: `${formatCurrency(c.liquidoAno)} no ano` },
-          { rotulo: "Margem sobre o VGV", valor: 0, texto: formatPercent(c.margemSobreVgv, 2), nota: `${formatPercent(c.margemSobreComissao, 0)} da comissão sobram antes da estrutura` },
+          {
+            rotulo: 'Fica para a imobiliária · no ano',
+            valor: c.liquidoAno,
+            lider: true,
+            estado: c.liquidoAno < 0 ? 'negativo' : undefined,
+            nota: (
+              <>
+                <Valor valor={porMes(c.liquidoAno)} posto="fato" /> por mês, na média · empata com VGV de{' '}
+                <Valor valor={c.vgvDeEquilibrio} posto="fato" />
+              </>
+            ),
+            aoClicar: abrirAConta,
+          },
+          {
+            rotulo: 'Faturamento no ano',
+            valor: c.comissaoAno,
+            nota: (
+              <>
+                <Valor valor={porMes(c.comissaoAno)} posto="fato" /> por mês
+              </>
+            ),
+          },
+          {
+            rotulo: 'Custo total no ano',
+            valor: c.custoTotalAno,
+            nota: 'imposto, corretor e estrutura',
+          },
+          {
+            rotulo: 'Margem sobre o VGV',
+            valor: 0,
+            texto: formatPercent(c.margemSobreVgv, 2),
+            nota: `${formatPercent(c.margemSobreComissao, 0)} da comissão sobram antes da estrutura`,
+          },
         ]}
       />
 
-      {/*
-       * O ENCAIXE (21/09/2026): "não pode ter espaço vazio de grid". Duas
-       * colunas iguais só para os dois cartões de ENTRADA, que têm altura
-       * parecida; os dois cartões de RESULTADO ocupam a largura inteira, um
-       * embaixo do outro. Cartão de largura total não deixa buraco em fileira
-       * nenhuma, e as tabelas de ano/mês ganham espaço para respirar.
-       */}
-      <div className="grid items-start gap-bloco lg:grid-cols-2">
+      <div className="grid items-start gap-bloco xl:grid-cols-2">
+        <div className="grid items-start gap-bloco">
           <Cartao>
             <Cartao.Cabecalho
               titulo="O desenho"
-              icone={Target}
+              meta={caminho === 'vgv' ? 'você diz o VGV do ano; a tela diz quanto sobra' : 'você diz quanto quer que sobre; a tela diz o VGV'}
               extra={
                 <Button variant="secundario" size="sm" onClick={voltarAoReal}>
                   Voltar ao real
@@ -351,22 +365,19 @@ export function Simulacao() {
               }
             />
             <Cartao.Corpo>
-              <div className="flex flex-col gap-2">
-                <p className="text-texto-meta font-medium text-t2">Por onde você quer começar</p>
-                <FiltrosRapidos
-                  rotuloAcessivel="Por onde começar a simulação"
-                  ativo={caminho}
-                  aoMudar={(v) => setCaminho(v as Caminho)}
-                  filtros={[
-                    { id: 'vgv', rotulo: 'Tenho um VGV', dica: 'Digite o VGV do ano e veja quanto sobra' },
-                    {
-                      id: 'meta',
-                      rotulo: 'Tenho uma meta',
-                      dica: 'Digite quanto quer que sobre e veja o VGV necessário',
-                    },
-                  ]}
-                />
-              </div>
+              <FiltrosRapidos
+                rotuloAcessivel="Por onde começar a simulação"
+                ativo={caminho}
+                aoMudar={(v) => setCaminho(v as Caminho)}
+                filtros={[
+                  { id: 'vgv', rotulo: 'Tenho um VGV', dica: 'Digite o VGV do ano e veja quanto sobra' },
+                  {
+                    id: 'meta',
+                    rotulo: 'Tenho uma meta',
+                    dica: 'Digite quanto quer que sobre e veja o VGV necessário',
+                  },
+                ]}
+              />
               {caminho === 'vgv' ? (
                 <FormField
                   label="VGV que você quer vender no ano"
@@ -394,11 +405,7 @@ export function Simulacao() {
                     onChange={(e) => setCorretores(e.target.value)}
                   />
                 </FormField>
-                <FormField
-                  label="Ticket médio do imóvel"
-                  htmlFor="s-ticket"
-                  hint="para traduzir VGV em número de vendas"
-                >
+                <FormField label="Ticket médio do imóvel" htmlFor="s-ticket" hint="para traduzir VGV em número de vendas">
                   <CurrencyInput id="s-ticket" value={ticket} onChange={setTicket} />
                 </FormField>
                 {/* A estrutura fica aqui, e não nas premissas: ela é decisão
@@ -410,11 +417,7 @@ export function Simulacao() {
                 >
                   <CurrencyInput id="s-estrutura" value={estrutura} onChange={setEstrutura} />
                 </FormField>
-                <FormField
-                  label="Despesa nova por mês"
-                  htmlFor="s-nova"
-                  hint="o 'e se eu contratar': salário, sala maior, mídia"
-                >
+                <FormField label="Despesa nova por mês" htmlFor="s-nova" hint="o 'e se eu contratar': salário, sala maior, mídia">
                   <CurrencyInput id="s-nova" value={nova} onChange={setNova} />
                 </FormField>
               </div>
@@ -422,11 +425,7 @@ export function Simulacao() {
           </Cartao>
 
           <Cartao>
-            <Cartao.Cabecalho
-              titulo="As premissas"
-              icone={Percent}
-              meta="já preenchidas com o que a imobiliária pratica"
-            />
+            <Cartao.Cabecalho titulo="As premissas" meta="já preenchidas com o que a imobiliária pratica" />
             <Cartao.Corpo>
               <div className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
                 <FormField
@@ -470,145 +469,135 @@ export function Simulacao() {
               </div>
             </Cartao.Corpo>
           </Cartao>
-      </div>
-
-      <Cartao>
-        <Cartao.Cabecalho
-          titulo="Faturamento e custos"
-          icone={Calculator}
-          meta="o total do ano, e a média por mês embaixo de cada número"
-        />
-        <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="Faturamento e custos, no ano e por mês">
-          <LinhaGrupo rotulo="Entra" />
-          {linhaAnoEMes({
-            titulo: 'VGV vendido',
-            meta: 'o valor dos imóveis — não é dinheiro da imobiliária',
-            valor: c.vgvAno,
-          })}
-          {linhaAnoEMes({
-            titulo: 'Comissão (faturamento)',
-            meta: `${formatPercent((pctComissao ?? 0) / 100, 2)} do VGV`,
-            valor: c.comissaoAno,
-            forte: true,
-          })}
-          <LinhaGrupo rotulo="Sai" />
-          {retemIss &&
-            linhaAnoEMes({
-              titulo: 'ISS retido na fonte',
-              meta: `${formatPercent((pctIss ?? 0) / 100, 2)} da comissão`,
-              valor: c.issAno,
-            })}
-          {temNota &&
-            linhaAnoEMes({
-              titulo: 'Simples Nacional',
-              meta: `${formatPercent((pctSimples ?? 0) / 100, 2)} da comissão menos o ISS`,
-              valor: c.simplesAno,
-            })}
-          {linhaAnoEMes({
-            titulo: 'Comissão dos corretores',
-            meta: `${formatPercent((pctCorretor ?? 0) / 100, 2)} da base, o time inteiro`,
-            valor: c.corretorAno,
-          })}
-          {linhaAnoEMes({
-            titulo: 'Estrutura',
-            meta: 'o que existe com ou sem venda',
-            valor: c.estruturaAno,
-          })}
-          {c.novaAno > 0 &&
-            linhaAnoEMes({
-              titulo: 'Despesa nova',
-              meta: 'a contratação que você está simulando',
-              valor: c.novaAno,
-            })}
-          <LinhaGrupo rotulo="Fica" />
-          {linhaAnoEMes({
-            titulo: 'Sobra da operação',
-            meta: 'antes da estrutura',
-            valor: c.sobraAno,
-            forte: true,
-          })}
-          {linhaAnoEMes({
-            titulo: 'Fica para a imobiliária',
-            meta: `${formatPercent(c.margemSobreVgv, 2)} do VGV`,
-            valor: c.liquidoAno,
-            forte: true,
-            negativo: true,
-          })}
-        </Cartao.Lista>
-        <Cartao.Corpo>
-          <div className="flex flex-col gap-2">
-            <Barra
-              segmentos={[
-                { valor: Math.max(c.liquidoAno, 0), tom: 'marca' },
-                { valor: c.custoFixoAno, tom: 'neutro' },
-                { valor: c.corretorAno, tom: 'atencao' },
-                { valor: c.impostoAno, tom: 'info' },
-              ]}
-              rotuloAcessivel={`Da comissão de ${formatCurrency(c.comissaoAno)}: ${formatCurrency(c.liquidoAno)} ficam para a imobiliária, ${formatCurrency(c.custoFixoAno)} pagam a estrutura, ${formatCurrency(c.corretorAno)} vão para os corretores e ${formatCurrency(c.impostoAno)} para o imposto.`}
-            />
-            <p className="text-nota text-t-meta">
-              A barra divide a comissão do ano: o que fica, a estrutura, os corretores e o imposto.
-            </p>
-          </div>
-        </Cartao.Corpo>
-        <Cartao.Rodape>
-          <p className="max-w-[72ch]">
-            A linha de baixo é sempre o ano dividido por doze — média, não promessa. Comissão de imobiliária é
-            receita irregular: um mês traz três parcelas e o seguinte, nenhuma. A estrutura, ao contrário, chega
-            todo mês igual, e é essa assimetria que exige reserva.
-          </p>
-        </Cartao.Rodape>
-          </Cartao>
 
           <Cartao>
-        <Cartao.Cabecalho
-          titulo="O que o time precisa fazer"
-          icone={Users}
-          meta={`${c.time} ${c.time === 1 ? 'corretor' : 'corretores'} neste desenho`}
-        />
-        <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="A meta do time">
-          <LinhaGrupo rotulo="A imobiliária inteira" />
-          <Linha
-            titulo="Vendas no ano"
-            meta={`VGV de ${formatCurrency(c.vgvAno)} ÷ ticket de ${formatCurrency(ticket ?? 0)}`}
-            valor={<span className="num font-heading text-t1 text-valor-linha">{c.vendasAno}</span>}
-            metaValor={`${umaCasa(c.vendasAno / MESES)} por mês`}
-          />
-          <LinhaGrupo rotulo="Cada corretor" />
-          <Linha
-            titulo="VGV por corretor"
-            meta="o VGV do ano dividido pelo time"
-            valor={<Valor valor={c.vgvPorCorretorAno} posto="linha" forte />}
-            metaValor={`${formatCurrency(porMes(c.vgvPorCorretorAno))} por mês`}
-          />
-          <Linha
-            titulo="Vendas por corretor"
-            meta="arredondado para cima: meia venda não existe"
-            valor={<span className="num font-heading text-t1 text-valor-linha">{c.vendasPorCorretorAno}</span>}
-            metaValor={`${umaCasa(c.vendasPorCorretorAno / MESES)} por mês`}
-          />
-          <Linha
-            titulo="Comissão de cada corretor"
-            meta="o que cada um leva, se o time vender por igual"
-            valor={<Valor valor={c.comissaoPorCorretorAno} posto="linha" />}
-            metaValor={`${formatCurrency(porMes(c.comissaoPorCorretorAno))} por mês`}
-          />
-          <LinhaGrupo rotulo="O mínimo" />
-          <Linha
-            titulo="VGV que apenas empata"
-            meta="abaixo disso, o ano consome reserva"
-            valor={<Valor valor={c.vgvDeEquilibrio} posto="linha" />}
-            metaValor={`${formatCurrency(porMes(c.vgvDeEquilibrio))} por mês`}
-          />
-        </Cartao.Lista>
-        <Cartao.Rodape>
-          <p className="max-w-[72ch]">
-            Tudo aqui é do ANO, com a média mensal embaixo. A divisão por igual entre os corretores é o ponto de
-            partida da conversa, não uma previsão: se o time tem ritmos diferentes, a meta de cada um muda — o que
-            não muda é o total que precisa sair.
-          </p>
-        </Cartao.Rodape>
-      </Cartao>
+            <Cartao.Cabecalho
+              titulo="Para onde vai a comissão"
+              meta={
+                <>
+                  <Valor valor={c.comissaoAno} posto="fato" /> no ano, dividida
+                </>
+              }
+            />
+            <Cartao.Corpo>
+              <Regua
+                partes={partesDaComissao}
+                rotuloAcessivel={`Da comissão de ${formatCurrency(c.comissaoAno)}: ${formatCurrency(c.liquidoAno)} ficam para a imobiliária, ${formatCurrency(c.custoFixoAno)} pagam a estrutura, ${formatCurrency(c.corretorAno)} vão para os corretores e ${formatCurrency(c.impostoAno)} para o imposto.`}
+              />
+            </Cartao.Corpo>
+            <PartesDaRegua partes={partesDaComissao} rotuloAcessivel="As partes da comissão do ano" />
+          </Cartao>
+        </div>
+
+        <div className="grid items-start gap-bloco">
+          <Cartao>
+            <Cartao.Cabecalho titulo="Faturamento e custos" meta="o total do ano; embaixo, a média por mês" />
+            <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="Faturamento e custos, no ano e por mês">
+              <LinhaGrupo rotulo="Entra" />
+              {linhaAnoEMes({
+                titulo: 'VGV vendido',
+                meta: 'o valor dos imóveis — não é dinheiro da imobiliária',
+                valor: c.vgvAno,
+              })}
+              {linhaAnoEMes({
+                titulo: 'Comissão (faturamento)',
+                meta: `${formatPercent((pctComissao ?? 0) / 100, 2)} do VGV`,
+                valor: c.comissaoAno,
+                forte: true,
+              })}
+              <LinhaGrupo rotulo="Sai" />
+              {retemIss &&
+                linhaAnoEMes({
+                  titulo: 'ISS retido na fonte',
+                  meta: `${formatPercent((pctIss ?? 0) / 100, 2)} da comissão`,
+                  valor: c.issAno,
+                })}
+              {temNota &&
+                linhaAnoEMes({
+                  titulo: 'Simples Nacional',
+                  meta: `${formatPercent((pctSimples ?? 0) / 100, 2)} da comissão menos o ISS`,
+                  valor: c.simplesAno,
+                })}
+              {linhaAnoEMes({
+                titulo: 'Comissão dos corretores',
+                meta: `${formatPercent((pctCorretor ?? 0) / 100, 2)} da base, o time inteiro`,
+                valor: c.corretorAno,
+              })}
+              {linhaAnoEMes({
+                titulo: 'Estrutura',
+                meta: 'o que existe com ou sem venda',
+                valor: c.estruturaAno,
+              })}
+              {c.novaAno > 0 &&
+                linhaAnoEMes({
+                  titulo: 'Despesa nova',
+                  meta: 'a contratação que você está simulando',
+                  valor: c.novaAno,
+                })}
+              <LinhaGrupo rotulo="Fica" />
+              {linhaAnoEMes({
+                titulo: 'Sobra da operação',
+                meta: 'antes da estrutura',
+                valor: c.sobraAno,
+                forte: true,
+              })}
+              {linhaAnoEMes({
+                titulo: 'Fica para a imobiliária',
+                meta: `${formatPercent(c.margemSobreVgv, 2)} do VGV`,
+                valor: c.liquidoAno,
+                forte: true,
+                negativo: true,
+              })}
+            </Cartao.Lista>
+          </Cartao>
+
+
+          <Cartao>
+            <Cartao.Cabecalho titulo="O que o time precisa fazer" meta={`${c.time} ${c.time === 1 ? 'corretor' : 'corretores'} neste desenho`} />
+            <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="A meta do time">
+              <LinhaGrupo rotulo="A imobiliária inteira" />
+              <Linha
+                titulo="Vendas no ano"
+                meta={`VGV de ${formatCurrency(c.vgvAno)} ÷ ticket de ${formatCurrency(ticket ?? 0)}`}
+                valor={<span className="num font-heading text-t1 text-valor-linha">{c.vendasAno}</span>}
+                metaValor={`${umaCasa(c.vendasAno / MESES)} por mês`}
+              />
+              <LinhaGrupo rotulo="Cada corretor" />
+              <Linha
+                titulo="VGV por corretor"
+                meta="o VGV do ano dividido pelo time"
+                valor={<Valor valor={c.vgvPorCorretorAno} posto="linha" forte />}
+                metaValor={`${formatCurrency(porMes(c.vgvPorCorretorAno))} por mês`}
+              />
+              <Linha
+                titulo="Vendas por corretor"
+                meta="arredondado para cima: meia venda não existe"
+                valor={<span className="num font-heading text-t1 text-valor-linha">{c.vendasPorCorretorAno}</span>}
+                metaValor={`${umaCasa(c.vendasPorCorretorAno / MESES)} por mês`}
+              />
+              <Linha
+                titulo="Comissão de cada corretor"
+                meta="o que cada um leva, se o time vender por igual"
+                valor={<Valor valor={c.comissaoPorCorretorAno} posto="linha" />}
+                metaValor={`${formatCurrency(porMes(c.comissaoPorCorretorAno))} por mês`}
+              />
+              <LinhaGrupo rotulo="O mínimo" />
+              <Linha
+                titulo="VGV que apenas empata"
+                meta="abaixo disso, o ano consome reserva"
+                valor={<Valor valor={c.vgvDeEquilibrio} posto="linha" />}
+                metaValor={`${formatCurrency(porMes(c.vgvDeEquilibrio))} por mês`}
+              />
+            </Cartao.Lista>
+            <Cartao.Rodape>
+              <p className="max-w-[72ch]">
+                A divisão por igual entre os corretores é o ponto de partida da conversa, não uma previsão: o que não
+                muda é o total que precisa sair.
+              </p>
+            </Cartao.Rodape>
+          </Cartao>
+        </div>
+      </div>
     </PageLayout>
   )
 }

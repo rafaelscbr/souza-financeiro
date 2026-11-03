@@ -4,16 +4,14 @@ import { Building2, CalendarClock, CalendarRange, CircleCheck, Hourglass, Layers
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { ParAgoraPrevisto } from '@/components/ui/ParAgoraPrevisto'
 import { Selo } from '@/components/ui/Selo'
 import { ChipSituacao } from '@/components/ui/Situacao'
-import { Barra, LegendaBarra } from '@/components/ui/Barra'
 import { FiltrosRapidos } from '@/components/ui/FiltrosRapidos'
-import { Dica } from '@/components/ui/Dica'
 import { Button } from '@/components/ui/Button'
 import { EstadoVazio } from '@/components/ui/Estados'
 import { situacaoDeTela, type Situacao } from '@/lib/situacao'
@@ -46,9 +44,15 @@ import { cn } from '@/lib/utils'
  * nesta tela.
  *
  * A parcela recebida se posiciona pela data em que caiu; a pendente, pela
- * data prevista. O herói é o que já entrou — dinheiro que existe — e, como
- * no corretor, não muda com o período nem com o filtro de situação. Muda com
- * a leitura (geral ou da imobiliária), que é a pergunta da tela.
+ * data prevista. O número líder é o que já entrou — dinheiro que existe — e,
+ * como no corretor, não muda com o período nem com o filtro de situação. Muda
+ * com a leitura (geral ou da imobiliária), que é a pergunta da tela.
+ *
+ * SOUZA 3.0 (02/11/2026): é a vista de calendário de A receber (o "voltar"
+ * vem da rota). O herói virou faixa de números (já recebido como líder, em
+ * atraso e previsto como apoios); o calendário pinta recebido em marinho (o
+ * dado principal), em atraso em âmbar e previsto em cinza, como o ano do
+ * corretor.
  */
 
 const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -77,10 +81,12 @@ interface Item {
   quando: string
 }
 
+/* As cores dos três estados: recebido é o dado principal (marinho), atraso é âmbar, previsão é cinza. */
+const COR = { recebida: 'var(--g-entra)', atraso: 'var(--warning)', prevista: 'var(--g-sai)' } as const
 const LEGENDA = [
-  { tom: 'sucesso' as const, rotulo: 'recebido' },
-  { tom: 'atencao' as const, rotulo: 'em atraso, a construtora não pagou' },
-  { tom: 'info' as const, rotulo: 'previsto' },
+  { cor: COR.recebida, rotulo: 'recebido' },
+  { cor: COR.atraso, rotulo: 'em atraso' },
+  { cor: COR.prevista, rotulo: 'previsto' },
 ]
 
 function passa(filtro: Filtro, e: Estado): boolean {
@@ -209,16 +215,23 @@ export function Recebimentos() {
       vazio: 'Nenhuma parcela aqui.',
     })
 
-  const subtitulo = [
-    `${formatCurrency(soma(recebidas))} recebido`,
-    emAtraso.length > 0 ? plural(emAtraso.length, 'parcela em atraso', 'parcelas em atraso') : null,
-    nomeDaVisao,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  const subtitulo = (
+    <>
+      <b>
+        <Valor valor={soma(recebidas)} posto="fato" tinta="text-t1" /> já recebido
+      </b>
+      {emAtraso.length > 0 && (
+        <>
+          {' · '}
+          <span className="font-medium text-warning-ink">{plural(emAtraso.length, 'parcela em atraso', 'parcelas em atraso')}</span>
+        </>
+      )}
+      {` · ${nomeDaVisao}`}
+    </>
+  )
 
   const faixa = (
-    <div className="flex min-w-0 flex-col gap-3">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
       <FiltrosRapidos<Visao>
         rotuloAcessivel="Qual valor mostrar"
         ativo={visao}
@@ -304,40 +317,26 @@ export function Recebimentos() {
 
   return (
     <PageLayout subtitulo={subtitulo} faixa={faixa}>
-      <Heroi
-        variante="ouro"
-        rotulo={visao === 'geral' ? 'Já recebido · geral' : 'Já recebido · parte da imobiliária'}
-        valor={soma(recebidas)}
-        contar
-        rotuloAcessivel="Ver de quais vendas vem o que já entrou"
-        aoAbrir={() => compor('Já recebido', 'O que já entrou', recebidas)}
-        frase={
-          visao === 'geral'
-            ? 'Toda a comissão que a construtora já pagou, parcela bruta, de todas as vendas da imobiliária.'
-            : 'O que ficou para a imobiliária do que já entrou: a parcela menos ISS, Simples, corretor e sócio.'
-        }
-        barra={
-          <div className="flex flex-col gap-2">
-            <Barra
-              rotuloAcessivel={`${formatCurrency(soma(recebidas))} recebido, ${formatCurrency(
-                soma(emAtraso),
-              )} em atraso e ${formatCurrency(soma(previstas))} previsto.`}
-              segmentos={[
-                { valor: soma(recebidas), tom: 'sucesso' },
-                { valor: soma(emAtraso), tom: 'atencao' },
-                { valor: soma(previstas), tom: 'info' },
-              ]}
-            />
-            <LegendaBarra itens={LEGENDA} />
-          </div>
-        }
-        apoios={[
+      <FaixaDeMetricas
+        rotuloAcessivel="Recebimentos de comissão"
+        metricas={[
+          {
+            rotulo: visao === 'geral' ? 'Já recebido · geral' : 'Já recebido · parte da imobiliária',
+            valor: soma(recebidas),
+            lider: true,
+            nota: `${plural(recebidas.length, 'parcela', 'parcelas')} de todas as vendas${visao === 'geral' ? ', parcela bruta' : ', depois de imposto, corretor e sócio'}`,
+            aoClicar: () => compor('Já recebido', 'O que já entrou', recebidas),
+          },
           {
             rotulo: 'Em atraso',
             valor: soma(emAtraso),
-            previsto: true,
-            rotuloAcessivel: 'Ver as parcelas em atraso',
-            aoAbrir: () =>
+            nota:
+              emAtraso.length === 0 ? (
+                'nenhuma parcela em atraso'
+              ) : (
+                <span className="text-warning-ink">{plural(emAtraso.length, 'parcela', 'parcelas')} · a construtora não pagou</span>
+              ),
+            aoClicar: () =>
               compor(
                 'Em atraso',
                 'A data passou e a construtora não pagou',
@@ -349,8 +348,8 @@ export function Recebimentos() {
             rotulo: 'Previsto',
             valor: soma(previstas),
             previsto: true,
-            rotuloAcessivel: 'Ver as parcelas previstas',
-            aoAbrir: () =>
+            nota: `${plural(previstas.length, 'parcela', 'parcelas')} · depende da construtora`,
+            aoClicar: () =>
               compor('Previsto', 'Previsão, não promessa', previstas, 'Depende da construtora pagar. A data pode mudar.'),
           },
         ]}
@@ -375,19 +374,7 @@ export function Recebimentos() {
       ))}
 
       <Cartao>
-        <Cartao.Cabecalho
-          titulo="Cronograma"
-          icone={CalendarRange}
-          meta={`${nomeDaVisao} · ${plural(lista.length, 'parcela', 'parcelas')}`}
-        />
-        {lista.some((it) => it.estado === 'atraso') && (
-          <Cartao.Corpo>
-            <Dica>
-              Em atraso é parcela com a data passada que a construtora ainda não pagou. Não é dívida da imobiliária: é
-              cobrança.
-            </Dica>
-          </Cartao.Corpo>
-        )}
+        <Cartao.Cabecalho titulo="Cronograma" meta={`${plural(lista.length, 'parcela', 'parcelas')}, mês a mês · ${nomeDaVisao}`} />
         {meses.length === 0 ? (
           <EstadoVazio
             icone={CalendarRange}
@@ -507,8 +494,12 @@ function CalendarioDoAno({
     <Cartao>
       <Cartao.Cabecalho
         titulo={`Calendário de ${ano}`}
-        icone={CalendarRange}
-        meta={`${formatCurrency(recebidoNoAno)} recebido de ${formatCurrency(totalDoAno)} no ano`}
+        meta={
+          <>
+            <Valor valor={recebidoNoAno} posto="fato" forte /> recebido de <Valor valor={totalDoAno} posto="fato" /> no ano
+          </>
+        }
+        extra={<Legenda />}
       />
       <Cartao.Corpo>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -517,21 +508,21 @@ function CalendarioDoAno({
             const conteudo = (
               <>
                 <span className="flex items-center justify-between gap-2">
-                  <span className="font-label text-rotulo">{c.nome}</span>
-                  {c.i === mesAtual && <span className="font-label text-brand-text text-rotulo">hoje</span>}
+                  <span className={cn('font-label text-rotulo', c.i === mesAtual && 'text-t1')}>{c.nome}</span>
+                  {c.i === mesAtual && <span className="font-label text-rotulo text-t1">hoje</span>}
                 </span>
                 {vazio ? (
-                  <span className="text-nota text-t4">sem parcela</span>
+                  <span className="text-nota text-t-meta">sem parcela</span>
                 ) : (
                   <>
                     <Valor valor={c.total} posto="fato" forte />
-                    <Barra
-                      animarEntrada={false}
-                      segmentos={[
-                        { valor: c.recebido, tom: 'sucesso' },
-                        { valor: c.atraso, tom: 'atencao' },
-                        { valor: c.previsto, tom: 'info' },
+                    <TrilhaDoMes
+                      partes={[
+                        { valor: c.recebido, cor: COR.recebida },
+                        { valor: c.atraso, cor: COR.atraso },
+                        { valor: c.previsto, cor: COR.prevista },
                       ]}
+                      indice={c.i}
                       rotuloAcessivel={`${MESES_LONGOS[c.i]}: ${formatCurrency(c.recebido)} recebido, ${formatCurrency(
                         c.atraso,
                       )} em atraso e ${formatCurrency(c.previsto)} previsto.`}
@@ -543,8 +534,8 @@ function CalendarioDoAno({
             )
             const classes = cn(
               'flex min-w-0 flex-col gap-2 rounded-caixa border p-4 text-left',
-              c.i === mesAtual ? 'border-borda-ouro' : 'border-fio-linha',
-              vazio ? 'text-t4' : 'text-t2',
+              c.i === mesAtual ? 'border-t1' : 'border-fio-linha',
+              vazio ? 'text-t-meta' : 'text-t2',
             )
             return vazio ? (
               <span key={c.nome} className={classes}>
@@ -563,9 +554,48 @@ function CalendarioDoAno({
           })}
         </div>
       </Cartao.Corpo>
-      <Cartao.Rodape>
-        <LegendaBarra itens={LEGENDA} />
-      </Cartao.Rodape>
     </Cartao>
+  )
+}
+
+/* A trilha do mês: recebido, em atraso e previsto numa barra fina, que se preenche ao abrir. */
+function TrilhaDoMes({
+  partes,
+  indice,
+  rotuloAcessivel,
+}: {
+  partes: { valor: number; cor: string }[]
+  indice: number
+  rotuloAcessivel: string
+}) {
+  return (
+    <span role="img" aria-label={rotuloAcessivel} className="flex h-1.5 w-full gap-0.5 rounded-kbd bg-s3">
+      {partes.map((p, k) =>
+        p.valor > 0 ? (
+          <span
+            key={k}
+            className="block h-full origin-left"
+            style={{
+              flexGrow: p.valor,
+              background: p.cor,
+              animation: `barraEnche var(--dur-contagem) var(--curva-entra) ${indice * 40 + k * 80}ms backwards`,
+            }}
+          />
+        ) : null,
+      )}
+    </span>
+  )
+}
+
+function Legenda() {
+  return (
+    <span className="flex flex-wrap items-center gap-3 text-t-meta text-texto-meta">
+      {LEGENDA.map((l) => (
+        <span key={l.rotulo} className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="size-2 rounded-ponto" style={{ background: l.cor }} />
+          {l.rotulo}
+        </span>
+      ))}
+    </span>
   )
 }

@@ -1,5 +1,5 @@
-import { useId, useState } from 'react'
-import { Building, Building2, Check, HardHat, KeyRound, Landmark, Percent, Plus, Tags, UserRound } from 'lucide-react'
+import { useId, useState, type ReactNode } from 'react'
+import { Building2, Check, HardHat, KeyRound, Landmark, Plus } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { TrocarSenha } from '@/auth/TrocarSenha'
 import { useAdmin } from '../AdminData'
@@ -20,7 +20,7 @@ import { ACCOUNT_TYPE_LABEL, accountBalance } from '@/lib/treasury'
 import { formatDate, toDateOnly } from '@/lib/format'
 import type { Account, CostCenter, Developer } from '@/types'
 
-type Aba = 'contas' | 'construtoras' | 'empreendimentos' | 'categorias' | 'imposto' | 'historico' | 'conta'
+type Aba = 'cadastros' | 'imposto' | 'conta' | 'historico'
 
 /*
  * CONFIGURAÇÕES (planta 9.7) — cadastros e regras.
@@ -28,11 +28,14 @@ type Aba = 'contas' | 'construtoras' | 'empreendimentos' | 'categorias' | 'impos
  * SÓ APRESENTAÇÃO. Os mesmos números (saldo de cada conta por accountBalance,
  * vendas por empreendimento, lançamentos por categoria), as mesmas palavras e
  * os mesmos cinco formulários, com as mesmas gravações (salvarConta,
- * salvarEmpreendimento, salvarCategoria, salvarImposto, TrocarSenha).
+ * salvarConstrutora, salvarEmpreendimento, salvarCategoria, salvarImposto,
+ * TrocarSenha).
  *
- * Composição: `Abas` na faixa, corpo `.leitura` (720 à esquerda), cada aba um
- * cartão com lista, e toda edição num `SidePanel lg`. Sem herói: configuração
- * não responde pergunta de dinheiro nenhuma. Carregando e erro são da casca.
+ * Souza 3.0 (02/11/2026): duas colunas por seção — à esquerda o título e a
+ * frase do que ela guarda, à direita o painel de campos — e um fio entre as
+ * seções. Os quatro cadastros moram juntos numa aba só (menos cliques); o
+ * imposto, a sua conta e o histórico ficam nas outras. Toda edição continua
+ * num `SidePanel lg`. Carregando e erro são da casca.
  */
 
 /*
@@ -43,7 +46,8 @@ type Aba = 'contas' | 'construtoras' | 'empreendimentos' | 'categorias' | 'impos
 const COR_GRAVADA_PADRAO = ['#', '1E3A8A'].join('')
 
 export function Config() {
-  const [aba, setAba] = useState<Aba>('contas')
+  const { accounts, developers, costCenters, categories, company } = useAdmin()
+  const [aba, setAba] = useState<Aba>('cadastros')
   const idBase = useId()
 
   const faixa = (
@@ -53,33 +57,77 @@ export function Config() {
       ativa={aba}
       aoMudar={setAba}
       abas={[
-        { id: 'contas', rotulo: 'Contas' },
-        { id: 'construtoras', rotulo: 'Construtoras' },
-        { id: 'empreendimentos', rotulo: 'Empreendimentos' },
-        { id: 'categorias', rotulo: 'Categorias' },
+        { id: 'cadastros', rotulo: 'Cadastros' },
         { id: 'imposto', rotulo: 'Imposto' },
-        { id: 'historico', rotulo: 'Histórico' },
         { id: 'conta', rotulo: 'Minha conta' },
+        { id: 'historico', rotulo: 'Histórico' },
       ]}
     />
   )
 
+  const ativas = accounts.filter((a) => a.is_active).length
+  const nCategorias = categories.filter((c) => c.company_id === null || c.company_id === company?.id).length
+  const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
+  const frase = (
+    <>
+      <b>
+        {plural(ativas, 'conta ativa', 'contas ativas')} · {plural(developers.length, 'construtora', 'construtoras')} ·{' '}
+        {plural(costCenters.length, 'empreendimento', 'empreendimentos')}
+      </b>{' '}
+      · {plural(nCategorias, 'categoria', 'categorias')}; o que muda aqui vale daqui para frente
+    </>
+  )
+
   return (
-    <PageLayout faixa={faixa} largura="leitura">
-      <p className="text-texto-corrido text-t2">
-        Contas, empreendimentos, categorias e imposto. O que se muda aqui vale para os lançamentos
-        daqui para frente — nada do que já está gravado é reescrito.
-      </p>
-      <PainelAba idBase={idBase} aba={aba} className="flex flex-col gap-bloco focus-visible:outline-none">
-        {aba === 'contas' && <Contas />}
-        {aba === 'construtoras' && <Construtoras />}
-        {aba === 'empreendimentos' && <Empreendimentos />}
-        {aba === 'categorias' && <Categorias />}
+    <PageLayout subtitulo={frase} faixa={faixa}>
+      <PainelAba idBase={idBase} aba={aba} className="flex flex-col gap-secao focus-visible:outline-none">
+        {aba === 'cadastros' && (
+          <>
+            <Contas />
+            <Construtoras />
+            <Empreendimentos />
+            <Categorias />
+          </>
+        )}
         {aba === 'imposto' && <Imposto />}
-        {aba === 'historico' && <HistoricoDeAlteracoes />}
         {aba === 'conta' && <MinhaConta />}
+        {aba === 'historico' && <HistoricoDeAlteracoes />}
       </PainelAba>
     </PageLayout>
+  )
+}
+
+/*
+ * A SEÇÃO EM DUAS COLUNAS: à esquerda o título, a frase do que ela guarda e o
+ * botão de criar; à direita o painel. No celular, uma embaixo da outra. Entre
+ * duas seções, um fio.
+ */
+function Secao({
+  titulo,
+  descricao,
+  acao,
+  children,
+}: {
+  titulo: string
+  descricao: ReactNode
+  acao?: ReactNode
+  children: ReactNode
+}) {
+  const id = useId()
+  return (
+    <section
+      aria-labelledby={id}
+      className="grid items-start gap-x-secao gap-y-4 border-t border-fio-linha pt-secao first:border-t-0 first:pt-0 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]"
+    >
+      <div className="flex min-w-0 flex-col items-start gap-2">
+        <h2 id={id} className="text-t1 text-titulo-secao">
+          {titulo}
+        </h2>
+        <p className="text-texto-meta text-t-meta">{descricao}</p>
+        {acao && <div className="pt-2">{acao}</div>}
+      </div>
+      <div className="flex min-w-0 flex-col gap-bloco">{children}</div>
+    </section>
   )
 }
 
@@ -99,47 +147,43 @@ function Contas() {
 
   return (
     <>
-      <Cartao>
-        <Cartao.Cabecalho
-          titulo="Contas"
-          icone={Landmark}
-          extra={<BotaoNovo rotulo="Nova conta" aoClicar={() => setEditando('nova')} />}
-        />
-        <Cartao.Corpo>
-          <p className="text-texto-meta text-t-meta">
-            Onde o dinheiro da imobiliária entra e sai. O saldo ao lado é o de hoje, já com as
-            transferências entre contas.
-          </p>
-        </Cartao.Corpo>
-
-        {accounts.length === 0 ? (
-          <EstadoVazio
-            icone={Landmark}
-            titulo="Nenhuma conta cadastrada"
-            descricao="Sem conta, a baixa fica sem destino e o saldo não fecha com o extrato do banco."
-            acao={<Button onClick={() => setEditando('nova')}>Cadastrar a primeira conta</Button>}
-          />
-        ) : (
-          <Cartao.Lista rotuloAcessivel="Contas" colunas={{ valor: true, fim: true }}>
-            {accounts.map((a) => {
-              const saldo = accountBalance(a, transactions, transfers)
-              return (
-                <Linha
-                  key={a.id}
-                  titulo={a.is_active ? a.name : `${a.name} (inativa)`}
-                  meta={[ACCOUNT_TYPE_LABEL[a.type], a.bank, `aberta em ${formatDate(a.opening_date)}`]
-                    .filter(Boolean)
-                    .join(' · ')}
-                  valor={
-                    <Valor valor={saldo.balance} posto="linha" estado={saldo.balance < 0 ? 'negativo' : undefined} />
-                  }
-                  aoClicar={() => setEditando(a)}
-                />
-              )
-            })}
-          </Cartao.Lista>
-        )}
-      </Cartao>
+      <Secao
+        titulo="Contas"
+        descricao="Onde o dinheiro da imobiliária entra e sai. O saldo é o de hoje, já com as transferências entre contas."
+        acao={<BotaoNovo rotulo="Nova conta" aoClicar={() => setEditando('nova')} />}
+      >
+        <Cartao rotuloAcessivel="Contas">
+          {accounts.length === 0 ? (
+            <Cartao.Corpo>
+              <EstadoVazio
+                icone={Landmark}
+                titulo="Nenhuma conta cadastrada"
+                descricao="Sem conta, a baixa fica sem destino e o saldo não fecha com o extrato do banco."
+                acao={<Button onClick={() => setEditando('nova')}>Cadastrar a primeira conta</Button>}
+              />
+            </Cartao.Corpo>
+          ) : (
+            <Cartao.Lista rotuloAcessivel="Contas" colunas={{ valor: true, fim: true }}>
+              {accounts.map((a) => {
+                const saldo = accountBalance(a, transactions, transfers)
+                return (
+                  <Linha
+                    key={a.id}
+                    titulo={a.is_active ? a.name : `${a.name} (inativa)`}
+                    meta={[ACCOUNT_TYPE_LABEL[a.type], a.bank, `aberta em ${formatDate(a.opening_date)}`]
+                      .filter(Boolean)
+                      .join(' · ')}
+                    valor={
+                      <Valor valor={saldo.balance} posto="linha" estado={saldo.balance < 0 ? 'negativo' : undefined} />
+                    }
+                    aoClicar={() => setEditando(a)}
+                  />
+                )
+              })}
+            </Cartao.Lista>
+          )}
+        </Cartao>
+      </Secao>
 
       {/*
        * A CHAVE É O QUE FAZ EDITAR FUNCIONAR (21/09/2026).
@@ -316,49 +360,45 @@ function Construtoras() {
 
   return (
     <>
-      <Cartao>
-        <Cartao.Cabecalho
-          titulo="Construtoras"
-          icone={HardHat}
-          extra={<BotaoNovo rotulo="Nova" aoClicar={() => setEditando('nova')} />}
-        />
-        <Cartao.Corpo>
-          <p className="text-texto-meta text-t-meta">
-            O prazo aqui conta a partir da emissão da nota fiscal. Com ele, marcar a nota numa
-            parcela já dá a data prevista do dinheiro.
-          </p>
-        </Cartao.Corpo>
-
-        {developers.length === 0 ? (
-          <EstadoVazio
-            icone={HardHat}
-            titulo="Nenhuma construtora cadastrada"
-            descricao="Sem o prazo da construtora, a previsão do pagamento depende de você lembrar."
-            acao={<Button onClick={() => setEditando('nova')}>Cadastrar a primeira</Button>}
-          />
-        ) : (
-          <Cartao.Lista rotuloAcessivel="Construtoras" colunas={{ fim: true }}>
-            {developers.map((d) => {
-              const quantos = costCenters.filter((c) => c.developer_id === d.id).length
-              return (
-                <Linha
-                  key={d.id}
-                  titulo={d.is_active ? d.name : `${d.name} (inativa)`}
-                  meta={[
-                    d.payment_days == null
-                      ? 'prazo não cadastrado'
-                      : `paga em ${d.payment_days} dia${d.payment_days === 1 ? '' : 's'} ${
-                          d.payment_days_business ? 'útil' : 'corrido'
-                        }${d.payment_days === 1 ? '' : 's'} depois da nota`,
-                    `${quantos} empreendimento${quantos === 1 ? '' : 's'}`,
-                  ].join(' · ')}
-                  aoClicar={() => setEditando(d)}
-                />
-              )
-            })}
-          </Cartao.Lista>
-        )}
-      </Cartao>
+      <Secao
+        titulo="Construtoras"
+        descricao="O prazo conta a partir da emissão da nota fiscal. Com ele, marcar a nota numa parcela já dá a data prevista do dinheiro."
+        acao={<BotaoNovo rotulo="Nova construtora" aoClicar={() => setEditando('nova')} />}
+      >
+        <Cartao rotuloAcessivel="Construtoras">
+          {developers.length === 0 ? (
+            <Cartao.Corpo>
+              <EstadoVazio
+                icone={HardHat}
+                titulo="Nenhuma construtora cadastrada"
+                descricao="Sem o prazo da construtora, a previsão do pagamento depende de você lembrar."
+                acao={<Button onClick={() => setEditando('nova')}>Cadastrar a primeira</Button>}
+              />
+            </Cartao.Corpo>
+          ) : (
+            <Cartao.Lista rotuloAcessivel="Construtoras" colunas={{ fim: true }}>
+              {developers.map((d) => {
+                const quantos = costCenters.filter((c) => c.developer_id === d.id).length
+                return (
+                  <Linha
+                    key={d.id}
+                    titulo={d.is_active ? d.name : `${d.name} (inativa)`}
+                    meta={[
+                      d.payment_days == null
+                        ? 'prazo não cadastrado'
+                        : `paga em ${d.payment_days} dia${d.payment_days === 1 ? '' : 's'} ${
+                            d.payment_days_business ? 'útil' : 'corrido'
+                          }${d.payment_days === 1 ? '' : 's'} depois da nota`,
+                      `${quantos} empreendimento${quantos === 1 ? '' : 's'}`,
+                    ].join(' · ')}
+                    aoClicar={() => setEditando(d)}
+                  />
+                )
+              })}
+            </Cartao.Lista>
+          )}
+        </Cartao>
+      </Secao>
 
       <FormConstrutora
         key={editando === null ? 'fechado' : editando === 'nova' ? 'nova' : editando.id}
@@ -471,55 +511,51 @@ function Empreendimentos() {
 
   return (
     <>
-      <Cartao>
-        <Cartao.Cabecalho
-          titulo="Empreendimentos"
-          icone={Building2}
-          extra={<BotaoNovo rotulo="Novo" aoClicar={() => setEditando('novo')} />}
-        />
-        <Cartao.Corpo>
-          <p className="text-texto-meta text-t-meta">
-            Cada empreendimento guarda a construtora e se ela retém ISS. É daqui que a venda nasce
-            sabendo quanto de imposto sai antes de o dinheiro chegar.
-          </p>
-        </Cartao.Corpo>
-
-        {costCenters.length === 0 ? (
-          <EstadoVazio
-            icone={Building2}
-            titulo="Nenhum empreendimento cadastrado"
-            descricao="Sem empreendimento a venda não sabe se a construtora retém ISS, e a comissão líquida sai errada."
-            acao={<Button onClick={() => setEditando('novo')}>Cadastrar o primeiro</Button>}
-          />
-        ) : (
-          <Cartao.Lista rotuloAcessivel="Empreendimentos" colunas={{ fim: true }}>
-            {costCenters.map((c) => {
-              const cc = c as CostCenter & {
-                retains_iss?: boolean
-                iss_pct?: number
-                default_commission_pct?: number | null
-              }
-              const qtd = vendas.filter((v) => v.cost_center_id === c.id).length
-              return (
-                <Linha
-                  key={c.id}
-                  titulo={c.is_active ? c.name : `${c.name} (inativo)`}
-                  meta={[
-                    developers.find((d) => d.id === c.developer_id)?.name ?? c.developer,
-                    `${qtd} venda${qtd === 1 ? '' : 's'}`,
-                    c.trigger_note ? 'com gatilho escrito' : 'sem gatilho escrito',
-                    cc.retains_iss ? `retém ISS ${cc.iss_pct ?? 0}%` : 'sem retenção de ISS',
-                    cc.default_commission_pct != null ? `comissão padrão ${cc.default_commission_pct}%` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                  aoClicar={() => setEditando(c)}
-                />
-              )
-            })}
-          </Cartao.Lista>
-        )}
-      </Cartao>
+      <Secao
+        titulo="Empreendimentos"
+        descricao="Cada empreendimento guarda a construtora, o gatilho e se ela retém ISS. É daqui que a venda nasce sabendo quanto de imposto sai antes de o dinheiro chegar."
+        acao={<BotaoNovo rotulo="Novo empreendimento" aoClicar={() => setEditando('novo')} />}
+      >
+        <Cartao rotuloAcessivel="Empreendimentos">
+          {costCenters.length === 0 ? (
+            <Cartao.Corpo>
+              <EstadoVazio
+                icone={Building2}
+                titulo="Nenhum empreendimento cadastrado"
+                descricao="Sem empreendimento a venda não sabe se a construtora retém ISS, e a comissão líquida sai errada."
+                acao={<Button onClick={() => setEditando('novo')}>Cadastrar o primeiro</Button>}
+              />
+            </Cartao.Corpo>
+          ) : (
+            <Cartao.Lista rotuloAcessivel="Empreendimentos" colunas={{ fim: true }}>
+              {costCenters.map((c) => {
+                const cc = c as CostCenter & {
+                  retains_iss?: boolean
+                  iss_pct?: number
+                  default_commission_pct?: number | null
+                }
+                const qtd = vendas.filter((v) => v.cost_center_id === c.id).length
+                return (
+                  <Linha
+                    key={c.id}
+                    titulo={c.is_active ? c.name : `${c.name} (inativo)`}
+                    meta={[
+                      developers.find((d) => d.id === c.developer_id)?.name ?? c.developer,
+                      `${qtd} venda${qtd === 1 ? '' : 's'}`,
+                      c.trigger_note ? 'com gatilho escrito' : 'sem gatilho escrito',
+                      cc.retains_iss ? `retém ISS ${cc.iss_pct ?? 0}%` : 'sem retenção de ISS',
+                      cc.default_commission_pct != null ? `comissão padrão ${cc.default_commission_pct}%` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                    aoClicar={() => setEditando(c)}
+                  />
+                )
+              })}
+            </Cartao.Lista>
+          )}
+        </Cartao>
+      </Secao>
 
       <FormEmpreendimento
         key={editando === null ? 'fechado' : editando === 'novo' ? 'novo' : editando.id}
@@ -680,35 +716,29 @@ function Categorias() {
 
   return (
     <>
-      <Cartao>
-        <Cartao.Cabecalho
-          titulo="Categorias"
-          icone={Tags}
-          extra={<BotaoNovo rotulo="Nova" aoClicar={() => setNova(true)} />}
-        />
-        <Cartao.Corpo>
-          <p className="text-texto-meta text-t-meta">
-            Como as despesas são classificadas. As duas categorias de comissão ficam fora desta lista
-            de propósito: elas não se configuram, nascem do cadastro da venda.
-          </p>
-        </Cartao.Corpo>
-
-        <Cartao.Lista rotuloAcessivel="Categorias" colunas={{}}>
-          {minhas.map((c) => {
-            const usos = usoPorCategoria.get(c.name) ?? 0
-            return (
-              <Linha
-                key={c.id}
-                titulo={c.name}
-                meta={[
-                  c.kind === 'income' ? 'entrada' : 'saída',
-                  `${usos} ${usos === 1 ? 'lançamento' : 'lançamentos'}`,
-                ].join(' · ')}
-              />
-            )
-          })}
-        </Cartao.Lista>
-      </Cartao>
+      <Secao
+        titulo="Categorias"
+        descricao="Como as despesas são classificadas. As duas categorias de comissão não se configuram: nascem do cadastro da venda."
+        acao={<BotaoNovo rotulo="Nova categoria" aoClicar={() => setNova(true)} />}
+      >
+        <Cartao rotuloAcessivel="Categorias">
+          <Cartao.Lista rotuloAcessivel="Categorias" colunas={{}}>
+            {minhas.map((c) => {
+              const usos = usoPorCategoria.get(c.name) ?? 0
+              return (
+                <Linha
+                  key={c.id}
+                  titulo={c.name}
+                  meta={[
+                    c.kind === 'income' ? 'entrada' : 'saída',
+                    `${usos} ${usos === 1 ? 'lançamento' : 'lançamentos'}`,
+                  ].join(' · ')}
+                />
+              )
+            })}
+          </Cartao.Lista>
+        </Cartao>
+      </Secao>
 
       <SidePanel
         aberto={nova}
@@ -774,63 +804,62 @@ function Imposto() {
 
   return (
     <>
-      <Cartao>
-        <Cartao.Cabecalho titulo="Enquadramento" icone={Percent} />
-        <Cartao.Corpo className="gap-6">
-          <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
-            <FormField label="Regime" htmlFor="im-regime">
-              <Select
-                id="im-regime"
-                value={regime ?? 'simples'}
-                onChange={(e) => setRegime(e.target.value as typeof regime)}
+      <Secao
+        titulo="Enquadramento"
+        descricao="O regime e a alíquota padrão que o formulário de venda sugere. O que vale no resultado é o imposto lançado em cada parcela: é assim que a guia do DAS aparece em A pagar na data certa."
+      >
+        <Cartao rotuloAcessivel="Enquadramento">
+          <Cartao.Corpo className="gap-6">
+            <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
+              <FormField label="Regime" htmlFor="im-regime">
+                <Select
+                  id="im-regime"
+                  value={regime ?? 'simples'}
+                  onChange={(e) => setRegime(e.target.value as typeof regime)}
+                >
+                  <option value="simples">Simples Nacional</option>
+                  <option value="presumido">Lucro Presumido</option>
+                  <option value="real">Lucro Real</option>
+                  <option value="none">Não contribuinte</option>
+                </Select>
+              </FormField>
+              <FormField label="Alíquota padrão" htmlFor="im-aliq" hint="a efetiva do extrato do PGDAS-D">
+                <PercentInput id="im-aliq" value={aliquota} onChange={setAliquota} />
+              </FormField>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                variant="primario"
+                className="max-sm:flex-1"
+                disabled={salvando}
+                carregando={salvando}
+                onClick={async () => {
+                  setSalvando(true)
+                  try {
+                    await salvarImposto(regime ?? 'simples', aliquota)
+                    showToast({ message: 'Imposto atualizado' })
+                  } finally {
+                    setSalvando(false)
+                  }
+                }}
               >
-                <option value="simples">Simples Nacional</option>
-                <option value="presumido">Lucro Presumido</option>
-                <option value="real">Lucro Real</option>
-                <option value="none">Não contribuinte</option>
-              </Select>
-            </FormField>
-            <FormField label="Alíquota padrão" htmlFor="im-aliq" hint="a efetiva do extrato do PGDAS-D">
-              <PercentInput id="im-aliq" value={aliquota} onChange={setAliquota} />
-            </FormField>
-          </div>
-          <p className="text-nota text-t-meta">
-            A alíquota aqui é só o padrão que o formulário de venda sugere. O que vale no resultado é o
-            imposto lançado em cada parcela — é assim que a guia do DAS aparece em A pagar na data
-            certa.
-          </p>
-          <div className="flex justify-end">
-            <Button
-              variant="primario"
-              className="max-sm:flex-1"
-              disabled={salvando}
-              carregando={salvando}
-              onClick={async () => {
-                setSalvando(true)
-                try {
-                  await salvarImposto(regime ?? 'simples', aliquota)
-                  showToast({ message: 'Imposto atualizado' })
-                } finally {
-                  setSalvando(false)
-                }
-              }}
-            >
-              Salvar
-            </Button>
-          </div>
-        </Cartao.Corpo>
-      </Cartao>
+                Salvar
+              </Button>
+            </div>
+          </Cartao.Corpo>
+        </Cartao>
+      </Secao>
 
-      <Cartao>
-        <Cartao.Cabecalho titulo="A empresa" icone={Building} />
-        <Cartao.Corpo className="gap-2">
-          <p className="text-texto text-t1">{company?.name ?? '—'}</p>
-          <p className="text-texto-meta text-t-meta">
-            Este sistema atende só a imobiliária. O financeiro pessoal e as outras empresas saíram do
-            uso e estão preservados no arquivo do banco.
-          </p>
-        </Cartao.Corpo>
-      </Cartao>
+      <Secao
+        titulo="A empresa"
+        descricao="Este sistema atende só a imobiliária. O financeiro pessoal e as outras empresas saíram do uso e estão preservados no arquivo do banco."
+      >
+        <Cartao rotuloAcessivel="A empresa">
+          <Cartao.Corpo>
+            <p className="text-texto text-t1">{company?.name ?? '—'}</p>
+          </Cartao.Corpo>
+        </Cartao>
+      </Secao>
     </>
   )
 }
@@ -846,31 +875,35 @@ function MinhaConta() {
 
   return (
     <>
-      <Cartao>
-        <Cartao.Cabecalho titulo="Seu acesso" icone={UserRound} />
-        <Cartao.Corpo>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-0 flex-col gap-1">
-              <p className="truncate text-texto text-t1">{profile?.name ?? 'Administrador'}</p>
-              <p className="truncate text-texto-meta text-t-meta">{email}</p>
+      <Secao titulo="Seu acesso" descricao="O login com que você entra e a sua senha.">
+        <Cartao rotuloAcessivel="Seu acesso">
+          <Cartao.Corpo>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex min-w-0 flex-col gap-1">
+                <p className="truncate text-texto text-t1">{profile?.name ?? 'Administrador'}</p>
+                <p className="truncate text-texto-meta text-t-meta">{email}</p>
+              </div>
+              <Button variant="secundario" icone={KeyRound} className="max-sm:w-full" onClick={() => setTrocando(true)}>
+                Trocar minha senha
+              </Button>
             </div>
-            <Button variant="secundario" icone={KeyRound} className="max-sm:w-full" onClick={() => setTrocando(true)}>
-              Trocar minha senha
-            </Button>
-          </div>
-        </Cartao.Corpo>
-      </Cartao>
+          </Cartao.Corpo>
+        </Cartao>
+      </Secao>
 
-      <Cartao>
-        <Cartao.Cabecalho titulo="Senha de um corretor" icone={KeyRound} />
-        <Cartao.Corpo>
-          <p className="text-texto-meta text-t2">
-            O corretor troca a própria senha no menu do perfil dele. Se esquecer, a redefinição é feita
-            no painel do Supabase, em Authentication → Users → o usuário → Reset password. Trocar a
-            senha de outra pessoa exige a chave de administração, que não pode ficar no navegador.
-          </p>
-        </Cartao.Corpo>
-      </Cartao>
+      <Secao
+        titulo="Senha de um corretor"
+        descricao="O corretor troca a própria senha no menu do perfil dele. Trocar a senha de outra pessoa exige a chave de administração, que não pode ficar no navegador."
+      >
+        <Cartao rotuloAcessivel="Senha de um corretor">
+          <Cartao.Corpo>
+            <p className="text-texto-corrido text-t2">
+              Se ele esquecer, a redefinição é feita no painel do Supabase, em Authentication → Users → o usuário →
+              Reset password.
+            </p>
+          </Cartao.Corpo>
+        </Cartao>
+      </Secao>
 
       <TrocarSenha aberto={trocando} onFechar={() => setTrocando(false)} />
     </>

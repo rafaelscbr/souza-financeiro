@@ -121,17 +121,16 @@ export function navAdmin({ vencidos, esperando }: { vencidos: number; esperando:
      * caixa da imobiliária e por isso vêm marcadas.
      */
     {
-      rotulo: 'Minhas comissões',
-      itens: [
-        { para: '/minhas-comissoes', rotulo: 'Resumo', icone: Wallet },
-        { para: '/minhas-vendas', rotulo: 'Minhas vendas', icone: HandCoins },
-        { para: '/recebimentos', rotulo: 'Meus recebimentos', icone: CalendarDays },
-      ],
-    },
-    {
       rotulo: 'Sistema',
       rodape: true,
-      itens: [{ para: '/config', rotulo: 'Configurações', icone: Settings }],
+      /*
+       * Souza 3.0: "Minhas comissões" (ele também é corretor, 035) virou um
+       * item só, no rodapé. O Resumo leva às vendas e aos recebimentos dele.
+       */
+      itens: [
+        { para: '/minhas-comissoes', rotulo: 'Minhas comissões', icone: Wallet },
+        { para: '/config', rotulo: 'Configurações', icone: Settings },
+      ],
     },
   ]
 }
@@ -294,7 +293,7 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
   { padrao: '/config', icone: Settings, titulo: 'Configurações', usaMes: false, faixa: true },
   /* As telas do corretor dentro do app do administrador (035). */
   { padrao: '/minhas-comissoes', icone: Wallet, titulo: 'Minhas comissões', usaMes: false, faixa: false },
-  { padrao: '/minhas-vendas', icone: HandCoins, titulo: 'Minhas vendas', usaMes: false, faixa: false },
+  { padrao: '/minhas-vendas', icone: HandCoins, titulo: 'Minhas vendas', usaMes: false, faixa: false, voltar: { para: '/minhas-comissoes', rotulo: 'Minhas comissões' } },
   {
     padrao: '/minhas-vendas/:id',
     icone: HandCoins,
@@ -303,7 +302,7 @@ export const ROTAS_ADMIN: RotaDeclarada[] = [
     faixa: false,
     voltar: { para: '/minhas-vendas', rotulo: 'Minhas vendas' },
   },
-  { padrao: '/recebimentos', icone: CalendarDays, titulo: 'Meus recebimentos', usaMes: false, faixa: true },
+  { padrao: '/recebimentos', icone: CalendarDays, titulo: 'Meus recebimentos', usaMes: false, faixa: true, voltar: { para: '/minhas-comissoes', rotulo: 'Minhas comissões' } },
 ]
 
 export const ROTAS_CORRETOR: RotaDeclarada[] = [

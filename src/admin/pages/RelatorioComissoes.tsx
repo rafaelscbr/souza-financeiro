@@ -1,16 +1,15 @@
 import { useMemo, useState } from 'react'
-import { Users } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Cartao } from '@/components/ui/Cartao'
-import { Linha } from '@/components/ui/Lista'
+import { Tabela } from '@/components/ui/Tabela'
 import { Valor } from '@/components/ui/Valor'
 import { ExportarRelatorio, FiltrosDePeriodo } from '../RelatorioPecas'
 import { CATEGORIA_GESTAO, periodosDoDre, type TipoPeriodo } from '@/lib/dre'
 import { repassesPorPessoa, totaisDosRepasses, type RepassesDaPessoa } from '@/lib/repasses'
-import { formatCurrency, formatDate } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import type { Transaction } from '@/types'
 
 /*
@@ -21,6 +20,10 @@ import type { Transaction } from '@/types'
  * previsto (depende da construtora). Os números vêm de `repassesPorPessoa`
  * (lib/repasses.ts), que lê o razão: a soma das pessoas é a soma dos
  * lançamentos, por construção. Todo valor abre nos lançamentos.
+ *
+ * Souza 3.0 (02/11/2026): o repassado é o número líder; as pessoas viram uma
+ * tabela (comissão, gestão, repassado, liberado e previsto lado a lado, com o
+ * total), e cada linha abre os lançamentos dela.
  */
 export function RelatorioComissoes() {
   const { transactions, vendas, contacts, installments, mes } = useAdmin()
@@ -75,9 +78,24 @@ export function RelatorioComissoes() {
       vazio: 'Nada previsto.',
     })
 
+  const fraseDoTitulo = (
+    <>
+      <b>
+        <Valor valor={total.pago} posto="fato" tinta="text-t1" /> repassados
+      </b>{' '}
+      em {periodo.rotulo}
+      {total.liberado > 0 && (
+        <>
+          {' · '}
+          <Valor valor={total.liberado} posto="fato" tinta="text-t1" /> liberados esperando repasse
+        </>
+      )}
+    </>
+  )
+
   return (
     <PageLayout
-      subtitulo="O que a imobiliária repassou a cada corretor e ao gestor, e o que ainda deve a cada um."
+      subtitulo={fraseDoTitulo}
       faixa={<FiltrosDePeriodo ativo={tipo} aoMudar={setTipo} />}
       acoes={
         <ExportarRelatorio
@@ -92,68 +110,93 @@ export function RelatorioComissoes() {
         />
       }
     >
-      <Heroi
-        variante="ouro"
-        rotulo={`Repassado · ${periodo.rotulo}`}
-        valor={total.pago}
-        rotuloAcessivel={`Ver os repasses de ${periodo.rotulo}`}
-        aoAbrir={() => abrirPago(pessoas, 'Todos')}
-        frase={
-          total.pagoGestao > 0
-            ? `${formatCurrency(total.pagoComissao)} de comissão de corretor e ${formatCurrency(total.pagoGestao)} de gestão de equipe, pela data do pagamento.`
-            : 'Comissão de corretor que saiu da conta da imobiliária no período, pela data do pagamento.'
-        }
-        apoios={[
+      <FaixaDeMetricas
+        rotuloAcessivel={`Repasses de ${periodo.rotulo}`}
+        metricas={[
+          {
+            rotulo: `Repassado · ${periodo.rotulo}`,
+            valor: total.pago,
+            lider: true,
+            nota:
+              total.pagoGestao > 0 ? (
+                <>
+                  comissão <Valor valor={total.pagoComissao} posto="fato" /> · gestão <Valor valor={total.pagoGestao} posto="fato" />
+                </>
+              ) : (
+                'pela data do pagamento'
+              ),
+            aoClicar: total.pago !== 0 ? () => abrirPago(pessoas, 'Todos') : undefined,
+          },
           {
             rotulo: 'Liberado, a repassar',
             valor: total.liberado,
-            rotuloAcessivel: 'Ver o que está liberado esperando repasse',
-            aoAbrir: () => abrirLiberado(pessoas, 'Todos'),
+            nota: 'a parcela já entrou; é dívida de hoje',
+            aoClicar: total.liberado !== 0 ? () => abrirLiberado(pessoas, 'Todos') : undefined,
           },
           {
             rotulo: 'Previsto',
             valor: total.previsto,
-            rotuloAcessivel: 'Ver o que está previsto',
-            aoAbrir: () => abrirPrevisto(pessoas, 'Todos'),
+            nota: 'depende de a construtora pagar',
+            aoClicar: total.previsto !== 0 ? () => abrirPrevisto(pessoas, 'Todos') : undefined,
           },
-        ].filter((a) => a.valor !== 0)}
+        ]}
       />
 
       <Cartao>
-        <Cartao.Cabecalho
-          titulo="Por pessoa"
-          icone={Users}
-          meta="Repassado no período; liberado e previsto são de hoje. Toque para ver os lançamentos."
-        />
+        <Cartao.Cabecalho titulo="Por pessoa" meta="repassado no período; liberado e previsto são de hoje" />
         {pessoas.length === 0 ? (
           <Cartao.Corpo>
             <p className="text-texto-corrido text-t3">Nenhum repasse no período e nada a repassar.</p>
           </Cartao.Corpo>
         ) : (
-          <Cartao.Lista colunas={{ valor: '10rem', fim: true }} rotuloAcessivel="Repasses por pessoa">
-            {pessoas.map((l) => (
-              <Linha
-                key={l.contactId ?? 'sem-pessoa'}
-                titulo={l.nome}
-                meta={[
-                  l.pagoGestao > 0 ? `comissão ${formatCurrency(l.pagoComissao)} · gestão ${formatCurrency(l.pagoGestao)}` : null,
-                  l.liberado > 0 ? `liberado ${formatCurrency(l.liberado)}` : null,
-                  l.previsto > 0 ? `previsto ${formatCurrency(l.previsto)}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || 'nada a repassar'}
-                valor={<Valor valor={l.pago} posto="linha" />}
-                metaValor="repassado"
-                aoClicar={() =>
-                  l.pago > 0
-                    ? abrirPago([l], l.nome)
-                    : l.liberado > 0
-                      ? abrirLiberado([l], l.nome)
-                      : abrirPrevisto([l], l.nome)
-                }
-              />
-            ))}
-          </Cartao.Lista>
+          <Tabela
+            rotuloAcessivel={`Repasses por pessoa · ${periodo.rotulo}`}
+            linhas={pessoas}
+            chave={(l) => l.contactId ?? 'sem-pessoa'}
+            aoAbrirLinha={(l) =>
+              l.pago > 0 ? abrirPago([l], l.nome) : l.liberado > 0 ? abrirLiberado([l], l.nome) : abrirPrevisto([l], l.nome)
+            }
+            rotuloAbrir={(l) => `Ver os lançamentos de ${l.nome}`}
+            colunas={[
+              { id: 'pessoa', rotulo: 'Pessoa', celula: (l) => <span className="font-medium">{l.nome}</span>, total: 'Total' },
+              {
+                id: 'comissao',
+                rotulo: 'Comissão',
+                numerica: true,
+                // Sem gestão no período, comissão e repassado são o mesmo número: a coluna some.
+                celula: (l) => (total.pagoGestao > 0 ? <Valor valor={l.pagoComissao} posto="fato" /> : null),
+                total: total.pagoGestao > 0 ? <Valor valor={total.pagoComissao} posto="fato" forte /> : undefined,
+              },
+              {
+                id: 'gestao',
+                rotulo: 'Gestão',
+                numerica: true,
+                celula: (l) => (total.pagoGestao > 0 ? <Valor valor={l.pagoGestao} posto="fato" /> : null),
+                total: total.pagoGestao > 0 ? <Valor valor={total.pagoGestao} posto="fato" forte /> : undefined,
+              },
+              {
+                id: 'repassado',
+                rotulo: 'Repassado',
+                numerica: true,
+                celula: (l) => <Valor valor={l.pago} posto="linha" />,
+                total: <Valor valor={total.pago} posto="destaque" />,
+              },
+              {
+                id: 'liberado',
+                rotulo: 'Liberado',
+                numerica: true,
+                celula: (l) => <Valor valor={l.liberado} posto="fato" />,
+                total: <Valor valor={total.liberado} posto="fato" forte />,
+              },
+              {
+                id: 'previsto',
+                rotulo: 'Previsto',
+                numerica: true,
+                celula: (l) => <Valor valor={l.previsto} posto="fato" previsto />,
+                total: <Valor valor={total.previsto} posto="fato" previsto />,
+              },
+            ]}
+          />
         )}
         <Cartao.Rodape>
           <p className="max-w-[72ch]">

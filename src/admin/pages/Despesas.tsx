@@ -1,17 +1,17 @@
 import { useMemo, useState } from 'react'
-import { CalendarClock, Download, MoreHorizontal, Receipt, RotateCcw, Trash2 } from 'lucide-react'
+import { CalendarCheck, Download, MoreHorizontal, Receipt, RotateCcw, Trash2 } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { LancarDespesa } from '../LancarDespesa'
 import { BaixarLancamento } from '../BaixarLancamento'
 import { CartaoDoTeto } from '../CartaoDoTeto'
+import { BaixaNaLinha, useBaixaDeLancamento } from '../BaixaNaLinha'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { TabelaDeDados } from '@/components/ui/TabelaDeDados'
-import { Selo } from '@/components/ui/Selo'
 import { ChipSituacao } from '@/components/ui/Situacao'
 import { Button } from '@/components/ui/Button'
 import { EstadoVazio } from '@/components/ui/Estados'
@@ -31,19 +31,23 @@ import type { Transaction } from '@/types'
  * lançado fora de venda. A migração é só de APRESENTAÇÃO: o recorte do mês, o
  * filtro, os totais, as situações, o CSV e as ações são os de antes.
  *
- * 1. Cabeçalho da casca com o CTA "Lançar despesa" (o mesmo painel de antes).
- * 2. Faixa: seletor de mês + filtros Todos / Liquidados / Em aberto.
- * 3. Herói ouro "Despesa no mês", com "Outras entradas do mês" como apoio
- *    (não soma). Os dois abrem os lançamentos que os formam.
- * 4. Cartão das fixas ainda não lançadas, com "Lançar todas em aberto".
- * 5. Cartão "Lançamentos": Paguei/Recebi (ou Desfazer) sempre visível; o "⋯"
- *    leva a Excluir, que confirma no ConfirmDialog.
+ * SOUZA 3.0 (02/11/2026, docs/redesenho-3/GUIA-DE-TELA.md):
+ *
+ * 1. Frase do título: quanto saiu no mês e quantos lançamentos estão em aberto.
+ * 2. Faixa de números: "Despesa no mês" é a líder; "Outras entradas" (não
+ *    soma) e "Em aberto" (leva ao filtro) são os apoios. Os valores abrem os
+ *    lançamentos que os formam, como no herói de antes.
+ * 3. Lançamentos (2/3) ao lado do orçamento do mês e das fixas ainda não
+ *    lançadas (1/3).
+ * 4. Na linha: "Paguei"/"Recebi" grava com dois toques (BaixaNaLinha), com
+ *    Desfazer no aviso. O "⋯" abre o painel de sempre: escolher data e conta
+ *    da baixa, ou excluir (que confirma no ConfirmDialog).
  *
  * Carregando e erro são da casca (CascaDaPagina); o vazio mora no cartão.
  *
  * DEFEITO CONHECIDO, DEIXADO COMO ESTÁ (esta passagem é só de apresentação):
  * `totais` é somado sobre `doMes`, que já vem filtrado pelo seletor
- * Todos/Liquidados/Em aberto. Trocar o filtro muda o número do herói.
+ * Todos/Liquidados/Em aberto. Trocar o filtro muda o número líder.
  */
 
 const FILTROS = [
@@ -64,6 +68,7 @@ export function Despesas() {
   const [menuDe, setMenuDe] = useState<Transaction | null>(null)
   const [excluindo, setExcluindo] = useState<Transaction | null>(null)
   const [apagando, setApagando] = useState(false)
+  const baixaDeLancamento = useBaixaDeLancamento()
 
   const chaveMes = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`
 
@@ -108,6 +113,7 @@ export function Despesas() {
   const saidas = useMemo(() => doMes.filter((t) => t.kind !== 'income'), [doMes])
   const entradas = useMemo(() => doMes.filter((t) => t.kind === 'income'), [doMes])
   const saidasEmAberto = saidas.filter((t) => t.status === 'pending').length
+  const emAberto = doMes.filter((t) => t.status === 'pending').length
 
   /** A data que a linha mostra: quando saiu, ou quando vence. */
   const dataDe = (t: Transaction) => t.settled_date ?? t.due_date ?? t.competence_date
@@ -235,81 +241,110 @@ export function Despesas() {
     />
   )
 
+  const nomeDoMes = formatMonthYear(mes).toLowerCase()
+  const frase = (
+    <>
+      <b>
+        <Valor valor={totais.saiu} posto="fato" tinta="text-t1" /> de despesa em {nomeDoMes.split(' ')[0]}
+      </b>
+      {' · '}
+      {doMes.length === 1 ? '1 lançamento' : `${doMes.length} lançamentos`} fora de venda
+      {emAberto > 0 && `, ${emAberto} em aberto`}
+    </>
+  )
+
+  const fixas = fixasPendentes.length > 0 && (
+    <Cartao rotuloAcessivel="Despesas fixas ainda não lançadas">
+      <Cartao.Cabecalho
+        titulo="Fixas a lançar"
+        meta={`${fixasPendentes.length === 1 ? '1 despesa fixa' : `${fixasPendentes.length} despesas fixas`} ainda fora de ${nomeDoMes.split(' ')[0]}`}
+      />
+      <Cartao.Lista rotuloAcessivel="Despesas fixas ainda não lançadas" colunas={{ valor: true, fim: true }}>
+        {fixasPendentes.map((c) => {
+          const titulo = c.template.description || c.template.category
+          const meta = `modelo do lançamento de ${c.sourceMonth.slice(5, 7)}/${c.sourceMonth.slice(0, 4)}`
+          return (
+            <Linha
+              key={c.template.id}
+              titulo={titulo}
+              meta={meta}
+              valor={<Valor valor={c.template.amount} posto="linha" previsto />}
+              aoClicar={() =>
+                abrir({
+                  rotulo: 'Despesa fixa',
+                  titulo,
+                  explica: 'Ainda não lançada neste mês. Nasce em aberto, com o valor do último mês.',
+                  total: c.template.amount,
+                  itens: [{ id: c.template.id, titulo, meta, valor: c.template.amount, situacao: 'prevista' }],
+                })
+              }
+            />
+          )
+        })}
+      </Cartao.Lista>
+      <Cartao.Rodape>
+        <span className="min-w-0">Nascem em aberto, com o valor do último mês.</span>
+        <Button variant="secundario" icone={CalendarCheck} onClick={gerarFixas} carregando={gerando} disabled={gerando}>
+          Lançar todas
+        </Button>
+      </Cartao.Rodape>
+    </Cartao>
+  )
+
   return (
     <PageLayout
-      subtitulo={`${doMes.length === 1 ? '1 lançamento' : `${doMes.length} lançamentos`} fora de venda em ${formatMonthYear(mes)}`}
+      subtitulo={frase}
       faixa={faixa}
       cta={{ rotulo: 'Lançar despesa', rotuloCurto: 'Lançar', aoClicar: () => setNova(true) }}
     >
-      <Heroi
-        variante="ouro"
-        rotulo="Despesa no mês"
-        valor={totais.saiu}
-        aoAbrir={abrirSaidas}
-        rotuloAcessivel="Ver quais lançamentos formam a despesa do mês"
-        frase={`Tudo que saiu e o que ainda vai sair em ${formatMonthYear(mes)}, fora da venda. Comissão, imposto e repasse não entram aqui: eles vivem na ficha da venda.`}
-        apoios={[
+      <FaixaDeMetricas
+        rotuloAcessivel={`Números de ${nomeDoMes}`}
+        metricas={[
           {
-            rotulo: 'Outras entradas do mês',
+            rotulo: 'Despesa no mês',
+            valor: totais.saiu,
+            lider: true,
+            nota:
+              saidas.length === 0
+                ? 'nada saiu fora de venda'
+                : `${saidas.length === 1 ? '1 saída' : `${saidas.length} saídas`}${saidasEmAberto > 0 ? `, ${saidasEmAberto} ainda em aberto` : ', todas pagas'}`,
+            aoClicar: abrirSaidas,
+          },
+          {
+            rotulo: 'Outras entradas',
             valor: totais.entrou,
-            aoAbrir: abrirEntradas,
-            rotuloAcessivel: 'Ver quais entradas formam este total',
+            nota: entradas.length === 0 ? 'nada entrou fora de venda' : 'fora de venda, não soma na despesa',
+            aoClicar: abrirEntradas,
+          },
+          {
+            rotulo: 'Em aberto',
+            valor: emAberto,
+            texto: String(emAberto),
+            nota: emAberto === 0 ? 'tudo baixado' : emAberto === 1 ? 'lançamento esperando baixa' : 'lançamentos esperando baixa',
+            aoClicar: emAberto > 0 && filtro !== 'abertos' ? () => setFiltro('abertos') : undefined,
           },
         ]}
       />
 
-      {/* Souza 3.0: o orçamento do mês saiu do Início e mora aqui, junto da despesa. */}
-      <CartaoDoTeto />
-
-      {fixasPendentes.length > 0 && (
-        <Cartao rotuloAcessivel="Despesas fixas ainda não lançadas">
-          <Cartao.Cabecalho titulo="Despesas fixas ainda não lançadas" icone={CalendarClock} />
-          <Cartao.Lista
-            rotuloAcessivel="Despesas fixas ainda não lançadas"
-            colunas={{ goteira: true, valor: true, fim: true }}
-          >
-            {fixasPendentes.map((c) => {
-              const titulo = c.template.description || c.template.category
-              const meta = `modelo do lançamento de ${c.sourceMonth.slice(5, 7)}/${c.sourceMonth.slice(0, 4)}`
-              return (
-                <Linha
-                  key={c.template.id}
-                  goteira={<Selo situacao="prevista" />}
-                  titulo={titulo}
-                  meta={meta}
-                  valor={<Valor valor={c.template.amount} posto="linha" previsto />}
-                  aoClicar={() =>
-                    abrir({
-                      rotulo: 'Despesa fixa',
-                      titulo,
-                      explica: 'Ainda não lançada neste mês. Nasce em aberto, com o valor do último mês.',
-                      total: c.template.amount,
-                      itens: [{ id: c.template.id, titulo, meta, valor: c.template.amount, situacao: 'prevista' }],
-                    })
-                  }
-                />
-              )
-            })}
-          </Cartao.Lista>
-          <Cartao.Rodape>
-            <span className="min-w-0 max-w-[62ch]">
-              Nascem em aberto, com o valor do último mês. Dar baixa é que faz o dinheiro sair.
-            </span>
-            <Button variant="secundario" onClick={gerarFixas} carregando={gerando} disabled={gerando}>
-              Lançar todas em aberto
-            </Button>
-          </Cartao.Rodape>
-        </Cartao>
+      {/* Souza 3.0: o orçamento do mês saiu do Início e mora aqui, junto da despesa.
+          Com fixas a lançar, os dois formam par; items-start: cada um com a sua altura. */}
+      {fixas ? (
+        <div className="grid items-start gap-bloco lg:grid-cols-2">
+          <CartaoDoTeto />
+          {fixas}
+        </div>
+      ) : (
+        <CartaoDoTeto />
       )}
 
       <Cartao rotuloAcessivel="Lançamentos">
         <Cartao.Cabecalho
           titulo="Lançamentos"
-          icone={Receipt}
+          meta="comissão, imposto e repasse ficam na ficha da venda"
           extra={
             doMes.length > 0 ? (
-              <Button variant="secundario" size="sm" icone={Download} onClick={exportar}>
-                Baixar CSV do mês
+              <Button variant="fantasma" size="sm" icone={Download} onClick={exportar}>
+                Baixar CSV
               </Button>
             ) : undefined
           }
@@ -337,7 +372,7 @@ export function Despesas() {
                 rotulo: 'Lançamento',
                 ordenar: (t) => nomeDe(t),
                 celula: (t) => (
-                  <span className="flex min-w-0 max-w-[24rem] flex-col">
+                  <span className="flex min-w-0 max-w-[11rem] flex-col sm:max-w-[24rem]">
                     <span className="truncate font-medium text-t1">{nomeDe(t)}</span>
                     <span className="truncate text-t-meta text-nota">
                       {[t.category, t.contact_id ? nomePorContato.get(t.contact_id) : null].filter(Boolean).join(' · ')}
@@ -375,14 +410,17 @@ export function Despesas() {
                 id: 'acoes',
                 rotulo: '',
                 numerica: true,
-                celula: (t) => (
-                  // As ações não abrem a linha: o clique para aqui.
-                  <span className="inline-flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                    {t.status === 'pending' ? (
-                      <Button size="sm" variant="secundario" onClick={() => setBaixando(t)}>
-                        {t.kind === 'income' ? 'Recebi' : 'Paguei'}
-                      </Button>
-                    ) : (
+                celula: (t) =>
+                  t.status === 'pending' ? (
+                    // Paguei/Recebi na linha (Confirmar, com Desfazer no aviso); o "⋯" abre o painel do lançamento.
+                    <BaixaNaLinha
+                      rotulo={t.kind === 'income' ? 'Recebi' : 'Paguei'}
+                      baixar={baixaDeLancamento([t])}
+                      aoDetalhar={() => setMenuDe(t)}
+                    />
+                  ) : (
+                    // As ações não abrem a linha: o clique para aqui.
+                    <span className="inline-flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                       <Button
                         size="sm"
                         variant="fantasma"
@@ -392,27 +430,19 @@ export function Despesas() {
                       >
                         Desfazer
                       </Button>
-                    )}
-                    <Button
-                      size="icone"
-                      variant="fantasma"
-                      icone={MoreHorizontal}
-                      aria-label={`Mais ações de ${nomeDe(t)}: excluir`}
-                      onClick={() => setMenuDe(t)}
-                    />
-                  </span>
-                ),
+                      <Button
+                        size="icone"
+                        variant="fantasma"
+                        icone={MoreHorizontal}
+                        aria-label={`Mais ações de ${nomeDe(t)}: excluir`}
+                        onClick={() => setMenuDe(t)}
+                      />
+                    </span>
+                  ),
               },
             ]}
           />
         )}
-        <Cartao.Rodape>
-          <span className="min-w-0 max-w-[80ch]">
-            Esta tela é o razão fora da venda. Comissão de corretor, ISS, Simples e repasse de sócio nascem da ficha
-            da venda e são conferidos lá — é o que mantém esta lista com o tamanho de um mês, e não com o tamanho da
-            carteira.
-          </span>
-        </Cartao.Rodape>
       </Cartao>
 
       {/* O "⋯" do lançamento: excluir sai da linha e passa por confirmação. */}
@@ -424,6 +454,18 @@ export function Despesas() {
         forma="folha"
       >
         <div className="flex flex-col gap-3">
+          {menuDe?.status === 'pending' && (
+            <Button
+              variant="secundario"
+              size="lg"
+              onClick={() => {
+                setBaixando(menuDe)
+                setMenuDe(null)
+              }}
+            >
+              {menuDe.kind === 'income' ? 'Recebi: escolher data e conta' : 'Paguei: escolher data e conta'}
+            </Button>
+          )}
           <Button
             variant="perigo"
             size="lg"

@@ -1,18 +1,27 @@
 import { Fragment, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CalendarClock, CalendarDays, CircleCheck, Clock, HandCoins, ListChecks, Route, TriangleAlert, type LucideIcon } from 'lucide-react'
+import {
+  CalendarClock,
+  CalendarDays,
+  CircleCheck,
+  Clock,
+  HandCoins,
+  TriangleAlert,
+  type LucideIcon,
+} from 'lucide-react'
 import { useCorretor, type CorretorParcela } from '../CorretorData'
 import { ChipDaParcela, FraseDaParcela, ICONE_DA_ETAPA, TOM_DA_ETAPA, fraseDaParcela } from '../EtapaDaParcela'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
+import { ListaDeAcoes, type ItemDeAcao } from '@/components/ui/ListaDeAcoes'
+import { GraficoAnoEmBarras } from '@/components/graficos/GraficoAnoEmBarras'
 import { IconeTom } from '@/components/ui/IconeTom'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor } from '@/components/ui/Valor'
 import { ParAgoraPrevisto } from '@/components/ui/ParAgoraPrevisto'
 import { Selo } from '@/components/ui/Selo'
-import { Barra, BarraTrilha, LegendaTrilha } from '@/components/ui/Barra'
 import { FiltrosRapidos, type FiltroRapido } from '@/components/ui/FiltrosRapidos'
 import { Dica } from '@/components/ui/Dica'
 import { Button } from '@/components/ui/Button'
@@ -20,117 +29,87 @@ import { EstadoErro, EstadoVazio, EsqueletoLista } from '@/components/ui/Estados
 import { diasEntre, situacaoDeTela, type Situacao } from '@/lib/situacao'
 import { ETAPA_DO_CORRETOR, etapaDoCorretor, type EtapaDoCorretor } from '@/lib/etapas'
 import { formatCurrency, formatDate, parseDateOnly, toDateOnly } from '@/lib/format'
-import { cn } from '@/lib/utils'
 
 const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 const MESES_LONGOS = [
-  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+  'janeiro',
+  'fevereiro',
+  'março',
+  'abril',
+  'maio',
+  'junho',
+  'julho',
+  'agosto',
+  'setembro',
+  'outubro',
+  'novembro',
+  'dezembro',
 ]
 
 /*
- * O CALENDÁRIO DO ANO (21/09/2026, pedido do Rafael: "melhorar a visualização
- * de recebimento do corretor, talvez em um calendário, mais dinâmico").
+ * O ANO EM BARRAS (Souza 3.0, 02/11/2026; antes, o calendário de 21/09/2026,
+ * pedido do Rafael: "melhorar a visualização de recebimento do corretor").
  *
- * Doze células, uma por mês, com o que cai em cada uma e a trilha dos três
- * estados. É a mesma informação da lista abaixo — a diferença é que aqui ela
- * cabe de uma vez só na tela, e o corretor vê o ANO inteiro: onde tem
- * dinheiro, onde tem buraco, e em que mês está a próxima entrada.
- *
- * Mês vazio continua desenhado, apagado: buraco no cronograma é informação.
- * Tocar num mês abre as parcelas dele.
+ * Doze colunas, uma por mês, empilhadas no que já caiu (marinho), no que está
+ * liberado (tinta) e no que é previsão (cinza). Mês vazio continua desenhado:
+ * buraco no cronograma é informação. Tocar num mês abre as parcelas dele.
  */
-function CalendarioDoAno({
+function AnoEmBarras({
   ano,
   itens,
-  hoje,
+  legenda,
   aoAbrirMes,
 }: {
   ano: number
   itens: Item[]
-  hoje: string
+  legenda: boolean
   aoAbrirMes: (nome: string, itens: Item[]) => void
 }) {
-  const mesAtual = hoje.slice(0, 4) === String(ano) ? Number(hoje.slice(5, 7)) - 1 : -1
-  const celulas = MESES_CURTOS.map((nome, i) => {
+  const meses = MESES_CURTOS.map((rotulo, i) => {
     const chave = `${ano}-${String(i + 1).padStart(2, '0')}`
     const doMes = itens.filter((it) => it.quando.slice(0, 7) === chave)
     const por = (fn: (s: Situacao) => boolean) =>
       c2(doMes.filter(({ s }) => fn(s)).reduce((t, { p }) => t + p.broker_amount - p.broker_adjustment, 0))
     return {
-      i,
-      nome,
+      chave,
+      rotulo,
+      nome: `${MESES_LONGOS[i]} de ${ano}`,
       itens: doMes,
-      total: c2(doMes.reduce((t, { p }) => t + p.broker_amount - p.broker_adjustment, 0)),
-      recebido: por((s) => s === 'recebida'),
-      liberado: por((s) => s === 'liberada' || s === 'vencida'),
-      previsto: por((s) => s === 'prevista'),
+      recebida: por((s) => s === 'recebida'),
+      liberada: por((s) => s === 'liberada' || s === 'vencida'),
+      prevista: por((s) => s === 'prevista'),
     }
   })
-  const totalDoAno = c2(celulas.reduce((t, c) => t + c.total, 0))
+  const totalDoAno = c2(itens.reduce((t, { p }) => t + p.broker_amount - p.broker_adjustment, 0))
 
   return (
-    <Cartao>
+    <Cartao rotuloAcessivel={`Sua comissão mês a mês em ${ano}`}>
       <Cartao.Cabecalho
-        titulo={`Calendário de ${ano}`}
-        icone={CalendarDays}
+        titulo={`Sua comissão em ${ano}`}
         meta={`${formatCurrency(totalDoAno)} no ano, mês a mês`}
+        extra={
+          legenda ? (
+            <span className="flex flex-wrap items-center gap-3 text-t-meta text-texto-meta">
+              <LegendaPonto cor="var(--g-entra)" nome="Recebida" />
+              <LegendaPonto cor="var(--t2)" nome="Liberada" />
+              <LegendaPonto cor="var(--g-sai)" nome="Prevista" />
+            </span>
+          ) : undefined
+        }
       />
       <Cartao.Corpo>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {celulas.map((c) => {
-            const vazio = c.total === 0
-            const conteudo = (
-              <>
-                <span className="flex items-center justify-between gap-2">
-                  <span className="font-label text-rotulo">{c.nome}</span>
-                  {c.i === mesAtual && <span className="font-label text-brand-text text-rotulo">hoje</span>}
-                </span>
-                {vazio ? (
-                  <span className="text-nota text-t4">sem parcela</span>
-                ) : (
-                  <>
-                    <Valor valor={c.total} posto="fato" forte />
-                    <Barra
-                      animarEntrada={false}
-                      segmentos={[
-                        { valor: c.recebido, tom: 'sucesso' },
-                        { valor: c.liberado, tom: 'atencao' },
-                        { valor: c.previsto, tom: 'info' },
-                      ]}
-                      rotuloAcessivel={`${MESES_LONGOS[c.i]}: ${formatCurrency(c.recebido)} recebido, ${formatCurrency(c.liberado)} a receber e ${formatCurrency(c.previsto)} previsto.`}
-                    />
-                    <span className="text-nota text-t-meta">{plural(c.itens.length, 'parcela', 'parcelas')}</span>
-                  </>
-                )}
-              </>
-            )
-            const classes = cn(
-              'flex min-w-0 flex-col gap-2 rounded-caixa border p-4 text-left',
-              c.i === mesAtual ? 'border-borda-ouro' : 'border-fio-linha',
-              vazio ? 'text-t4' : 'text-t2',
-            )
-            return vazio ? (
-              <span key={c.nome} className={classes}>
-                {conteudo}
-              </span>
-            ) : (
-              <button
-                key={c.nome}
-                type="button"
-                onClick={() => aoAbrirMes(`${MESES_LONGOS[c.i]} de ${ano}`, c.itens)}
-                className={cn(classes, 'hover:bg-linha-hover')}
-              >
-                {conteudo}
-              </button>
-            )
-          })}
-        </div>
+        <GraficoAnoEmBarras meses={meses} aoAbrir={(m) => aoAbrirMes(m.nome, m.itens)} />
       </Cartao.Corpo>
-      <Cartao.Rodape>
-        <LegendaTrilha />
-      </Cartao.Rodape>
     </Cartao>
+  )
+}
+
+function LegendaPonto({ cor, nome }: { cor: string; nome: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span aria-hidden className="size-2 rounded-ponto" style={{ background: cor }} />
+      {nome}
+    </span>
   )
 }
 
@@ -183,16 +162,6 @@ function passa(filtro: Filtro, s: Situacao): boolean {
   return true
 }
 
-/** Um item da próxima ação: só o que os dados observaram. */
-interface ItemDaFila {
-  id: string
-  tom: 'risco' | 'atencao'
-  icone: LucideIcon
-  titulo: string
-  motivo: string
-  acao: { rotulo: string; aoClicar: () => void }
-}
-
 interface Item {
   p: CorretorParcela
   s: Situacao
@@ -243,7 +212,11 @@ export function Recebimentos() {
     () =>
       parcelas.map((p) => {
         const s = situacaoDeTela(p.status, p.expected_date, hoje)
-        return { p, s, quando: s === 'recebida' ? p.paid_date ?? p.expected_date : p.expected_date }
+        return {
+          p,
+          s,
+          quando: s === 'recebida' ? (p.paid_date ?? p.expected_date) : p.expected_date,
+        }
       }),
     [parcelas, hoje],
   )
@@ -352,11 +325,7 @@ export function Recebimentos() {
   const item = ({ p, s }: Item) => ({
     id: p.id,
     titulo: p.sale_title,
-    meta: [
-      p.is_personal ? 'pessoa física' : null,
-      p.development,
-      fraseDaParcela(p, s, hoje),
-    ]
+    meta: [p.is_personal ? 'pessoa física' : null, p.development, fraseDaParcela(p, s, hoje)]
       .filter(Boolean)
       .join(' · '),
     valor: c2(p.broker_amount - p.broker_adjustment),
@@ -376,13 +345,31 @@ export function Recebimentos() {
   const temPassado = lista.some((it) => it.quando < hoje)
   const mesDoMarco = temPassado ? meses.find((g) => g.itens.some((it) => it.quando >= hoje))?.mes : undefined
 
-  const subtitulo = [
-    liberadas.length > 0 ? `${formatCurrency(soma(liberadas))} a receber agora` : 'Nada liberado agora',
-    atrasadas.length > 0 ? plural(atrasadas.length, 'atrasada', 'atrasadas') : null,
-    `${plural(parcelas.length, 'parcela', 'parcelas')} no cronograma`,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  /*
+   * SOUZA 3.0 (02/11/2026): a frase do título diz o que está liberado para
+   * ele; a faixa tem esse número como líder; o ano vira barras de 12 meses e
+   * "o que fazer" e "em que pé está" formam a coluna ao lado.
+   */
+  const subtitulo = (
+    <>
+      <b>
+        {liberadas.length > 0 ? (
+          <>
+            <Valor valor={soma(liberadas)} posto="fato" tinta="text-t1" /> liberados para você
+          </>
+        ) : (
+          'Nada liberado agora'
+        )}
+      </b>
+      {atrasadas.length > 0 && (
+        <>
+          {' · '}
+          <span className="font-medium text-error-ink">{plural(atrasadas.length, 'atrasada', 'atrasadas')}</span>
+        </>
+      )}
+      {` · ${plural(parcelas.length, 'parcela', 'parcelas')} no cronograma`}
+    </>
+  )
 
   const filtros: FiltroRapido<Filtro>[] = [
     { id: 'tudo', rotulo: 'Tudo', contador: todas.length },
@@ -407,7 +394,12 @@ export function Recebimentos() {
       contador: previstas.length,
       dica: 'Dependem da construtora pagar a imobiliária primeiro',
     },
-    { id: 'recebidas', rotulo: 'Recebidas', icone: CircleCheck, contador: recebidas.length },
+    {
+      id: 'recebidas',
+      rotulo: 'Recebidas',
+      icone: CircleCheck,
+      contador: recebidas.length,
+    },
   ]
 
   /*
@@ -424,51 +416,49 @@ export function Recebimentos() {
     .sort((a, b) => (a.p.expected_date < b.p.expected_date ? -1 : 1))[0]
   const soAtrasadas = atrasadas.length === liberadas.length
 
-  const fila: ItemDaFila[] = []
+  const aReceberNoPrazo = liberadas.filter(({ s }) => s === 'liberada')
+  const passos: ItemDeAcao[] = []
   if (atrasadas.length > 0) {
-    fila.push({
+    passos.push({
       id: 'principal',
-      tom: 'risco',
-      icone: TriangleAlert,
       titulo: atrasadas.length === 1 ? 'Uma comissão atrasada' : `${atrasadas.length} comissões atrasadas`,
-      motivo: `A imobiliária já recebeu ${formatCurrency(soma(atrasadas))} da construtora e ainda não repassou${
-        esperaMaisAntiga > 0 ? `; a mais antiga espera há ${plural(esperaMaisAntiga, 'dia', 'dias')}` : ''
-      }. Vale um lembrete para a imobiliária.`,
-      acao: { rotulo: 'Mostrar as atrasadas', aoClicar: () => mostrar('atrasadas') },
+      detalhe:
+        esperaMaisAntiga > 0
+          ? `a mais antiga há ${plural(esperaMaisAntiga, 'dia', 'dias')}`
+          : 'a imobiliária recebeu e não repassou',
+      valor: soma(atrasadas),
+      tom: 'risco',
+      acao: { rotulo: 'Ver', aoClicar: () => mostrar('atrasadas') },
     })
     if (!soAtrasadas)
-      fila.push({
+      passos.push({
         id: 'a-receber',
-        tom: 'atencao',
-        icone: Clock,
-        titulo: `${plural(liberadas.length - atrasadas.length, 'outra', 'outras')} a receber`,
-        motivo: 'Liberadas pela imobiliária e ainda dentro da data prevista.',
+        titulo: `${plural(aReceberNoPrazo.length, 'outra', 'outras')} a receber`,
+        detalhe: 'liberadas e dentro da data prevista',
+        valor: soma(aReceberNoPrazo),
         acao: { rotulo: 'Ver', aoClicar: () => mostrar('aReceber') },
       })
   } else if (liberadas.length > 0) {
-    fila.push({
+    passos.push({
       id: 'principal',
-      tom: 'atencao',
-      icone: Clock,
-      titulo: `${formatCurrency(soma(liberadas))} esperando o repasse`,
-      motivo: 'A imobiliária já recebeu estas parcelas da construtora. É dinheiro seu; o próximo passo é o repasse.',
-      acao: { rotulo: 'Mostrar o que está a receber', aoClicar: () => mostrar('aReceber') },
+      titulo: 'Esperando o repasse',
+      detalhe: 'a imobiliária já recebeu da construtora',
+      valor: soma(liberadas),
+      acao: { rotulo: 'Ver', aoClicar: () => mostrar('aReceber') },
     })
   }
-
-  const tudoEmDia = {
-    titulo: 'Tudo em dia',
-    descricao: proximaPrevista
-      ? `Nada liberado agora. A próxima parcela prevista é de ${proximaPrevista.p.sale_title}, para ${formatDate(
-          proximaPrevista.p.expected_date,
-        )}, e depende da construtora pagar a imobiliária primeiro.`
-      : 'Nenhuma parcela sua está pendente. Quando a imobiliária registrar uma venda nova, o cronograma aparece aqui.',
-  }
+  if (proximaPrevista)
+    passos.push({
+      id: 'proxima',
+      titulo: proximaPrevista.p.sale_title,
+      detalhe: `próxima prevista · ${formatDate(proximaPrevista.p.expected_date)}`,
+      valor: c2(proximaPrevista.p.broker_amount - proximaPrevista.p.broker_adjustment),
+      para: `/minhas-vendas?venda=${proximaPrevista.p.sale_id}`,
+    })
 
   const vazioDoFiltro: Record<Filtro, string> = {
     tudo: 'Nenhuma parcela no cronograma.',
-    atrasadas:
-      'Nenhuma comissão atrasada. Atraso aqui é só o que a imobiliária já recebeu e ainda não repassou.',
+    atrasadas: 'Nenhuma comissão atrasada. Atraso aqui é só o que a imobiliária já recebeu e ainda não repassou.',
     aReceber: 'Nenhuma parcela liberada agora. As previstas continuam em "Previstas".',
     previstas: 'Nenhuma parcela esperando a construtora.',
     recebidas:
@@ -479,52 +469,64 @@ export function Recebimentos() {
   const precisaDaRegra = lista.some(({ s }) => s === 'prevista' || s === 'vencida')
 
   const compor = (rotulo: string, titulo: string, itens: Item[], explica?: string) =>
-    abrir({ rotulo, titulo, explica, total: soma(itens), itens: itens.map(item), vazio: 'Nenhuma parcela aqui.' })
+    abrir({
+      rotulo,
+      titulo,
+      explica,
+      total: soma(itens),
+      itens: itens.map(item),
+      vazio: 'Nenhuma parcela aqui.',
+    })
+
+  const anos = anosDoCalendario.map((a) => (
+    <AnoEmBarras
+      key={a}
+      ano={a}
+      legenda={a === anosDoCalendario[0]}
+      itens={noPeriodo.filter((it) => it.quando.slice(0, 4) === String(a))}
+      aoAbrirMes={(nome, itens) =>
+        compor(
+          nome,
+          `Recebimentos de ${nome}`,
+          itens,
+          'Cada parcela pela data em que ela cai — ou pela data em que caiu, se já foi paga.',
+        )
+      }
+    />
+  ))
 
   return quadro(
     <>
-      <Heroi
-        variante="ouro"
-        rotulo="A receber agora"
-        valor={soma(liberadas)}
-        contar
-        rotuloAcessivel="Ver de quais vendas vem o valor a receber"
-        aoAbrir={() =>
-          compor(
-            'A receber agora',
-            'De quais vendas vem',
-            liberadas,
-            'Parcelas que a imobiliária já recebeu. Sua comissão está liberada para pagamento.',
-          )
-        }
-        frase={
-          liberadas.length > 0
-            ? `A imobiliária já recebeu estas parcelas. É dinheiro seu, esperando o repasse.${
-                atrasadas.length > 0
-                  ? ` ${atrasadas.length === 1 ? 'Uma delas já passou' : `${atrasadas.length} delas já passaram`} da data prevista — vale um lembrete.`
-                  : ''
-              }`
-            : 'Nada liberado no momento. Quando a construtora pagar uma parcela, sua comissão aparece aqui.'
-        }
-        barra={
-          <div className="flex flex-col gap-2">
-            <BarraTrilha
-              recebido={soma(recebidas)}
-              liberado={soma(liberadas)}
-              previsto={soma(previstas)}
-              rotuloAcessivel={`No cronograma: ${formatCurrency(soma(recebidas))} recebido, ${formatCurrency(
-                soma(liberadas),
-              )} liberado a receber e ${formatCurrency(soma(previstas))} dependendo da construtora.`}
-            />
-            <LegendaTrilha />
-          </div>
-        }
-        apoios={[
+      <FaixaDeMetricas
+        rotuloAcessivel="Seus recebimentos"
+        metricas={[
+          {
+            rotulo: 'Liberada, a receber',
+            valor: soma(liberadas),
+            lider: true,
+            nota:
+              liberadas.length === 0
+                ? 'quando a construtora pagar, aparece aqui'
+                : `${plural(liberadas.length, 'parcela', 'parcelas')} que a imobiliária já recebeu`,
+            aoClicar: () =>
+              compor(
+                'A receber agora',
+                'De quais vendas vem',
+                liberadas,
+                'Parcelas que a imobiliária já recebeu. Sua comissão está liberada para pagamento.',
+              ),
+          },
           {
             rotulo: 'Atrasada',
             valor: soma(atrasadas),
-            rotuloAcessivel: 'Ver quais comissões estão atrasadas',
-            aoAbrir: () =>
+            estado: atrasadas.length > 0 ? 'vencido' : undefined,
+            nota:
+              atrasadas.length === 0
+                ? 'nada parado no repasse'
+                : esperaMaisAntiga > 0
+                  ? `a mais antiga espera há ${plural(esperaMaisAntiga, 'dia', 'dias')}`
+                  : 'recebida pela imobiliária e não repassada',
+            aoClicar: () =>
               compor(
                 'Atrasada',
                 'O que a imobiliária recebeu e não repassou',
@@ -535,15 +537,17 @@ export function Recebimentos() {
           {
             rotulo: 'Já recebida',
             valor: soma(recebidas),
-            rotuloAcessivel: 'Ver quais parcelas você já recebeu',
-            aoAbrir: () => compor('Já recebida', 'O que já caiu para você', recebidas),
+            nota:
+              recebidas.length === 0
+                ? 'nada pago a você ainda'
+                : `${plural(recebidas.length, 'parcela paga', 'parcelas pagas')} a você`,
+            aoClicar: () => compor('Já recebida', 'O que já caiu para você', recebidas),
           },
           {
             rotulo: 'Prevista',
             valor: soma(previstas),
-            previsto: true,
-            rotuloAcessivel: 'Ver quais parcelas estão previstas',
-            aoAbrir: () =>
+            nota: previstas.length === 0 ? 'nenhuma parcela prevista' : 'depende da construtora pagar',
+            aoClicar: () =>
               compor(
                 'Prevista',
                 'Previsão, não promessa',
@@ -554,59 +558,48 @@ export function Recebimentos() {
         ]}
       />
 
-      <EmQuePeEsta todas={todas} hoje={hoje} aoAbrir={compor} />
+      <div className="grid items-start gap-bloco lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        {/*
+         * Com "todos os anos" (o padrão), um gráfico POR ANO, do mais antigo
+         * para o mais novo: ele precisa ver 2027 sem trocar filtro nenhum.
+         */}
+        <div className="flex min-w-0 flex-col gap-bloco">{anos}</div>
 
-      {/*
-        * Com "todos os anos" (o padrão), é um calendário POR ANO, do mais
-        * antigo para o mais novo: ele precisa ver 2027 e 2028 sem trocar
-        * filtro nenhum. Com um ano escolhido, só o dele.
-        */}
-      {anosDoCalendario.map((a) => (
-        <CalendarioDoAno
-          key={a}
-          ano={a}
-          itens={noPeriodo.filter((it) => it.quando.slice(0, 4) === String(a))}
-          hoje={hoje}
-          aoAbrirMes={(nome, itens) =>
-            compor(nome, `Recebimentos de ${nome}`, itens, 'Cada parcela pela data em que ela cai — ou pela data em que caiu, se já foi paga.')
-          }
-        />
-      ))}
-
-
-      <Cartao>
-        <Cartao.Cabecalho
-          titulo="Próxima ação"
-          icone={ListChecks}
-          meta={fila.length > 0 ? plural(fila.length, 'pendência', 'pendências') : undefined}
-        />
-        {fila.length === 0 ? (
-          <EstadoVazio icone={CircleCheck} titulo={tudoEmDia.titulo} descricao={tudoEmDia.descricao} />
-        ) : (
-          <Cartao.Lista rotuloAcessivel="Próxima ação" colunas={{ goteira: true, acao: 'auto' }}>
-            {fila.map((f) => (
-              <Linha
-                key={f.id}
-                goteira={<IconeTom icone={f.icone} tom={f.tom} tamanho="sm" />}
-                titulo={f.titulo}
-                meta={f.motivo}
-                acao={
-                  <Button variant="secundario" size="sm" className="max-sm:flex-1" onClick={f.acao.aoClicar}>
-                    {f.acao.rotulo}
-                  </Button>
+        {/* No celular, a próxima ação sobe para logo depois dos números. */}
+        <div className="flex min-w-0 flex-col gap-bloco max-lg:contents">
+          <div className="flex min-w-0 flex-col max-lg:order-first">
+            <Cartao rotuloAcessivel="Próxima ação">
+              <Cartao.Cabecalho
+                titulo="Próxima ação"
+                meta={
+                  atrasadas.length > 0
+                    ? 'há repasse esperando além do previsto'
+                    : liberadas.length > 0
+                      ? 'dinheiro seu esperando o repasse'
+                      : 'tudo em dia'
                 }
               />
-            ))}
-          </Cartao.Lista>
-        )}
-      </Cartao>
+              {passos.length === 0 ? (
+                <EstadoVazio
+                  icone={CircleCheck}
+                  titulo="Tudo em dia"
+                  descricao="Nenhuma parcela sua está pendente. Quando a imobiliária registrar uma venda nova, o cronograma aparece aqui."
+                />
+              ) : (
+                <ListaDeAcoes rotuloAcessivel="Próxima ação" itens={passos} />
+              )}
+            </Cartao>
+          </div>
+
+          <EmQuePeEsta todas={todas} hoje={hoje} aoAbrir={compor} />
+        </div>
+      </div>
 
       {/* A margem de rolagem: o cabeçalho fixo não pode cobrir o título do cronograma. */}
       <div ref={cronograma} style={{ scrollMarginTop: 'calc(var(--altura-cabecalho) + 16px)' }}>
         <Cartao>
           <Cartao.Cabecalho
             titulo="Cronograma"
-            icone={CalendarDays}
             meta={`${filtro === 'tudo' ? 'toda parcela, mês a mês' : filtros.find((f) => f.id === filtro)?.rotulo} · ${plural(lista.length, 'parcela', 'parcelas')}`}
           />
           {precisaDaRegra && (
@@ -632,10 +625,18 @@ export function Recebimentos() {
             <Cartao.Lista
               rotuloAcessivel="Cronograma, por mês"
               chaveEscada={filtro}
-              colunas={{ goteira: true, situacao: true, valor: true, fim: true }}
+              colunas={{
+                goteira: true,
+                situacao: true,
+                valor: true,
+                fim: true,
+              }}
             >
               {meses.map((g) => {
-                const nome = parseDateOnly(`${g.mes}-01`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+                const nome = parseDateOnly(`${g.mes}-01`).toLocaleDateString('pt-BR', {
+                  month: 'long',
+                  year: 'numeric',
+                })
                 // "Agora" é só o que já é dinheiro: pago a ele ou liberado. Previsão vai no outro lado; cancelada em nenhum.
                 const existe = g.itens.filter(({ s }) => s === 'recebida' || s === 'liberada' || s === 'vencida')
                 const promessa = g.itens.filter(({ s }) => s === 'prevista')
@@ -676,7 +677,12 @@ export function Recebimentos() {
     </>,
     subtitulo,
     <div className="flex min-w-0 flex-col gap-3">
-      <FiltrosRapidos filtros={filtros} ativo={filtro} aoMudar={setFiltro} rotuloAcessivel="O que mostrar no cronograma" />
+      <FiltrosRapidos
+        filtros={filtros}
+        ativo={filtro}
+        aoMudar={setFiltro}
+        rotuloAcessivel="O que mostrar no cronograma"
+      />
       {/* O período: os anos que existem no cronograma, mais o "Tudo". */}
       <FiltrosRapidos
         rotuloAcessivel="Período do cronograma"
@@ -688,7 +694,12 @@ export function Recebimentos() {
             rotulo: String(a),
             contador: todas.filter((it) => it.quando.slice(0, 4) === String(a)).length,
           })),
-          { id: 'tudo', rotulo: 'Todos os anos', contador: todas.length, dica: 'Tudo o que você tem para receber, de qualquer ano' },
+          {
+            id: 'tudo',
+            rotulo: 'Todos os anos',
+            contador: todas.length,
+            dica: 'Tudo o que você tem para receber, de qualquer ano',
+          },
         ]}
       />
     </div>,
@@ -819,7 +830,7 @@ function EmQuePeEsta({
 
   return (
     <Cartao>
-      <Cartao.Cabecalho titulo="Em que pé está cada parcela" icone={Route} meta="do pagamento do cliente até a sua conta" />
+      <Cartao.Cabecalho titulo="Em que pé está" meta="do pagamento do cliente até a sua conta" />
       <Cartao.Lista rotuloAcessivel="Em que pé está cada parcela" colunas={{ goteira: true, valor: true, fim: true }}>
         {degraus.map((d) => {
           const vazio = d.itens.length === 0

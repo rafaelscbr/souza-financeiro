@@ -1,21 +1,21 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
-  Building2, CalendarClock, CircleAlert, Clock, FileText, Handshake, HandCoins, ListOrdered, MoreHorizontal, Pencil, SearchX, Undo2,
+  CalendarClock, CircleAlert, Clock, Handshake, HandCoins, MoreHorizontal, Pencil, SearchX, Undo2,
 } from 'lucide-react'
 import { useAdmin } from '../AdminData'
 import { ReceberParcela } from '../ReceberParcela'
 import { PagarComissao, type ComissaoAPagar } from '../PagarComissao'
 import { useComposicao, type ItemComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { Heroi } from '@/components/ui/Heroi'
 import { Cartao } from '@/components/ui/Cartao'
+import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
+import { Regua } from '@/components/ui/Regua'
 import { Dica } from '@/components/ui/Dica'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Parcela, CabecalhoParcelas } from '@/components/ui/Parcela'
 import { Demonstrativo } from '@/components/ui/Demonstrativo'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
-import { Barra } from '@/components/ui/Barra'
 import { ChipSituacao } from '@/components/ui/Situacao'
 import { Rotulo } from '@/components/ui/Rotulo'
 import { Icone } from '@/components/ui/Icone'
@@ -33,17 +33,21 @@ import type { LinhaDemonstrativo, ResumoDaParcela } from '@/lib/linhasDaVenda'
 import type { SaleInstallment } from '@/types'
 
 /*
- * A FICHA DA VENDA (planta 9.2).
+ * A FICHA DA VENDA — Souza 3.0 (02/11/2026, docs/redesenho-3/GUIA-DE-TELA.md).
  *
  * SÓ APRESENTAÇÃO. Todo número desta tela é o mesmo que a ficha anterior
  * mostrava, com a mesma origem: `venda.cascade` (cascadeOf), os totais de
  * buildSaleViews e os campos gravados parcela a parcela. Nenhuma soma nova,
  * nenhuma palavra de situação nova, nenhuma ação com outro efeito.
  *
- * Composição: cabeçalho de ficha (Editar e o ⋯ com Cancelar) → herói ouro com
- * a conta da comissão ao lado → os dois lados que nunca somam entre si
- * (construtora → imobiliária; imobiliária → corretor) → parcelas com o
- * marcador de hoje → dados da venda.
+ * De cima para baixo:
+ *   1. A frase: quanto fica para a imobiliária e onde a venda está.
+ *   2. Faixa — o que fica (líder), a comissão contratada, o que já entrou e
+ *      o que falta (cada um abre as parcelas de onde vem).
+ *   3. O coração: a conta da comissão (a cascata — comissão, ISS, Simples,
+ *      corretor, o que fica), ao lado da comissão do corretor e dos dados.
+ *   4. As parcelas, cada uma com a sua conta, o marcador de hoje e o próximo
+ *      passo na linha (gatilho, nota, recebi, pagar); o "⋯" abre o resto.
  */
 export function Venda() {
   const { id } = useParams<{ id: string }>()
@@ -308,11 +312,95 @@ export function Venda() {
 
   const aberta = parcelas.find(({ p }) => p.id === parcelaAberta) ?? null
 
+  /* O número líder abre a conta inteira e a parte de cada parcela. */
+  const abrirFica = () =>
+    abrir({
+      rotulo: rotuloDoHeroi,
+      titulo: pf ? 'O que entra pra você' : 'O que fica para a imobiliária',
+      explica: contextoDoHeroi,
+      total: c.net,
+      linhas: conta,
+      itens: parcelas.filter(({ p }) => p.status !== 'cancelada').map((x) => itemParcela(x, x.p.net_amount)),
+    })
+
+  /* Cada linha da conta abre as parcelas, com o campo gravado que compõe aquela linha. */
+  const abrirLinhaDaConta = (l: LinhaDemonstrativo) =>
+    abrir({
+      rotulo: l.rotulo,
+      titulo: `${l.rotulo}, parcela por parcela`,
+      total: l.valor,
+      linhas: l.chave === 'fica' ? conta : undefined,
+      itens: parcelas
+        .filter(({ p }) => p.status !== 'cancelada')
+        .map((x) => itemParcela(x, valorDaLinhaNaParcela(l, x.p)))
+        .filter((i) => i.valor !== 0),
+    })
+
+  const abrirRecebida = () =>
+    recebidas.length > 0
+      ? abrir({
+          rotulo: 'Já recebida',
+          titulo: 'O que já entrou desta venda',
+          total: venda.received,
+          itens: parcelas.filter(({ s }) => s === 'recebida').map((x) => itemParcela(x, x.p.amount)),
+        })
+      : abrir({ rotulo: 'Já recebida', titulo: 'O que já entrou desta venda', total: 0, itens: [], vazio: 'Nenhuma parcela entrou ainda.' })
+
+  const abrirAReceber = () =>
+    venda.toReceive > 0
+      ? abrir({
+          rotulo: 'A receber',
+          titulo: 'O que ainda falta entrar',
+          explica:
+            'Estas parcelas não são dívida de ninguém hoje: elas dependem da construtora pagar. Se a data mudar, reagende na parcela.',
+          total: venda.toReceive,
+          itens: parcelas.filter(({ s }) => s === 'prevista').map((x) => itemParcela(x, x.p.amount)),
+        })
+      : abrir({ rotulo: 'A receber', titulo: 'O que ainda falta entrar', total: 0, itens: [], vazio: 'A comissão desta venda já entrou por inteiro.' })
+
+  /* Parcela que a construtora não pagou na data: "em atraso", em âmbar (nunca "vencida"). */
+  const emAtraso = parcelas.filter((x) => x.construtoraAtrasou)
+
+  const frase = (
+    <>
+      <b>
+        {ativa ? (
+          <>
+            <Valor valor={c.net} posto="fato" tinta="text-t1" estado={c.net < 0 ? 'negativo' : undefined} />{' '}
+            {pf ? 'entram pra você' : 'ficam para a imobiliária'}
+          </>
+        ) : (
+          'Venda cancelada'
+        )}
+      </b>
+      {` · ${recebidas.length} de ${vivas.length} ${vivas.length === 1 ? 'parcela recebida' : 'parcelas recebidas'}`}
+      {ativa && emAtraso.length > 0 && (
+        <>
+          {' · '}
+          <span className="font-medium text-warning-ink">{emAtraso.length} em atraso</span>
+        </>
+      )}
+      {` · vendida em ${formatDate(venda.sale_date)}`}
+    </>
+  )
+
+  /*
+   * A régua da conta: de cada real da comissão, o que fica (marinho, o dado
+   * principal), o que vai para corretor e gestão (tinta) e o imposto (cinza).
+   * As mesmas partes de venda.cascade que a conta escreve embaixo.
+   */
+  const partesDaRegua = [
+    { nome: rotuloDoHeroi, valor: Math.max(c.net, 0), cor: 'var(--g-entra)' },
+    { nome: c.owner > 0 ? 'Corretor, gestão e sócio' : c.manager > 0 ? 'Corretor e gestão' : 'Corretor', valor: c.broker + c.manager + c.owner, cor: 'var(--t3)' },
+    { nome: 'Impostos', valor: c.iss + c.simples, cor: 'var(--g-sai)' },
+  ]
+  const pct = (v: number) => (c.commission > 0 ? Math.round((v / c.commission) * 100) : 0)
+  const mostraCorretor = ativa && !!venda.brokerName && corretorContratado > 0
+
   return (
     <PageLayout
       titulo={venda.title}
-      icone={Handshake}
-      subtitulo={[venda.client_name, venda.development, `vendida em ${formatDate(venda.sale_date)}`].filter(Boolean).join(' · ')}
+      subtitulo={frase}
       acoes={
         ativa ? (
           <Button variant="secundario" icone={Pencil} onClick={() => setEditando(true)}>
@@ -332,148 +420,104 @@ export function Venda() {
         ) : undefined
       }
     >
-      <Heroi
-        variante="ouro"
-        estado={c.net < 0 ? 'negativo' : undefined}
-        rotulo={rotuloDoHeroi}
-        valor={c.net}
-        contar
-        rotuloAcessivel={`Abrir ${rotuloDoHeroi.toLowerCase()}, parcela por parcela`}
-        aoAbrir={() =>
-          abrir({
+      <FaixaDeMetricas
+        rotuloAcessivel="A comissão desta venda"
+        metricas={[
+          {
             rotulo: rotuloDoHeroi,
-            titulo: pf ? 'O que entra pra você' : 'O que fica para a imobiliária',
-            explica: contextoDoHeroi,
-            total: c.net,
-            linhas: conta,
-            itens: parcelas.filter(({ p }) => p.status !== 'cancelada').map((x) => itemParcela(x, x.p.net_amount)),
-          })
-        }
-        frase={contextoDoHeroi}
-        barra={
-          ativa ? (
-            <Barra
-              segmentos={[
-                { valor: venda.received, tom: 'sucesso' },
-                { valor: venda.toReceive, tom: 'info' },
-              ]}
-              rotuloAcessivel={`De ${formatCurrency(c.commission)} de comissão, ${formatCurrency(venda.received)} já entraram e ${formatCurrency(venda.toReceive)} dependem da construtora.`}
-            />
-          ) : undefined
-        }
-        demonstrativo={{
-          linhas: conta,
-          perfil: 'admin',
-          rotuloAcessivel: 'A conta da comissão',
-          aoAbrirOrigem: (l) =>
-            abrir({
-              rotulo: l.rotulo,
-              titulo: `${l.rotulo}, parcela por parcela`,
-              total: l.valor,
-              linhas: l.chave === 'fica' ? conta : undefined,
-              itens: parcelas
-                .filter(({ p }) => p.status !== 'cancelada')
-                .map((x) => itemParcela(x, valorDaLinhaNaParcela(l, x.p)))
-                .filter((i) => i.valor !== 0),
-            }),
-        }}
+            valor: c.net,
+            lider: true,
+            estado: c.net < 0 ? 'negativo' : undefined,
+            nota: pf ? 'a comissão inteira é sua' : `${Math.round(c.netShare * 100)}% da comissão contratada`,
+            aoClicar: abrirFica,
+          },
+          {
+            rotulo: pf ? 'Comissão da venda' : 'Comissão contratada',
+            valor: c.commission,
+            nota: vivas.length > 1 ? `soma das ${vivas.length} parcelas` : 'parcela única',
+            aoClicar: () => abrirLinhaDaConta(conta[0]),
+          },
+          {
+            rotulo: 'Já entrou',
+            valor: venda.received,
+            nota: `${recebidas.length} de ${vivas.length} ${vivas.length === 1 ? 'parcela' : 'parcelas'}`,
+            aoClicar: abrirRecebida,
+          },
+          {
+            rotulo: 'A receber',
+            valor: venda.toReceive,
+            nota:
+              ativa && emAtraso.length > 0 ? (
+                <span className="font-medium text-warning-ink">
+                  {emAtraso.length === 1 ? '1 parcela em atraso' : `${emAtraso.length} parcelas em atraso`}
+                </span>
+              ) : venda.toReceive > 0 ? (
+                'depende da construtora pagar'
+              ) : (
+                'tudo já entrou'
+              ),
+            aoClicar: abrirAReceber,
+          },
+        ]}
       />
 
-      {ativa && (
-        <div className="grid gap-bloco lg:grid-cols-2">
-          <Cartao>
-            <Cartao.Cabecalho titulo={pf ? 'Da construtora para você' : 'Da construtora para a imobiliária'} icone={Building2} />
-            <Cartao.Corpo>
-              <Barra
-                valor={c.commission > 0 ? venda.received / c.commission : 0}
-                tom="sucesso"
-                rotuloAcessivel={`${formatCurrency(venda.received)} de ${formatCurrency(c.commission)} já entraram`}
-              />
-            </Cartao.Corpo>
-            <Cartao.Lista colunas={{ situacao: true, valor: true }} rotuloAcessivel="Da construtora para a imobiliária">
-              <Linha
-                titulo="Comissão já recebida"
-                meta={`${recebidas.length} de ${vivas.length} ${vivas.length === 1 ? 'parcela' : 'parcelas'}`}
-                situacao={<ChipSituacao situacao="recebida" />}
-                valor={
-                  recebidas.length > 0 ? (
-                    <ValorComOrigem
-                      posto="linha"
-                      estado="recebido"
-                      valor={venda.received}
-                      rotuloAcessivel="Ver quais parcelas já entraram"
-                      aoAbrir={() =>
-                        abrir({
-                          rotulo: 'Já recebida',
-                          titulo: 'O que já entrou desta venda',
-                          total: venda.received,
-                          itens: parcelas.filter(({ s }) => s === 'recebida').map((x) => itemParcela(x, x.p.amount)),
-                        })
-                      }
-                    />
-                  ) : (
-                    <ValorComOrigem
-                      posto="linha"
-                      valor={0}
-                      rotuloAcessivel="Ver quais parcelas já entraram"
-                      aoAbrir={() => abrir({ rotulo: 'Já recebida', titulo: 'O que já entrou desta venda', total: 0, itens: [], vazio: 'Nenhuma parcela entrou ainda.' })}
-                    />
-                  )
-                }
-              />
-              <Linha
-                titulo="Ainda a receber"
-                meta="depende da construtora pagar"
-                situacao={<ChipSituacao situacao="prevista" />}
-                valor={
-                  venda.toReceive > 0 ? (
-                    <ValorComOrigem
-                      posto="linha"
-                      previsto
-                      valor={venda.toReceive}
-                      rotuloAcessivel="Ver quais parcelas ainda faltam"
-                      aoAbrir={() =>
-                        abrir({
-                          rotulo: 'A receber',
-                          titulo: 'O que ainda falta entrar',
-                          explica:
-                            'Estas parcelas não são dívida de ninguém hoje: elas dependem da construtora pagar. Se a data mudar, reagende na parcela.',
-                          total: venda.toReceive,
-                          itens: parcelas.filter(({ s }) => s === 'prevista').map((x) => itemParcela(x, x.p.amount)),
-                        })
-                      }
-                    />
-                  ) : (
-                    <ValorComOrigem
-                      posto="linha"
-                      previsto
-                      valor={0}
-                      rotuloAcessivel="Ver quais parcelas ainda faltam"
-                      aoAbrir={() => abrir({ rotulo: 'A receber', titulo: 'O que ainda falta entrar', total: 0, itens: [], vazio: 'A comissão desta venda já entrou por inteiro.' })}
-                    />
-                  )
-                }
-              />
-            </Cartao.Lista>
-          </Cartao>
-
-          {venda.brokerName && corretorContratado > 0 && (
-            <Cartao>
-              <Cartao.Cabecalho titulo="Da imobiliária para o corretor" icone={HandCoins} />
-              <Cartao.Corpo>
-                <Barra
-                  segmentos={[
-                    { valor: venda.brokerPaid, tom: 'sucesso' },
-                    { valor: venda.brokerReleased, tom: 'atencao' },
-                    { valor: Math.max(corretorPrevisto, 0), tom: 'info' },
-                  ]}
-                  rotuloAcessivel={`Comissão de ${venda.brokerName}: ${formatCurrency(venda.brokerPaid)} paga, ${formatCurrency(venda.brokerReleased)} liberada e ${formatCurrency(corretorPrevisto)} prevista.`}
+      <div className="grid items-start gap-bloco lg:grid-cols-2">
+        {/* O coração da ficha: a cascata, da comissão ao que fica. */}
+        <Cartao rotuloAcessivel="A conta da comissão">
+          <Cartao.Cabecalho
+            titulo="A conta da comissão"
+            meta={
+              pf
+                ? 'venda sua: sem imposto da imobiliária e sem repasse'
+                : `parcela, ISS, Simples, ${venda.brokerName ? 'corretor' : 'sem corretor'}${c.manager > 0 ? ', gestão' : ''} e o que fica`
+            }
+          />
+          <Cartao.Corpo className="gap-5">
+            {!pf && c.commission > 0 && (
+              <div className="flex flex-col gap-2">
+                <Regua
+                  partes={partesDaRegua}
+                  rotuloAcessivel={`De cada R$ 100 de comissão, ${pct(partesDaRegua[0].valor)} ficam para a imobiliária, ${pct(partesDaRegua[1].valor)} vão para ${partesDaRegua[1].nome.toLowerCase()} e ${pct(partesDaRegua[2].valor)} para impostos.`}
                 />
-              </Cartao.Corpo>
-              <Cartao.Lista colunas={{ situacao: true, valor: true }} rotuloAcessivel="Da imobiliária para o corretor">
+                <p aria-hidden className="flex flex-wrap gap-x-4 gap-y-1 text-texto-meta text-t-meta">
+                  {partesDaRegua
+                    .filter((x) => x.valor > 0)
+                    .map((x) => (
+                      <span key={x.nome} className="inline-flex items-center gap-1.5">
+                        <span className="block size-2.5 rounded-ponto" style={{ background: x.cor }} />
+                        {x.nome} <span className="num">{pct(x.valor)}%</span>
+                      </span>
+                    ))}
+                </p>
+              </div>
+            )}
+            <Demonstrativo linhas={conta} perfil="admin" rotuloAcessivel="A conta da comissão" aoAbrirOrigem={abrirLinhaDaConta} />
+          </Cartao.Corpo>
+          {/* O que o número NÃO é (a frase do antigo herói, sem a parte que repetia a conta). */}
+          <Cartao.Rodape>
+            <span>
+              {!ativa ? (
+                'Venda cancelada: o que já tinha sido recebido e pago continua registrado, e o imposto de parcela já recebida continua devido.'
+              ) : pf ? (
+                'Nada desta venda passa pelo caixa da Souza: ela não aparece em A receber, em A pagar nem no resultado.'
+              ) : venda.toReceive > 0 ? (
+                <>
+                  Não é caixa: <Valor valor={venda.toReceive} posto="fato" forte /> desta venda ainda dependem da construtora pagar.
+                </>
+              ) : (
+                'A comissão desta venda já entrou por inteiro.'
+              )}
+            </span>
+          </Cartao.Rodape>
+        </Cartao>
+
+        <div className="flex min-w-0 flex-col gap-bloco">
+          {mostraCorretor && (
+            <Cartao rotuloAcessivel={`Comissão de ${venda.brokerName}`}>
+              <Cartao.Cabecalho titulo={`Comissão de ${venda.brokerName}`} meta="liberada quando a parcela entra; só vira dívida depois disso" />
+              <Cartao.Lista colunas={{ valor: true }} rotuloAcessivel="Da imobiliária para o corretor">
                 <Linha
-                  titulo={`Comissão paga a ${venda.brokerName}`}
-                  meta="já saiu da conta"
+                  titulo="Paga"
                   valor={valorCorretor({ rotulo: 'Comissão paga', titulo: `O que já foi pago a ${venda.brokerName}`, total: venda.brokerPaid, filtro: (x) => x.stCorretor === 'recebida' })}
                 />
                 {/*
@@ -482,25 +526,57 @@ export function Venda() {
                  */}
                 {venda.brokerReleased > 0 && (
                   <Linha
-                    titulo="Comissão liberada, a pagar"
-                    meta="a parcela já entrou; o corretor está esperando"
-                    situacao={<ChipSituacao situacao="liberada" />}
+                    titulo="Liberada, a pagar"
                     valor={valorCorretor({ rotulo: 'Liberada, a pagar', titulo: 'A comissão liberada, a pagar', total: venda.brokerReleased, filtro: (x) => x.stCorretor === 'liberada' })}
                   />
                 )}
                 {corretorPrevisto > 0 && (
                   <Linha
-                    titulo="Comissão prevista do corretor"
-                    meta="só vira dívida quando a construtora pagar"
-                    situacao={<ChipSituacao situacao="prevista" />}
+                    titulo="Prevista"
                     valor={valorCorretor({ previsto: true, rotulo: 'Prevista', titulo: 'A comissão prevista do corretor', total: corretorPrevisto, filtro: (x) => x.stCorretor === 'prevista' })}
                   />
                 )}
               </Cartao.Lista>
             </Cartao>
           )}
+
+          <Cartao rotuloAcessivel="Dados da venda">
+            <Cartao.Cabecalho titulo="Dados da venda" meta={venda.client_name ?? 'comprador não informado'} />
+            <Cartao.Corpo>
+              <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                <Dado rotulo="Empreendimento">{venda.development ?? 'não informado'}</Dado>
+                {/* Quando o sistema não sabe, diz em texto: "R$ 0,00" seria uma afirmação falsa sobre o imóvel. */}
+                <Dado rotulo="Imóvel">
+                  {venda.property_value != null ? <Valor valor={venda.property_value} posto="fato" forte /> : 'valor não informado'}
+                </Dado>
+                <Dado rotulo="Corretor">
+                  {pf ? 'venda sua, sem repasse' : venda.brokerName ? `${venda.brokerName} ${venda.broker_pct ?? 0}%` : 'sem corretor'}
+                </Dado>
+                <Dado rotulo="Impostos">
+                  {pf
+                    ? 'nenhum da imobiliária: a comissão é sua'
+                    : [
+                        venda.issues_invoice ? `Simples ${venda.simples_pct}%` : 'sem nota fiscal',
+                        venda.retains_iss ? `ISS retido ${venda.iss_pct}%` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                </Dado>
+                {pf && <Dado rotulo="Para quem entra">Rafael, pessoa física — fora do caixa da Souza</Dado>}
+                {venda.partner_name && (
+                  <Dado rotulo="Parceria">{`parceria ${venda.partner_name} (${venda.partner_share_pct}% da Souza)`}</Dado>
+                )}
+                {venda.status === 'cancelada' && <Dado rotulo="Situação">venda cancelada</Dado>}
+                {venda.notes && (
+                  <Dado rotulo="Observação" largo>
+                    {venda.notes}
+                  </Dado>
+                )}
+              </dl>
+            </Cartao.Corpo>
+          </Cartao>
         </div>
-      )}
+      </div>
 
       {erro && (
         <p role="alert" className="rounded-caixa border border-error-line bg-surface px-recuo py-4 text-texto text-error-ink">
@@ -512,8 +588,7 @@ export function Venda() {
         <Cartao.Cabecalho
           id={idCabecalhoParcelas}
           titulo="Parcelas"
-          icone={ListOrdered}
-          meta={`${venda.installments.length} ${venda.installments.length === 1 ? 'parcela' : 'parcelas'} · ${recebidas.length} ${recebidas.length === 1 ? 'recebida' : 'recebidas'}`}
+          meta={`${venda.installments.length} ${venda.installments.length === 1 ? 'parcela' : 'parcelas'} · ${recebidas.length} ${recebidas.length === 1 ? 'recebida' : 'recebidas'} · cada uma com a sua conta`}
         />
         <Cartao.Lista rotuloAcessivel="Parcelas da venda" className={LISTA_PARCELAS}>
           <CabecalhoParcelas perfil="admin" />
@@ -578,44 +653,6 @@ export function Venda() {
             return itens
           })}
         </Cartao.Lista>
-      </Cartao>
-
-      <Cartao>
-        <Cartao.Cabecalho titulo="Dados da venda" icone={FileText} />
-        <Cartao.Corpo>
-          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Dado rotulo="Comprador">{venda.client_name ?? 'não informado'}</Dado>
-            <Dado rotulo="Empreendimento">{venda.development ?? 'não informado'}</Dado>
-            <Dado rotulo="Vendida em">{formatDate(venda.sale_date)}</Dado>
-            {/* Quando o sistema não sabe, diz em texto: "R$ 0,00" seria uma afirmação falsa sobre o imóvel. */}
-            <Dado rotulo="Imóvel">
-              {venda.property_value != null ? formatCurrency(venda.property_value) : 'valor do imóvel não informado'}
-            </Dado>
-            <Dado rotulo="Corretor">
-              {pf ? 'venda sua, sem repasse' : venda.brokerName ? `${venda.brokerName} ${venda.broker_pct ?? 0}%` : 'sem corretor'}
-            </Dado>
-            <Dado rotulo="Impostos">
-              {pf
-                ? 'nenhum da imobiliária: a comissão é sua'
-                : [
-                    venda.issues_invoice ? `Simples ${venda.simples_pct}%` : 'sem nota fiscal',
-                    venda.retains_iss ? `ISS retido ${venda.iss_pct}%` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-            </Dado>
-            {pf && <Dado rotulo="Para quem entra">Rafael, pessoa física — fora do caixa da Souza</Dado>}
-            {venda.partner_name && (
-              <Dado rotulo="Parceria">{`parceria ${venda.partner_name} (${venda.partner_share_pct}% da Souza)`}</Dado>
-            )}
-            {venda.status === 'cancelada' && <Dado rotulo="Situação">venda cancelada</Dado>}
-            {venda.notes && (
-              <Dado rotulo="Observação" largo>
-                {venda.notes}
-              </Dado>
-            )}
-          </dl>
-        </Cartao.Corpo>
       </Cartao>
 
       {/* O ⋯ da ficha: as mesmas ações do cabeçalho, com os mesmos efeitos. */}
@@ -1080,7 +1117,7 @@ function MetaDaParcela({ parcela, nomeCorretor, hoje }: { parcela: ParcelaNaTela
 /* Um dado da venda: rótulo em cima, texto embaixo. */
 function Dado({ rotulo, largo, children }: { rotulo: string; largo?: boolean; children: ReactNode }) {
   return (
-    <div className={largo ? 'flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-span-3' : 'flex min-w-0 flex-col gap-1'}>
+    <div className={largo ? 'flex min-w-0 flex-col gap-1 sm:col-span-2' : 'flex min-w-0 flex-col gap-1'}>
       <Rotulo as="dt">{rotulo}</Rotulo>
       <dd className="min-w-0 text-texto text-t1">{children}</dd>
     </div>
