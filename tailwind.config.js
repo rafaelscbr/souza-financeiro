@@ -260,8 +260,9 @@ export default {
         marca: ['18px', { lineHeight: '1', letterSpacing: '-0.025em', fontWeight: '800' }],
         'marca-enfase': ['23px', { lineHeight: '1', letterSpacing: '0', fontWeight: '400' }],
         'marca-enfase-lg': ['30px', { lineHeight: '1', letterSpacing: '0', fontWeight: '400' }],
-        destaque: ['40px', { lineHeight: '46px', letterSpacing: '-0.025em', fontWeight: '800' }],
-        'destaque-lg': ['56px', { lineHeight: '60px', letterSpacing: '-0.025em', fontWeight: '800' }],
+        // O número do bloco-herói (03/11: "gritando" a 56px; agora 32 / 40).
+        destaque: ['32px', { lineHeight: '38px', letterSpacing: '-0.025em', fontWeight: '800' }],
+        'destaque-lg': ['40px', { lineHeight: '46px', letterSpacing: '-0.025em', fontWeight: '800' }],
         menu: ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
         frase: ['15px', { lineHeight: '22px', letterSpacing: '0' }],
         // O rótulo de cima (o antigo sobretítulo em caixa alta): 12,5px, 600, sem espaçar.

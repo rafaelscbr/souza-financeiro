@@ -328,3 +328,20 @@ As sombras são sempre em marinho diluído, nunca em preto.
   - **Cor do "Financeiro":** `#E2C385` sobre a barra e o herói; `--destaque` no claro.
   - Os ícones do app (`public/`) seguem o mesmo "S".
 - **Tema escuro.** Continua opcional, com os valores da especificação e tons derivados por mistura, sem hex fora da paleta.
+- **Ajustes de 03/11, a partir do retorno do Rafael** ("saldo gritando", "faltando cores", "dourado com itálico nos títulos", "input quase sumindo"):
+  - **Bloco do saldo:**
+    - O número caiu de 56px para 40px e o anel de 144px para 96px.
+    - O recuo passou a 24px.
+    - O Início foi para duas colunas: à esquerda o saldo e o caixa previsto; à direita "Pede você" e a régua da comissão.
+  - **Destaque nos títulos** (`comDestaque`, `src/components/ui/Destaque.tsx`):
+    - Em título de tela, cartão, seção e painel com duas palavras ou mais, a última palavra vira itálico dourado.
+    - Nome próprio, número e palavra curta ficam como estão.
+  - **Cor:**
+    - Botão secundário: fundo Champanhe claro (`--brand-tint`).
+    - Ícones de tom: círculo tingido.
+    - "Pede você": filete de 3px na cor do tom.
+    - "Em atraso" na faixa de números: âmbar.
+    - Sobre o herói, o vermelho e o verde vêm clareados da própria paleta.
+  - **Campos:** fio visível (`--line-strong`), porque sem borda o campo sumia na página.
+  - **Login:** o formulário fica num cartão branco.
+  - Esses pontos desviam da especificação ("sem borda", "dourado pouco") por pedido do Rafael.

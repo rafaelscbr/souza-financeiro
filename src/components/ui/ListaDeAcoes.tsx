@@ -59,7 +59,13 @@ export function ListaDeAcoes({ itens, rotuloAcessivel }: { itens: ItemDeAcao[]; 
         return (
           <li
             key={p.id}
-            className="border-t border-fio-linha"
+            // O filete de 3px à esquerda na cor do tom (o "o que fazer agora" da Folha Clara).
+            className={cn(
+              'relative border-t border-fio-linha before:absolute before:inset-y-linha before:left-0 before:w-[3px] before:rounded-r-full',
+              tom === 'risco' && 'before:bg-error',
+              tom === 'atraso' && 'before:bg-warning',
+              tom === 'neutro' && 'before:bg-brand-fill',
+            )}
             style={{ animation: `sobe var(--dur-lista) var(--curva-entra) ${i * 40}ms backwards` }}
           >
             {p.para && !p.acao ? (

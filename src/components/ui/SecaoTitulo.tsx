@@ -1,3 +1,4 @@
+import { comDestaque } from './Destaque'
 import { type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Icone } from './Icone'
@@ -28,7 +29,7 @@ export function SecaoTitulo({
         </span>
       )}
       <div className="flex min-w-0 flex-col gap-1">
-        <h3 className="font-heading text-t1 text-titulo-secao">{titulo}</h3>
+        <h3 className="font-heading text-t1 text-titulo-secao">{comDestaque(titulo)}</h3>
         {descricao && <div className="text-t-meta text-texto-meta">{descricao}</div>}
       </div>
     </div>

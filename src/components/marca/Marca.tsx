@@ -150,7 +150,7 @@ export function MarcaSouza({
       <MarcaS className={grande ? 'size-11 shrink-0' : 'size-8 shrink-0'} />
       <span aria-hidden className="flex items-baseline gap-1.5 whitespace-nowrap leading-none">
         <span className={`font-heading ${negativo ? 'text-white' : 'text-t1'} ${grande ? 'text-numero-kpi' : 'text-marca'}`}>Souza</span>
-        <span className={`enfase ${negativo ? 'text-areia' : 'text-cor-destaque'} ${grande ? 'text-marca-enfase-lg' : 'text-marca-enfase'}`}>Financeiro</span>
+        <span className={`enfase ${negativo ? 'text-areia' : 'text-ouro'} ${grande ? 'text-marca-enfase-lg' : 'text-marca-enfase'}`}>Financeiro</span>
       </span>
     </span>
   )

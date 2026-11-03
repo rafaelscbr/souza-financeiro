@@ -116,8 +116,9 @@ html.light { /* CLARO — Folha Clara, o padrão do sistema */
   --areia: #E2C385;
   --ouro: var(--brand-text);
   --ouro-marca: var(--brand);
-  --coral: var(--error-bg);
-  --menta: var(--success-bg);
+  /* Sobre o herói, o vermelho e o verde da paleta clareados (≥5:1 no marinho): a cor do estado continua à vista. */
+  --coral: color-mix(in srgb, var(--error) 55%, #FFFFFF);
+  --menta: color-mix(in srgb, var(--success) 55%, #FFFFFF);
   --grad-destaque: none;
   --marinho: var(--bar-bg);
 

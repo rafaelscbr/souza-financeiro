@@ -1,3 +1,4 @@
+import { comDestaque } from './Destaque'
 import { createContext, useContext, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Icone } from './Icone'
@@ -72,7 +73,7 @@ export function PainelTitulo({
         </span>
       ) : null}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {titulo ? <h2 className="font-heading text-t1 text-titulo-secao">{titulo}</h2> : null}
+        {titulo ? <h2 className="font-heading text-t1 text-titulo-secao">{comDestaque(titulo)}</h2> : null}
         {descricao && <div className="text-t-meta text-texto-meta">{descricao}</div>}
       </div>
       {extra && <div className="ms-auto flex shrink-0 items-center gap-3">{extra}</div>}

@@ -41,19 +41,20 @@ export function CartaoDestaque({
     <section
       aria-label={rotuloAcessivel}
       className={cn(
-        'bloco-heroi sobre-heroi relative isolate overflow-hidden rounded-sobreposicao px-recuo py-8 lg:px-10 lg:py-10',
+        // Compacto (03/11): 24px de recuo, o número e o anel na mesma faixa, o rodapé logo abaixo.
+        'bloco-heroi sobre-heroi relative isolate overflow-hidden rounded-sobreposicao p-recuo lg:px-8 lg:py-6',
         className,
       )}
       style={{ animation: 'sobe var(--dur-painel) var(--curva-entra) backwards' }}
     >
-      <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div className="flex min-w-0 flex-col gap-3">
-          <p className="text-barra-texto text-sobretitulo">{sobretitulo}</p>
+      <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <p className="font-medium text-barra-texto text-texto-titulo">{sobretitulo}</p>
           {children}
         </div>
         {anel && <Anel {...anel} />}
       </div>
-      {rodape && <div className="relative mt-8 border-t border-white/10 pt-6">{rodape}</div>}
+      {rodape && <div className="relative mt-5 border-t border-white/10 pt-4">{rodape}</div>}
     </section>
   )
 }
@@ -64,8 +65,8 @@ function Anel({ fracao, centro, legenda }: AnelDoDestaque) {
   const volta = 2 * Math.PI * r
   const f = Math.max(0, Math.min(1, fracao))
   return (
-    <div className="flex flex-col items-center gap-3 max-lg:flex-row max-lg:gap-5">
-      <svg viewBox="0 0 160 160" className="size-36 shrink-0 text-white max-lg:size-24" role="img" aria-label={`${centro}`}>
+    <div className="flex flex-row-reverse items-center justify-end gap-4 max-lg:flex-row">
+      <svg viewBox="0 0 160 160" className="size-20 shrink-0 text-white lg:size-24" role="img" aria-label={`${centro}`}>
         <circle cx="80" cy="80" r={r} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="10" />
         <circle
           cx="80"
@@ -84,7 +85,7 @@ function Anel({ fracao, centro, legenda }: AnelDoDestaque) {
           {centro}
         </text>
       </svg>
-      <div className="max-w-[11rem] text-center text-barra-texto text-texto max-lg:text-left [&_b]:font-bold [&_b]:text-white">{legenda}</div>
+      <div className="max-w-[12rem] text-barra-texto text-texto-meta lg:text-right [&_b]:font-bold [&_b]:text-white">{legenda}</div>
     </div>
   )
 }
@@ -127,13 +128,13 @@ export function NumeroDoDestaque({
         {texto !== undefined ? (
           <span className="font-heading text-white text-numero-kpi">{texto}</span>
         ) : (
-          <Valor valor={v} posto="kpi" tinta="text-white" />
+          <Valor valor={v} posto="kpi" tinta="text-white !text-numero-kpi-m" />
         )}
       </dd>
-      <dd className="text-barra-texto text-texto-meta">{nota}</dd>
+      <dd className="text-barra-texto text-nota">{nota}</dd>
     </>
   )
-  const classe = 'flex cursor-pointer flex-col gap-1.5 rounded-controle text-left transition-opacity hover:opacity-85'
+  const classe = 'flex cursor-pointer flex-col gap-1 rounded-controle text-left transition-opacity hover:opacity-85'
   if (para) return <Link to={para} className={classe}>{corpo}</Link>
   if (aoClicar) return <button type="button" onClick={aoClicar} className={classe}>{corpo}</button>
   return <div className={classe}>{corpo}</div>

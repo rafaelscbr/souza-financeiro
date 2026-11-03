@@ -48,7 +48,8 @@ const variantes: Record<ButtonVariante, string> = {
    */
   primario: 'bg-acao text-acao-texto hover:bg-acao-hover',
   destaque: 'bg-acao text-acao-texto hover:bg-acao-hover',
-  secundario: 'border border-line bg-surface text-t1 hover:bg-s2',
+  // 03/11: com cor — o Champanhe claro (brand-tint) com tinta marinho; o principal é o Champanhe cheio.
+  secundario: 'bg-brand-tint text-t1 hover:bg-brand-fill/40',
   fantasma: 'text-t3 hover:bg-linha-hover hover:text-t1',
   perigo: 'text-error-ink hover:bg-error-bg',
 }

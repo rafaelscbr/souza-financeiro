@@ -14,6 +14,7 @@ import { ArrowLeft, Plus, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { MarcaSouza } from '@/components/marca/Marca'
 import { EsqueletoCards, EsqueletoLista, EstadoErro } from '@/components/ui/Estados'
+import { comDestaque } from '@/components/ui/Destaque'
 import type { Tom } from '@/components/ui/tom'
 import { PopoverAvisos, type Aviso } from '@/components/shared/PopoverAvisos'
 import { useRolou } from '@/lib/useRolou'
@@ -254,7 +255,7 @@ function AberturaDaPagina({
               ficha ? 'text-nome-ficha-m lg:text-nome-ficha' : 'text-titulo-pagina-m lg:text-titulo-pagina'
             }`}
           >
-            {tituloRico ?? titulo}
+            {tituloRico ?? comDestaque(titulo)}
           </h1>
           {subtitulo && (
             <p className="frase-do-titulo mt-1 max-w-[80ch] text-t3 text-frase [&_b]:font-semibold [&_b]:text-t1 [&_strong]:font-semibold [&_strong]:text-t1">

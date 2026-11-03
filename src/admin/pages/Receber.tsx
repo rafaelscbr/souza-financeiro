@@ -293,6 +293,7 @@ export function Receber() {
           {
             rotulo: 'Em atraso',
             valor: soma(vencidas),
+            atencao: vencidas.length > 0,
             nota: vencidas.length > 0 ? `${vencidas.length === 1 ? '1 parcela' : `${vencidas.length} parcelas`} · a construtora não pagou` : 'nenhuma parcela',
             aoClicar: () =>
               abrir({

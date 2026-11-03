@@ -1,3 +1,4 @@
+import { comDestaque } from './Destaque'
 import { type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Lista, validarFilhos, type ListaProps } from './Lista'
@@ -63,7 +64,7 @@ function CartaoCabecalho({ titulo, meta, extra, nivel = 'h2', id, className }: C
     <div className={cn('flex min-h-[52px] flex-wrap items-start gap-x-4 gap-y-2 px-recuo pb-3 pt-4', className)}>
       <div className="flex min-w-0 flex-1 basis-56 flex-col gap-0.5">
         <H id={id} className="min-w-0 font-heading text-t1 text-titulo-secao">
-          {titulo}
+          {comDestaque(titulo)}
         </H>
         {meta && <span className="min-w-0 text-t4 text-texto-meta">{meta}</span>}
       </div>

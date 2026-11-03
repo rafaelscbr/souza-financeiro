@@ -161,14 +161,18 @@ export function CorretorInicio() {
     >
       <CartaoDestaque
         rotuloAcessivel="O que está liberado para você"
-        sobretitulo="Liberada para você"
+        sobretitulo={
+          <>
+            Liberada para <em className="destaque">você</em>
+          </>
+        }
         anel={{
           fracao: soma(doAno) > 0 ? soma(recebidas) / soma(doAno) : 0,
           centro: `${soma(doAno) > 0 ? Math.round((soma(recebidas) / soma(doAno)) * 100) : 0}%`,
           legenda: <>da sua comissão de {ano} já caiu na sua conta</>,
         }}
         rodape={
-          <dl className="grid gap-6 sm:grid-cols-3">
+          <dl className="grid gap-4 sm:grid-cols-3">
             <NumeroDoDestaque
               rotulo={`Já recebida em ${ano}`}
               valor={soma(recebidas)}
@@ -186,7 +190,7 @@ export function CorretorInicio() {
               valor={p.sales_count}
               texto={String(p.sales_count)}
               para="/minhas-vendas"
-              nota={p.vgv > 0 ? <><Valor valor={p.vgv} posto="fato" tinta="text-white/65" /> de VGV</> : 'valor dos imóveis não informado'}
+              nota={p.vgv > 0 ? <><Valor valor={p.vgv} posto="fato" tinta="text-barra-texto" /> de VGV</> : 'valor dos imóveis não informado'}
             />
           </dl>
         }
@@ -194,7 +198,7 @@ export function CorretorInicio() {
         <Link to="/recebimentos?foco=a-receber" className="w-max rounded-controle" aria-label="Ver o que está liberado">
           <ValorDoDestaque valor={soma(liberadas)} />
         </Link>
-        <p className="text-white/70 text-texto">
+        <p className="text-barra-texto text-texto-meta">
           {liberadas.length === 0
             ? 'quando a construtora pagar, sua parte aparece aqui'
             : `${liberadas.length} ${liberadas.length === 1 ? 'parcela que a imobiliária já recebeu' : 'parcelas que a imobiliária já recebeu'}, esperando o repasse`}

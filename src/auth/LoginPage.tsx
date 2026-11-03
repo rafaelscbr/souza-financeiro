@@ -105,7 +105,8 @@ function Moldura({ children }: { children: ReactNode }) {
     <div className="min-h-dvh bg-page lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)]">
       <Painel />
       <main className="flex justify-center px-6 pb-12 pt-8 lg:items-center lg:px-12 lg:py-12">
-        <div className="entrada-pagina flex w-full max-w-[22rem] flex-col gap-6 lg:gap-8">{children}</div>
+        {/* 03/11: o formulário mora num cartão branco com sombra, para os campos e o botão terem chão. */}
+        <div className="entrada-pagina flex w-full max-w-[26rem] flex-col gap-6 rounded-sobreposicao bg-surface p-6 shadow-card ring-1 ring-line sm:p-8 lg:gap-8">{children}</div>
       </main>
     </div>
   )

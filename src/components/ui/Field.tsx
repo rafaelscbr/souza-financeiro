@@ -81,7 +81,8 @@ export function classeCampo(invalido: boolean) {
     'campo block h-11 w-full rounded-campo border bg-campo px-3 text-t1',
     'placeholder:text-t-meta transition-colors duration-micro ease-cor',
     'focus:border-campo-foco focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-campo-foco/20 focus-visible:outline-none',
-    invalido ? 'border-error bg-surface' : 'border-transparent hover:bg-campo-hover',
+    // 03/11: o campo sumia na página (fundo quase igual, sem borda) — agora tem fio visível.
+    invalido ? 'border-error bg-surface' : 'border-line-strong hover:border-fio-controle hover:bg-campo-hover',
     'aria-[invalid=true]:border-error',
     'disabled:cursor-not-allowed disabled:opacity-40',
   )

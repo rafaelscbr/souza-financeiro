@@ -265,114 +265,130 @@ export function Inicio() {
       sobretitulo={formatMonthYear(mes)}
       subtitulo={frase}
     >
-      <div className="grid items-start gap-bloco xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <CartaoDestaque
-          rotuloAcessivel="Saldo de hoje e o mês"
-          sobretitulo={`Saldo hoje · ${contasAtivas.length} ${contasAtivas.length === 1 ? 'conta' : 'contas'}`}
-          anel={{
-            fracao: fracaoRecebida,
-            centro: `${Math.round(fracaoRecebida * 100)}%`,
-            legenda: (
-              <>
-                <b>
-                  <Valor valor={recebidoNoMes} posto="fato" tinta="text-white" />
-                </b>{' '}
-                da comissão de {nomeMes} já entrou
-              </>
-            ),
-          }}
-          rodape={
-            <dl className="grid gap-6 sm:grid-cols-3">
-              <NumeroDoDestaque
-                rotulo="Comissões a receber"
-                valor={soma(aReceber)}
-                para="/receber"
-                nota={
-                  emAtraso.length > 0 ? (
-                    <span className="text-areia">
-                      <Valor valor={soma(emAtraso)} posto="fato" tinta="text-areia" /> em atraso
-                    </span>
-                  ) : (
-                    'nada em atraso'
-                  )
-                }
-              />
-              <NumeroDoDestaque
-                rotulo="Contas a pagar"
-                valor={soma(devido)}
-                para="/pagar"
-                nota={
-                  vencidoAPagar.length > 0 ? (
-                    <span className="text-coral">
-                      <Valor valor={soma(vencidoAPagar)} posto="fato" tinta="text-coral" /> vencidos
-                    </span>
-                  ) : (
-                    `${devido.length} ${devido.length === 1 ? 'item devido' : 'itens devidos'} agora`
-                  )
-                }
-              />
-              <NumeroDoDestaque
-                rotulo="Resultado do mês"
-                valor={resultado.lucro}
-                para="/relatorios/dre"
-                nota={
-                  diferencaResultado === 0 ? (
-                    `igual a ${formatMonthYear(mesAnterior).split(' ')[0].toLowerCase()}`
-                  ) : (
-                    <>
-                      <span className={diferencaResultado > 0 ? 'text-menta' : 'text-coral'}>
-                        {diferencaResultado > 0 ? '+' : '−'}
-                        <Valor valor={Math.abs(diferencaResultado)} posto="fato" tinta={diferencaResultado > 0 ? 'text-menta' : 'text-coral'} />
-                      </span>{' '}
-                      vs {formatMonthYear(mesAnterior).split(' ')[0].toLowerCase()}
-                    </>
-                  )
-                }
-              />
-            </dl>
-          }
-        >
-          <Link to="/contas" className="w-max rounded-controle" aria-label="Ver as contas">
-            <ValorDoDestaque valor={saldo} />
-          </Link>
-          <p className="text-white/70 text-texto">
-            {contasAtivas.length > 0 && contasAtivas.length <= 3 ? contasAtivas.map((c) => c.name).join(' e ') : 'somando as contas ativas'}
-          </p>
-        </CartaoDestaque>
-
-        <PedeVoce pendencias={pendencias} aoAbrir={(p) => navigate(p.para)} />
-      </div>
-
-      <div className="grid items-start gap-bloco xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Cartao>
-          <Cartao.Cabecalho
-            titulo="Caixa previsto"
-            meta={
-              ultimo ? (
+      {/*
+       * Duas colunas (03/11, "mais compacto, mais organizado"): à esquerda o saldo e o caixa
+       * previsto, à direita o que pede você e a régua da comissão — sem buraco embaixo do
+       * saldo. No celular a ordem é saldo, pede você, caixa, régua.
+       */}
+      <div className="flex flex-col gap-bloco xl:grid xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:items-start">
+        <div className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-bloco">
+          <div className="order-1 min-w-0 xl:order-none">
+            <CartaoDestaque
+              rotuloAcessivel="Saldo de hoje e o mês"
+              sobretitulo={
                 <>
-                  Em {formatMonthYear(new Date(`${ultimo.mes}-01T12:00:00`)).toLowerCase()}, sem venda nova:{' '}
-                  <Valor valor={ultimo.saldoFim} posto="fato" forte estado={ultimo.saldoFim < 0 ? 'negativo' : undefined} />
+                  Saldo <em className="destaque">hoje</em> · {contasAtivas.length} {contasAtivas.length === 1 ? 'conta' : 'contas'}
                 </>
-              ) : undefined
-            }
-            extra={<span className="text-t4 text-texto-meta max-sm:hidden">próximos 6 meses</span>}
-          />
-          <GraficoCaixaPrevisto
-            aoClicar={abrirPrevisao}
-            rotuloAcessivel="Saldo previsto no fim de cada um dos próximos 6 meses. Toque num mês para ver o que entra e o que sai."
-            meses={previsao.map((p) => {
-              const d = new Date(`${p.mes}-01T12:00:00`)
-              return { rotulo: formatMonthTiny(d), titulo: formatMonthYear(d), entra: p.entra, sai: p.sai, saldoFim: p.saldoFim }
-            })}
-          />
-          {menorSaldo < 0 && (
-            <Cartao.Rodape>
-              <span className="text-error-ink">Em algum mês o caixa fica negativo: antecipe recebimento ou segure gasto antes de chegar lá.</span>
-            </Cartao.Rodape>
-          )}
-        </Cartao>
-
-        <ReguaDaComissao carteira={carteira} />
+              }
+              anel={{
+                fracao: fracaoRecebida,
+                centro: `${Math.round(fracaoRecebida * 100)}%`,
+                legenda: (
+                  <>
+                    <b>
+                      <Valor valor={recebidoNoMes} posto="fato" tinta="text-white" />
+                    </b>{' '}
+                    da comissão de {nomeMes} já entrou
+                  </>
+                ),
+              }}
+              rodape={
+                <dl className="grid gap-4 sm:grid-cols-3">
+                  <NumeroDoDestaque
+                    rotulo="Comissões a receber"
+                    valor={soma(aReceber)}
+                    para="/receber"
+                    nota={
+                      emAtraso.length > 0 ? (
+                        <span className="text-areia">
+                          <Valor valor={soma(emAtraso)} posto="fato" tinta="text-areia" /> em atraso
+                        </span>
+                      ) : (
+                        'nada em atraso'
+                      )
+                    }
+                  />
+                  <NumeroDoDestaque
+                    rotulo="Contas a pagar"
+                    valor={soma(devido)}
+                    para="/pagar"
+                    nota={
+                      vencidoAPagar.length > 0 ? (
+                        <span className="text-coral">
+                          <Valor valor={soma(vencidoAPagar)} posto="fato" tinta="text-coral" /> vencidos
+                        </span>
+                      ) : (
+                        `${devido.length} ${devido.length === 1 ? 'item devido' : 'itens devidos'} agora`
+                      )
+                    }
+                  />
+                  <NumeroDoDestaque
+                    rotulo="Resultado do mês"
+                    valor={resultado.lucro}
+                    para="/relatorios/dre"
+                    nota={
+                      diferencaResultado === 0 ? (
+                        `igual a ${formatMonthYear(mesAnterior).split(' ')[0].toLowerCase()}`
+                      ) : (
+                        <>
+                          <span className={diferencaResultado > 0 ? 'text-menta' : 'text-coral'}>
+                            {diferencaResultado > 0 ? '+' : '−'}
+                            <Valor valor={Math.abs(diferencaResultado)} posto="fato" tinta={diferencaResultado > 0 ? 'text-menta' : 'text-coral'} />
+                          </span>{' '}
+                          vs {formatMonthYear(mesAnterior).split(' ')[0].toLowerCase()}
+                        </>
+                      )
+                    }
+                  />
+                </dl>
+              }
+            >
+              <Link to="/contas" className="w-max rounded-controle" aria-label="Ver as contas">
+                <ValorDoDestaque valor={saldo} />
+              </Link>
+              <p className="text-barra-texto text-texto-meta">
+                {contasAtivas.length > 0 && contasAtivas.length <= 3 ? contasAtivas.map((c) => c.name).join(' e ') : 'somando as contas ativas'}
+              </p>
+            </CartaoDestaque>
+          </div>
+          <div className="order-3 min-w-0 xl:order-none">
+            <Cartao>
+              <Cartao.Cabecalho
+                titulo="Caixa previsto"
+                meta={
+                  ultimo ? (
+                    <>
+                      Em {formatMonthYear(new Date(`${ultimo.mes}-01T12:00:00`)).toLowerCase()}, sem venda nova:{' '}
+                      <Valor valor={ultimo.saldoFim} posto="fato" forte estado={ultimo.saldoFim < 0 ? 'negativo' : undefined} />
+                    </>
+                  ) : undefined
+                }
+                extra={<span className="text-t4 text-texto-meta max-sm:hidden">próximos 6 meses</span>}
+              />
+              <GraficoCaixaPrevisto
+                aoClicar={abrirPrevisao}
+                rotuloAcessivel="Saldo previsto no fim de cada um dos próximos 6 meses. Toque num mês para ver o que entra e o que sai."
+                meses={previsao.map((p) => {
+                  const d = new Date(`${p.mes}-01T12:00:00`)
+                  return { rotulo: formatMonthTiny(d), titulo: formatMonthYear(d), entra: p.entra, sai: p.sai, saldoFim: p.saldoFim }
+                })}
+              />
+              {menorSaldo < 0 && (
+                <Cartao.Rodape>
+                  <span className="text-error-ink">Em algum mês o caixa fica negativo: antecipe recebimento ou segure gasto antes de chegar lá.</span>
+                </Cartao.Rodape>
+              )}
+            </Cartao>
+          </div>
+        </div>
+        <div className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-bloco">
+          <div className="order-2 min-w-0 xl:order-none">
+            <PedeVoce pendencias={pendencias} aoAbrir={(p) => navigate(p.para)} />
+          </div>
+          <div className="order-4 min-w-0 xl:order-none">
+            <ReguaDaComissao carteira={carteira} />
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-bloco">

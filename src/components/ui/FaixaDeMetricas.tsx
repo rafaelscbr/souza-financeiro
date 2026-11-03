@@ -30,6 +30,8 @@ export interface Metrica {
   lider?: boolean
   /** Previsão (depende da construtora): o número sai em cinza, nunca com cor. */
   previsto?: boolean
+  /** "Em atraso" da construtora: o número em âmbar (nunca vermelho, que é dívida nossa). */
+  atencao?: boolean
 }
 
 /*
@@ -48,6 +50,7 @@ function NumeroDaMetrica({ m }: { m: Metrica }) {
         {m.texto}
       </span>
     )
+  if (m.atencao && !m.estado) return <Valor posto={m.lider ? 'lider' : 'kpi'} valor={v} tinta="text-warning-ink" />
   if (m.previsto && !m.estado) return <Valor posto={m.lider ? 'lider' : 'kpi'} valor={v} tinta="text-t3" />
   return <Valor posto={m.lider ? 'lider' : 'kpi'} valor={v} estado={m.estado} />
 }
