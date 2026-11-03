@@ -35,7 +35,7 @@ function Quadro({
   return (
     <div role={alerta ? 'alert' : undefined} className="flex flex-col items-center px-recuo py-12 text-center">
       <IconeTom icone={icone} tom={tom} tamanho="lg" />
-      <h3 className="mt-4 text-titulo-painel text-t1">{titulo}</h3>
+      <h3 className="mt-4 font-heading text-titulo-painel text-t1">{titulo}</h3>
       {texto && <p className="mt-1 max-w-[48ch] text-texto-corrido text-t3">{texto}</p>}
       {acao && <div className="mt-6">{acao}</div>}
     </div>
@@ -94,7 +94,7 @@ export function EsqueletoLista({ linhas = 5, goteira = true }: { linhas?: number
   return (
     <div
       data-caixa
-      className="lista rounded-caixa border border-fio-caixa bg-surface py-2 shadow-card"
+      className="lista rounded-caixa bg-surface py-2 shadow-card"
       data-contexto="cartao"
       data-com-goteira={goteira ? '' : undefined}
       aria-busy="true"
@@ -114,7 +114,7 @@ export function EsqueletoCards({ quantos = 4 }: { quantos?: number }) {
     <div className="grid grid-cols-2 gap-bloco xl:grid-cols-4" aria-busy="true" aria-live="polite">
       <span className="sr-only">Carregando…</span>
       {Array.from({ length: quantos }).map((_, i) => (
-        <div key={i} data-caixa className="flex flex-col gap-3 rounded-caixa border border-fio-caixa bg-surface p-recuo shadow-card" aria-hidden>
+        <div key={i} data-caixa className="flex flex-col gap-3 rounded-caixa bg-surface p-recuo shadow-card" aria-hidden>
           <Esqueleto className="h-3 w-20" />
           <Esqueleto className="h-7 w-3/4" />
           <Esqueleto className="h-3 w-16" />
@@ -138,7 +138,7 @@ export function CarregandoPagina({ rotulo = 'Carregando…', className }: { rotu
         <Esqueleto className="h-5 w-44 max-w-full" />
         <Esqueleto className="h-3 w-64 max-w-full" />
       </div>
-      <div data-caixa className="flex flex-col gap-3 rounded-caixa border border-fio-caixa bg-surface p-recuo shadow-card lg:p-8" aria-hidden>
+      <div data-caixa className="flex flex-col gap-3 rounded-caixa bg-surface p-recuo shadow-card lg:p-8" aria-hidden>
         <Esqueleto className="h-3 w-28" />
         <Esqueleto className="h-9 w-60 max-w-full" />
         <Esqueleto className="h-1.5 w-full" />

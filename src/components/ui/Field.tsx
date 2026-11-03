@@ -17,8 +17,8 @@ import { cn } from '@/lib/utils'
 /*
  * Campo (docs/souza-os-fundamentos.md, 7.9; tipo 6.1 `.campo`).
  *
- * 44px para todo controle. Borda fio-controle (≥3:1); hover sobe para t3;
- * foco borda brand + anel de 3px a 25%; erro borda `error`. Rótulo ↔ campo 8,
+ * 44px para todo controle. Folha Clara: sem borda, fundo --field-bg, hover
+ * --field-bg-hover; foco fundo branco, borda --field-focus e halo de 3px; erro borda `error`. Rótulo ↔ campo 8,
  * campo ↔ dica 8, e o erro ocupa o lugar da dica (o layout não pula).
  *
  * ATENÇÃO: tamanho de letra (`campo`, `text-texto-meta`, `text-nota`) fica
@@ -77,10 +77,11 @@ export function useCampo(props: PropsLigaveis) {
 // eslint-disable-next-line react-refresh/only-export-components
 export function classeCampo(invalido: boolean) {
   return cn(
-    'campo block h-11 w-full rounded-controle border bg-surface px-3 text-t1',
+    // Folha Clara: sem borda à vista, fundo --field-bg, raio 10. No foco: superfície, borda azul e halo de 3px.
+    'campo block h-11 w-full rounded-campo border bg-campo px-3 text-t1',
     'placeholder:text-t-meta transition-colors duration-micro ease-cor',
-    'focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand/25 focus-visible:outline-none',
-    invalido ? 'border-error' : 'border-fio-controle hover:border-t3',
+    'focus:border-campo-foco focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-campo-foco/20 focus-visible:outline-none',
+    invalido ? 'border-error bg-surface' : 'border-transparent hover:bg-campo-hover',
     'aria-[invalid=true]:border-error',
     'disabled:cursor-not-allowed disabled:opacity-40',
   )
@@ -90,7 +91,7 @@ export function classeCampo(invalido: boolean) {
 /* Rótulo                                                                     */
 /* ------------------------------------------------------------------------- */
 
-/** `texto-meta` 500 em t2; o `*` em error-ink é só visual (o campo leva aria-required). */
+/** Folha Clara: 12,5px, 600, em t3; o `*` em error-ink é só visual (o campo leva aria-required). */
 export function Label({
   className,
   children,
@@ -98,7 +99,7 @@ export function Label({
   ...props
 }: LabelHTMLAttributes<HTMLLabelElement> & { required?: boolean }) {
   return (
-    <label className={`text-texto-meta ${cn('block font-medium text-t2', className)}`} {...props}>
+    <label className={`text-rotulo ${cn('block font-semibold text-t3', className)}`} {...props}>
       {children}
       {required && (
         <span aria-hidden className="text-error-ink">
@@ -166,7 +167,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
           {children}
         </select>
         <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-t-meta">
-          <ChevronDown size={16} strokeWidth={1.6} />
+          <ChevronDown size={16} strokeWidth={2} />
         </span>
       </div>
     )

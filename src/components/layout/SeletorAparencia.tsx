@@ -71,10 +71,10 @@ export function OpcoesComMarca<T extends string>({
               onClick={() => aoMudar(o.valor)}
               onKeyDown={(e) => onKeyDown(e, i)}
               className={`${cn(
-                'flex h-11 min-w-0 items-center gap-2 rounded-controle border px-3 transition-colors lg:[@media(pointer:fine)]:h-10',
+                'flex h-11 min-w-0 cursor-pointer items-center gap-2 rounded-full px-4 transition-colors lg:[@media(pointer:fine)]:h-10',
                 marcada
-                  ? 'border-fio-controle bg-s2 font-semibold text-t1'
-                  : 'border-fio-linha text-t2 hover:bg-linha-hover hover:text-t1 active:bg-linha-press',
+                  ? 'bg-brand-fill font-semibold text-t1'
+                  : 'bg-s2 text-t2 hover:bg-s3 hover:text-t1',
               )} text-texto-titulo`}
             >
               <Icone icone={o.icone} tamanho={16} className={marcada ? 'text-t1' : 'text-t3'} />

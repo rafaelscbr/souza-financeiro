@@ -81,7 +81,7 @@ export function Tip({ children, label = 'O que é isso?', align = 'end', classNa
           {...presenca.props}
           style={presenca.estado === 'saindo' ? SAIDA : ENTRADA}
           className={cn(
-            'absolute top-full z-popover mt-2 block w-64 max-w-[calc(100vw_-_32px)] rounded-caixa border border-fio-caixa bg-surface p-4 text-left text-texto-corrido normal-case tracking-normal text-t2 shadow-dropdown',
+            'absolute top-full z-popover mt-2 block w-64 max-w-[calc(100vw_-_32px)] rounded-caixa bg-surface p-4 text-left text-texto-corrido normal-case tracking-normal text-t2 shadow-dropdown',
             align === 'end' ? 'right-0' : 'left-0',
           )}
         >

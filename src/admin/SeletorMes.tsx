@@ -90,7 +90,7 @@ function SeletorMesDesenho({ className, mes, aoAnterior, aoSeguinte, aoAtual }: 
       )}
     >
       <button type="button" onClick={mesAnterior} aria-label="Mês anterior" className={QUADRADO} style={COR}>
-        <ChevronLeft size={16} strokeWidth={1.6} aria-hidden />
+        <ChevronLeft size={16} strokeWidth={2} aria-hidden />
       </button>
       <button
         type="button"
@@ -114,7 +114,7 @@ function SeletorMesDesenho({ className, mes, aoAnterior, aoSeguinte, aoAtual }: 
         </span>
       </button>
       <button type="button" onClick={mesSeguinte} aria-label="Mês seguinte" className={QUADRADO} style={COR}>
-        <ChevronRight size={16} strokeWidth={1.6} aria-hidden />
+        <ChevronRight size={16} strokeWidth={2} aria-hidden />
       </button>
     </div>
   )

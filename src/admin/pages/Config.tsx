@@ -924,7 +924,7 @@ function Chave({
   aoMudar: (v: boolean) => void
 }) {
   return (
-    <label className="relative flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-controle border border-fio-controle bg-surface px-3 py-2 hover:bg-linha-hover has-[:focus-visible]:border-brand has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-brand/25">
+    <label className="relative flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-controle border border-fio-controle bg-surface px-3 py-2 hover:bg-linha-hover has-[:focus-visible]:border-campo-foco has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-campo-foco/20">
       <span className="text-texto text-t1">{rotulo}</span>
       {/* O input cobre o rótulo inteiro (alvo de 44), invisível; a caixa ao lado é só o desenho. */}
       <input
@@ -935,7 +935,7 @@ function Chave({
       />
       <span
         aria-hidden
-        className="flex size-5 shrink-0 items-center justify-center rounded-badge border border-fio-controle bg-surface text-brand peer-checked:border-brand"
+        className="flex size-5 shrink-0 items-center justify-center rounded-badge border border-fio-controle bg-surface text-t1 peer-checked:border-t1"
       >
         {marcado && <Icone icone={Check} tamanho={16} />}
       </span>

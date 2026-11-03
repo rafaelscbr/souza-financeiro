@@ -161,7 +161,7 @@ export function Abas<T extends string>({
               ativo ? 'font-semibold text-t1' : 'text-t2 hover:text-t1',
             )}`}
           >
-            {Icone && <Icone aria-hidden size={16} strokeWidth={1.6} className="shrink-0" />}
+            {Icone && <Icone aria-hidden size={16} strokeWidth={2} className="shrink-0" />}
             <span>{aba.rotulo}</span>
             {aba.contador != null && <Contador valor={aba.contador} tom={aba.tomContador} />}
           </button>

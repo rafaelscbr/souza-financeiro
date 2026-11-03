@@ -77,9 +77,9 @@ export function Kpi({ rotulo, valor, icone: _icone, tom: _tom = 'neutro', estado
   )
 
   const classes = cn(
-    'relative flex min-w-0 flex-col rounded-caixa border border-fio-caixa bg-surface px-5 py-4 text-left shadow-card',
+    'relative flex min-w-0 flex-col rounded-caixa bg-surface px-5 py-4 text-left shadow-card',
     clicavel &&
-      'group cursor-pointer transition-colors duration-micro hover:border-[color:var(--line-input)] hover:bg-s2 active:bg-s3',
+      'group cursor-pointer transition-colors duration-micro hover:bg-s2 active:bg-s3',
     className,
   )
 

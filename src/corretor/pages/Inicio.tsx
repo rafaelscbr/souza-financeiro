@@ -338,7 +338,7 @@ export function CorretorInicio() {
             </Cartao.Lista>
           )}
           <Cartao.Rodape>
-            <Link to="/minhas-vendas" className="inline-flex items-center gap-1.5 font-medium text-brand hover:underline hover:underline-offset-4">
+            <Link to="/minhas-vendas" className="inline-flex items-center gap-1.5 font-semibold text-t1 underline-offset-4 hover:underline hover:underline-offset-4">
               Ver todas as vendas
               <Icone icone={ArrowRight} tamanho={16} />
             </Link>

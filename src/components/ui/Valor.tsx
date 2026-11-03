@@ -239,12 +239,14 @@ export function useContagemHeroi(alvo: number, ativo: boolean): { exibido: numbe
 const TAMANHO_DIGITOS: Record<PostoValor, string> = {
   heroi: 'text-numero-heroi-m lg:text-numero-heroi',
   // Souza 3.0: o número que responde a tela (o saldo no Início), em negrito.
-  lider: 'text-numero-heroi-m lg:text-numero-heroi font-bold',
+  lider: 'text-numero-heroi-m lg:text-numero-heroi font-extrabold',
   kpi: 'text-numero-kpi-m lg:text-numero-kpi',
   destaque: 'text-valor-destaque',
   linha: 'text-valor-linha',
   fato: 'text-valor-fato',
 }
+
+const GRANDE = new Set<PostoValor>(['heroi', 'lider', 'kpi'])
 
 const TAMANHO_MOEDA: Record<PostoValor, string> = {
   heroi: 'text-valor-destaque',
@@ -320,7 +322,8 @@ export function Valor(props: ValorProps) {
   const { exibido, contando, trocas } = useContagemHeroi(valor, heroi && Boolean(props.contar))
   const final = partes(valor)
   const cor = cores(props, final)
-  const raiz = cn('valor num font-heading', TAMANHO_DIGITOS[posto], tinta, className)
+  // Folha Clara: Plus Jakarta só no número grande (herói, líder, kpi); na linha e no fato, Geist.
+  const raiz = cn('valor num', GRANDE.has(posto) ? 'font-heading' : 'font-sans', TAMANHO_DIGITOS[posto], tinta, className)
   const rotulo = valorPorExtenso(valor)
 
   if (contando) {

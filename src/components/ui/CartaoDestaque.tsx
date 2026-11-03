@@ -7,12 +7,11 @@ import type { Metrica } from './FaixaDeMetricas'
 import { cn } from '@/lib/utils'
 
 /*
- * CARTÃO DE DESTAQUE (Souza 4.0, 02/11/2026) — o cartão marinho do Academy
- * ("Onde eu entrei?") e o herói do CRM ("Meta de VGV").
+ * O BLOCO-HERÓI (Folha Clara, 02/11/2026): o número que responde a tela.
  *
- * Marinho, cantos de 24px, uma luz azul suave no alto (como o herói do CRM)
- * e o anel dourado à direita, que se fecha ao abrir. Dentro: o sobretítulo
- * areia, o número da tela em branco 800 e as linhas de apoio. Só UM por tela.
+ * Fundo --hero-bg (o único degradê da casa), cantos de 24px, texto branco e o
+ * anel Champanhe à direita, que se fecha ao abrir. Dentro: o rótulo em branco
+ * 82%, o número em Plus Jakarta 800 e as linhas de apoio. Só UM por tela.
  */
 export interface AnelDoDestaque {
   /** 0 a 1. */
@@ -42,20 +41,14 @@ export function CartaoDestaque({
     <section
       aria-label={rotuloAcessivel}
       className={cn(
-        'relative isolate overflow-hidden rounded-sobreposicao bg-moldura px-recuo py-8 text-white lg:px-10 lg:py-10',
+        'bloco-heroi sobre-heroi relative isolate overflow-hidden rounded-sobreposicao px-recuo py-8 lg:px-10 lg:py-10',
         className,
       )}
       style={{ animation: 'sobe var(--dur-painel) var(--curva-entra) backwards' }}
     >
-      {/* A luz do herói do CRM: um halo azul no alto à direita, atrás de tudo. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute size-[520px] rounded-full opacity-60"
-        style={{ top: -128, right: -96, background: 'var(--grad-destaque)' }}
-      />
       <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="flex min-w-0 flex-col gap-3">
-          <p className="uppercase text-areia text-sobretitulo">{sobretitulo}</p>
+          <p className="text-barra-texto text-sobretitulo">{sobretitulo}</p>
           {children}
         </div>
         {anel && <Anel {...anel} />}
@@ -87,11 +80,11 @@ function Anel({ fracao, centro, legenda }: AnelDoDestaque) {
           transform="rotate(-90 80 80)"
           style={reduzido ? undefined : { animation: 'anelFecha 1100ms var(--curva-entra) 200ms backwards', ['--volta' as string]: `${volta}` }}
         />
-        <text x="80" y="92" textAnchor="middle" fill="currentColor" fontSize="34" fontStyle="italic" fontFamily="Instrument Serif, Georgia, serif">
+        <text x="80" y="91" textAnchor="middle" fill="currentColor" fontSize="30" fontWeight="800" letterSpacing="-0.75" fontFamily="Plus Jakarta Sans, Geist, system-ui, sans-serif">
           {centro}
         </text>
       </svg>
-      <div className="max-w-[11rem] text-center text-white/75 text-texto max-lg:text-left [&_b]:font-bold [&_b]:text-white">{legenda}</div>
+      <div className="max-w-[11rem] text-center text-barra-texto text-texto max-lg:text-left [&_b]:font-bold [&_b]:text-white">{legenda}</div>
     </div>
   )
 }
@@ -129,18 +122,18 @@ export function NumeroDoDestaque({
   const v = useRolagem(valor)
   const corpo = (
     <>
-      <dt className="uppercase text-white/55 text-sobretitulo">{rotulo}</dt>
+      <dt className="text-barra-texto text-sobretitulo">{rotulo}</dt>
       <dd>
         {texto !== undefined ? (
-          <span className="text-white text-numero-kpi">{texto}</span>
+          <span className="font-heading text-white text-numero-kpi">{texto}</span>
         ) : (
           <Valor valor={v} posto="kpi" tinta="text-white" />
         )}
       </dd>
-      <dd className="text-white/65 text-texto-meta">{nota}</dd>
+      <dd className="text-barra-texto text-texto-meta">{nota}</dd>
     </>
   )
-  const classe = 'flex flex-col gap-1.5 rounded-controle text-left transition-opacity hover:opacity-85'
+  const classe = 'flex cursor-pointer flex-col gap-1.5 rounded-controle text-left transition-opacity hover:opacity-85'
   if (para) return <Link to={para} className={classe}>{corpo}</Link>
   if (aoClicar) return <button type="button" onClick={aoClicar} className={classe}>{corpo}</button>
   return <div className={classe}>{corpo}</div>
@@ -200,7 +193,7 @@ export function FaixaEmDestaque({
       ) : (
         grande
       )}
-      {lider.nota && <p className="text-white/70 text-texto">{lider.nota}</p>}
+      {lider.nota && <p className="text-barra-texto text-texto">{lider.nota}</p>}
     </CartaoDestaque>
   )
 }

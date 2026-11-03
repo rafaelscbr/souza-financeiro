@@ -139,7 +139,7 @@ export function DobraDaFolha({
         aria-controls={id}
         className={cn(
           'flex min-h-toque w-full items-center gap-3 px-4 py-3 text-left hover:bg-linha-hover',
-          'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/25',
+          'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-campo-foco/20',
           aberta ? 'rounded-t-caixa' : 'rounded-caixa',
         )}
         style={{ transitionProperty: 'background-color', transitionDuration: 'var(--dur-micro)', transitionTimingFunction: 'var(--curva-cor)' }}

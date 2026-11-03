@@ -73,11 +73,11 @@ export function Segmented<T extends string>({
             onClick={() => onChange(opt.value)}
             onKeyDown={(e) => aoTeclar(e, i)}
             className={`text-texto-titulo ${cn(
-              'h-11 min-w-0 select-none truncate rounded-controle border px-3',
-              'transition-colors duration-micro ease-cor active:bg-linha-press',
+              'h-11 min-w-0 cursor-pointer select-none truncate rounded-full px-4',
+              'transition-colors duration-micro ease-cor',
               active
-                ? 'border-fio-controle bg-s2 font-semibold text-t1'
-                : 'border-fio-linha bg-surface text-t2 hover:text-t1',
+                ? 'bg-brand-fill font-semibold text-t1'
+                : 'bg-s2 text-t2 hover:bg-s3 hover:text-t1',
             )}`}
           >
             {opt.label}

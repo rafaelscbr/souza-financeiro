@@ -45,7 +45,7 @@ export function Selo({ situacao, idx, count, glifo, className }: SeloProps) {
       aria-hidden
       title={`${v.palavra}${temOrdinal ? ` · parcela ${idx}/${count}` : ''}`}
     >
-      {temOrdinal ? idx : <Glifo size={14} strokeWidth={1.6} focusable="false" />}
+      {temOrdinal ? idx : <Glifo size={14} strokeWidth={2} focusable="false" />}
     </span>
   )
 }
@@ -61,6 +61,6 @@ export function Marcador({ situacao }: { situacao: Situacao }) {
   if (m === 'anel') return <span className={cn(base, 'rounded-full border-2 border-current')} aria-hidden />
   if (m === 'disco') return <span className={cn(base, 'rounded-full bg-current')} aria-hidden />
   if (m === 'quadrado') return <span className={cn(base, 'rounded-none bg-current')} aria-hidden />
-  if (m === 'check') return <Check size={12} strokeWidth={1.6} className="shrink-0" aria-hidden />
+  if (m === 'check') return <Check size={12} strokeWidth={2} className="shrink-0" aria-hidden />
   return <span className={cn(base, 'rounded-full border-2 border-current opacity-60')} aria-hidden />
 }

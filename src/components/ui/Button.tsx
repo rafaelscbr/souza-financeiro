@@ -41,12 +41,16 @@ const VARIANTE_LEGADA: Record<ButtonVariantLegado, ButtonVariante> = {
 }
 
 const variantes: Record<ButtonVariante, string> = {
-  /* Souza 4.0 (Academy): principal marinho; destaque (criar) areia com tinta marinho; secundário branco com fio. */
+  /*
+   * Folha Clara: o principal é Champanhe com tinta marinho (UM por tela); o
+   * `destaque` (o CTA da página) é o mesmo principal, 52px no computador.
+   * Secundário branco com fio; fantasma cinza-azulado que vira tinta; perigo em vermelho.
+   */
   primario: 'bg-acao text-acao-texto hover:bg-acao-hover',
-  destaque: 'bg-areia text-moldura hover:bg-brand-fill-hover',
-  secundario: 'border border-[color:var(--line-strong)] bg-surface text-t1 hover:border-[color:var(--line-input)] hover:bg-s2',
-  fantasma: 'text-t2 hover:bg-linha-hover hover:text-t1',
-  perigo: 'border border-error-line bg-surface text-error-ink hover:bg-linha-hover',
+  destaque: 'bg-acao text-acao-texto hover:bg-acao-hover',
+  secundario: 'border border-line bg-surface text-t1 hover:bg-s2',
+  fantasma: 'text-t3 hover:bg-linha-hover hover:text-t1',
+  perigo: 'text-error-ink hover:bg-error-bg',
 }
 
 /*
@@ -54,8 +58,8 @@ const variantes: Record<ButtonVariante, string> = {
  * `text-botao` como cor e apagaria `text-t1` (ou o contrário).
  */
 const tipo: Record<ButtonVariante, string> = {
-  primario: 'text-botao',
-  destaque: 'text-botao',
+  primario: 'text-botao font-bold',
+  destaque: 'text-botao font-bold',
   secundario: 'text-botao-secundario',
   fantasma: 'text-botao-secundario',
   perigo: 'text-botao-secundario',
@@ -69,7 +73,8 @@ const TOQUE = 'max-lg:min-h-11 [@media(pointer:coarse)]:min-h-11'
 const tamanhos: Record<ButtonTamanho, string> = {
   sm: cn('h-9 gap-1.5 px-3.5', TOQUE),
   md: cn('h-11 gap-2 px-5', TOQUE),
-  lg: 'h-12 gap-2 px-6',
+  // 52px: o login e o CTA da página.
+  lg: 'h-[52px] gap-2 px-6',
   icone: 'size-11 shrink-0 lg:size-8 [@media(pointer:coarse)]:size-11',
 }
 
@@ -124,7 +129,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       if (!carregando) setLarguraTravada(null)
     }, [carregando])
 
-    const giro = <Loader2 aria-hidden size={16} strokeWidth={1.6} className="shrink-0 animate-spin" />
+    const giro = <Loader2 aria-hidden size={16} strokeWidth={2} className="shrink-0 animate-spin" />
 
     return (
       <button
@@ -135,7 +140,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         data-variante={variante}
         style={{ ...TRANSICAO, ...(larguraTravada ? { minWidth: larguraTravada } : null), ...style }}
         className={`${tipo[variante]} ${cn(
-          'relative inline-flex select-none items-center justify-center whitespace-nowrap rounded-controle',
+          'relative inline-flex cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-controle',
           'enabled:active:scale-[.97]',
           'disabled:cursor-not-allowed disabled:opacity-40',
           variantes[variante],
@@ -145,10 +150,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {tamanho === 'icone' ? (
-          carregando ? giro : Icone ? <Icone aria-hidden size={16} strokeWidth={1.6} className="shrink-0" /> : children
+          carregando ? giro : Icone ? <Icone aria-hidden size={16} strokeWidth={2} className="shrink-0" /> : children
         ) : (
           <>
-            {carregando ? giro : Icone && <Icone aria-hidden size={16} strokeWidth={1.6} className="shrink-0" />}
+            {carregando ? giro : Icone && <Icone aria-hidden size={16} strokeWidth={2} className="shrink-0" />}
             {children}
           </>
         )}

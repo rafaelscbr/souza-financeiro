@@ -83,7 +83,7 @@ export function Heroi(props: HeroiProps) {
       data-heroi
       data-previsto={previsto ? '' : undefined}
       className={cn(
-        'grid gap-6 rounded-caixa border border-fio-caixa bg-surface px-recuo py-5 shadow-card lg:px-6 lg:py-6',
+        'grid gap-6 rounded-caixa bg-surface px-recuo py-5 shadow-card lg:px-6 lg:py-6',
         apoios?.length && 'lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center',
         demonstrativo && 'lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-12',
         !temLado && 'lg:grid-cols-1',

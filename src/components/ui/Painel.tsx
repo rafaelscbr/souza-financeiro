@@ -41,8 +41,8 @@ export function Painel({
     <section
       data-caixa=""
       className={cn(
-        'relative flex min-w-0 flex-col rounded-caixa border bg-surface shadow-card',
-        dourado ? 'border-borda-ouro' : 'border-fio-caixa',
+        'relative flex min-w-0 flex-col rounded-caixa bg-surface shadow-card',
+        dourado && 'ring-1 ring-inset ring-brand-fill',
         className,
       )}
     >

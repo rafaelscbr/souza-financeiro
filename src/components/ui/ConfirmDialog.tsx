@@ -68,7 +68,7 @@ export function ConfirmDialog({
         aria-busy={ocupado || undefined}
         tabIndex={-1}
         data-estado={presenca.estado}
-        className="modal w-full max-w-[25rem] rounded-caixa border border-fio-caixa bg-surface p-6 shadow-modal outline-none max-sm:max-w-none max-sm:rounded-b-none max-sm:rounded-t-sobreposicao max-sm:border-b-0 max-sm:pb-seguro"
+        className="modal w-full max-w-[25rem] rounded-caixa bg-surface p-6 shadow-modal outline-none max-sm:max-w-none max-sm:rounded-b-none max-sm:rounded-t-sobreposicao max-sm:pb-seguro"
       >
         {/* Cor nunca sozinha: o triângulo diz "risco" também em escala de cinza. */}
         <IconeTom icone={tom === 'risco' ? AlertTriangle : HelpCircle} tom={tom} tamanho="md" />

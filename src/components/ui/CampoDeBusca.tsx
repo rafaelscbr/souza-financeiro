@@ -21,7 +21,7 @@ export function CampoDeBusca({
   return (
     <div className={cn('relative w-full sm:w-64', className)}>
       <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 flex w-10 items-center justify-center text-t4">
-        <Search size={16} strokeWidth={1.75} />
+        <Search size={16} strokeWidth={2} />
       </span>
       <Input
         type="search"

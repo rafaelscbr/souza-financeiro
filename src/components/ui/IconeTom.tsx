@@ -34,7 +34,7 @@ export function IconeTom({ icone: Glifo, tom = 'neutro', tamanho = 'md', classNa
       )}
       aria-hidden
     >
-      <Glifo size={t.glifo} strokeWidth={1.6} focusable="false" />
+      <Glifo size={t.glifo} strokeWidth={2} focusable="false" />
     </span>
   )
 }

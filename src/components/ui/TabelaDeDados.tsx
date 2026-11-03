@@ -181,7 +181,7 @@ export function TabelaDeDados<T>({
               aria-label="Página anterior"
               className="flex size-8 items-center justify-center rounded-controle text-t3 transition-colors hover:bg-linha-hover hover:text-t1 disabled:pointer-events-none disabled:opacity-40"
             >
-              <ChevronLeft aria-hidden size={16} strokeWidth={1.75} />
+              <ChevronLeft aria-hidden size={16} strokeWidth={2} />
             </button>
             <span className="num px-1 text-t3">
               {atual + 1} de {paginas}
@@ -193,7 +193,7 @@ export function TabelaDeDados<T>({
               aria-label="Próxima página"
               className="flex size-8 items-center justify-center rounded-controle text-t3 transition-colors hover:bg-linha-hover hover:text-t1 disabled:pointer-events-none disabled:opacity-40"
             >
-              <ChevronRight aria-hidden size={16} strokeWidth={1.75} />
+              <ChevronRight aria-hidden size={16} strokeWidth={2} />
             </button>
           </span>
         )}

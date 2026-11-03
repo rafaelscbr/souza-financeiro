@@ -63,7 +63,7 @@ export function FiltrosRapidos<T extends string>({
       role="radiogroup"
       aria-label={rotuloAcessivel}
       data-rolagem
-      className={cn('flex max-w-full items-center gap-0.5 overflow-x-auto rounded-segmento bg-s3 p-0.5 w-fit', className)}
+      className={cn('flex max-w-full items-center gap-2 overflow-x-auto w-fit', className)}
     >
       {filtros.map((f, i) => {
         const selecionado = f.id === ativo
@@ -83,16 +83,16 @@ export function FiltrosRapidos<T extends string>({
             onClick={() => aoMudar(f.id)}
             onKeyDown={(e) => aoTeclar(e, i)}
             className={`text-texto-meta ${cn(
-              /* Souza 2.0: controle segmentado — trilho cinza, a opção ativa em branco. */
-              'relative inline-flex h-10 shrink-0 select-none items-center gap-1.5 whitespace-nowrap rounded-segmento-item px-3 font-medium',
-              'lg:[@media(pointer:fine)]:h-8',
+              /* Folha Clara: pílulas — inativa em surface-2 com t2, ativa em Champanhe com t1. */
+              'relative inline-flex h-11 shrink-0 cursor-pointer select-none items-center gap-1.5 whitespace-nowrap rounded-full px-4 font-medium',
+              'lg:[@media(pointer:fine)]:h-9',
               'transition-colors duration-micro ease-cor',
               selecionado
-                ? 'bg-surface text-t1 shadow-[0_1px_2px_rgba(11,18,32,.08),0_0_0_1px_rgba(11,18,32,.04)]'
-                : 'text-t3 hover:text-t1',
+                ? 'bg-brand-fill font-semibold text-t1'
+                : 'bg-s2 text-t2 hover:bg-s3 hover:text-t1',
             )}`}
           >
-            {Icone && <Icone aria-hidden size={16} strokeWidth={1.6} className="relative shrink-0" />}
+            {Icone && <Icone aria-hidden size={16} strokeWidth={2} className="relative shrink-0" />}
             <span className="relative">{f.rotulo}</span>
             {f.contador != null && (
               <span aria-hidden className={`relative ${classeContador(f.contador)}`}>

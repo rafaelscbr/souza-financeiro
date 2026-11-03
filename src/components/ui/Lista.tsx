@@ -214,7 +214,7 @@ export function Lista({
       <div
         className={cn(
           'lista escada flex flex-col',
-          solta && 'rounded-caixa border border-fio-caixa bg-surface py-2 shadow-card',
+          solta && 'rounded-caixa bg-surface py-2 shadow-card',
           className,
         )}
         data-caixa={solta ? '' : undefined}

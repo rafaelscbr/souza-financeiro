@@ -298,7 +298,7 @@ function GrupoTipo() {
               <code className="text-texto-meta text-t2">{classe.replace('text-', '')}</code>
               <span className="num text-texto-meta text-t-meta">{medida}</span>
               <span
-                className={`${classe} min-w-0 truncate text-t1 ${classe.includes('numero') || classe.includes('valor') ? 'font-heading num' : ''} ${classe === 'text-rotulo' ? 'font-label uppercase' : ''}`}
+                className={`${classe} min-w-0 truncate text-t1 ${classe.includes('numero') || classe.includes('valor') ? 'font-heading num' : ''} ${classe === 'text-rotulo' ? 'font-label font-semibold' : ''}`}
               >
                 {amostra}
               </span>

@@ -413,9 +413,9 @@ export function Inicio() {
             />
           )}
           <Cartao.Rodape>
-            <Link to="/receber" className="inline-flex items-center gap-1.5 font-medium text-brand hover:underline hover:underline-offset-4">
+            <Link to="/receber" className="inline-flex items-center gap-1.5 font-semibold text-t1 underline-offset-4 hover:underline hover:underline-offset-4">
               Ver as {receber.length} {receber.length === 1 ? 'parcela' : 'parcelas'}
-              <ArrowRight size={14} strokeWidth={1.75} aria-hidden />
+              <ArrowRight size={14} strokeWidth={2} aria-hidden />
             </Link>
             <span>
               <Valor valor={soma(receber)} posto="fato" /> na carteira

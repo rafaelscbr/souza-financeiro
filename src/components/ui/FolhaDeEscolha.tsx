@@ -89,7 +89,7 @@ export function FolhaDeEscolha({
             aria-label="Fechar"
             className="ms-auto flex size-9 items-center justify-center rounded-controle text-t3 transition-colors hover:bg-s3 hover:text-t1 max-lg:size-11"
           >
-            <X size={16} strokeWidth={1.75} aria-hidden />
+            <X size={16} strokeWidth={2} aria-hidden />
           </button>
         </div>
         <div className="grid gap-2 px-5 pb-5 pt-1 sm:grid-cols-2">

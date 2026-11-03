@@ -26,7 +26,7 @@ export function Atalho({
     <Link
       to={para}
       data-caixa=""
-      className="group flex min-w-0 gap-4 rounded-caixa border border-fio-caixa bg-surface p-5 shadow-card transition-colors duration-micro hover:border-[color:var(--line-input)] hover:bg-s2"
+      className="group flex min-w-0 gap-4 rounded-caixa bg-surface p-5 shadow-card transition-colors duration-micro hover:bg-s2"
     >
       <IconeTom icone={icone} tom="neutro" tamanho="sm" />
       <span className="flex min-w-0 flex-1 flex-col gap-1">

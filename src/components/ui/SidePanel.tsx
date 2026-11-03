@@ -360,9 +360,9 @@ export function SidePanel({
         className={cn(
           aPartirDeSm ? 'painel' : 'folha',
           'fixed z-painel flex w-full flex-col bg-surface shadow-modal outline-none',
-          'sm:inset-y-0 sm:left-auto sm:right-0 sm:rounded-l-sobreposicao sm:border-l sm:border-fio-caixa',
+          'sm:inset-y-0 sm:left-auto sm:right-0 sm:rounded-l-sobreposicao',
           folha
-            ? 'inset-x-0 bottom-0 max-h-[92dvh] rounded-t-sobreposicao border-t border-fio-caixa sm:max-h-none sm:rounded-tr-none sm:border-t-0'
+            ? 'inset-x-0 bottom-0 max-h-[92dvh] rounded-t-sobreposicao sm:max-h-none sm:rounded-tr-none'
             : 'inset-0',
           LARGURAS[largura],
         )}

@@ -149,7 +149,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       onBlur={aoSairFoco}
       style={presenca.estado === 'saindo' ? SAIDA : ENTRADA}
       data-toast
-      className="pointer-events-auto grid w-full grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-3 rounded-caixa border border-fio-caixa bg-surface p-4 shadow-dropdown"
+      className="pointer-events-auto grid w-full grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-3 rounded-caixa bg-surface p-4 shadow-dropdown"
     >
       {/* Ícone de 16 no meio da primeira linha de 20px. */}
       <span className="flex h-5 items-center">

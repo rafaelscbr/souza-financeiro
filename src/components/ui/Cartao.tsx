@@ -30,7 +30,7 @@ function CartaoRaiz({ children, rotuloAcessivel, como = 'section', className }: 
     <Tag
       data-caixa=""
       aria-label={rotuloAcessivel}
-      className={cn('flex min-w-0 flex-col rounded-caixa border border-fio-caixa bg-surface shadow-card', className)}
+      className={cn('flex min-w-0 flex-col rounded-caixa bg-surface shadow-card', className)}
     >
       {children}
     </Tag>
@@ -62,7 +62,7 @@ function CartaoCabecalho({ titulo, meta, extra, nivel = 'h2', id, className }: C
   return (
     <div className={cn('flex min-h-[52px] flex-wrap items-start gap-x-4 gap-y-2 px-recuo pb-3 pt-4', className)}>
       <div className="flex min-w-0 flex-1 basis-56 flex-col gap-0.5">
-        <H id={id} className="min-w-0 text-t1 text-titulo-secao">
+        <H id={id} className="min-w-0 font-heading text-t1 text-titulo-secao">
           {titulo}
         </H>
         {meta && <span className="min-w-0 text-t4 text-texto-meta">{meta}</span>}
