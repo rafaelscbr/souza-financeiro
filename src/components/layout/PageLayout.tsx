@@ -263,7 +263,7 @@ function AberturaDaPagina({
           )}
         </div>
         {(mes || acoes || cta || avisos || menu) && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 max-sm:w-full">
             {mes}
             {acoes}
             <div className="hidden items-center gap-2 lg:flex">

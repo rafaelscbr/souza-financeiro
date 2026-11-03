@@ -308,3 +308,19 @@ As sombras são sempre em marinho diluído, nunca em preto.
 - Contraste de texto de 4,5:1 ou mais (3:1 a partir de 24px).
 - Foco visível em tudo que é clicável.
 - A estrutura semântica não muda.
+
+## Decisões de implementação (Souza Financeiro, 02/11/2026)
+
+- **Destaque em texto pequeno.** O `--destaque` (`#9C7430`) dá 3,9:1 sobre a página. Abaixo de 24px, o que inclui o nome no título da tela, a palavra de destaque usa `--brand-text` (`#7A5A22`, 6:1). A partir de 24px e sobre o herói, vale a regra da especificação.
+- **Onde fica o bloco-herói:**
+  - Início do administrador.
+  - Início do corretor.
+  - Painel do login.
+
+  Em A receber, A pagar e Vendas, os mesmos números ficam na faixa de números clara, para manter cerca de 15% de marinho na tela.
+- **Botão principal.**
+  - Em cada tela, o principal é o "Novo lançamento" (52px no computador).
+  - O botão de tela vazia e o "Aplicar" das Metas passaram a secundário.
+  - Painéis e janelas têm o seu próprio principal, porque são outra camada.
+- **Marca.** "S" em quadrado Champanhe + "Souza imobiliária" (`MarcaSouza` em `src/components/marca/Marca.tsx`). Os ícones do app (`public/`) seguem o mesmo "S".
+- **Tema escuro.** Continua opcional, com os valores da especificação e tons derivados por mistura, sem hex fora da paleta.
