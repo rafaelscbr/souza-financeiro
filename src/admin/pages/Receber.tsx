@@ -5,6 +5,7 @@ import { useAdmin } from '../AdminData'
 import { ReceberParcela } from '../ReceberParcela'
 import { BaixarLancamento } from '../BaixarLancamento'
 import { BaixaNaLinha, useBaixaDeLancamento, useBaixaDeParcela } from '../BaixaNaLinha'
+import { FaixaEmDestaque } from '@/components/ui/CartaoDestaque'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Cartao } from '@/components/ui/Cartao'
@@ -268,6 +269,57 @@ export function Receber() {
         </Button>
       }
     >
+      {/* Souza 4.0: o total previsto no cartão marinho; o anel diz quanto disso está em atraso. */}
+      <FaixaEmDestaque
+        rotuloAcessivel="O que ainda entra"
+        anel={
+          total > 0
+            ? {
+                fracao: Math.min(1, soma(vencidas) / total),
+                centro: `${Math.round(Math.min(1, soma(vencidas) / total) * 100)}%`,
+                legenda:
+                  vencidas.length > 0 ? (
+                    <>
+                      do previsto <b>está em atraso</b>: a construtora ainda não pagou
+                    </>
+                  ) : (
+                    <>nada em atraso nesta janela</>
+                  ),
+              }
+            : undefined
+        }
+        metricas={[
+          { rotulo: 'A receber · previsto', valor: total, lider: true, nota: 'comissão contratada, ainda não é dinheiro em conta', aoClicar: abrirTotal },
+          {
+            rotulo: 'Em atraso',
+            valor: soma(vencidas),
+            nota: vencidas.length > 0 ? `${vencidas.length === 1 ? '1 parcela' : `${vencidas.length} parcelas`} · a construtora não pagou` : 'nenhuma parcela',
+            aoClicar: () =>
+              abrir({
+                rotulo: 'Em atraso',
+                titulo: 'Em atraso nesta janela',
+                explica: 'Parcelas com a data já passada que a construtora não pagou. Não é dívida de ninguém: é cobrança.',
+                total: soma(vencidas),
+                itens: comp(vencidas),
+                vazio: 'Nada em atraso.',
+              }),
+          },
+          {
+            rotulo: 'Previsto no prazo',
+            valor: Math.round((total - soma(vencidas)) * 100) / 100,
+            nota: 'depende da construtora pagar na data',
+            aoClicar: () =>
+              abrir({
+                rotulo: 'No prazo',
+                titulo: 'Previsto, ainda no prazo',
+                explica: 'Parcelas que ainda não venceram. A data pode mudar — depende da construtora.',
+                total: Math.round((total - soma(vencidas)) * 100) / 100,
+                itens: comp(lista.filter((i) => !i.overdue)),
+                vazio: 'Nada no prazo nesta janela.',
+              }),
+          },
+        ]}
+      />
 
       {atraso.atrasadas.length > 0 && (
         <Cartao rotuloAcessivel="Comissões em atraso">

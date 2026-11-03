@@ -7,7 +7,7 @@ import { PagarComissao, type ComissaoAPagar } from '../PagarComissao'
 import { useComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Cartao } from '@/components/ui/Cartao'
-import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
+import { FaixaEmDestaque } from '@/components/ui/CartaoDestaque'
 import { Colunas } from '@/components/ui/Colunas'
 import { ListaDeAcoes, type ItemDeAcao } from '@/components/ui/ListaDeAcoes'
 import { Regua } from '@/components/ui/Regua'
@@ -504,7 +504,16 @@ export function Vendas() {
   return (
     <PageLayout subtitulo={frase} cta={cta} faixa={faixa}>
       {/* A carteira é promessa da construtora: o líder não segue o filtro da lista. */}
-      <FaixaDeMetricas
+      <FaixaEmDestaque
+        anel={
+          contratadaCarteira > 0
+            ? {
+                fracao: jaEntrouCarteira / contratadaCarteira,
+                centro: `${Math.round((jaEntrouCarteira / contratadaCarteira) * 100)}%`,
+                legenda: <>da comissão contratada <b>já entrou</b> no caixa</>,
+              }
+            : undefined
+        }
         rotuloAcessivel="A carteira de comissão"
         metricas={[
           {

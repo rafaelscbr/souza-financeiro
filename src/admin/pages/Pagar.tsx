@@ -6,7 +6,7 @@ import { BaixarLancamento } from '../BaixarLancamento'
 import { BaixaNaLinha, useBaixaDeLancamento } from '../BaixaNaLinha'
 import { useComposicao, type ItemComposicao } from '@/components/composicao/Composicao'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { FaixaDeMetricas } from '@/components/ui/FaixaDeMetricas'
+import { FaixaEmDestaque } from '@/components/ui/CartaoDestaque'
 import { Cartao } from '@/components/ui/Cartao'
 import { Linha, LinhaGrupo } from '@/components/ui/Lista'
 import { Valor, ValorComOrigem } from '@/components/ui/Valor'
@@ -410,7 +410,23 @@ export function Pagar() {
   return (
     <PageLayout subtitulo={frase}>
       {/* Só o que é obrigação de fato, a mesma conta de antes; a previsão não entra em nenhum destes números. */}
-      <FaixaDeMetricas
+      <FaixaEmDestaque
+        anel={
+          totalDevido > 0
+            ? {
+                fracao: soma(vencido) / totalDevido,
+                centro: `${Math.round((soma(vencido) / totalDevido) * 100)}%`,
+                legenda:
+                  vencido.length > 0 ? (
+                    <>
+                      do devido <b>já passou do vencimento</b>
+                    </>
+                  ) : (
+                    <>nada vencido: tudo dentro do prazo</>
+                  ),
+              }
+            : undefined
+        }
         rotuloAcessivel="O que é devido agora"
         metricas={[
           {

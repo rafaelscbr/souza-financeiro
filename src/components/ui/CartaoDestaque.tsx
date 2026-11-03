@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMovimentoReduzido } from '@/lib/useMovimentoReduzido'
 import { useRolagem } from '@/lib/useRolagem'
 import { Valor } from './Valor'
+import type { Metrica } from './FaixaDeMetricas'
 import { cn } from '@/lib/utils'
 
 /*
@@ -115,17 +116,19 @@ export function NumeroDoDestaque({
   texto,
   nota,
   para,
+  aoClicar,
 }: {
   rotulo: string
   valor: number
   /** Quando não é dinheiro ("2 vendas"). */
   texto?: string
   nota: ReactNode
-  para: string
+  para?: string
+  aoClicar?: () => void
 }) {
   const v = useRolagem(valor)
-  return (
-    <Link to={para} className="flex flex-col gap-1.5 rounded-controle transition-opacity hover:opacity-85">
+  const corpo = (
+    <>
       <dt className="uppercase text-white/55 text-sobretitulo">{rotulo}</dt>
       <dd>
         {texto !== undefined ? (
@@ -135,6 +138,69 @@ export function NumeroDoDestaque({
         )}
       </dd>
       <dd className="text-white/65 text-texto-meta">{nota}</dd>
-    </Link>
+    </>
+  )
+  const classe = 'flex flex-col gap-1.5 rounded-controle text-left transition-opacity hover:opacity-85'
+  if (para) return <Link to={para} className={classe}>{corpo}</Link>
+  if (aoClicar) return <button type="button" onClick={aoClicar} className={classe}>{corpo}</button>
+  return <div className={classe}>{corpo}</div>
+}
+
+/*
+ * A FAIXA EM DESTAQUE (Souza 4.0): as mesmas métricas da FaixaDeMetricas,
+ * vestidas de cartão marinho. A líder vira o número grande; as outras vão
+ * para o rodapé; cada uma continua abrindo o que abria. As tintas de estado
+ * do claro (vermelho, âmbar, verde) viram coral, areia e menta sobre o
+ * marinho, para continuarem legíveis.
+ */
+export function FaixaEmDestaque({
+  metricas,
+  anel,
+  rotuloAcessivel,
+}: {
+  metricas: Metrica[]
+  anel?: AnelDoDestaque
+  rotuloAcessivel: string
+}) {
+  const lider = metricas.find((m) => m.lider) ?? metricas[0]
+  const outras = metricas.filter((m) => m !== lider)
+  const grande = <ValorDoDestaque valor={lider.valor} />
+  return (
+    <CartaoDestaque
+      rotuloAcessivel={rotuloAcessivel}
+      sobretitulo={lider.rotulo}
+      anel={anel}
+      className="[&_.text-error-ink]:!text-coral [&_.text-success-ink]:!text-menta [&_.text-warning-ink]:!text-areia"
+      rodape={
+        outras.length > 0 ? (
+          <dl className={outras.length >= 3 ? 'grid gap-6 sm:grid-cols-3' : 'grid gap-6 sm:grid-cols-2'}>
+            {outras.map((m) => (
+              <NumeroDoDestaque
+                key={m.rotulo}
+                rotulo={m.rotulo}
+                valor={m.valor}
+                texto={m.texto}
+                nota={m.nota}
+                para={m.para}
+                aoClicar={m.aoClicar}
+              />
+            ))}
+          </dl>
+        ) : undefined
+      }
+    >
+      {lider.para ? (
+        <Link to={lider.para} className="w-max rounded-controle">
+          {grande}
+        </Link>
+      ) : lider.aoClicar ? (
+        <button type="button" onClick={lider.aoClicar} className="w-max rounded-controle text-left">
+          {grande}
+        </button>
+      ) : (
+        grande
+      )}
+      {lider.nota && <p className="text-white/70 text-texto">{lider.nota}</p>}
+    </CartaoDestaque>
   )
 }

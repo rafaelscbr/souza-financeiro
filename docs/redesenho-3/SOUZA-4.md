@@ -27,6 +27,10 @@ Os valores foram copiados de `~/Documents/Souza Academy/src/app/globals.css` e `
 - **Destaque (`CartaoDestaque`):** o cartão marinho do Academy com a luz azul do herói do CRM e o anel areia que se fecha ao abrir.
   - No Início do administrador: saldo de hoje, anel de quanto da comissão do mês já entrou, e a receber, a pagar e o resultado.
   - No Início do corretor: o liberado para ele, anel de quanto do ano já caiu, e o recebido, o previsto e as vendas.
+- **Destaque nas telas principais (`FaixaEmDestaque`):** as mesmas métricas da faixa, em cartão marinho com anel.
+  - **A receber:** o previsto, com o anel de quanto está em atraso.
+  - **A pagar:** o devido agora, com o anel de quanto já venceu.
+  - **Vendas:** a carteira, com o anel de quanto da comissão contratada já entrou.
 - **Saudação no Início:** "Boa noite, *Rafael*", como no CRM.
 - **Números proporcionais:** o "tnum" da Schibsted alargava vírgula e ponto.
 
