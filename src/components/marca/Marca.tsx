@@ -130,10 +130,11 @@ export function MarcaS({ className, title }: { className?: string; title?: strin
 }
 
 /**
- * A MARCA DA BARRA (Folha Clara, 02/11/2026): o "S" em quadrado Champanhe,
- * "Souza" em Plus Jakarta Sans 800 e "imobiliária" em Geist 500. Sobre a barra
- * marinho (`negativo`): branco e branco a 82%; no claro: tinta e cinza-azulado.
- * `grande` é a versão do login (quadrado de 44px).
+ * A MARCA DO SISTEMA (Folha Clara, 02/11/2026): o "S" em quadrado Champanhe,
+ * "Souza" em Plus Jakarta Sans 800 e "Financeiro" em Instrument Serif itálico
+ * dourado (pedido do Rafael em 03/11: o padrão dos sistemas da Souza). Sobre a
+ * barra marinho (`negativo`): branco e Champanhe claro (#E2C385); no claro:
+ * tinta e --destaque. `grande` é a versão do login (quadrado de 44px).
  */
 export function MarcaSouza({
   negativo = false,
@@ -145,11 +146,11 @@ export function MarcaSouza({
   className?: string
 }) {
   return (
-    <span className={`inline-flex items-center ${grande ? 'gap-3' : 'gap-2.5'} ${className ?? ''}`} aria-label="Souza Imobiliária" role="img">
+    <span className={`inline-flex items-center ${grande ? 'gap-3' : 'gap-2.5'} ${className ?? ''}`} aria-label="Souza Financeiro" role="img">
       <MarcaS className={grande ? 'size-11 shrink-0' : 'size-8 shrink-0'} />
       <span aria-hidden className="flex items-baseline gap-1.5 whitespace-nowrap leading-none">
         <span className={`font-heading ${negativo ? 'text-white' : 'text-t1'} ${grande ? 'text-numero-kpi' : 'text-marca'}`}>Souza</span>
-        <span className={`font-sans ${negativo ? 'text-barra-texto' : 'text-t3'} ${grande ? 'text-frase font-medium' : 'text-marca-enfase'}`}>imobiliária</span>
+        <span className={`enfase ${negativo ? 'text-areia' : 'text-cor-destaque'} ${grande ? 'text-marca-enfase-lg' : 'text-marca-enfase'}`}>Financeiro</span>
       </span>
     </span>
   )

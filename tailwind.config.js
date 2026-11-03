@@ -256,9 +256,10 @@ export default {
         chip: ['12.5px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '500' }],
         botao: ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '600' }],
         'botao-secundario': ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '600' }],
-        // A marca na barra: "Souza" em Plus Jakarta 800, "imobiliária" em Geist 500.
+        // A marca: "Souza" em Plus Jakarta 800 e "Financeiro" em Instrument Serif itálico.
         marca: ['18px', { lineHeight: '1', letterSpacing: '-0.025em', fontWeight: '800' }],
-        'marca-enfase': ['15px', { lineHeight: '1', letterSpacing: '0', fontWeight: '500' }],
+        'marca-enfase': ['23px', { lineHeight: '1', letterSpacing: '0', fontWeight: '400' }],
+        'marca-enfase-lg': ['30px', { lineHeight: '1', letterSpacing: '0', fontWeight: '400' }],
         destaque: ['40px', { lineHeight: '46px', letterSpacing: '-0.025em', fontWeight: '800' }],
         'destaque-lg': ['56px', { lineHeight: '60px', letterSpacing: '-0.025em', fontWeight: '800' }],
         menu: ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],

@@ -322,5 +322,9 @@ As sombras são sempre em marinho diluído, nunca em preto.
   - Em cada tela, o principal é o "Novo lançamento" (52px no computador).
   - O botão de tela vazia e o "Aplicar" das Metas passaram a secundário.
   - Painéis e janelas têm o seu próprio principal, porque são outra camada.
-- **Marca.** "S" em quadrado Champanhe + "Souza imobiliária" (`MarcaSouza` em `src/components/marca/Marca.tsx`). Os ícones do app (`public/`) seguem o mesmo "S".
+- **Marca.**
+  - É o "S" em quadrado Champanhe + "Souza" (Plus Jakarta 800) + "*Financeiro*" (Instrument Serif itálico dourado), em `MarcaSouza` (`src/components/marca/Marca.tsx`).
+  - Foi pedido do Rafael em 03/11, no lugar do "imobiliária" da especificação, para manter o padrão dos sistemas da Souza.
+  - **Cor do "Financeiro":** `#E2C385` sobre a barra e o herói; `--destaque` no claro.
+  - Os ícones do app (`public/`) seguem o mesmo "S".
 - **Tema escuro.** Continua opcional, com os valores da especificação e tons derivados por mistura, sem hex fora da paleta.

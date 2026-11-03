@@ -247,7 +247,7 @@ export function BarraDoTopo({ secoes, usuario, aoBuscar, aoTrocarSenha, aoSair }
       data-barra=""
       className="sticky top-0 z-nav hidden h-barra shrink-0 items-center gap-6 bg-nav-surface px-8 lg:flex"
     >
-      <Link to="/" data-marca="" aria-label="Souza Imobiliária, início" className="shrink-0 rounded-controle">
+      <Link to="/" data-marca="" aria-label="Souza Financeiro, início" className="shrink-0 rounded-controle">
         <MarcaSouza negativo />
       </Link>
 
