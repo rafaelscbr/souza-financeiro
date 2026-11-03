@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useAuth } from './AuthContext'
 import { CalendarCheck, Calculator, Smartphone, type LucideIcon } from 'lucide-react'
-import { Lockup, MarcaDagua } from '@/components/marca/Marca'
+import { MarcaDagua, MarcaSouza } from '@/components/marca/Marca'
 import { Icone } from '@/components/ui/Icone'
 import { Button } from '@/components/ui/Button'
 import { FormField, Input } from '@/components/ui/Field'
@@ -37,11 +37,13 @@ import { FormField, Input } from '@/components/ui/Field'
  * de cor quando a tela troca de tema. Os tons de texto são misturas de branco
  * com essas tintas, medidos no ponto mais claro do degradê (aceite, item 20).
  */
-/* Souza 3.0 (02/11/2026): o painel é tinta chapada, sem degradê, como o resto do sistema. */
-const PAINEL = '#0B1220'
-const CREME = 'color-mix(in srgb, white 94%, var(--brand-fill))'
-const SECUNDARIA = 'color-mix(in srgb, white 76%, var(--brand-fill-text))'
-const RODAPE = 'color-mix(in srgb, white 64%, var(--brand-fill-text))'
+/*
+ * Folha Clara (02/11/2026): o painel é o bloco-herói (--hero-bg), texto branco,
+ * apoio em branco a 82% (--bar-text) e a palavra de destaque em Champanhe claro.
+ */
+const CREME = 'var(--nav-logo)'
+const SECUNDARIA = 'var(--bar-text)'
+const RODAPE = 'var(--bar-text)'
 
 function Prova({ icone, children }: { icone: LucideIcon; children: ReactNode }) {
   return (
@@ -59,8 +61,7 @@ function Painel() {
   return (
     <div
       data-painel-marca
-      className="relative isolate flex h-40 flex-col justify-center overflow-hidden px-6 lg:h-auto lg:min-h-dvh lg:justify-start lg:p-12"
-      style={{ backgroundColor: PAINEL }}
+      className="bloco-heroi sobre-heroi relative isolate flex h-40 flex-col justify-center overflow-hidden px-6 lg:h-auto lg:min-h-dvh lg:justify-start lg:p-12"
     >
       {/* Marca d'água: só o "S", sangrando pela borda de baixo. Decorativa. */}
       <span
@@ -71,11 +72,11 @@ function Painel() {
       </span>
 
       <div className="relative flex flex-col lg:grid lg:h-full lg:grid-rows-[auto_1fr_auto] lg:gap-12" style={{ color: CREME }}>
-        <Lockup className="h-10 w-auto self-start lg:h-12" tema="escuro" />
+        <MarcaSouza negativo grande className="self-start" />
 
         <div className="hidden max-w-[30rem] flex-col gap-6 self-center lg:flex">
           <p className="font-heading text-numero-heroi font-bold" style={{ color: CREME }}>
-            Da venda ao repasse,
+            Da venda ao <em className="destaque">repasse</em>,
             <br />
             sem planilha.
           </p>

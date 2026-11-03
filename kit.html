@@ -3,17 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#070B1A" />
+    <meta name="theme-color" content="#F3F6FB" />
     <title>Kit visual — Souza Imobiliária</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!--
-      Mesmas fontes do index.html (Schibsted Grotesk e Instrument Serif), pelo mesmo
+      Mesmas fontes do index.html (Plus Jakarta Sans, Geist e Instrument Serif), pelo mesmo
       motivo: <link> com preconnect em vez do @import do guia pinta mais cedo.
     -->
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
     />
     <script>
       // Anti-flash igual ao do index.html: escuro por padrão, html.light só com
@@ -24,7 +24,7 @@
           var claro = localStorage.getItem('sgf.tema') !== 'dark'
           if (claro) html.classList.add('light')
           var meta = document.querySelector('meta[name="theme-color"]')
-          if (meta) meta.setAttribute('content', claro ? '#F6F3EC' : '#070B1A')
+          if (meta) meta.setAttribute('content', claro ? '#F3F6FB' : '#0B1426')
         } catch (e) {}
         try {
           if (localStorage.getItem('sgf.densidade') === 'compacta') html.classList.add('compacta')

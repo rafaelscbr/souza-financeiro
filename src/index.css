@@ -1,12 +1,7 @@
 /*
- * FONTES. O guia (docs/souza-os.md, seção 3) abre este arquivo com um @import
- * do Google Fonts. Aqui elas chegam por <link> com preconnect no index.html e
- * no kit.html: é o MESMO arquivo, com as mesmas famílias e pesos (Sora 400–800
- * e Inter 300–800, e mais nenhuma), só que o navegador começa a baixar a letra
- * enquanto ainda lê o HTML, em vez de esperar este CSS chegar para descobrir
- * que precisa dela. O corretor abre isto em 4G entre duas visitas; a primeira
- * pintura com a letra certa sai mais cedo. Não reponha o @import: seriam duas
- * requisições para a mesma coisa.
+ * FONTES (Folha Clara, 02/11/2026): Plus Jakarta Sans (display), Geist (texto)
+ * e Instrument Serif itálica (a palavra de destaque). Chegam por <link> com
+ * preconnect no index.html, demo.html e kit.html; não reponha um @import aqui.
  */
 
 @tailwind base;
@@ -15,232 +10,171 @@
 
 /*
  * ---------------------------------------------------------------------------
- * SOUZA OS — os tokens da casa, os mesmos do iCRM.
+ * FOLHA CLARA — a identidade visual da Souza Imobiliária (docs/identidade-folha-clara.md).
  * ---------------------------------------------------------------------------
  *
- * A lei é docs/souza-os.md. O bloco abaixo é a seção 3 copiada VERBATIM: não
- * ajuste um valor aqui "porque ficou melhor". Se o financeiro divergir do iCRM
- * num hex, a imobiliária passa a ter dois sistemas com a mesma cara quase igual,
- * que é pior do que duas caras diferentes.
- *
- * `:root` é o ESCURO, padrão da casa. `html.light` é o claro, completo, com
- * valor próprio para cada receita (claro não é escuro invertido). Quem liga e
- * desliga a classe é src/context/ThemeContext.tsx e o script anti-flash do
- * index.html.
+ * `html.light` é o padrão e carrega os tokens da especificação VERBATIM. Não
+ * ajuste um valor "porque ficou melhor": mude a especificação primeiro.
+ * `:root` é o escuro opcional. Os nomes antigos que o código ainda usa
+ * (nav-*, moldura, areia, ouro, coral, menta, acao…) apontam para a paleta
+ * nova e não trazem cor nenhuma de fora dela.
  *
  * Fica FORA de @layer de propósito: o Tailwind descarta regra de camada cujo
- * seletor tem uma classe que ele não achou no código, e o tema claro inteiro
- * depende do seletor `html.light`. Variável CSS não disputa com utilitário,
- * então não há ordem de cascata a proteger aqui.
+ * seletor tem uma classe que ele não achou no código.
  */
 
-:root { /* ESCURO — padrão */
-  --brand:#E4B23C; --brand-dark:#C2922A; --brand-tint:rgba(228,178,60,.14);
-  --brand-text:#F0CC78; --brand-shadow:rgba(228,178,60,.30); --brand-btn-text:#0F1730;
-  --brand-fill:#E4B23C; --brand-fill-hover:#F0CC78; --brand-fill-deep:#C2922A; --brand-fill-text:#0F1730;
-  --grad-brand:linear-gradient(158deg,#F0CC78 0%,#E4B23C 62%); --grad-brand-text:#0F1730;
+:root { /* ESCURO — opcional, não é o padrão */
+  --page-bg:#0B1426; --surface:#111D35;
+  --surface-2:color-mix(in srgb, #EEF2F9 6%, #111D35); --surface-3:color-mix(in srgb, #EEF2F9 11%, #111D35);
+  --t1:#EEF2F9; --t2:color-mix(in srgb, #EEF2F9 84%, #0B1426); --t3:color-mix(in srgb, #EEF2F9 70%, #0B1426);
+  --t4:color-mix(in srgb, #EEF2F9 60%, #0B1426); --t5:color-mix(in srgb, #EEF2F9 36%, #0B1426);
+  --line:rgba(238,242,249,.10); --line-strong:rgba(238,242,249,.18); --line-input:rgba(238,242,249,.26);
 
-  /*
-   * TRÊS PLANOS, e é isso que faz o cartão existir (21/09/2026).
-   *
-   * Antes o menu, a página e o cartão eram quase a mesma cor: o que separava
-   * um do outro era o fio de 1px. O Rafael olhou e disse, com razão, que
-   * "esse fundo com a mesma cor do menu, só as linhas separando" não parecia
-   * sistema profissional. Agora cada plano tem o seu tom:
-   *
-   *   menu  #05080F  — o mais fundo, para o conteúdo flutuar sobre ele
-   *   página #0A0F20 — o chão do trabalho
-   *   cartão #141D3A — a superfície que carrega conteúdo, com sombra
-   *
-   * O passo entre eles é pequeno de propósito: o que faz o cartão subir é o
-   * conjunto tom + fio + sombra, não um salto de cor que sujaria a tela.
-   */
-  --page-bg:#0A0F20; --surface:#141D3A; --surface-2:#1D2954; --surface-3:#25326A;
+  --bar-bg:#0F2759; --bar-text:rgba(255,255,255,.82);
+  --hero-bg:linear-gradient(140deg, #1A3F8F 0%, #12306E 48%, #0C2153 100%);
+  --brand-fill:#D6B26E; --brand-fill-hover:#CBA55F; --brand-fill-text:#0B1A3A;
+  --brand:#D6B26E; --brand-text:#E2C385; --brand-tint:rgba(214,178,110,.18);
+  --destaque:#E2C385;
+  --field-bg:color-mix(in srgb, #EEF2F9 7%, #111D35); --field-bg-hover:color-mix(in srgb, #EEF2F9 10%, #111D35); --field-focus:#2563EB;
+  --whatsapp:#1FAE5B;
 
-  --nav-bg:#05080F; --nav-text:rgba(246,243,236,.78); --nav-muted:rgba(246,243,236,.40);
-  --nav-active-text:#F6F3EC; --nav-active-bg:rgba(255,255,255,.075);
-  --nav-hover-bg:rgba(255,255,255,.05); --nav-line:rgba(255,255,255,.08);
-  --nav-logo:#F6F3EC; --nav-elev:#101935;
-  --nav-rail-sheen:linear-gradient(158deg,rgba(255,255,255,.05) 0%,rgba(255,255,255,0) 46%);
+  --success:color-mix(in srgb, #1F8A62 60%, #EEF2F9); --success-bg:rgba(31,138,98,.16);
+  --warning:color-mix(in srgb, #BD7A12 70%, #EEF2F9); --warning-bg:rgba(189,122,18,.16);
+  --error:color-mix(in srgb, #C7474F 70%, #EEF2F9);   --error-bg:rgba(199,71,79,.16);
+  --info:color-mix(in srgb, #236B73 50%, #EEF2F9);    --info-bg:rgba(35,107,115,.20);
 
-  --t1:#F6F3EC; --t2:#CFC9BC; --t3:#8A90A6; --t4:#7A829B; --t5:#5F6880;
-  --line:rgba(255,255,255,.10); --line-strong:rgba(255,255,255,.18); --line-input:rgba(255,255,255,.14);
-
-  --success:#34C88A; --success-bg:rgba(52,200,138,.10); --success-line:rgba(52,200,138,.28);
-  --warning:#E0A030; --warning-bg:rgba(224,160,48,.10); --warning-line:rgba(224,160,48,.28);
-  --error:#E5717A;   --error-bg:rgba(229,113,122,.10);  --error-line:rgba(229,113,122,.28);
-  --info:#5FB3BA;    --info-bg:rgba(95,179,186,.10);    --info-line:rgba(95,179,186,.28);
-
-  /* Elevação de verdade: um brilho de 1px no topo (a luz batendo na quina),
-     uma sombra curta de contato e uma longa e difusa de altura. */
-  --shadow-card:inset 0 1px 0 rgba(255,255,255,.045),0 2px 4px -2px rgba(0,0,0,.55),0 16px 32px -20px rgba(0,0,0,.85);
-  --shadow-modal:0 25px 50px rgba(0,0,0,.80),0 10px 20px rgba(0,0,0,.55);
-  --shadow-dropdown:0 10px 30px rgba(0,0,0,.65),0 4px 10px rgba(0,0,0,.50);
-
-  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.035'/%3E%3C/svg%3E");
-  --surface-sheen:linear-gradient(158deg,rgba(255,255,255,.055) 0%,rgba(255,255,255,0) 58%);
-  --sheen-start:var(--surface-2);
-  --aurora-a:rgba(228,178,60,.14); --aurora-b:rgba(228,178,60,.09);
+  --shadow-card:0 1px 4px rgba(11,20,38,.5);
+  --shadow-modal:0 24px 64px -16px rgba(11,20,38,.7), 0 4px 12px rgba(11,20,38,.4);
+  --shadow-dropdown:0 12px 32px -8px rgba(11,20,38,.6), 0 2px 6px rgba(11,20,38,.3);
 }
 
-html.light { /* CLARO — Souza 4.0 (02/11/2026): o padrão do sistema */
-  /*
-   * SOUZA 4.0, o padrão do Souza Academy (pedido do Rafael: "um padrão de
-   * sistemas"). No computador, a MOLDURA é marinho (o menu mora nela) e a
-   * página é uma folha branca de cantos de 24px por cima. Painéis de número
-   * em PAPEL (creme). Marinho #0F1730 na tinta e nos destaques; o azul
-   * #2848A8 no dado principal dos gráficos; areia #E4B23C só sobre marinho
-   * (botão de criar, anel, a palavra "Financeiro"); ouro #AD7F22 no claro.
-   */
-  /* A luz do herói (padrão do CRM): halo azul no alto do cartão marinho. */
-  --grad-destaque: radial-gradient(closest-side, rgba(40,72,168,.55), rgba(40,72,168,0));
-  --moldura:#0F1730; --papel:#F6F3EC; --areia:#E4B23C; --ouro:#8C6519; --ouro-marca:#AD7F22; /* o #AD7F22 da marca dá 3,6:1 em texto pequeno; este dá 5,4:1 */ --coral:#F4A68C; --menta:#8FD3A8;
+html.light { /* CLARO — Folha Clara, o padrão do sistema */
+  --page-bg:#F3F6FB;  --surface:#FFFFFF;  --surface-2:#EDF1F8;  --surface-3:#E0E7F2;
+  --t1:#0B1A3A;  --t2:#2A3A5C;  --t3:#44557A;  --t4:#5D6E8E;  --t5:#A6B3CB;
+  --line:rgba(15,39,89,.10);  --line-strong:rgba(15,39,89,.18);
+  --bar-bg:#0F2759;  --bar-text:rgba(255,255,255,.82);
+  --hero-bg:linear-gradient(140deg, #1A3F8F 0%, #12306E 48%, #0C2153 100%);
+  --brand-fill:#D6B26E;  --brand-fill-hover:#CBA55F;  --brand-fill-text:#0B1A3A;
+  --brand:#8F6B2C;  --brand-text:#7A5A22;  --brand-tint:rgba(214,178,110,.18);
+  --destaque:#9C7430;
+  --field-bg:#EEF2F8;  --field-bg-hover:#E6ECF5;  --field-focus:#2563EB;
+  --success:#1F8A62;  --success-bg:#E7F5ED;
+  --warning:#BD7A12;  --warning-bg:#FBF0DC;
+  --error:#C7474F;    --error-bg:#FBEAEB;
+  --info:#236B73;     --info-bg:#E7F2F2;
+  --whatsapp:#1FAE5B;
 
-  --brand:#2848A8; --brand-dark:#1D3A8A; --brand-tint:#E8EDF9;
-  --brand-text:#1D3A8A; --brand-shadow:rgba(15,23,48,.10); --brand-btn-text:#FFFFFF;
-  --brand-fill:#E4B23C; --brand-fill-hover:#EDC35B; --brand-fill-deep:#C2922A; --brand-fill-text:#0F1730;
-  --grad-brand:linear-gradient(158deg,#F0CC78 0%,#E4B23C 62%); --grad-brand-text:#0F1730;
+  /* Fio de controle (contorno de checkbox, rádio): o mesmo marinho, mais denso. */
+  --line-input:rgba(15,39,89,.26);
+  /* Sombras em marinho diluído, nunca preto. */
+  --shadow-card:0 1px 4px rgba(15,39,89,.08);
+  --shadow-modal:0 24px 64px -16px rgba(15,39,89,.32), 0 4px 12px rgba(15,39,89,.08);
+  --shadow-dropdown:0 12px 32px -8px rgba(15,39,89,.20), 0 2px 6px rgba(15,39,89,.06);
+}
 
-  --page-bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#FAF8F3; --surface-3:#F3F0E8;
-
-  /* O menu é marinho, sobre a moldura. */
-  --nav-bg:#0F1730; --nav-text:rgba(255,255,255,.68); --nav-muted:rgba(255,255,255,.48); --nav-active-text:#FFFFFF;
-  --nav-active-bg:rgba(255,255,255,.09); --nav-hover-bg:rgba(255,255,255,.05);
-  --nav-line:rgba(255,255,255,.10); --nav-logo:#FFFFFF; --nav-elev:#1A2445;
-  --nav-rail-sheen:none;
-
-  --t1:#0F1730; --t2:#283150; --t3:#4A5270; --t4:#5C6380; --t5:#8A8FA3;
-  --line:rgba(15,23,48,.07); --line-strong:rgba(15,23,48,.11); --line-input:rgba(15,23,48,.20);
-
-  --success:#2F6B45; --success-bg:#E7F1EA; --success-line:#C4DECB;
-  --warning:#8A5A12; --warning-bg:#FBF1DC; --warning-line:#EED7A8;
-  --error:#9A3B1E;   --error-bg:#F8E9E2;   --error-line:#EDC9BB;
-  --info:#2848A8;    --info-bg:#E8EDF9;    --info-line:#C9D4F0;
-
-  --shadow-card:none;
-  --shadow-modal:0 30px 80px -20px rgba(15,23,48,.45), 0 4px 14px rgba(15,23,48,.08);
-  --shadow-dropdown:0 16px 36px -10px rgba(15,23,48,.22), 0 2px 6px rgba(15,23,48,.06);
-
-  --grain:none;
-  --surface-sheen:none;
-  --sheen-start:var(--surface);
-  --aurora-a:transparent; --aurora-b:transparent;
+/* Fontes (os mesmos nos dois temas). */
+:root {
+  --font-display: "Plus Jakarta Sans", Geist, system-ui, sans-serif;
+  --font-body: Geist, system-ui, sans-serif;
+  --font-destaque: "Instrument Serif", Georgia, serif;
 }
 
 /*
- * O que a seção 3 não lista, mas outras seções pedem. Separado do bloco
- * verbatim para que a cópia do guia continue conferível linha a linha.
+ * NOMES QUE O CÓDIGO JÁ USAVA, apontados para a paleta Folha Clara. Nenhum
+ * hex novo: todo valor aqui é um token da especificação ou mistura de dois.
  */
 :root {
-  /* Controles nativos (select, date, a barra de rolagem do Firefox) seguem o tema. */
+  /* Linhas de estado: o tom do estado sobre a superfície. */
+  --success-line: color-mix(in srgb, var(--success) 30%, var(--surface));
+  --warning-line: color-mix(in srgb, var(--warning) 30%, var(--surface));
+  --error-line:   color-mix(in srgb, var(--error) 30%, var(--surface));
+  --info-line:    color-mix(in srgb, var(--info) 30%, var(--surface));
+
+  /* Marca: o Champanhe é o fundo da ação; o ouro escuro é texto e fio. */
+  --brand-dark: var(--brand);
+  --brand-fill-deep: var(--brand);
+  --brand-shadow: rgba(15,39,89,.10);
+  --brand-btn-text: var(--brand-fill-text);
+  --grad-brand: linear-gradient(var(--brand-fill), var(--brand-fill));
+  --grad-brand-text: var(--brand-fill-text);
+
+  /* A barra (o antigo trilho): fundo marinho, item ativo em pílula Champanhe. */
+  --nav-bg: var(--bar-bg);
+  --nav-text: var(--bar-text);
+  --nav-muted: rgba(255,255,255,.62);
+  --nav-active-text: var(--brand-fill-text);
+  --nav-active-bg: var(--brand-fill);
+  --nav-hover-bg: rgba(255,255,255,.10);
+  --nav-line: rgba(255,255,255,.12);
+  --nav-logo: #FFFFFF;
+  --nav-elev: var(--bar-bg);
+  --nav-rail-sheen: none;
+
+  /* Sobre o bloco-herói: destaque claro e os tons claros de estado. */
+  --moldura: var(--bar-bg);
+  --papel: var(--surface);
+  --areia: #E2C385;
+  --ouro: var(--brand-text);
+  --ouro-marca: var(--brand);
+  --coral: var(--error-bg);
+  --menta: var(--success-bg);
+  --grad-destaque: none;
+  --marinho: var(--bar-bg);
+
+  /* Sem textura, sem brilho, sem halo. */
+  --grain: none;
+  --surface-sheen: none;
+  --sheen-start: var(--surface);
+  --aurora-a: transparent; --aurora-b: transparent;
+
+  /* Barra de rolagem fina, em marinho diluído. */
+  --scrollbar-thumb: rgba(15,39,89,.22);
   color-scheme: dark;
-
-  /*
-   * Marinho da paleta (seção 2). O mesmo nos dois temas: é cor da marca, não
-   * receita de tema. Existe para o alias `marca-navy` (o véu atrás do modal).
-   */
-  --marinho: #0F1730;
-
-  /* Barra de rolagem fina (seção 12): 4px, thumb próprio por tema. */
-  --scrollbar-thumb: #4A5573;
 }
+html.light { color-scheme: light; }
 
 /*
- * A AÇÃO PRINCIPAL E O NÚMERO DO HERÓI (23/10/2026). No escuro seguem o ouro
- * da casa; na Mesa, o botão é marinho e o número é tinta — ouro só na marca.
+ * A AÇÃO PRINCIPAL, O NÚMERO DO HERÓI E OS GRÁFICOS. A ação é Champanhe com
+ * tinta marinho; o dado principal do gráfico é o azul do herói; o que sai é cinza-azulado.
  */
 :root {
-  --g-entra: #7C9CF0; --g-sai: #E4B23C; --g-resultado: #F6F3EC; --g-grade: rgba(255,255,255,.08); --g-eixo: #8A90A6;
-  --serie: var(--brand-fill); --serie-suave: color-mix(in srgb, var(--brand-fill) 70%, transparent); --serie-apagada: .7;
   --acao: var(--brand-fill); --acao-hover: var(--brand-fill-hover); --acao-texto: var(--brand-fill-text);
-  --heroi-numero: var(--brand-text); --heroi-moeda: var(--brand-text);
-}
-html.light {
-  --serie: #2848A8; --serie-suave: #D5DBE8; --serie-apagada: .32;
-  /* Souza 4.0: a ação principal é o marinho do Academy. */
-  --acao: #0F1730; --acao-hover: #1A2445; --acao-texto: #FFFFFF;
   --heroi-numero: var(--t1); --heroi-moeda: var(--t4);
-  /* Gráficos (Souza 3.0): entra em marinho (o dado principal), sai em cinza, resultado em tinta. */
-  --g-entra: #2848A8; --g-sai: #C9C3B5; --g-resultado: #0F1730; --g-grade: #EFECE4; --g-eixo: #5C6380;
-}
-
-html.light {
-  color-scheme: light;
-  --scrollbar-thumb: rgba(16, 24, 40, 0.16);
+  --serie: #1A3F8F; --serie-suave: var(--surface-3); --serie-apagada: .32;
+  --g-entra: #1A3F8F; --g-sai: var(--t5); --g-resultado: var(--t1); --g-grade: var(--surface-2); --g-eixo: var(--t4);
 }
 
 /*
  * ---------------------------------------------------------------------------
- * A RÉGUA — docs/souza-os-fundamentos.md. Tokens fora de @layer (variável não
- * disputa cascata e `html.light`/`html.compacta` não podem ser descartados).
- * Nenhum hex novo: todo token de cor aqui é derivado de um token do guia.
+ * A RÉGUA — tokens derivados. Nenhum hex novo: tudo deriva de um token acima.
  * ---------------------------------------------------------------------------
  */
-
-/* 5.1 Tokens derivados — escuro */
 :root {
-  --fio-caixa: var(--line-strong);      /* 1,74:1 sobre surface (line dava 1,32) */
-  --fio-linha: var(--line);             /* entre linhas dentro da caixa */
-  --fio-controle: color-mix(in srgb, var(--t1) 38%, var(--surface)); /* 3,31:1: WCAG 1.4.11 */
-  --borda-ouro: color-mix(in srgb, var(--brand) 60%, var(--surface)); /* 3,98:1 */
-  --t-meta: var(--t3);                  /* texto pequeno: 5,6 surface / 4,8 s2 */
+  --fio-caixa: var(--line-strong);
+  --fio-linha: var(--line);
+  --fio-controle: color-mix(in srgb, var(--t1) 48%, var(--surface)); /* 3:1 sobre branco, WCAG 1.4.11 */
+  --borda-ouro: color-mix(in srgb, var(--brand) 38%, var(--surface));
+  --t-meta: var(--t4);                                               /* 4,9:1 sobre a página */
   --linha-hover: color-mix(in srgb, var(--surface-2) 50%, var(--surface));
   --linha-press: var(--surface-2);
-  --success-ink: var(--success);
-  --warning-ink: var(--warning);
-  --error-ink: color-mix(in srgb, var(--error) 85%, var(--t1)); /* error puro dá 4,50 sobre error-bg em s2 */
+  --success-ink: color-mix(in srgb, var(--success) 80%, var(--t1));  /* ≥4,5 sobre success-bg */
+  --warning-ink: color-mix(in srgb, var(--warning) 62%, var(--t1));  /* ≥4,5 sobre warning-bg */
+  --error-ink: color-mix(in srgb, var(--error) 85%, var(--t1));      /* ≥4,5 sobre error-bg */
   --info-ink: var(--info);
-  --veu-painel: color-mix(in srgb, var(--page-bg) 55%, transparent);
-  --veu-modal: color-mix(in srgb, var(--page-bg) 75%, transparent);
-  --sombra-rolagem: color-mix(in srgb, var(--page-bg) 90%, transparent); /* 4.2 */
-
-  /*
-   * DEGRADÊ E FILETE, de volta em 21/09/2026.
-   *
-   * Em 12/09 o Rafael reprovou os dois. Em 21/09, comparando com o CRM dele,
-   * pediu os dois de volta — e o CRM é a referência que ele quer. O que muda
-   * em relação ao que foi reprovado: o degradê agora é UM token, aplicado na
-   * superfície inteira de uma vez, e não efeito solto espalhado por tela; e o
-   * filete é o marcador do título de seção, como no CRM, não enfeite de linha.
-   */
-  --grad-superficie: linear-gradient(158deg, rgba(255,255,255,.055) 0%, rgba(255,255,255,.012) 38%, rgba(255,255,255,0) 72%);
-  --grad-heroi: linear-gradient(158deg, rgba(228,178,60,.12) 0%, rgba(228,178,60,.03) 40%, rgba(228,178,60,0) 72%);
-  --grad-trilha: linear-gradient(180deg, rgba(86,124,222,.14) 0%, rgba(86,124,222,.04) 26%, rgba(255,255,255,0) 60%);
-
-  /*
-   * O FUNDO DA PÁGINA não é mais uma chapa (21/09/2026): "quero algo mais
-   * bonito, e não só um fundo opaco, sólido". Três camadas presas na tela
-   * (background-attachment: fixed), para o fundo não deslizar com a rolagem:
-   * um halo de ouro no alto à direita, um azul frio no alto à esquerda e uma
-   * descida vertical que escurece até o rodapé. Tudo em opacidade baixa: o
-   * fundo tem de sumir atrás do conteúdo, não competir com ele.
-   */
-  --grad-pagina:
-    radial-gradient(1400px 820px at 94% -10%, rgba(228,178,60,.38), transparent 58%),
-    radial-gradient(760px 520px at 78% 2%, rgba(240,204,120,.16), transparent 60%),
-    radial-gradient(1000px 640px at -8% -6%, rgba(86,124,222,.16), transparent 58%),
-    radial-gradient(1300px 820px at 40% 116%, rgba(228,178,60,.16), transparent 60%),
-    linear-gradient(180deg, #16204A 0%, #0D142C 34%, #080D1F 64%, #070B1A 100%);
-}
-
-/* 5.1 Tokens derivados — claro */
-html.light {
-  --fio-controle: color-mix(in srgb, var(--t1) 48%, var(--surface)); /* Mesa: 3,2:1 sobre branco, o mínimo do WCAG 1.4.11, e mais leve */
-  --borda-ouro: color-mix(in srgb, var(--brand) 38%, var(--surface)); /* Mesa: fio quente e fino, assinatura do herói */
-  --t-meta: var(--t4);                                               /* ≥4,55 no pior fundo */
-  --success-ink: color-mix(in srgb, var(--success) 75%, var(--t1));  /* 5,53 sobre success-bg */
-  --warning-ink: color-mix(in srgb, var(--warning) 65%, var(--t1));  /* 5,62 sobre warning-bg */
-  --error-ink: color-mix(in srgb, var(--error) 85%, var(--t1));      /* 5,06 sobre error-bg */
-  --info-ink: var(--info);                                           /* 5,37 */
   --veu-painel: color-mix(in srgb, var(--t1) 16%, transparent);
   --veu-modal: color-mix(in srgb, var(--t1) 32%, transparent);
-  --sombra-rolagem: color-mix(in srgb, var(--t1) 14%, transparent);  /* 4.2 */
+  --sombra-rolagem: color-mix(in srgb, var(--t1) 14%, transparent);
 
-  /* Mesa: superfícies lisas. Nenhum halo, nenhum brilho; a profundidade é fio e tom. */
+  /* Folha Clara: superfícies lisas. O único degradê da casa é o --hero-bg. */
   --grad-superficie: none;
   --grad-heroi: none;
   --grad-trilha: none;
   --grad-pagina: none;
+}
+:root:not(.light) {
+  --success-ink: var(--success); --warning-ink: var(--warning); --error-ink: var(--error);
+  --veu-painel: color-mix(in srgb, var(--page-bg) 55%, transparent);
+  --veu-modal: color-mix(in srgb, var(--page-bg) 75%, transparent);
 }
 
 /* 3.2 Espaço semântico */
@@ -258,18 +192,15 @@ html.light {
   --altura-cabecalho: 56px;
   --altura-faixa: 48px;
   --altura-barra-inferior: 64px;
+  --altura-barra: 60px;    /* Folha Clara: a barra do topo no computador */
 }
 @media (min-width: 640px) {
   :root { --margem-pagina: 24px; --recuo: 20px; }
 }
 @media (min-width: 1024px) {
-  /* Souza 3.0: um vão só entre caixas (16), recuo de 24 dentro delas. */
-  /* Souza 4.0: a folha do Academy respira (48 de margem, 48 no topo), caixas com 28 de recuo. */
-  :root { --margem-pagina: 48px; --recuo: 28px; --vao-bloco: 20px;
-    --vao-secao: 24px; --topo-conteudo: 48px; --altura-cabecalho: 56px; --linha-min: 52px; }
-}
-@media (min-width: 1536px) {
-  :root { --margem-pagina: 56px; }
+  /* Folha Clara: margem 32, recuo 24, 16 entre blocos, 32 entre seções e do título ao 1º bloco. */
+  :root { --margem-pagina: 32px; --recuo: 24px; --vao-bloco: 16px;
+    --vao-secao: 32px; --topo-conteudo: 32px; --altura-cabecalho: 56px; --linha-min: 52px; }
 }
 html.compacta { --linha-y: 8px; --linha-min: 44px; }
 @media (pointer: coarse) {
@@ -290,8 +221,8 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
   --dur-lista: 240ms;    /* escada, expandir linha, toast */
   --dur-painel: 280ms;   /* painel lateral e folha entrando */
   --dur-saida: 180ms;    /* toda saída */
-  --dur-barra: 520ms;    /* barra enche (guia) */
-  --dur-contagem: 700ms; /* contagem do herói (guia) */
+  --dur-barra: 420ms;    /* barra enche (Folha Clara: entradas até 420ms) */
+  --dur-contagem: 420ms; /* número que rola */
   --escada: 30ms;        /* atraso por item, teto de 7 itens */
   --curva-entra: cubic-bezier(.16, 1, .3, 1); /* a curva da casa */
   --curva-sai: cubic-bezier(.3, 0, .8, .15);  /* saída acelera para fora */
@@ -333,8 +264,8 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
     background-size: 160px 160px, cover;
     color: var(--t2);
     line-height: 1.6;
-    /* Souza 4.0: proporcional; o "tnum" da Schibsted Grotesk alarga vírgula e ponto. */
-    font-feature-settings: normal;
+    /* Folha Clara: números sempre tabulares (Geist e Plus Jakarta têm tnum limpo). */
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -342,7 +273,7 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
 
   /* 5.5 Foco e seleção. Contorno e não ring: não depende de o componente lembrar. */
   :focus-visible {
-    outline: 2px solid var(--brand);
+    outline: 2px solid var(--field-focus);
     outline-offset: 2px;
   }
   /* Dentro de área que rola, o contorno vai para dentro e nunca é cortado. */
@@ -353,7 +284,7 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
     outline-offset: -2px;
   }
   ::selection {
-    background: color-mix(in srgb, var(--brand) 35%, transparent);
+    background: var(--brand-tint);
     color: var(--t1);
   }
 
@@ -391,19 +322,22 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
  * `.linha`). O Tailwind só emite a receita que alguém usa.
  */
 @layer components {
-  /* Souza 4.0: no computador a moldura é marinho; a folha branca fica por cima (CascaDaPagina). */
-  @media (min-width: 1024px) {
-    html.light .fundo-app { background-color: var(--moldura); }
-  }
-  /* A ênfase de cada tela: Instrument Serif itálico (o "Financeiro", o nome na saudação). */
   /* O dinheiro dentro da frase do título acompanha o tamanho da frase. */
   .frase-do-titulo [data-valor], .frase-do-titulo [data-valor] * { font-size: inherit !important; line-height: inherit !important; }
-  .enfase { font-family: "Instrument Serif", Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -0.01em; }
+  /* A palavra de destaque (Folha Clara): uma por frase, nunca em botão, campo, tabela ou número. */
+  .destaque { font-family: var(--font-destaque); font-style: italic; font-weight: 400;
+              font-size: 1.12em; color: var(--destaque); letter-spacing: 0; }
+  /* Sobre o bloco-herói, o destaque é o Champanhe claro. */
+  .sobre-heroi .destaque { color: var(--areia); }
+  /* Só a família (o centro do anel do herói). */
+  .enfase { font-family: var(--font-destaque); font-style: italic; font-weight: 400; letter-spacing: 0; }
+  /* O bloco-herói: o único degradê da casa. */
+  .bloco-heroi { background-image: var(--hero-bg); background-color: var(--bar-bg); color: var(--nav-logo); }
 
   /* 4.1 Larguras e colunas */
   .conteudo {
     width: 100%;
-    max-width: calc(76rem + 2 * var(--margem-pagina));
+    max-width: calc(75rem + 2 * var(--margem-pagina)); /* 1200px de conteúdo */
     margin-inline: auto;
     padding-inline: var(--margem-pagina);
   }
@@ -450,8 +384,7 @@ html.compacta { --linha-y: 8px; --linha-min: 44px; }
 
   /* 6.2 Números: algarismo tabular. Aplicada pelo `Valor`. */
   .num {
-    /* Souza 4.0: proporcional. O "tnum" da Schibsted alarga a pontuação ("94 . 438 , 91"). */
-    font-variant-numeric: lining-nums proportional-nums;
+    font-variant-numeric: lining-nums tabular-nums;
   }
 
   /* 6.3 Composição do dinheiro */
@@ -984,26 +917,22 @@ html.trocando-tema *::after {
 
   /* corretor/Inicio, LoginPage, RegistrarVenda, Venda, Kit: número tabular em Sora. */
   .cifra {
-    font-family: 'Sora', system-ui, sans-serif;
-    font-variant-numeric: lining-nums proportional-nums;
-    font-feature-settings: normal;
-    letter-spacing: -0.015em;
+    font-family: var(--font-display);
+    font-variant-numeric: lining-nums tabular-nums;
+    letter-spacing: -0.025em;
   }
 
   /* admin/pages/Relatorios.tsx: número tabular (o novo é .num). */
   .tnum {
-    font-variant-numeric: lining-nums proportional-nums;
-    font-feature-settings: normal;
+    font-variant-numeric: lining-nums tabular-nums;
   }
 
   /* LoginPage (com .sem-ponto, que não tem efeito): o papel `rotulo` de 6.1. */
   .assinatura {
-    font-family: 'Inter', system-ui, sans-serif;
-    font-size: 11px;
+    font-family: var(--font-body);
+    font-size: 12.5px;
     line-height: 16px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
+    font-weight: 600;
     color: var(--t-meta);
   }
 }

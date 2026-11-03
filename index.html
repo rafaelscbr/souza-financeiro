@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0F1730" />
+    <meta name="theme-color" content="#F3F6FB" />
     <meta name="description" content="Vendas, comissões e financeiro da Souza Imobiliária." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!--
       As fontes do Souza OS, e mais nenhuma:
-        Schibsted Grotesk 400–800 e Instrument Serif itálico — o par do Souza Academy (02/11/2026)
+        Folha Clara (02/11/2026): Plus Jakarta Sans no display, Geist no texto e Instrument Serif itálica na palavra de destaque
         (a mesma Geist em rótulo e corpo)
       O guia carrega por @import no CSS. Aqui vai por <link> com preconnect: é
       o mesmo arquivo do Google Fonts, com o mesmo resultado, mas o navegador
@@ -25,7 +25,7 @@
     -->
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
     />
     <script>
       // ANTI-FLASH. Roda antes de qualquer pintura, para a tela não piscar no
@@ -41,7 +41,7 @@
           var claro = localStorage.getItem('sgf.tema') !== 'dark'
           if (claro) html.classList.add('light')
           var meta = document.querySelector('meta[name="theme-color"]')
-          if (meta) meta.setAttribute('content', claro ? '#F5F6F8' : '#070B1A')
+          if (meta) meta.setAttribute('content', claro ? '#F3F6FB' : '#0B1426')
         } catch (e) {}
         try {
           if (localStorage.getItem('sgf.densidade') === 'compacta') html.classList.add('compacta')

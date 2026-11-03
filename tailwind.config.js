@@ -47,6 +47,14 @@ export default {
         'brand-fill-deep': c('--brand-fill-deep'),
         'brand-fill-text': c('--brand-fill-text'),
         page: c('--page-bg'),
+        // Folha Clara
+        barra: c('--bar-bg'),
+        'barra-texto': c('--bar-text'),
+        campo: c('--field-bg'),
+        'campo-hover': c('--field-bg-hover'),
+        'campo-foco': c('--field-focus'),
+        whatsapp: c('--whatsapp'),
+        'cor-destaque': c('--destaque'),
         moldura: c('--moldura'),
         // Souza 4.0: o papel creme do Academy (o nome `papel` já é alias antigo do fundo).
         creme: c('--papel'),
@@ -181,7 +189,7 @@ export default {
          * opacidade padrão do anel (0.5) e devolve o ouro nessa medida.
          */
         DEFAULT: ({ opacityValue = 1 } = {}) =>
-          `color-mix(in srgb, var(--brand) calc(${opacityValue} * 100%), transparent)`,
+          `color-mix(in srgb, var(--field-focus) calc(${opacityValue} * 100%), transparent)`,
       },
 
       /*
@@ -196,11 +204,11 @@ export default {
       },
 
       fontFamily: {
-        // Souza 4.0 (02/11/2026): o par do Souza Academy. Schibsted Grotesk em tudo;
-        // Instrument Serif itálico só na ênfase (o "Financeiro" da marca, o nome na saudação).
-        sans: ['"Schibsted Grotesk"', 'system-ui', 'sans-serif'],
-        heading: ['"Schibsted Grotesk"', 'system-ui', 'sans-serif'],
-        label: ['"Schibsted Grotesk"', 'system-ui', 'sans-serif'],
+        // Folha Clara (02/11/2026): Geist no texto, Plus Jakarta Sans no display,
+        // Instrument Serif itálico só na palavra de destaque (classe .destaque).
+        sans: ['Geist', 'system-ui', 'sans-serif'],
+        heading: ['"Plus Jakarta Sans"', 'Geist', 'system-ui', 'sans-serif'],
+        label: ['Geist', 'system-ui', 'sans-serif'],
         enfase: ['"Instrument Serif"', 'Georgia', 'serif'],
       },
 
@@ -221,52 +229,60 @@ export default {
        * Nenhum nome aqui repete um nome de `colors` (texto-meta é tamanho, t-meta é cor).
        */
       fontSize: {
-        /* Souza 2.0 (23/10/2026): Inter, número tabular, sem caixa alta espaçada. */
-        'numero-heroi': ['40px', { lineHeight: '46px', letterSpacing: '-0.035em', fontWeight: '800' }],
-        'numero-heroi-m': ['28px', { lineHeight: '34px', letterSpacing: '-0.025em', fontWeight: '600' }],
-        'numero-kpi': ['24px', { lineHeight: '32px', letterSpacing: '-0.03em', fontWeight: '700' }],
-        'numero-kpi-m': ['22px', { lineHeight: '28px', letterSpacing: '-0.02em', fontWeight: '600' }],
-        // Souza 4.0: título do Academy, 800 e apertado.
-        'titulo-pagina': ['40px', { lineHeight: '44px', letterSpacing: '-0.035em', fontWeight: '800' }],
-        'titulo-pagina-m': ['30px', { lineHeight: '34px', letterSpacing: '-0.03em', fontWeight: '800' }],
-        'titulo-painel': ['18px', { lineHeight: '24px', letterSpacing: '-0.02em', fontWeight: '700' }],
-        'titulo-secao': ['18px', { lineHeight: '24px', letterSpacing: '-0.02em', fontWeight: '700' }],
+        /*
+         * Folha Clara: 12,5 rótulo · 14 texto · 15 título de seção · 17–19 título
+         * de tela · 26–28 nome da ficha · 40–56 herói. Display com −0,025em.
+         * Nada em caixa alta espaçada.
+         */
+        'numero-heroi': ['40px', { lineHeight: '46px', letterSpacing: '-0.025em', fontWeight: '800' }],
+        'numero-heroi-m': ['28px', { lineHeight: '34px', letterSpacing: '-0.025em', fontWeight: '800' }],
+        'numero-kpi': ['24px', { lineHeight: '30px', letterSpacing: '-0.025em', fontWeight: '700' }],
+        'numero-kpi-m': ['22px', { lineHeight: '28px', letterSpacing: '-0.025em', fontWeight: '700' }],
+        'titulo-pagina': ['19px', { lineHeight: '26px', letterSpacing: '-0.025em', fontWeight: '800' }],
+        'titulo-pagina-m': ['17px', { lineHeight: '24px', letterSpacing: '-0.025em', fontWeight: '800' }],
+        'nome-ficha': ['28px', { lineHeight: '34px', letterSpacing: '-0.025em', fontWeight: '800' }],
+        'nome-ficha-m': ['26px', { lineHeight: '32px', letterSpacing: '-0.025em', fontWeight: '800' }],
+        'titulo-painel': ['15px', { lineHeight: '22px', letterSpacing: '-0.01em', fontWeight: '700' }],
+        'titulo-secao': ['15px', { lineHeight: '22px', letterSpacing: '-0.01em', fontWeight: '700' }],
         'valor-destaque': ['16px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' }],
-        'valor-linha': ['14px', { lineHeight: '20px', letterSpacing: '-0.005em', fontWeight: '600' }],
+        'valor-linha': ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '600' }],
         'valor-fato': ['13px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
-        'texto-titulo': ['14px', { lineHeight: '20px', letterSpacing: '-0.005em', fontWeight: '500' }],
+        'texto-titulo': ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
         texto: ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '400' }],
         'texto-corrido': ['14px', { lineHeight: '22px', letterSpacing: '0', fontWeight: '400' }],
         'texto-meta': ['13px', { lineHeight: '18px', letterSpacing: '0', fontWeight: '400' }],
-        nota: ['12px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '400' }],
-        rotulo: ['12px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '500' }],
-        chip: ['12px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '500' }],
-        botao: ['15px', { lineHeight: '20px', letterSpacing: '-0.01em', fontWeight: '700' }],
-        'botao-secundario': ['15px', { lineHeight: '20px', letterSpacing: '-0.01em', fontWeight: '600' }],
-        // Souza 4.0: o sobretítulo do Academy ("FICHA DO CORRETOR"): caixa alta espaçada, dourado.
-        marca: ['21px', { lineHeight: '1', letterSpacing: '-0.035em', fontWeight: '800' }],
-        'marca-enfase': ['23px', { lineHeight: '1', letterSpacing: '-0.01em' }],
-        destaque: ['44px', { lineHeight: '50px', letterSpacing: '-0.04em', fontWeight: '800' }],
-        'destaque-lg': ['60px', { lineHeight: '64px', letterSpacing: '-0.045em', fontWeight: '800' }],
-        menu: ['15px', { lineHeight: '20px', letterSpacing: '-0.005em' }],
-        frase: ['17px', { lineHeight: '26px', letterSpacing: '-0.005em' }],
-        sobretitulo: ['12px', { lineHeight: '16px', letterSpacing: '0.1em', fontWeight: '700' }],
+        nota: ['12.5px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '400' }],
+        rotulo: ['12.5px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '600' }],
+        chip: ['12.5px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '500' }],
+        botao: ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '600' }],
+        'botao-secundario': ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '600' }],
+        // A marca na barra: "Souza" em Plus Jakarta 800, "imobiliária" em Geist 500.
+        marca: ['18px', { lineHeight: '1', letterSpacing: '-0.025em', fontWeight: '800' }],
+        'marca-enfase': ['15px', { lineHeight: '1', letterSpacing: '0', fontWeight: '500' }],
+        destaque: ['40px', { lineHeight: '46px', letterSpacing: '-0.025em', fontWeight: '800' }],
+        'destaque-lg': ['56px', { lineHeight: '60px', letterSpacing: '-0.025em', fontWeight: '800' }],
+        menu: ['14px', { lineHeight: '20px', letterSpacing: '0', fontWeight: '500' }],
+        frase: ['15px', { lineHeight: '22px', letterSpacing: '0' }],
+        // O rótulo de cima (o antigo sobretítulo em caixa alta): 12,5px, 600, sem espaçar.
+        sobretitulo: ['12.5px', { lineHeight: '16px', letterSpacing: '0', fontWeight: '600' }],
       },
 
 
       /* Fundamentos 5.3: cinco raios (rounded-full vem do Tailwind). */
       borderRadius: {
-        // Souza 4.0: os cantos do Academy (controle 12, caixa 20, folha e painéis 24).
+        // Folha Clara: 10 campo · 12 botão · 14 lista · 18 bloco · 22–26 painel.
         badge: '8px',
         kbd: '6px',
+        campo: '10px',
         controle: '12px',
-        caixa: '20px',
+        lista: '14px',
+        caixa: '18px',
         sobreposicao: '24px',
         segmento: '14px',
         'segmento-item': '10px',
         ponto: '2px',
-        // A moldura do "S" da marca: 25%, fora dos cinco.
-        marca: '25%',
+        // O quadrado Champanhe do "S" da marca: 24%.
+        marca: '24%',
       },
 
       /* Fundamentos 3.2: espaço semântico (valores responsivos no index.css). */
@@ -279,6 +295,7 @@ export default {
         linha: 'var(--linha-y)',
         goteira: 'var(--goteira)',
         cabecalho: 'var(--altura-cabecalho)',
+        barra: 'var(--altura-barra)',
         faixa: 'var(--altura-faixa)',
         // Alvo de toque: 44px.
         toque: '2.75rem',

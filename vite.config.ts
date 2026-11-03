@@ -26,8 +26,8 @@ export default defineConfig({
         description: 'Vendas, comissões e financeiro da Souza Imobiliária',
         lang: 'pt-BR',
         // O marinho da moldura: a tela de abertura no celular já nasce na cor da marca.
-        theme_color: '#0F1730',
-        background_color: '#0F1730',
+        theme_color: '#F3F6FB',
+        background_color: '#F3F6FB',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',

@@ -8,8 +8,9 @@ import { S_PATH, TEXTO_PATH } from './paths'
  * como resposta: diz de quem é o Tailwind.
  */
 
-const NAVY = '#0F1730' // 98,97% da tinta do logotipo
-const OURO = '#E4B23C' // 0,15% — o ponto final de "IMOBILIÁRIA."
+/* Folha Clara: a tinta é o --t1 (marinho) e o ponto final é o Champanhe. Nenhum hex aqui. */
+const NAVY = 'var(--t1)'
+const OURO = 'var(--brand-fill)'
 
 /**
  * O símbolo: moldura de traço fino com o "S" dentro.
@@ -62,20 +63,20 @@ export function Lockup({
   /** No escuro a tinta inverte; o ouro fica igual, porque foi feito para navy. */
   tema?: 'claro' | 'escuro'
 }) {
-  const tinta = tema === 'escuro' ? '#E7ECF6' : NAVY
+  const tinta = tema === 'escuro' ? 'var(--nav-logo)' : NAVY
   return (
     <svg viewBox="0 0 960 272" className={className} fill="none" role="img">
       <title>Souza Imobiliária</title>
-      <g stroke={tinta} fill="none">
+      <g style={{ stroke: tinta }} fill="none">
         <rect x="7.5" y="7.5" width="257" height="257" rx="56.5" strokeWidth="15" />
       </g>
-      <path d={S_PATH} fill={tinta} fillRule="evenodd" />
+      <path d={S_PATH} style={{ fill: tinta }} fillRule="evenodd" />
       {/* o bloco de texto começa 343px à direita da borda do símbolo */}
       <g transform="translate(343 0)">
-        <path d={TEXTO_PATH} fill={tinta} fillRule="evenodd" />
+        <path d={TEXTO_PATH} style={{ fill: tinta }} fillRule="evenodd" />
       </g>
       {/* o ponto: disco de 11px, centro em (962, 260) no arquivo */}
-      <circle cx="954" cy="214" r="5.5" fill={OURO} />
+      <circle cx="954" cy="214" r="5.5" style={{ fill: OURO }} />
     </svg>
   )
 }
@@ -98,8 +99,8 @@ export function MarcaDagua({ className }: { className?: string }) {
 }
 
 /**
- * O "S" da casca: Marinho num quadrado Areia com raio de 25% (docs/souza-os.md,
- * seções 2 e 6). É o ícone do app no trilho, o mesmo do iCRM.
+ * O "S" da casca (Folha Clara): tinta marinho num quadrado Champanhe com raio
+ * de 24%. É o ícone do app na barra, o mesmo do iCRM.
  *
  * O "S" é o contorno traçado de verdade (S_PATH), não uma letra digitada nem um
  * ícone de biblioteca: em Sora, um "S" de 20px vira outra marca. A viewBox
@@ -120,7 +121,7 @@ export function MarcaS({ className, title }: { className?: string; title?: strin
       aria-label={title}
     >
       {title && <title>{title}</title>}
-      <rect width="100" height="100" rx="25" style={{ fill: 'var(--brand-fill)' }} />
+      <rect width="100" height="100" rx="24" style={{ fill: 'var(--brand-fill)' }} />
       <svg x="23" y="18" width="54" height="64" viewBox="81 71 108 128">
         <path d={S_PATH} fillRule="evenodd" style={{ fill: 'var(--brand-fill-text)' }} />
       </svg>
@@ -129,28 +130,30 @@ export function MarcaS({ className, title }: { className?: string; title?: strin
 }
 
 /**
- * SOUZA FINANCEIRO (Souza 4.0, 02/11/2026): o mesmo desenho do Souza Academy.
- * O símbolo em traço, "Souza" em Schibsted Grotesk 800 e "Financeiro" em
- * Instrument Serif itálico com o ponto final da marca. Sobre marinho
- * (`negativo`): branco e areia; no claro: marinho e ouro (a areia some no
- * branco). As letras vêm das fontes do app, não de arquivo.
+ * A MARCA DA BARRA (Folha Clara, 02/11/2026): o "S" em quadrado Champanhe,
+ * "Souza" em Plus Jakarta Sans 800 e "imobiliária" em Geist 500. Sobre a barra
+ * marinho (`negativo`): branco e branco a 82%; no claro: tinta e cinza-azulado.
+ * `grande` é a versão do login (quadrado de 44px).
  */
-export function MarcaFinanceiro({ negativo = false, className }: { negativo?: boolean; className?: string }) {
-  const tinta = negativo ? '#FFFFFF' : 'var(--moldura)'
-  const dourado = negativo ? 'var(--areia)' : 'var(--ouro-marca)'
+export function MarcaSouza({
+  negativo = false,
+  grande = false,
+  className,
+}: {
+  negativo?: boolean
+  grande?: boolean
+  className?: string
+}) {
   return (
-    <span className={`inline-flex items-center gap-2.5 ${className ?? ''}`} aria-label="Souza Financeiro" role="img">
-      <span style={{ color: tinta }} className="inline-flex">
-        <Simbolo className="size-8 shrink-0" />
-      </span>
+    <span className={`inline-flex items-center ${grande ? 'gap-3' : 'gap-2.5'} ${className ?? ''}`} aria-label="Souza Imobiliária" role="img">
+      <MarcaS className={grande ? 'size-11 shrink-0' : 'size-8 shrink-0'} />
       <span aria-hidden className="flex items-baseline gap-1.5 whitespace-nowrap leading-none">
-        <span className="font-heading text-marca" style={{ color: tinta }}>
-          Souza
-        </span>
-        <span className="enfase text-marca-enfase" style={{ color: dourado }}>
-          Financeiro.
-        </span>
+        <span className={`font-heading ${negativo ? 'text-white' : 'text-t1'} ${grande ? 'text-numero-kpi' : 'text-marca'}`}>Souza</span>
+        <span className={`font-sans ${negativo ? 'text-barra-texto' : 'text-t3'} ${grande ? 'text-frase font-medium' : 'text-marca-enfase'}`}>imobiliária</span>
       </span>
     </span>
   )
 }
+
+/** DEPRECADO — o nome do Souza 4.0; aponta para a marca da Folha Clara. */
+export const MarcaFinanceiro = MarcaSouza
